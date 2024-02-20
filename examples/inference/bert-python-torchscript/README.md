@@ -6,13 +6,10 @@ Python API to predict the sentiment of the given text.
 ## Quickstart
 
 ```sh
-# Set up a Python virtual environment
-python3 -m venv venv
-source venv/bin/activate
-# Install model-specific dependencies
+python3 -m venv venv && source venv/bin/activate
+python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
-# Download the model and execute it.
-./run.sh
+bash run.sh
 ```
 
 ## Scripts Included
