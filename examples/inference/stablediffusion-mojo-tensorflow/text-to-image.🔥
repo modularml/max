@@ -16,6 +16,8 @@
 import sys
 import random
 
+from os import setenv
+
 from collections.vector import DynamicVector
 from math import exp, log, sin, cos, sqrt
 from memory import memcpy
@@ -144,6 +146,11 @@ fn main() raises -> None:
     if len(argv) % 2 == 0:
         print(USAGE)
         raise Error('All options require an argument')
+
+    # Suppress extraneous logging
+    _ = setenv("TF_CPP_MIN_LOG_LEVEL", "3")
+    _ = setenv("TRANSFORMERS_VERBOSITY", "critical")
+    _ = setenv("TOKENIZERS_PARALLELISM", "false")
 
     # Set default values
     var prompt: String = ''
