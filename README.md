@@ -32,6 +32,13 @@ python3 -m venv venv && source venv/bin/activate
 python3 examples/console.py
 ```
 
+which opens up
+
+<p align="center">
+    <img src="./assets/console.png">
+</p>
+
+
 ### Option 2: Individual example
 
 Follow the instructions in the README for each example, notebook or tool you want to run.
