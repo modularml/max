@@ -18,6 +18,12 @@ from transformers import AutoTokenizer
 
 from max import engine
 
+# suppress extraneous logging
+import os
+
+os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 BATCH = 1
 SEQLEN = 128
 DEFAULT_MODEL_PATH = "bert.torchscript"

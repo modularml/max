@@ -2,10 +2,6 @@
 
 set -ex
 
-# Turn off entranous output messages
-export TRANSFORMERS_VERBOSITY='critical'
-export TOKENIZERS_PARALLELISM='false'
-
 CURRENT_DIR=$(dirname "$0")
 MODEL_PATH="bert.torchscript"
 

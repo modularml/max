@@ -20,6 +20,11 @@ from transformers import (
     logging,
 )
 
+# suppress extraneous logging
+import os
+
+os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 HF_MODEL_NAME = "bert-base-uncased"
 DEFAULT_MODEL_PATH = "bert.torchscript"
