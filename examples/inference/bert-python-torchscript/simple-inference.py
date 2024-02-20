@@ -14,10 +14,7 @@
 from argparse import ArgumentParser
 
 import torch
-from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-)
+from transformers import AutoTokenizer
 
 from max import engine
 
@@ -26,6 +23,38 @@ SEQLEN = 128
 DEFAULT_MODEL_PATH = "bert.torchscript"
 DESCRIPTION = "BERT model"
 HF_MODEL_NAME = "bert-base-uncased"
+
+
+def execute(model_path, text, input_dict):
+    session = engine.InferenceSession()
+
+    input_spec_list = [
+        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
+        for tensor in input_dict.values()
+    ]
+    options = engine.TorchLoadOptions(input_spec_list)
+
+    model = session.load(model_path, options)
+
+    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
+    inputs = tokenizer(
+        text,
+        return_tensors="pt",
+        padding="max_length",
+        truncation=True,
+        max_length=SEQLEN,
+    )
+
+    outputs = model.execute(**inputs)
+
+    print("Loading and compiling model...")
+    model = session.load(model_path, options)
+    print("Model compiled.\n")
+
+    print("Executing model...")
+    outputs = model.execute(**inputs)
+    print("Model executed.\n")
+    return outputs
 
 
 def main():
@@ -46,40 +75,20 @@ def main():
     )
     args = parser.parse_args()
 
-    hf_model = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_NAME)
-
-    inputs = {
+    input_dict = {
         "input_ids": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
         "attention_mask": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
         "token_type_ids": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
     }
 
-    session = engine.InferenceSession()
-
-    input_spec_list = [
-        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
-        for tensor in inputs.values()
-    ]
-    options = engine.TorchLoadOptions(input_spec_list)
-
-    model = session.load(args.model_path, options)
-
-    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
-    inputs = tokenizer(
-        args.text,
-        return_tensors="pt",
-        padding="max_length",
-        truncation=True,
-        max_length=SEQLEN,
-    )
-
-    outputs = model.execute(**inputs)
+    outputs = execute(args.model_path, args.text, input_dict)
 
     # Extract class prediction from output
     predicted_class_id = outputs["result0"]["logits"].argmax(axis=-1)[0]
     predicted_label = predicted_class_id.item()
     sentiment_labels = {0: "Positive", 1: "Negative"}
     print(f"Predicted sentiment: {sentiment_labels[predicted_label]}")
+
 
 if __name__ == "__main__":
     main()
