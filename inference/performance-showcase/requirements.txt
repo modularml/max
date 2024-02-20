@@ -1,3 +1,0 @@
-pillow
-tensorflow
-transformers
