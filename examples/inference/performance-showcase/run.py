@@ -19,7 +19,7 @@ from common import shell
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", choices=["roberta", "clip"], help="Choose from one of these models", required=True)
+parser.add_argument("-m", "--model", choices=["roberta", "clip"], help="Choose from one of these models", required=True)
 args = parser.parse_args()
 
 common.clear_results()

@@ -14,4 +14,7 @@ python3 -m pip install -r requirements.txt
 
 # Run the showcase program (--model accepts roberta and clip)
 python3 run.py --model roberta
+
+# Alternatively
+python3 run.py -m clip 
 ```
