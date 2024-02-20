@@ -17,6 +17,7 @@ import numpy as np
 
 import torch
 from transformers import (
+    AutoModelForSequenceClassification,
     AutoTokenizer,
 )
 
@@ -46,6 +47,8 @@ def main():
         help="Directory for the downloaded model.",
     )
     args = parser.parse_args()
+
+    hf_model = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_NAME)
 
     inputs = {
         "input_ids": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
@@ -81,7 +84,7 @@ def main():
 
     # Extract class prediction from output
     predicted_class_id = outputs["result0"]["logits"].argmax(axis=-1)[0]
-    classification = model.config.id2label[predicted_class_id]
+    classification = hf_model.config.id2label[predicted_class_id]
 
     print(f"The sentiment is: {classification}")
 
