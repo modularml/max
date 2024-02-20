@@ -10,7 +10,7 @@ CURRENT_DIR=$(dirname "$0")
 MODEL_PATH="bert.torchscript"
 
 # Example input for the model
-INPUT_EXAMPLE="My dog is cute."
+INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"
 
 # Download model from HuggingFace
 python3 "$CURRENT_DIR/download-model.py" -o $MODEL_PATH
