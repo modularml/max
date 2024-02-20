@@ -3,6 +3,11 @@
 # If anything goes wrong, stop running the script.
 set -e
 
+# Suppress extraneous logging
+export TF_CPP_MIN_LOG_LEVEL='3'
+export TRANSFORMERS_VERBOSITY='critical'
+export TOKENIZERS_PARALLELISM='false'
+
 MODEL_DIR="stable-diffusion"
 NPROMPT="ugly, bad anatomy, weird tongue"
 PPROMPT="Cute puppy chewing on a big steak"
