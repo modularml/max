@@ -52,7 +52,7 @@ shell([f"python3 run_tf.py {args.model}"], stdout=None)
 print("\nRunning with PyTorch")
 shell([f"python3 run_pt.py {args.model}"], stdout=None)
 
-print("\nRunning on the Max Engine")
+print("\nRunning with MAX Engine")
 shell([f"python3 run_max.py {args.model}"], stdout=None)
 
 # Summary table
