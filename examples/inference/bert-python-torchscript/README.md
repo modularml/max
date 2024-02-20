@@ -33,7 +33,3 @@ python3 -m pip install -r requirements.txt
 
     You can use the `--text` CLI flag to specify an input sentence.
     For example, `python3 simple-inference.py --text "My dog is awesome"`
-
-- `post-process.py`
-    Loads the generated output, post-processes it, and outputs the prediction.
-    Usage: `python3 post-process.py`.
