@@ -15,35 +15,18 @@ from argparse import ArgumentParser
 from pathlib import Path
 import numpy as np
 
+import torch
+from transformers import (
+    AutoTokenizer,
+)
+
 from max import engine
 
+BATCH = 1
+SEQLEN = 128
 DEFAULT_MODEL_PATH = "bert.torchscript"
 DESCRIPTION = "BERT model"
-
-
-def execute(model_path, inputs, input_shapes):
-    session = engine.InferenceSession()
-
-    input_spec_list = []
-    for _, inp in input_shapes.items():
-        input_spec_list.append(
-            engine.TorchInputSpec(shape=inp, dtype=engine.DType.int64)
-        )
-
-    options = engine.TorchLoadOptions(input_spec_list)
-
-    print("Loading model...")
-    modular_model = session.load(model_path, options)
-    print("Model loaded.\n")
-
-    print("Executing model...")
-    outputs = modular_model.execute(
-        attention_mask=inputs["attention_mask"],
-        input_ids=inputs["input_ids"],
-        token_type_ids=inputs["token_type_ids"],
-    )
-    print("Model executed.\n")
-    return outputs
+HF_MODEL_NAME = "bert-base-uncased"
 
 
 def main():
@@ -64,32 +47,44 @@ def main():
     )
     args = parser.parse_args()
 
-    input_dict = dict()
-    input_shape_dict = dict()
+    inputs = {
+        "input_ids": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
+        "attention_mask": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
+        "token_type_ids": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
+    }
 
-    input_dir = Path("inputs")
-    for input_key in ["input_ids", "attention_mask", "token_type_ids"]:
-        input_file = input_dir / f"{input_key}.bin"
-        curr_input = np.fromfile(input_file, dtype=np.int32)
+    session = engine.InferenceSession()
 
-        # Add a batch dim before storing them as inputs.
-        batched_curr_input = curr_input[np.newaxis, :]
-        input_dict[input_key] = batched_curr_input
+    input_spec_list = [
+        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
+        for tensor in inputs.values()
+    ]
+    options = engine.TorchLoadOptions(input_spec_list)
 
-        input_shape_file = input_dir / f"{input_key}_shape.bin"
-        curr_input_shape = np.fromfile(input_shape_file, dtype=np.int64)
-        input_shape_dict[input_key] = curr_input_shape
+    model = session.load(args.model_path, options)
 
-    # Classify input statement
-    outputs = execute(
-        model_path=args.model_path,
-        inputs=input_dict,
-        input_shapes=input_shape_dict,
+    for tensor in model.input_metadata:
+        print(
+            f"name: {tensor.name}, shape: {tensor.shape}, dtype: {tensor.dtype}"
+        )
+
+    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
+    inputs = tokenizer(
+        args.text,
+        return_tensors="pt",
+        padding="max_length",
+        truncation=True,
+        max_length=SEQLEN,
     )
 
-    outputs = outputs["result0"]  # Unwrap the outermost "result0" output dict.
-    logits = np.array(outputs["logits"]).astype(np.float32)
-    logits.tofile("outputs.bin")
+    outputs = model.execute(**inputs)
+
+    # Extract class prediction from output
+    predicted_class_id = outputs["result0"]["logits"].argmax(axis=-1)[0]
+    classification = model.config.id2label[predicted_class_id]
+
+    print(f"The sentiment is: {classification}")
+
 
 if __name__ == "__main__":
     main()
