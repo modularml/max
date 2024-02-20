@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 # Turn off entranous output messages
 export TF_CPP_MIN_LOG_LEVEL='3'

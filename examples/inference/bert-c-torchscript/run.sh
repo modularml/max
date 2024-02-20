@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 # set MAX path
 export MAX_PKG_DIR=`modular config max.path`
