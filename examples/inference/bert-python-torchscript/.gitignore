@@ -1,0 +1,4 @@
+# Don't check in / version control the downloaded model
+*.bin
+*.pt
+*.torchscript
