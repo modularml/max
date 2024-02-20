@@ -28,9 +28,3 @@ To refine images there are a few additional options:
   - `--seed <int>`: Control PRNG initialization (default: 0)
   - `--num-steps <int>`: Set # of denoising iterations (default: 25)
   - `--negative-prompt <str>`: Textual description of items or styles to avoid. (default: None)
-  
-## Tips & Tricks
-
-These models can take quite a long time to compile. The `MODULAR_MAX_ENABLE_MODEL_IR_CACHE`
-environment variable controls whether or not the compiled binaries are cached within the
-MAX engine. Be sure that it's set to `true` so the models are only compiled once.
