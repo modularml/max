@@ -29,4 +29,4 @@ bash run.sh
     output.
 
     You can use the `--text` CLI flag to specify an input sentence.
-    For example, `python3 simple-inference.py --text "My dog is awesome"`
+    For example, `python3 simple-inference.py --text "There are many exciting developments in the field of AI Infrastructure!"`
