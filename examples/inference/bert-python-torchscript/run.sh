@@ -3,7 +3,6 @@
 set -ex
 
 # Turn off entranous output messages
-export TF_CPP_MIN_LOG_LEVEL='3'
 export TRANSFORMERS_VERBOSITY='critical'
 export TOKENIZERS_PARALLELISM='false'
 
