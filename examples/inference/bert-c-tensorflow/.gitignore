@@ -1,0 +1,6 @@
+# Model directories
+bert-tf-model
+
+# Binaries generated
+inputs
+outputs.bin

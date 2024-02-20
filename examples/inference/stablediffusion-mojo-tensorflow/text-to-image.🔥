@@ -1,0 +1,257 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+
+## Global Mojo imports
+import sys
+import random
+
+from collections.vector import DynamicVector
+from math import exp, log, sin, cos, sqrt
+from memory import memcpy
+from python import Python
+from tensor import Tensor, TensorShape, TensorSpec
+
+from max.engine import InferenceSession
+from max.engine import SessionOptions
+from max.engine import Model
+
+## Local Mojo imports
+import python_utils
+
+## Typedefs
+alias uint8 = DType.uint8
+alias int32 = DType.int32
+alias int64 = DType.int64
+alias float = DType.float32
+
+alias GUIDANCE_SCALE_FACTOR = 7.5
+
+fn tokenize(np: PythonObject,
+            tokenizer: PythonObject,
+            prompt: String, N: Int) raises -> Tensor[int32]:
+    '''Invoke the python tokenizer and convert the result to a mojo Tensor.'''
+    let inputs = tokenizer.tokenize(prompt, N)
+    var tokens = python_utils.numpy_to_tensor[int64](
+        inputs).astype[int32]()
+    tokens.ireshape(TensorShape(1, tokens.num_elements()))
+    return tokens
+
+fn arange[dtype: DType](start: Int, stop: Int, step: Int) -> Tensor[dtype]:
+    '''Return a sequence vector from <start> to <stop>, incrementing by <step>.'''
+    let N = len(range(start, stop, step))
+    var x = Tensor[dtype](TensorSpec(dtype, N))
+    for i in range(N):
+        x[i] = range(start, stop, step)[i]
+    return x
+
+## Mojo doesn't yet support slice notation like x[::-1], so we need a reverse()
+## helper function instead.
+fn reverse[dtype: DType](x: Tensor[dtype]) -> Tensor[dtype]:
+    '''Return a tensor with the elements of x in reverse order; i.e., x[::-1].'''
+    let N = x.num_elements()
+    var xout = Tensor[dtype](x.spec())
+    for i in range(N):
+        xout[i] = x[N-i-1]
+    return xout
+
+fn vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
+    '''Concatenate tensors a & b along the outermost dimension.'''
+    # Generate return shape
+    var out_shape = DynamicVector[Int]()
+    out_shape.push_back(a.shape()[0] + b.shape()[0])
+    for i in range(1,a.shape().rank()):
+        out_shape.append(a.shape()[i])
+    # Allocate return tensor
+    var out = Tensor[dtype](TensorShape(out_shape))
+    # Fill data
+    memcpy(out.data(),a.data(),a.num_elements())
+    memcpy(out.data()+a.num_elements(),b.data(),b.num_elements())
+    return out
+
+fn split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
+    '''Return the ith slice of the outermost dim; i.e., x[idx, :, :, ..., :].'''
+    # Generate return shape
+    var shape = DynamicVector[Int]()
+    shape.push_back(1)
+    for i in range(1, x.shape().rank()):
+        shape.push_back(x.shape()[i])
+    # Allocate return tensor
+    var ret = Tensor[dtype](TensorShape(shape))
+    # Fill data
+    memcpy(ret.data(),x.data()+(x.num_elements()//2)*i,x.num_elements()//2)
+    return ret
+
+fn get_timestep_embeddings(t_step: Int, num_channels: Int) -> Tensor[float]:
+    '''Generate 1D embedding vector for given timestep & num-channels.'''
+    let c_by_2 = num_channels // 2
+    # Generate sequence vector
+    let vseq = arange[float](0, c_by_2, 1) / Float32(c_by_2)
+    # Allocate output tensor
+    var temb = Tensor[float](TensorSpec(float,num_channels))
+
+    # Generate frequencies & fill lower/upper half with cos/sin
+    for i in range(c_by_2):
+        let freq = exp(-log[float,1](10000) * vseq[i] ) * t_step
+        temb[i] = cos(freq)
+        temb[c_by_2+i] = sin(freq)
+    return temb
+
+## The MAX execute APIs index input & output tensors by name rather than
+## position. But the TF models use ugly output names and all of our models
+## are single-output, so rather than polluting main() with lots of calls
+## like `let x = res.get[float]("my-ugly-tensor-name")` we define wrappers
+## here that extract the only output and return it directly.
+fn execute(model: Model, name0: String, val0: Tensor[float]) raises -> Tensor[float]:
+    '''Run the given single-input single-output model and return the result.'''
+    return model.execute(name0, val0).get[float](
+        model.get_model_output_names()[0]
+    )
+
+fn execute(model: Model,
+           name0: String, val0: Tensor[int32],
+           name1: String, val1: Tensor[int32]) raises -> Tensor[float]:
+    '''Run the dual-input single-output model and return the result.'''
+    return model.execute(name0, val0, name1, val1).get[float](
+        model.get_model_output_names()[0]
+    )
+
+fn execute(model: Model,
+           name0: String, val0: Tensor[float],
+           name1: String, val1: Tensor[float],
+           name2: String, val2: Tensor[float]) raises -> Tensor[float]:
+    '''Run the triple-input single-output model and return the result.'''
+    return model.execute(name0, val0, name1, val1, name2, val2).get[float](
+        model.get_model_output_names()[0]
+    )
+
+fn main() raises -> None:
+    ## Parse args
+    let USAGE = 'Usage: text-to-image.🔥 --prompt <str> ' + \
+        '[--negative-prompt <str>] [--num-steps <int>] [--seed <int>] [-o <str>]'
+    
+    let argv = sys.argv()
+    if len(argv) % 2 == 0:
+        print(USAGE)
+        raise Error('All options require an argument')
+
+    # Set default values
+    var prompt: String = ''
+    var negative_prompt: String = ''
+    var num_steps: Int = 25
+    var seed: Int = 0
+    var model_dir: String = 'stable-diffusion'
+    var output: String = 'output.png'
+
+    for i in range(1,len(argv),2):
+        if argv[i] == '--prompt':
+            prompt = argv[i+1]
+        elif argv[i] == '--negative-prompt':
+            negative_prompt = argv[i+1]
+        elif argv[i] == '--num-steps':
+            num_steps = atol(argv[i+1])
+        elif argv[i] == '--seed':
+            seed = atol(argv[i+1])
+        elif argv[i] == '--model-dir':
+            model_dir = argv[i+1]
+        elif argv[i] == '-o' or argv[i] == '--output':
+            output = argv[i+1]
+        else:
+            print(USAGE)
+            raise Error('Unknown option')
+
+    # Only required arg is --prompt
+    if prompt == '':
+        print(USAGE)
+        raise Error('--prompt option is require')
+
+    random.seed(seed)
+
+    ## Import python modules
+    Python.add_to_path('.')
+    let np = Python.import_module('numpy')
+    let Image = Python.import_module('PIL.Image')
+    let Tokenizer = Python.import_module('tokenizer')
+    let ALPHAS = Python.import_module('constants')._ALPHAS_CUMPROD
+
+    ## Compile & load models
+    print('Loading models into MAX AI Engine...')
+    let session = InferenceSession()
+    let txt_encoder  = session.load_model(model_dir + '/txt-encoder')
+    let img_decoder  = session.load_model(model_dir + '/img-decoder')
+    let img_diffuser = session.load_model(model_dir + '/img-diffuser')
+
+    ## Tokenize & encode prompts
+    print('Encoding inputs...')
+    let N = 77 # Max sequence length of text encoder
+    let tokenizer = Tokenizer.SimpleTokenizer()
+    let prompt_p = tokenize(np, tokenizer, prompt, N)
+    let prompt_n = tokenize(np, tokenizer, negative_prompt, N)
+    
+    # Generate position ids & reshape to (1,N)
+    var positions = arange[int32](0,N,1)
+    positions.ireshape(TensorShape(1, N))
+
+    # TODO: Merge these into a single batch
+    let context_p = execute(txt_encoder, "tokens", prompt_p, "positions", positions)
+    let context_n = execute(txt_encoder, "tokens", prompt_n, "positions", positions)
+    let context = vstack(context_p, context_n)
+
+    ## Initialize latent, timestep and alpha inputs.
+    print('Initializing latent...')
+    # From model inspection, we know that h=w=64 and c=4
+    # Note: For tensorflow, shapes are given in NHWC format.
+    var latent = random.randn[float](TensorShape(1, 64, 64, 4))
+    let timesteps = reverse(arange[int32](1, 1000, 1000 // num_steps))
+    let num_timesteps = timesteps.num_elements()
+
+    # We import alphas from constants.py to avoid forking the 'header' file.
+    # This means we need an extra call to to_float64() to convert into mojo.
+    var alphas = Tensor[float](TensorShape(num_timesteps+1))
+    for i in range(num_timesteps):
+        alphas[i] = ALPHAS[timesteps[i]].to_float64().cast[float]()
+    alphas[num_timesteps] = 1.0
+
+    ## Loop through diffusion model
+    for i in range(num_timesteps):
+        print_no_newline('\rGenerating image: ', i+1, '/', num_timesteps)
+        let latent_prev = latent
+
+        # Generate embeddings for ith timestep & reshape to 1xC
+        # From model inspection, we know that num_embeddings_channels=320
+        var temb = get_timestep_embeddings(int(timesteps[i]), 320)
+        temb.ireshape(TensorShape(1,320))
+
+        # Execute diffusion model
+        let new_latent = execute(
+            img_diffuser, "latent", vstack(latent, latent),
+            "context", context, "timestep_embedding", vstack(temb, temb))
+
+        # Merge conditioned & unconditioned latents        
+        let latent0 = split[float](new_latent,0)
+        let latent1 = split[float](new_latent,1)
+        latent = latent1 + (latent0 - latent1) * GUIDANCE_SCALE_FACTOR
+
+        # Merge latent with previous iteration
+        let pred = (latent_prev - latent * sqrt(1-alphas[i])) / sqrt(alphas[i])
+        latent = latent * sqrt(1-alphas[i+1]) + pred * sqrt(alphas[i+1])
+    print('')
+
+    # Decode final latent
+    print('Decoding image...')
+    let decoded = execute(img_decoder, "input_2", latent)
+    var pixels = (((decoded+1.0)/2.0).clip(0,1) * 255.0).astype[uint8]()
+    let np_pixels = python_utils.tensor_to_numpy[uint8](pixels,np)
+    let img = Image.fromarray(np.squeeze(np_pixels), 'RGB')
+    _ = img.save(output)
+    return

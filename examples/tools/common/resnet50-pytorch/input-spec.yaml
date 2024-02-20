@@ -1,0 +1,4 @@
+inputs:
+  - input_name: pixel_values
+    shape: 1x3x224x224xf32
+    compile_shape: ?x3x224x224xf32
