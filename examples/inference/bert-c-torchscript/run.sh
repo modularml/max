@@ -2,6 +2,9 @@
 
 set -ex
 
+# set MAX path
+export MAX_PKG_DIR=`modular config max.path`
+
 CURRENT_DIR=$(dirname "$0")
 MODEL_PATH="bert-base-uncased.torchscript"
 

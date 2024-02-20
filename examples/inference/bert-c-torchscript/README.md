@@ -30,6 +30,7 @@ bash run.sh
 This example uses CMake. To build the executable, please use the following commands:
 
 ```sh
+export MAX_PKG_DIR=`modular config max.path`
 cmake -B build -S .
 cmake --build build
 ```
