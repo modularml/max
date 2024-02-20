@@ -27,7 +27,7 @@ git clone https://github.com/modularml/max.git
 
 Run the console and follow the prompt to choose which example to run (excludes notebooks)
 
-```txt
+```sh
 python3 -m venv venv && source venv/bin/activate
 python3 examples/console.py
 ```
