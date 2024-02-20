@@ -7,6 +7,9 @@ export TF_CPP_MIN_LOG_LEVEL='3'
 export TRANSFORMERS_VERBOSITY='critical'
 export TOKENIZERS_PARALLELISM='false'
 
+# set MAX path
+export MAX_PKG_DIR=`modular config max.path`
+
 CURRENT_DIR=$(dirname "$0")
 MODEL_DIR="$CURRENT_DIR/bert-tf-model"
 
