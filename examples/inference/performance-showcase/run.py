@@ -18,13 +18,13 @@ import random
 from common import shell
 import argparse
 
-common.test_requirements()
-
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--model", choices=["roberta", "clip"], help="Choose from one of these models", required=True)
 args = parser.parse_args()
 
 common.clear_results()
+
+common.test_requirements(args.model)
 
 print(
     "Doing some one time setup. This takes 5 minutes or so, depending on the model."

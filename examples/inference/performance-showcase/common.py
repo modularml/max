@@ -40,7 +40,15 @@ except ModuleNotFoundError:
 
 NUM_ITERS = 90
 
-def test_requirements():
+def test_requirements(selected_model):
+    if selected_model == "clip":
+        try:
+            import torch
+        except ModuleNotFoundError:
+            print("\nError: PyTorch not found but is required for clip. Please python3 -m pip install torch")
+            print()
+            exit(1)
+
     try:
         import PIL 
     except ModuleNotFoundError:
