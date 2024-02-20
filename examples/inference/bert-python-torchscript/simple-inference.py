@@ -12,8 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 from argparse import ArgumentParser
-from pathlib import Path
-import numpy as np
 
 import torch
 from transformers import (
@@ -66,11 +64,6 @@ def main():
 
     model = session.load(args.model_path, options)
 
-    for tensor in model.input_metadata:
-        print(
-            f"name: {tensor.name}, shape: {tensor.shape}, dtype: {tensor.dtype}"
-        )
-
     tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
     inputs = tokenizer(
         args.text,
@@ -84,10 +77,9 @@ def main():
 
     # Extract class prediction from output
     predicted_class_id = outputs["result0"]["logits"].argmax(axis=-1)[0]
-    classification = hf_model.config.id2label[predicted_class_id]
-
-    print(f"The sentiment is: {classification}")
-
+    predicted_label = predicted_class_id.item()
+    sentiment_labels = {0: "Positive", 1: "Negative"}
+    print(f"Predicted sentiment: {sentiment_labels[predicted_label]}")
 
 if __name__ == "__main__":
     main()
