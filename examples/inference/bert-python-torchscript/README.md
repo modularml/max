@@ -10,6 +10,9 @@ python3 -m venv venv && source venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
 bash run.sh
+
+# To run inference using MAX Serving container
+bash deploy.sh
 ```
 
 ## Scripts Included
@@ -24,9 +27,15 @@ bash run.sh
     Usage: `python3 download-model.py --text=<masked text>`.
 
 - `simple-inference.py`
-    Classifies example input image using the MAX Engine. The script prepares an
-    example input, executes the model, and generates the resultant classification
-    output.
+    Classifies example input text using the MAX Engine. The script prepares an
+    example input, executes the model, and generates the classification
+    result.
 
     You can use the `--text` CLI flag to specify an input sentence.
     For example, `python3 simple-inference.py --text "There are many exciting developments in the field of AI Infrastructure!"`
+
+- `triton-inference.py`
+    Classifies example input text using the MAX Serving. The script launches a Triton container, prepares an example input, executes the model by calling HTTP inference endpoint, and returns the classification result.
+
+    You can use the `--input` CLI flag to specify an input example.
+    For example, `python3 triton-inference.py --input="There are many exciting developments in the field of AI Infrastructure!"`.
