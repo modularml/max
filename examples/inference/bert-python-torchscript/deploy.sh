@@ -29,7 +29,7 @@ cp config.pbtxt model-repository/${MODEL_DIR}/
 
 echo "Starting container"
 CONTAINER_ID=$(\
-  docker run --rm -d --net=host --ipc=host \
+  docker run --rm -d --net=host \
     -v $(pwd)/model-repository:/model-repository \
     public.ecr.aws/o4d0h4e7/max-serving-de \
     tritonserver --model-repository=/model-repository \
