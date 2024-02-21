@@ -1,0 +1,25 @@
+input {
+  name: "input_ids"
+  data_type: TYPE_INT64
+  dims: [1,128]
+}
+input {
+  name: "attention_mask"
+  data_type: TYPE_INT64
+  dims: [1,128]
+}
+input {
+  name: "token_type_ids"
+  data_type: TYPE_INT64
+  dims: [1,128]
+}
+output {
+  name: "result0"
+  data_type: TYPE_FP32
+  dims: [1, 128, 768]
+}
+instance_group {
+  kind: KIND_CPU
+}
+backend: "max"
+default_model_filename: "bert.torchscript"

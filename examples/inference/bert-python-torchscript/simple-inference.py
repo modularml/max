@@ -90,10 +90,9 @@ def main():
     outputs = execute(args.model_path, args.text, input_dict)
 
     # Extract class prediction from output
-    predicted_class_id = outputs["result0"]["logits"].argmax(axis=-1)[0]
-    predicted_label = predicted_class_id.item()
-    sentiment_labels = {0: "Positive", 1: "Negative"}
-    print(f"Predicted sentiment: {sentiment_labels[predicted_label]}")
+    predicted_class_id = outputs["result0"].argmax(axis=-1)[0]
+    sentiment_labels = {0: "Negative", 1: "Positive"}
+    print(f"Predicted sentiment: {sentiment_labels[predicted_class_id]}")
 
 
 if __name__ == "__main__":
