@@ -48,6 +48,7 @@ def main():
     logging.set_verbosity_error()  # Disable warning suggesting to train the model
     model = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_NAME)
     model.eval()
+    model.config.return_dict = False
 
     print("Saving model in TorchScript format...")
     model_path = Path(args.output_path)
