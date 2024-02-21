@@ -53,7 +53,7 @@ def execute(triton_client, model_name, inputs):
     results = triton_client.infer(model_name, triton_inputs)
     print("Model executed.\n")
 
-    return results
+    return results.as_numpy("result0")
 
 
 def main():
@@ -99,12 +99,11 @@ def main():
 
     # Classify input statement
     outputs = execute(triton_client, args.model_name, inputs)
-
+    
     # Extract class prediction from output
-    predicted_class_id = outputs["result0"]["logits"].argmax(axis=-1)[0]
-    predicted_label = predicted_class_id.item()
-    sentiment_labels = {0: "Positive", 1: "Negative"}
-    print(f"Predicted sentiment: {sentiment_labels[predicted_label]}")
+    predicted_class_id = outputs.argmax(axis=-1)[0]
+    sentiment_labels = {0: "Negative", 1: "Positive"}
+    print(f"Predicted sentiment: {sentiment_labels[predicted_class_id]}")
 
 
 if __name__ == "__main__":
