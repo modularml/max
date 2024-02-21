@@ -35,7 +35,7 @@ python3 examples/console.py
 which opens up
 
 <p align="center">
-    <img src="./assets/console.png">
+    <img src="./assets/console.png" width="600" height="500">
 </p>
 
 
