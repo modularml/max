@@ -6,11 +6,11 @@ set -e
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
 
-# If ResNet50 hasn't been downloaded yet, download it.
-if ! [ -f ../common/resnet50-pytorch/resnet50.torchscript ]; then
-	../common/resnet50-pytorch/download-model.sh -o ../common/resnet50-pytorch/resnet50.torchscript
+# If RoBERTa hasn't been downloaded yet, download it.
+if ! [ -f ../common/roberta-pytorch/roberta.torchscript ]; then
+	../common/roberta-pytorch/download-model.sh -o ../common/roberta-pytorch/roberta.torchscript
 fi
 
 # Now for the easy part -- benchmarking ;)
 # PyTorch models require --input-data-schema to be specified.
-max benchmark --input-data-schema=../common/resnet50-pytorch/input-spec.yaml ../common/resnet50-pytorch/resnet50.torchscript
+max benchmark --input-data-schema=../common/roberta-pytorch/input-spec.yaml ../common/roberta-pytorch/roberta.torchscript

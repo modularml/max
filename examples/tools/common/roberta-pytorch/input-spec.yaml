@@ -1,0 +1,16 @@
+inputs:
+  - input_name: input_ids
+    shape: 1x128xsi64
+    data:
+      random:
+        uniform:
+          min: 0
+          max: 50264
+  - input_name: token_type_ids
+    shape: 1x128xsi64
+    data:
+      constant: 0
+  - input_name: attention_mask
+    shape: 1x128xf32
+    data:
+      constant: 1
