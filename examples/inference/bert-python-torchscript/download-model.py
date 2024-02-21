@@ -48,6 +48,7 @@ def main():
     logging.set_verbosity_error()  # Disable warning suggesting to train the model
     model = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_NAME)
     model.eval()
+    # We set return_dict to False to return Tensors directly
     model.config.return_dict = False
 
     print("Saving model in TorchScript format...")
