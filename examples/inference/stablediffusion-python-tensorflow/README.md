@@ -9,7 +9,7 @@ it via the MAX Python API.
 Once you have the MAX AI engine installed, this example can be run with:
 ```
 python3 -m venv venv && source venv/bin/activate
-python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade pip setuptools
 python3 -m pip install -r requirements.txt
 bash run.sh
 ```
