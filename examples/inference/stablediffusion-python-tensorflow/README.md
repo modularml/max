@@ -7,20 +7,14 @@ it via the MAX Python API.
 ## Quickstart
 
 Once you have the MAX AI engine installed, this example can be run with:
-```
+```bash
 python3 -m venv venv && source venv/bin/activate
 python3 -m pip install --upgrade pip setuptools
 python3 -m pip install -r requirements.txt
+# Install the MAX Engine Python package
+python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
+# Run the example
 bash run.sh
-```
-
-# Set up a Python virtual environment
-python3 -m venv venv
-source venv/bin/activate
-# Install model-specific dependencies
-python3 -m pip install -r requirements.txt
-# Download the model and execute it.
-./run.sh
 ```
 
 ## Custom Images
