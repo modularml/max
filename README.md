@@ -29,6 +29,7 @@ Run the console and follow the prompt to choose which example to run (excludes n
 
 ```sh
 python3 -m venv venv && source venv/bin/activate
+python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
 python3 examples/console.py
 ```
 
@@ -42,6 +43,14 @@ which opens up
 ### Option 2: Individual example
 
 Follow the instructions in the README for each example, notebook or tool you want to run.
+
+### FAQ
+
+Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
+
+A: Please make sure you run `python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine`
+in your local python environment. Note that `max` can also be available in your `PATH`
+
 
 ## License
 
