@@ -17,6 +17,7 @@ import common
 import random
 from common import shell
 import argparse
+from cpuinfo import get_cpu_info
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--model", choices=["roberta", "clip"], help="Choose from one of these models", required=True)
@@ -43,7 +44,7 @@ shell(commands, print_progress=True, env={"TF_CPP_MIN_LOG_LEVEL": "9"})
 print("\nStarting inference throughput comparison")
 info_message = "-" * 40 + "System Info" + "-" * 40
 print(f"\n{info_message}\n")
-subprocess.run(["cpuinfo", "-g"])
+print(get_cpu_info())
 print("\n" + "-" * len(info_message))
 
 print("\nRunning with TensorFlow")
