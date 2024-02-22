@@ -49,7 +49,7 @@ Follow the instructions in the README for each example, notebook or tool you wan
 Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
 
 A: Please make sure you run `python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine`
-in your local python environment or `max` is available in your `PATH`
+in your local python environment. Note that `max` can also be available in your `PATH`
 
 
 ## License
