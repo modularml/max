@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import os
+from pathlib import Path
 import subprocess
 
 try:
@@ -24,7 +25,7 @@ except ImportError:
     from rich.console import Console
     from rich.table import Table
 
-ROOT = os.path.dirname(__file__)
+ROOT = Path(os.path.dirname(__file__))
 
 def list_repositories():
     repos = []
