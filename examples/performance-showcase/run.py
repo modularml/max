@@ -41,10 +41,21 @@ commands = [
 
 shell(commands, print_progress=True, env={"TF_CPP_MIN_LOG_LEVEL": "9"})
 print("\nStarting inference throughput comparison")
-info_message = "-" * 40 + "System Info" + "-" * 40
-print(f"\n{info_message}\n")
-subprocess.run(["cpuinfo", "-g"])
-print("\n" + "-" * len(info_message))
+try:
+    import cpuinfo
+    
+    cpu = cpuinfo.get_cpu_info()
+
+    keys = ["brand_raw", "arch", "hz_advertised_friendly", "count"]
+    labels = {"brand_raw": "CPU", "arch": "Arch", "hz_advertised_friendly": "Clock speed", "count": "Cores"}
+
+    info_message = "\n" + "-" * 40 + "System Info" + "-" * 40
+    info_message += "\n"
+    info_message += "\n".join([ f'{labels[k]}: {cpu.get(k, "")}' for k in keys ]) 
+
+    print(info_message)
+except:
+    pass
 
 print("\nRunning with TensorFlow")
 shell([f"python3 run_tf.py {args.model}"], stdout=None)
@@ -71,6 +82,7 @@ if "pt" in results:
     print(
         f'Modular ({results["max"]:.2f} QPS) > PyTorch ({results["pt"]:.2f} QPS). {next(exclamations)} It\'s {results["max"]/results["pt"]:.2f}x faster!'
     )
-    print()
 else:
     pass
+
+print()

@@ -1,3 +1,4 @@
 pillow
 tensorflow
 transformers
+py-cpuinfo
