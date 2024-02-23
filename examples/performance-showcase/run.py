@@ -51,7 +51,7 @@ try:
 
     info_message = "\n" + "-" * 40 + "System Info" + "-" * 40
     info_message += "\n"
-    info_message += "\n".join([ f"{labels[k]}: {cpu.get(k, "")}" for k in keys ]) 
+    info_message += "\n".join([ f'{labels[k]}: {cpu.get(k, "")}' for k in keys ]) 
 
     print(info_message)
 except:
