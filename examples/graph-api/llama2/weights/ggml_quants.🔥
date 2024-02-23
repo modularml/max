@@ -1,0 +1,158 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+
+"""GGML quantized type definitions."""
+
+
+@value
+@register_passable("trivial")
+struct BlockQ40:
+    """4-bit quantization.
+
+    Constraints:
+        The data layout must exactly match `block_q4_0` from ggml-quants.h.
+    """
+
+    alias QK4_0: Int = 32
+    """Number of elements per Q4_0 block."""
+
+    var d: Float16
+    """Delta."""
+    var qs: StaticTuple[Self.QK4_0 // 2, UInt8]
+    """Nibbles / quants."""
+
+    fn __init__(
+        d: Float16,
+        qs: StaticTuple[Self.QK4_0 // 2, UInt8],
+    ) -> Self:
+        constrained[sizeof[Self]() == sizeof[Float16]() + (Self.QK4_0 // 2)]()
+
+        return Self {d: d, qs: qs}
+
+
+@value
+@register_passable("trivial")
+struct BlockQ80:
+    """8-bit quantization.
+
+    Constraints:
+        The data layout must exactly match `block_q8_0` from ggml-quants.h.
+    """
+
+    alias QK8_0: Int = 32
+    """Number of elements per Q8_0 block."""
+
+    var d: Float16
+    """Delta."""
+
+    var qs: StaticTuple[Self.QK8_0, Int8]
+    """Quants."""
+
+    fn __init__(
+        d: Float16,
+        qs: StaticTuple[Self.QK8_0, Int8],
+    ) -> Self:
+        constrained[sizeof[Self]() == sizeof[Float16]() + Self.QK8_0]()
+
+        return Self {d: d, qs: qs}
+
+
+# Note that there is a compile definition in ggml-quants.h that allows setting
+# `QK_K=64`, which is useful for models with rows unaligned to 256 bits.
+alias QK_K: Int = 256
+"""Size of superblock quantized elements, in bytes."""
+
+alias K_SCALE_SIZE: Int = 12
+"""Size of superblock scales and mins, in bytes."""
+
+
+@value
+@register_passable("trivial")
+struct BlockQ4K:
+    """4-bit quantization.
+
+    8 blocks of 32 elements each.
+    Weights are represented as `x = a * q + b`.
+    Effectively 4.5 bits per weight.
+
+    Constraints:
+        The data layout must exactly match `block_q4_K` from ggml-quants.h.
+    """
+
+    var d: Float16
+    """Super-block scale for quantized scales."""
+
+    var dmin: Float16
+    """Super-block scale for quantized mins."""
+
+    var scales: StaticTuple[K_SCALE_SIZE, UInt8]
+    """Scales and mins, quantized with 6 bits."""
+
+    var qs: StaticTuple[QK_K // 2, UInt8]
+    """4-bit quants."""
+
+    fn __init__(
+        d: Float16,
+        dmin: Float16,
+        scales: StaticTuple[K_SCALE_SIZE, UInt8],
+        qs: StaticTuple[QK_K // 2, UInt8],
+    ) -> Self:
+        constrained[
+            sizeof[Self]() == 2 * sizeof[Float16]() + K_SCALE_SIZE + QK_K // 2
+        ]()
+
+        return Self {d: d, dmin: dmin, scales: scales, qs: qs}
+
+
+@value
+@register_passable("trivial")
+struct BlockQ6K:
+    """6-bit quantization.
+
+    16 blocks of 16 elements each.
+    Weights are represented as `x = a * q`.
+    Effectively 6.5625 bits per weight.
+
+    Constraints:
+        The data layout must exactly match `block_q6_K` from ggml-quants.h.
+    """
+
+    var ql: StaticTuple[QK_K // 2, UInt8]
+    """Quants: lower 4 bits."""
+
+    var qh: StaticTuple[QK_K // 2, UInt8]
+    """Quants: upper 2 bits."""
+    var scales: StaticTuple[QK_K // 16, Int8]
+    """Scales: quantized with 8 bits."""
+
+    var d: Float16
+    """Super-block scale."""
+
+    fn __init__(
+        ql: StaticTuple[QK_K // 2, UInt8],
+        qh: StaticTuple[QK_K // 2, UInt8],
+        scales: StaticTuple[QK_K // 16, Int8],
+        d: Float16,
+    ) -> Self:
+        constrained[
+            sizeof[Self]()
+            == (2 * (QK_K // 2)) + (QK_K // 16) + sizeof[Float16]()
+        ]()
+
+        return Self {ql: ql, qh: qh, scales: scales, d: d}
