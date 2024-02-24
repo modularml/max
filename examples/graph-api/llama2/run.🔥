@@ -1,0 +1,153 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+
+from sys.param_env import env_get_string
+from tensor import Tensor, TensorShape
+from collections.vector import DynamicVector
+from utils.index import Index
+from pathlib import Path
+
+from max.engine import InferenceSession, Model, TensorMap
+from max.graph import Module
+
+from tokenizer.bpe import BPETokenizer
+from model.llama import Llama2
+from weights.gguf import GGUFFile
+from weights.llama2checkpoint import LlamaCFile
+from weights.loadable_model import LoadableModel
+
+
+alias BATCH_SIZE: Int = 1
+alias MODEL_PATH = Path(env_get_string["LLAMA_MODEL_PATH"]())
+alias TEMP_PATH = Path(env_get_string["TEMP_PATH"]())
+alias TOKENIZER_PATH = Path(env_get_string["TOKENIZER_PATH"]())
+
+
+fn cache_init(model: Llama2, size: Int) -> Tensor[DType.float32]:
+    return Tensor[DType.float32](
+        TensorShape(
+            size,
+            model.hyperparams.n_layers,
+            BATCH_SIZE,
+            model.hyperparams.n_kv_heads,
+            model.hyperparams.head_dim,
+        )
+    )
+
+
+fn cache_view(
+    model: Llama2, size: Int, buff: Tensor[DType.float32]
+) -> Tensor[DType.float32]:
+    let shape = buff.shape()
+    return Tensor(
+        buff.data(), TensorShape(size, shape[1], shape[2], shape[3], shape[4])
+    )
+
+
+fn cache_update(
+    results: TensorMap,
+    name: String,
+    buff: Tensor[DType.float32],
+    owned current: Tensor[DType.float32],
+    n: Int,
+) raises:
+    let update = results.buffer[DType.float32](name)
+    let shape = buff.shape()
+    let stride = shape[1] * shape[2] * shape[3] * shape[4]
+    let pos = current.shape()[0]
+    memcpy[DType.float32](buff.data() + pos * stride, update.data, n * stride)
+    _ = current._steal_ptr()
+
+
+fn execute(
+    model: Model,
+    session: InferenceSession,
+    tokens: Tensor[DType.int64],
+    k_cache_buff: Tensor[DType.float32],
+    v_cache_buff: Tensor[DType.float32],
+) raises -> TensorMap:
+    let input_map = session.new_tensor_map()
+    input_map.borrow("input0", tokens)
+    input_map.borrow("input1", k_cache_buff)
+    input_map.borrow("input2", v_cache_buff)
+    let result_map = model.execute(input_map)
+    return result_map ^
+
+
+fn run[ModelT: LoadableModel]() raises:
+    print("Initializing tokenizer...")
+    let tokenizer = BPETokenizer.from_file(TOKENIZER_PATH)
+
+    let initial_prompt = "<s> I believe the meaning of life is"
+    var prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
+
+    print("Building model...")
+    var model = Llama2[ModelT](MODEL_PATH)
+    var module = model.build_graph("llama_model")
+    let session = InferenceSession()
+
+    print("Compiling...")
+    let compiled_model = session.load_model(module)
+
+    print("Executing...")
+    let max_tokens = 256
+    print_no_newline(initial_prompt)
+
+    let k_cache_buff = cache_init(model, max_tokens)
+    let v_cache_buff = cache_init(model, max_tokens)
+
+    var tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
+    for i in range(prompt.size):
+        # TODO(#29073): This should be `tokens[0, i] = prompt[i]`.
+        tokens[Index(0, i)] = prompt[i].id
+
+    var cache_size = 0
+    # The first iteration caches the entire prompt and all subsequent
+    # iterations generate one token.
+    # Avoid overrunning the cache by setting the trip count accordingly.
+    for _ in range(prompt.size, max_tokens + 1):
+        let k_cache_view = cache_view(model, cache_size, k_cache_buff)
+        let v_cache_view = cache_view(model, cache_size, v_cache_buff)
+        let n_inputs = tokens.shape()[1]
+        cache_size += n_inputs
+
+        let results = execute(
+            compiled_model,
+            session,
+            tokens=tokens,
+            k_cache_buff=k_cache_view,
+            v_cache_buff=v_cache_view,
+        )
+
+        cache_update(results, "output1", k_cache_buff, k_cache_view ^, n_inputs)
+        cache_update(results, "output2", v_cache_buff, v_cache_view ^, n_inputs)
+
+        tokens = results.get[DType.int64]("output0")
+        print_no_newline(tokenizer.vocab[tokens[0, 0].to_int()].token)
+
+    print()
+
+
+fn main() raises:
+    if MODEL_PATH.suffix() == ".gguf":
+        run[GGUFFile]()
+    elif MODEL_PATH.suffix() == ".bin":
+        run[LlamaCFile]()
+    else:
+        raise "invalid model path"

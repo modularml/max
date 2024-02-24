@@ -1,0 +1,1140 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+
+"""Interface to GGUF following the logic in ggml.c, in particular
+`gguf_init_from_file()`:
+https://github.com/ggerganov/llama.cpp/blob/8da46278e1a57107591653275f8e03a281de94f0/ggml.c#L18016
+In order to maintain readability of this file and the ability to
+cross-reference ggml.c, here types and field names match those in ggml.c as
+much as possible.
+This changes only casing for `struct`s to adhere to Mojo naming style.
+
+GGUF is designed with the following core principles:
+- The entire model is self-contained in one file.
+- The format is extensible so that GGUF can be changed maintaining backwards
+  compatibility.
+- Weights can be mmap'ed.
+
+GGUFKV is a key-value storage for hyperparameters called metadata.
+
+GGUFTensorInfo describe and is used to locate the tensor data.
+
+The model, its tensors, and all of its metadata are serialized as
+little endian.
+
+See the GGUF documentation for more details:
+https://github.com/ggerganov/ggml/blob/cce2ac9a5d788c3b6bb72a3b3dbde9247d8b85a7/docs/gguf.md.
+
+NB: all types in this file except `GGUFFile` can be passed around by value and
+do not own their data.
+The `GGUFFile` allocates all the other objects and deallocates them all in its
+destructor.
+Other types expose a `.destroy()` method simply to facilitate this.
+"""
+
+from collections.optional import Optional
+from collections.vector import DynamicVector
+from memory.unsafe import DTypePointer
+from tensor import Tensor, TensorShape
+from pathlib import Path
+
+from . import ggml_quants
+from .loadable_model import LlamaHParams, LoadableModel
+
+
+@value
+@register_passable("trivial")
+struct GGMLTypeTrait:
+    var type_name: StringLiteral
+    var blck_size: Int
+    var type_size: Int
+    var is_quantized: Bool
+
+
+@value
+@register_passable("trivial")
+struct GGMLType:
+    """Enum-like struct matching `ggml_type`, the dtype of a tensor."""
+
+    alias GGML_TYPE_F32 = 0
+    alias GGML_TYPE_F16 = 1
+    alias GGML_TYPE_Q4_0 = 2
+    alias GGML_TYPE_Q4_1 = 3
+    # GGML_TYPE_Q4_2 = 4, support has been removed
+    # GGML_TYPE_Q4_3 (5) support has been removed
+    alias GGML_TYPE_Q5_0 = 6
+    alias GGML_TYPE_Q5_1 = 7
+    alias GGML_TYPE_Q8_0 = 8
+    alias GGML_TYPE_Q8_1 = 9
+    # k-quantizations
+    alias GGML_TYPE_Q2_K = 10
+    alias GGML_TYPE_Q3_K = 11
+    alias GGML_TYPE_Q4_K = 12
+    alias GGML_TYPE_Q5_K = 13
+    alias GGML_TYPE_Q6_K = 14
+    alias GGML_TYPE_Q8_K = 15
+    alias GGML_TYPE_I8 = 16
+    alias GGML_TYPE_I16 = 17
+    alias GGML_TYPE_I32 = 18
+    alias GGML_TYPE_COUNT = 19  # marks the end of the enum
+
+    var value: Int32
+
+    @always_inline
+    fn is_f32(self) -> Bool:
+        return self.value == Self.GGML_TYPE_F32
+
+    @always_inline
+    fn is_f16(self) -> Bool:
+        return self.value == Self.GGML_TYPE_F16
+
+    @always_inline
+    fn is_q4_0(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q4_0
+
+    @always_inline
+    fn is_q4_1(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q4_1
+
+    @always_inline
+    fn is_q5_0(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q5_0
+
+    @always_inline
+    fn is_q5_1(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q5_1
+
+    @always_inline
+    fn is_q8_0(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q8_0
+
+    @always_inline
+    fn is_q8_1(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q8_1
+
+    @always_inline
+    fn is_q2_k(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q2_K
+
+    @always_inline
+    fn is_q3_k(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q3_K
+
+    @always_inline
+    fn is_q4_k(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q4_K
+
+    @always_inline
+    fn is_q5_k(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q5_K
+
+    @always_inline
+    fn is_q6_k(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q6_K
+
+    @always_inline
+    fn is_q8_k(self) -> Bool:
+        return self.value == Self.GGML_TYPE_Q8_K
+
+    @always_inline
+    fn is_i8(self) -> Bool:
+        return self.value == Self.GGML_TYPE_I8
+
+    @always_inline
+    fn is_i16(self) -> Bool:
+        return self.value == Self.GGML_TYPE_I16
+
+    @always_inline
+    fn is_i32(self) -> Bool:
+        return self.value == Self.GGML_TYPE_I32
+
+    @always_inline
+    fn dtype(self) raises -> DType:
+        # Return uint8 for quantized types.
+        if self.is_q4_0():
+            return DType.uint8
+        if self.is_q4_k():
+            return DType.uint8
+        if self.is_q6_k():
+            return DType.uint8
+        if self.is_q8_0():
+            return DType.uint8
+        if self.is_f16():
+            return DType.float16
+        if self.is_f32():
+            return DType.float32
+        if self.is_i8():
+            return DType.int8
+        if self.is_i16():
+            return DType.int16
+        if self.is_i32():
+            return DType.int32
+
+        raise "GGML type lacks corresponding DType"
+
+    fn type_trait(self) raises -> GGMLTypeTrait:
+        if self.is_q4_0():
+            return GGMLTypeTrait(
+                "q4_0",
+                blck_size=ggml_quants.BlockQ40.QK4_0,
+                type_size=sizeof[ggml_quants.BlockQ40](),
+                is_quantized=True,
+            )
+        if self.is_q4_k():
+            return GGMLTypeTrait(
+                "q4_K",
+                blck_size=ggml_quants.QK_K,
+                type_size=sizeof[ggml_quants.BlockQ4K](),
+                is_quantized=True,
+            )
+        if self.is_q6_k():
+            return GGMLTypeTrait(
+                "q6_K",
+                blck_size=ggml_quants.QK_K,
+                type_size=sizeof[ggml_quants.BlockQ6K](),
+                is_quantized=True,
+            )
+        if self.is_q8_0():
+            return GGMLTypeTrait(
+                "q8_0",
+                blck_size=ggml_quants.BlockQ80.QK8_0,
+                type_size=sizeof[ggml_quants.BlockQ80](),
+                is_quantized=True,
+            )
+        if self.is_f32():
+            return GGMLTypeTrait(
+                "f32",
+                blck_size=1,
+                type_size=sizeof[DType.float32](),
+                is_quantized=False,
+            )
+        if self.is_f16():
+            return GGMLTypeTrait(
+                "f16",
+                blck_size=1,
+                type_size=sizeof[DType.float16](),
+                is_quantized=False,
+            )
+
+        raise "type trait " + String(self.value) + " not implemented yet"
+
+
+@value
+@register_passable("trivial")
+struct GGUFString:
+    # The length of the string in bytes.
+    var n: UInt64
+    # The string as a UTF-8 non-null-terminated string.
+    var data: DTypePointer[DType.uint8]
+
+    @always_inline
+    fn destroy(owned self):
+        self.data.free()
+
+    @always_inline
+    fn str(self) -> String:
+        return String(
+            StringRef(self.data.bitcast[DType.int8](), self.n.to_int())
+        )
+
+
+@value
+@register_passable("trivial")
+struct GGUFType:
+    """Enum-like struct matching `gguf_type`, a metadata value type."""
+
+    alias GGUF_TYPE_UINT8 = 0
+    alias GGUF_TYPE_INT8 = 1
+    alias GGUF_TYPE_UINT16 = 2
+    alias GGUF_TYPE_INT16 = 3
+    alias GGUF_TYPE_UINT32 = 4
+    alias GGUF_TYPE_INT32 = 5
+    alias GGUF_TYPE_FLOAT32 = 6
+    alias GGUF_TYPE_BOOL = 7
+    alias GGUF_TYPE_STRING = 8
+    alias GGUF_TYPE_ARRAY = 9
+    alias GGUF_TYPE_UINT64 = 10
+    alias GGUF_TYPE_INT64 = 11
+    alias GGUF_TYPE_FLOAT64 = 12
+    alias GGUF_TYPE_COUNT = 13  # marks the end of the enum
+
+    var value: Int32
+
+    @always_inline
+    fn is_uint8(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_UINT8
+
+    @always_inline
+    fn is_int8(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_INT8
+
+    @always_inline
+    fn is_uint16(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_UINT16
+
+    @always_inline
+    fn is_int16(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_INT16
+
+    @always_inline
+    fn is_uint32(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_UINT32
+
+    @always_inline
+    fn is_int32(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_INT32
+
+    @always_inline
+    fn is_uint64(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_UINT64
+
+    @always_inline
+    fn is_int64(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_INT64
+
+    @always_inline
+    fn is_float32(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_FLOAT32
+
+    @always_inline
+    fn is_float64(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_FLOAT64
+
+    @always_inline
+    fn is_bool(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_BOOL
+
+    @always_inline
+    fn is_string(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_STRING
+
+    @always_inline
+    fn is_array(self) -> Bool:
+        return self.value == Self.GGUF_TYPE_ARRAY
+
+    @always_inline
+    fn dispatch[
+        func: fn[type: DType] () raises capturing -> GGUFValue
+    ](self) raises -> GGUFValue:
+        if self.is_uint8():
+            return func[DType.uint8]()
+        if self.is_int8():
+            return func[DType.int8]()
+        if self.is_uint16():
+            return func[DType.uint16]()
+        if self.is_int16():
+            return func[DType.int16]()
+        if self.is_uint32():
+            return func[DType.uint32]()
+        if self.is_int32():
+            return func[DType.int32]()
+        if self.is_uint64():
+            return func[DType.uint64]()
+        if self.is_int64():
+            return func[DType.int64]()
+        if self.is_float32():
+            return func[DType.float32]()
+        if self.is_float64():
+            return func[DType.float64]()
+        if self.is_bool():
+            return func[DType.bool]()
+
+        # GGUF_TYPE_STRING and GGUF_TYPE_ARRAY must be handled separately.
+        raise "only GGUF types corresponding to dtypes are supported"
+
+    @always_inline
+    fn dispatch[func: fn[type: DType] () -> Int](self) raises -> Int:
+        if self.is_uint8():
+            return func[DType.uint8]()
+        if self.is_int8():
+            return func[DType.int8]()
+        if self.is_uint16():
+            return func[DType.uint16]()
+        if self.is_int16():
+            return func[DType.int16]()
+        if self.is_uint32():
+            return func[DType.uint32]()
+        if self.is_int32():
+            return func[DType.int32]()
+        if self.is_uint64():
+            return func[DType.uint64]()
+        if self.is_int64():
+            return func[DType.int64]()
+        if self.is_float32():
+            return func[DType.float32]()
+        if self.is_float64():
+            return func[DType.float64]()
+        if self.is_bool():
+            return func[DType.bool]()
+
+        # GGUF_TYPE_STRING and GGUF_TYPE_ARRAY must be handled separately.
+        raise "only GGUF types corresponding to dtypes are supported"
+
+
+@value
+@register_passable("trivial")
+struct GGUFValue:
+    alias _type = __mlir_type[
+        `!kgen.variant<`,
+        UInt8,
+        `, `,
+        Int8,
+        `, `,
+        UInt16,
+        `, `,
+        Int16,
+        `, `,
+        UInt32,
+        `, `,
+        Int32,
+        `, `,
+        UInt64,
+        `, `,
+        Int64,
+        `, `,
+        Float32,
+        `, `,
+        Float64,
+        `, `,
+        Bool,
+        `, `,
+        GGUFString,
+        `, `,
+        DTypePointer[DType.int8],
+        `>`,
+    ]
+    var _value: Self._type
+
+    alias UInt8: Int = 0
+    alias Int8: Int = 1
+    alias UInt16: Int = 2
+    alias Int16: Int = 3
+    alias UInt32: Int = 4
+    alias Int32: Int = 5
+    alias UInt64: Int = 6
+    alias Int64: Int = 7
+    alias Float32: Int = 8
+    alias Float64: Int = 9
+    alias Bool: Int = 10
+    alias GGUFString: Int = 11
+    alias Array: Int = 12
+
+    @staticmethod
+    fn from_dtype[type: DType](value: Scalar[type]) raises -> Self:
+        @parameter
+        if type.is_uint8():
+            return GGUFValue(value.cast[DType.uint8]())
+        elif type.is_int8():
+            return GGUFValue(value.cast[DType.int8]())
+        elif type.is_uint16():
+            return GGUFValue(value.cast[DType.uint16]())
+        elif type.is_int16():
+            return GGUFValue(value.cast[DType.int16]())
+        elif type.is_uint32():
+            return GGUFValue(value.cast[DType.uint32]())
+        elif type.is_int32():
+            return GGUFValue(value.cast[DType.int32]())
+        elif type.is_uint64():
+            return GGUFValue(value.cast[DType.uint64]())
+        elif type.is_int64():
+            return GGUFValue(value.cast[DType.int64]())
+        elif type.is_float32():
+            return GGUFValue(value.cast[DType.float32]())
+        elif type.is_float64():
+            return GGUFValue(value.cast[DType.float64]())
+        elif type.is_bool():
+            return GGUFValue(value.cast[DType.bool]())
+
+        raise "unsupported dtype"
+
+    fn __init__(value: UInt8) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.UInt8.value
+            ](value)
+        }
+
+    fn __init__(value: Int8) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Int8.value
+            ](value)
+        }
+
+    fn __init__(value: UInt16) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.UInt16.value
+            ](value)
+        }
+
+    fn __init__(value: Int16) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Int16.value
+            ](value)
+        }
+
+    fn __init__(value: UInt32) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.UInt32.value
+            ](value)
+        }
+
+    fn __init__(value: Int32) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Int32.value
+            ](value)
+        }
+
+    fn __init__(value: UInt64) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.UInt64.value
+            ](value)
+        }
+
+    fn __init__(value: Int64) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Int64.value
+            ](value)
+        }
+
+    fn __init__(value: Float32) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Float32.value
+            ](value)
+        }
+
+    fn __init__(value: Float64) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Float64.value
+            ](value)
+        }
+
+    fn __init__(value: Bool) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Bool.value
+            ](value)
+        }
+
+    fn __init__(value: GGUFString) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.GGUFString.value
+            ](value)
+        }
+
+    fn __init__(value: DTypePointer[DType.int8]) -> Self:
+        return Self {
+            _value: __mlir_op.`kgen.variant.create`[
+                _type = Self._type, index = Self.Array.value
+            ](value)
+        }
+
+    @always_inline
+    fn destroy(owned self):
+        if self.is_string():
+            self.string().destroy()
+        elif self.is_array():
+            self.array().free()
+
+    # ===------------------------------------------------------------------=== #
+    # Value query
+    # ===------------------------------------------------------------------=== #
+
+    @always_inline
+    fn is_uint8(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.UInt8.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_int8(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Int8.value](self._value)
+
+    @always_inline
+    fn is_uint16(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.UInt16.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_int16(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Int16.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_uint32(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.UInt32.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_int32(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Int32.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_uint64(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.UInt64.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_int64(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Int64.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_float32(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Float32.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_float64(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Float64.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_bool(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Bool.value](self._value)
+
+    @always_inline
+    fn is_string(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.GGUFString.value](
+            self._value
+        )
+
+    @always_inline
+    fn is_array(self) -> Bool:
+        return __mlir_op.`kgen.variant.is`[index = Self.Array.value](
+            self._value
+        )
+
+    # ===------------------------------------------------------------------=== #
+    # Value get
+    # ===------------------------------------------------------------------=== #
+
+    @always_inline
+    fn uint8(self) -> UInt8:
+        return __mlir_op.`kgen.variant.take`[index = Self.UInt8.value](
+            self._value
+        )
+
+    @always_inline
+    fn int8(self) -> Int8:
+        return __mlir_op.`kgen.variant.take`[index = Self.Int8.value](
+            self._value
+        )
+
+    @always_inline
+    fn uint16(self) -> UInt16:
+        return __mlir_op.`kgen.variant.take`[index = Self.UInt16.value](
+            self._value
+        )
+
+    @always_inline
+    fn int16(self) -> Int16:
+        return __mlir_op.`kgen.variant.take`[index = Self.Int16.value](
+            self._value
+        )
+
+    @always_inline
+    fn uint32(self) -> UInt32:
+        return __mlir_op.`kgen.variant.take`[index = Self.UInt32.value](
+            self._value
+        )
+
+    @always_inline
+    fn int32(self) -> Int32:
+        return __mlir_op.`kgen.variant.take`[index = Self.Int32.value](
+            self._value
+        )
+
+    @always_inline
+    fn uint64(self) -> UInt64:
+        return __mlir_op.`kgen.variant.take`[index = Self.UInt64.value](
+            self._value
+        )
+
+    @always_inline
+    fn int64(self) -> Int64:
+        return __mlir_op.`kgen.variant.take`[index = Self.Int64.value](
+            self._value
+        )
+
+    @always_inline
+    fn float32(self) -> Float32:
+        return __mlir_op.`kgen.variant.take`[index = Self.Float32.value](
+            self._value
+        )
+
+    @always_inline
+    fn float64(self) -> Float64:
+        return __mlir_op.`kgen.variant.take`[index = Self.Float64.value](
+            self._value
+        )
+
+    @always_inline
+    fn bool(self) -> Bool:
+        return __mlir_op.`kgen.variant.take`[index = Self.Bool.value](
+            self._value
+        )
+
+    @always_inline
+    fn string(self) -> GGUFString:
+        return __mlir_op.`kgen.variant.take`[index = Self.GGUFString.value](
+            self._value
+        )
+
+    @always_inline
+    fn array(self) -> DTypePointer[DType.int8]:
+        return __mlir_op.`kgen.variant.take`[index = Self.Array.value](
+            self._value
+        )
+
+
+@value
+@register_passable("trivial")
+struct GGUFKV:
+    # The key of the metadata. It is a standard GGUF string, with the following caveats:
+    # - It must be a valid ASCII string.
+    # - It must be a hierarchical key, where each segment is `lower_snake_case`
+    #   and separated by a `.`.
+    # - It must be at most 2^16-1/65535 bytes long.
+    # Any keys that do not follow these rules are invalid.
+    var key: GGUFString
+    var value: GGUFValue
+
+    @always_inline
+    fn destroy(owned self):
+        self.key.destroy()
+        self.value.destroy()
+
+
+@value
+@register_passable("trivial")
+struct GGUFHeader:
+    # Magic number to announce that this is a GGUF file.
+    # Must be `GGUF` at the byte level: `0x47` `0x47` `0x55` `0x46`.
+    # Your executor might do little-endian byte order, so it might be
+    # checking for 0x46554747 and letting the endianness cancel out.
+    # Consider being *very* explicit about the byte order here.
+    var magic: StaticTuple[4, Int8]
+    # The version of the format implemented.
+    # Must be `3` for version described in this spec, which introduces big-endian support.
+    #
+    # This version should only be increased for structural changes to the format.
+    # Changes that do not affect the structure of the file should instead
+    # update the metadata to signify the change.
+    var version: UInt32
+    # This number of tensors in the file is explicit, instead of being included
+    # in the metadata, to ensure it is always present for loading the tensors.
+    var n_tensors: UInt64
+    # The number of metadata key-value pairs.
+    var n_kv: UInt64
+
+    fn __init__() -> Self:
+        return Self {
+            magic: StaticTuple[4, Int8](ord("N"), ord("U"), ord("L"), ord("L")),
+            version: 0,
+            n_tensors: 0,
+            n_kv: 0,
+        }
+
+    fn __str__(self) -> String:
+        return (
+            "version: "
+            + String(self.version)
+            + "\nn_tensors: "
+            + String(self.n_tensors)
+            + "\nn_kv: "
+            + String(self.n_kv)
+        )
+
+
+@value
+@register_passable("trivial")
+struct GGUFTensorInfo:
+    alias GGML_MAX_DIMS: Int = 4
+
+    # The name of the tensor. It is a standard GGUF string, with the caveat
+    # that it must be at most 64 bytes long.
+    var name: GGUFString
+    # The number of dimensions in the tensor.
+    # Currently at most 4, but this may change in the future.
+    var n_dims: UInt32
+    var ne: StaticTuple[Self.GGML_MAX_DIMS, UInt64]
+
+    var type: GGMLType
+
+    # The offset of the tensor's data in this file in bytes.
+    #
+    # This offset is relative to `tensor_data`, not to the start
+    # of the file, to make it easier for writers to write the file.
+    # Readers should consider exposing this offset relative to the
+    # file to make it easier to read the data.
+    #
+    # Must be a multiple of `ALIGNMENT`.
+    var offset: UInt64
+
+    # For writing API.
+    var data: DTypePointer[DType.invalid]
+    var size: Int
+
+    @always_inline
+    fn destroy(owned self):
+        self.name.destroy()
+        self.data.free()
+
+    @always_inline
+    fn num_bytes(self) raises -> Int:
+        let ne = self.ne
+        let num_elements = ne[0] * ne[1] * ne[2] * ne[3]
+
+        let type_trait = self.type.type_trait()
+        return (
+            num_elements * type_trait.type_size // type_trait.blck_size
+        ).to_int()
+
+    fn tensor_dims(self) -> DynamicVector[Int]:
+        """Converts from GGML `ne` to dims compatible with stdlib `Tensor`.
+
+        Returns:
+            A `DynamicVector` of dims compatible with stdlib `TensorShape`.
+        """
+        let n_dims = int(self.n_dims)
+        var dims = DynamicVector[Int](capacity=n_dims)
+        for i in range(n_dims):
+            # Opposite to `TensorSpec`, GGUF stores the inner dimension at
+            # the smaller index, so reverse them.
+            dims.append(int(self.ne[n_dims - i - 1]))
+
+        return dims
+
+    @always_inline
+    fn storage_tensor_shape(self) raises -> TensorShape:
+        """Computes the `TensorShape` for the storage backing this tensor.
+
+        Returns:
+            A `TensorShape` describing this GGUF tensor's torage.
+        """
+        let dims = self.tensor_dims()
+        if self.type.type_trait().is_quantized:
+            if len(dims) != 2:
+                raise (
+                    "GGML to stdlib tensor only supports quantized matrices"
+                    " currently but got tensor of rank: "
+                    + String(len(dims))
+                )
+
+            # TODO(#31206): Support more principled compatibility between:
+            # - Custom quantized types such as in ggml-quants.h.
+            # - Mojo types.
+            # - MO types.
+            return TensorShape(dims[0], self.num_bytes() // dims[0])
+
+        return TensorShape(dims)
+
+
+@always_inline
+fn _sizeof[type: DType]() -> Int:
+    return sizeof[type]()
+
+
+struct GGUFReader:
+    var offset: Int
+    var f: FileHandle
+
+    fn __init__(inout self, owned f: FileHandle):
+        self.offset = 0
+        self.f = f ^
+
+    @always_inline
+    fn align_to(inout self, alignment: Int) raises -> None:
+        let overshoot = self.offset % alignment
+        if overshoot == 0:
+            return
+
+        self.seek(alignment - overshoot)
+
+    @always_inline
+    fn read_bytes(inout self, num_bytes: Int) raises -> Tensor[DType.int8]:
+        self.offset += num_bytes
+        return self.f.read_bytes(num_bytes)
+
+    @always_inline
+    fn seek(inout self, num_bytes: Int) raises:
+        self.offset += num_bytes
+        _ = self.f.seek(num_bytes)
+
+    @always_inline
+    fn dtype_element[type: DType](inout self) raises -> Scalar[type]:
+        let bytes_tensor: Tensor[DType.int8] = self.read_bytes(
+            sizeof[Scalar[type]]()
+        )
+        let result = bytes_tensor.data().bitcast[type]().load()
+        _ = bytes_tensor ^
+
+        return result
+
+    @always_inline
+    fn gguf_string(inout self) raises -> GGUFString:
+        let n = self.dtype_element[DType.uint64]().to_int()
+        var key_data: Tensor[DType.int8] = self.read_bytes(n)
+        return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
+
+    fn gguf_kv(inout self) raises -> GGUFKV:
+        @always_inline
+        @parameter
+        fn _gguf_value[type: DType]() raises -> GGUFValue:
+            let bytes_tensor: Tensor[DType.int8] = self.read_bytes(
+                sizeof[Scalar[type]]()
+            )
+            let result = bytes_tensor.data().bitcast[type]().load()
+            _ = bytes_tensor ^
+
+            return GGUFValue.from_dtype[type](result)
+
+        let key = self.gguf_string()
+        if (
+            StringRef(key.data.bitcast[DType.int8](), key.n.to_int())
+            == "general.alignment"
+        ):
+            raise "don't support specifying alignment"
+
+        let kv_type = GGUFType(self.dtype_element[DType.int32]())
+        if kv_type.is_string():
+            return GGUFKV(key, GGUFValue(self.gguf_string()))
+
+        if kv_type.is_array():
+            let array_type = GGUFType(self.dtype_element[DType.int32]())
+            if array_type.is_array():
+                raise "don't support array of arrays"
+
+            let array_n = self.dtype_element[DType.uint64]().to_int()
+            if array_type.is_string():
+                let ptr = Pointer[GGUFString].alloc(array_n)
+                for i in range(array_n):
+                    ptr[i] = self.gguf_string()
+
+                return GGUFKV(key, GGUFValue(ptr.bitcast[Int8]()))
+
+            # Read array of dtypes.
+            var array_data: Tensor[DType.int8] = self.read_bytes(
+                array_n * array_type.dispatch[_sizeof]()
+            )
+            return GGUFKV(key, GGUFValue(array_data._steal_ptr()))
+
+        # Dispatch on dtype.
+        return GGUFKV(key, kv_type.dispatch[_gguf_value]())
+
+    fn gguf_tensor_info(inout self) raises -> GGUFTensorInfo:
+        let name = self.gguf_string()
+        let n_dims = self.dtype_element[DType.uint32]()
+
+        var ne = StaticTuple[GGUFTensorInfo.GGML_MAX_DIMS, UInt64]()
+        for i in range(GGUFTensorInfo.GGML_MAX_DIMS):
+            ne[i] = 1
+
+        for i in range(n_dims.to_int()):
+            ne[i] = self.dtype_element[DType.uint64]()
+
+        let type = GGMLType(self.dtype_element[DType.int32]())
+        let offset = self.dtype_element[DType.uint64]()
+
+        return GGUFTensorInfo(
+            name,
+            n_dims,
+            ne,
+            type,
+            offset,
+            data=DTypePointer[DType.invalid](),
+            size=0,
+        )
+
+
+struct GGUFFile(LoadableModel):
+    """A container for all metadata describing the weights in a GGUF file."""
+
+    # This is called GGUFFile to match `gguf_file_t` in gguf.md, but note that
+    # this matches `gguf_context` in ggml.c.
+
+    # This context owns all memory of its fields and their fields,
+    # transitively.
+    # All GGUF types with non-trivial memory management should implement a
+    # `.destroy()` method, which is called in `GGUFFile`'s destructor.
+
+    alias GGUF_DEFAULT_ALIGNMENT = 32
+    alias GGUF_MAGIC = "GGUF"
+
+    var header: GGUFHeader
+
+    var kv: Pointer[GGUFKV]
+    var infos: Pointer[GGUFTensorInfo]
+
+    var alignment: Int
+
+    # The offset of the tensor data in the file.
+    # `GGUFTensorInfo.offset` is relative to this.
+    var offset: Int
+    # Size of the tensor data section in bytes.
+    var size: Int
+
+    # The open GGUF model file.
+    var fp: FileHandle
+
+    fn __init__(inout self, model_path: Path) raises:
+        var reader = GGUFReader(open(model_path, "r"))
+
+        # Read the header.
+        let magic: Tensor[DType.int8] = reader.read_bytes(
+            sizeof[StaticTuple[4, Int8]]()
+        )
+        for i in range(magic.num_elements()):
+            if magic[i] != GGUFFile.GGUF_MAGIC.data().load(i):
+                raise "invalid magic character"
+
+        let version = reader.dtype_element[DType.uint32]()
+        if version == 1:
+            raise "GGUFv1 is not supported"
+
+        let n_tensors = reader.dtype_element[DType.uint64]().to_int()
+        let n_kv = reader.dtype_element[DType.uint64]().to_int()
+
+        self.header = GGUFHeader(
+            StaticTuple[4, Int8](magic[0], magic[1], magic[2], magic[3]),
+            version,
+            n_tensors,
+            n_kv,
+        )
+
+        # Read the kv pairs.
+        self.kv = Pointer[GGUFKV].alloc(n_kv)
+        for i in range(n_kv):
+            self.kv[i] = reader.gguf_kv()
+
+        # Read the tensor infos.
+        self.infos = Pointer[GGUFTensorInfo].alloc(n_tensors)
+        for i in range(n_tensors):
+            self.infos[i] = reader.gguf_tensor_info()
+
+        self.alignment = GGUFFile.GGUF_DEFAULT_ALIGNMENT
+        # TODO: Set alignment from general.alignment key.
+
+        reader.align_to(self.alignment)
+        self.offset = reader.offset
+
+        # Compute total size of the data section accounting for alignment.
+        self.size = 0
+        for i in range(n_tensors):
+            let size_cur = self.infos[i].num_bytes()
+
+            @always_inline
+            fn pad(x: Int, n: Int) -> Int:
+                return (x + n - 1) & ~(n - 1)
+
+            self.size += pad(size_cur, self.alignment)
+
+        self.fp = open(model_path, "r")
+
+    fn __moveinit__(inout self, owned other: GGUFFile):
+        @always_inline
+        fn exchange[T: AnyRegType](inout old_var: T, owned new_value: T) -> T:
+            let old_value = old_var
+            old_var = new_value
+            return old_value
+
+        self.header = other.header
+
+        self.kv = exchange(other.kv, Pointer[GGUFKV]())
+        self.infos = exchange(other.infos, Pointer[GGUFTensorInfo]())
+
+        self.alignment = other.alignment
+        self.offset = other.offset
+        self.size = other.size
+
+        self.fp = other.fp ^
+
+    fn __del__(owned self):
+        for i in range(self.header.n_kv.to_int()):
+            self.kv[i].destroy()
+        self.kv.free()
+
+        for i in range(self.n_tensors()):
+            self.infos[i].destroy()
+        self.infos.free()
+
+    fn get[
+        type: DType
+    ](
+        inout self, key: String, layer_idx: Optional[Int] = None
+    ) raises -> Tensor[type]:
+        var full_key = key + ".weight"
+        if layer_idx:
+            full_key = "blk." + String(layer_idx.value()) + "." + full_key
+
+        for i in range(self.n_tensors()):
+            let info = self.infos[i]
+            if info.name.str() != full_key:
+                continue
+
+            if type != info.type.dtype():
+                raise "compile/runtime dtype mismatch"
+
+            # Add tensor data offset since `info.offset` is from the start of
+            # the tensor data.
+            _ = self.fp.seek(self.offset + int(info.offset))
+            var bytes_tensor = self.fp.read_bytes(info.num_bytes())
+
+            return Tensor(
+                bytes_tensor._steal_ptr().bitcast[type](),
+                info.storage_tensor_shape(),
+            )
+
+        raise "key not found"
+
+    fn hyperparams(self) -> LlamaHParams:
+        # TODO(#30708): Compute these using data structures matching llama.cpp.
+        return LlamaHParams(
+            dims=4096,
+            n_layers=32,
+            n_heads=32,
+            norm_eps=1e-5,
+            n_kv_heads=32,
+            vocab_size=32000,
+            head_dim=4096 // 32,
+            n_rep=32 // 32,
+        )
+
+    @always_inline
+    fn n_tensors(self) -> Int:
+        return self.header.n_tensors.to_int()

@@ -1,0 +1,222 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+"""A byte pair encoding tokenizer implementation for use with LLMs."""
+
+from collections import Dict, DynamicVector, Optional
+from pathlib import Path
+
+from .ball import Ball
+from .max_heap import MaxHeap, OrderableElement
+
+
+@value
+struct Token(CollectionElement):
+    """A token-score pair for storing a BPE vocabulary."""
+
+    var token: String
+    var score: Float32
+
+
+@value
+struct TokenWithID(CollectionElement):
+    """A string token, along with its ID in the vocabulary (or 0 for unk)."""
+
+    var token: String
+    var id: Int
+
+
+@value
+struct MergeOption(OrderableElement):
+    """Metadata for tracking possible BPE merges in a priority queue."""
+
+    var left: Ball[String].ID
+    var right: Ball[String].ID
+    var score: Float32
+    var checksum: Int
+
+    fn __lt__(self, other: Self) -> Bool:
+        return (self.score < other.score) or (
+            self.score == other.score and self.left > other.left
+        )
+
+
+fn read[T: CollectionElement](inout ptr: AnyPointer[Int8]) -> T:
+    """Read a binary type out of a byte buffer and increment the pointer."""
+    let value = ptr.bitcast[T]()[]
+    ptr = ptr + sizeof[T]()
+    return value ^
+
+
+fn read_string(inout ptr: AnyPointer[Int8], length: Int) -> StringRef:
+    """Read a string reference of known length and increment the pointer."""
+    let value = StringRef(
+        Reference(ptr.__refitem__()).get_unsafe_pointer(), length
+    )
+    ptr = ptr + length
+    return value
+
+
+struct BPETokenizer:
+    """A Byte Pair Encoding string tokenizer.
+
+    [Byte pair encoding](https://en.wikipedia.org/wiki/Byte_pair_encoding)
+    can tokenize strings of any language or encoding based on a learned input
+    dictionary. This implementation may not be fully featured, but is fast
+    and compatible with some major LLMs such as Llama. It uses the same
+    basic approach as sentencepiece, with an implementation with good
+    algorithmic performance, but not fully optimized.
+    """
+
+    var vocab: DynamicVector[Token]
+    var token_ids: Dict[String, Int]
+
+    @staticmethod
+    fn from_bytes(
+        ptr: DTypePointer[DType.int8], end: DTypePointer[DType.int8]
+    ) raises -> BPETokenizer:
+        """Construct a BPETokenizer instance given binary token scores.
+
+        The file must have the following binary format:
+        ```
+        [max_token_len:Int32]
+        [score_0:Float32]
+        [token_len_0:Int32]
+        [token_0:(Int8*token_len_0)]
+        [score_1:Float32]
+        [token_len_1:Int32]
+        [token_1:(Int8*token_len_0)]
+        ...
+        ```
+        """
+
+        var model = BPETokenizer()
+        var read_ptr = AnyPointer[Int8].__from_index(int(ptr))
+
+        let max_token_len = read[Int32](read_ptr)
+        while int(read_ptr) != int(end):
+            let score = read[Float32](read_ptr)
+            let token_len = read[Int32](read_ptr)
+            let token = read_string(read_ptr, token_len.to_int())
+            model.add_token(token, score)
+
+        return model ^
+
+    @staticmethod
+    def from_file(path: Path) -> Self:
+        """Construct a BPETokenizer instance given binary token scores.
+
+        See `BPETokenizer.from_bytes()` for the expected file format.
+        """
+        let file = path.read_bytes()
+        let t = Self.from_bytes(file.data(), file.data() + file.num_elements())
+        _ = file ^
+        return t ^
+
+    fn __init__(inout self):
+        """Create an empty tokenizer."""
+        self.vocab = DynamicVector[Token]()
+        self.token_ids = Dict[String, Int]()
+
+    fn __moveinit__(inout self, owned existing: Self):
+        self.vocab = existing.vocab ^
+        self.token_ids = existing.token_ids ^
+
+    fn add_token(inout self, token: String, score: Float32) raises:
+        """Add a token to the vocabulary."""
+        if token not in self.token_ids:
+            self.token_ids[token] = len(self.vocab)
+        self.vocab.append(Token(token, score))
+
+    fn encode(
+        self,
+        str: String,
+        bos: Optional[String] = None,
+        eos: Optional[String] = None,
+    ) raises -> DynamicVector[TokenWithID]:
+        """Encode a string according to the BPE algorithm.
+
+        The BPE vocabulary is a set of scored strings. BPE starts by
+        considering every character in the input string as its own token,
+        and then greedily merges the highest scoring adjacent pair
+        until no more adjacent token merges exist in the vocabulary.
+
+        We implement the tokens as a linked list, with a priority queue
+        of merge options. We execute the highest-scoring merge, adding
+        new merge options to the priority queue if they exist in the vocabulary.
+        We can't remove out-dated merge options from the priority queue, so
+        instead we add a checksum to them, which is the length of the merge
+        they're expecting. Linked list elements only stop existing or grow
+        in length, so we can always safely recognize an outdated merge.
+        """
+        var output = DynamicVector[TokenWithID]()
+        if bos and bos.value() in self.token_ids:
+            output.append(TokenWithID(bos.value(), self.token_ids[bos.value()]))
+
+        var merge_options = MaxHeap[MergeOption]()
+        var tokens = Ball[String]()
+
+        @parameter
+        fn maybe_add_merge(left: tokens.ID, right: tokens.ID) raises:
+            let merged = tokens[left] + tokens[right]
+            if merged in self.token_ids:
+                let score = self.vocab[self.token_ids[merged]].score
+                merge_options.push(MergeOption(left, right, score, len(merged)))
+
+        # Initialize the tokens linked-list and initial merges.
+        var prev: Optional[Ball[String].ID] = None
+        for i in range(len(str)):
+            let id = tokens.append(str[i])
+            if prev:
+                maybe_add_merge(prev.value(), id)
+            prev = id
+
+        while merge_options:
+            let merge = merge_options.pop()
+            # Check whether the best merge is still valid
+            if merge.left not in tokens or merge.right not in tokens:
+                continue  # outdated merge option
+            let merged = tokens[merge.left] + tokens[merge.right]
+            if len(merged) != merge.checksum:
+                continue  # outdated merge option
+            # Merge the right token into the left token, then
+            # add any new valid merge options to the priority queue.
+            let left = tokens.prev(merge.left)
+            let right = tokens.next(merge.right)
+            tokens[merge.left] = merged
+            tokens.remove(merge.right)
+            if right:
+                maybe_add_merge(merge.left, right.value())
+            if left:
+                maybe_add_merge(left.value(), merge.left)
+
+        # Loop through the final list and construct the token sequence.
+        var node_id = tokens._head
+        while node_id:
+            let id = node_id.value()
+            let token = tokens[id]
+            output.append(TokenWithID(token, self._encode_token(token)))
+            node_id = tokens.next(id)
+
+        if eos and eos.value() in self.token_ids:
+            output.append(TokenWithID(eos.value(), self.token_ids[eos.value()]))
+
+        return output
+
+    fn _encode_token(self, token: String) raises -> Int:
+        return self.token_ids.find(token).or_else(0).value()

@@ -1,0 +1,318 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+
+from collections import Optional
+from pathlib import Path
+
+from max.graph import ops, Dim, Module, MOTensor, Symbol, SymbolTuple, TypeTuple
+
+from weights.loadable_model import LoadableModel, LlamaHParams
+
+
+@value
+struct Attention:
+    var n_heads: Int
+    var n_kv_heads: Int
+    var head_dim: Int
+    var dim: Int
+    var n_rep: Int
+
+    var wq: Symbol
+    var wk: Symbol
+    var wv: Symbol
+    var wo: Symbol
+
+    def repeat_kv(self, v: Symbol, n_rep: Int) -> Symbol:
+        if self.n_kv_heads < self.n_heads:
+            raise "Not yet supported"
+        return v
+
+    def rope(self, x: Symbol, freqs_cis: Symbol) -> Symbol:
+        let x_complex = ops.as_interleaved_complex(x)
+        let freqs_cis_bcast = ops.unsqueeze(ops.unsqueeze(freqs_cis, 1), 0)
+
+        let x_re = x_complex[0, axis= -1]
+        let x_im = x_complex[1, axis= -1]
+
+        let freqs_re = freqs_cis_bcast[0, axis= -1]
+        let freqs_im = freqs_cis_bcast[1, axis= -1]
+
+        let rope_re = (x_re * freqs_re) - (x_im * freqs_im)
+        let rope_im = (x_re * freqs_im) + (x_im * freqs_re)
+        let rope = ops.concat((rope_re, rope_im), axis=-1)
+
+        return ops.reshape_like(rope, x)
+
+    def attention_mask(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
+        let g = start_pos.graph()
+        let neginf = math.limit.min_or_neginf[DType.float32]()
+        let mask_val = g.op(
+            "mo.broadcast_to",
+            (g.scalar(neginf), ops.concat((seq_len, seq_len))),
+            MOTensor(DType.float32, Dim.dynamic(), Dim.dynamic()),
+        )
+        return g.op(
+            "mo.linalg.band_part",
+            (
+                mask_val,
+                g.scalar[DType.int64](-1),
+                start_pos.reshape(),
+                g.scalar[DType.bool](True),
+            ),
+            MOTensor(DType.float32, Dim.dynamic(), Dim.dynamic()),
+        )
+
+    def __call__(
+        self,
+        input: Symbol,
+        start_pos: Symbol,
+        freqs_cis: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> SymbolTuple:  # TODO(27660): in-memory unpacking
+        var g = input.graph()
+        let input_shape = ops.shape_of(input)
+
+        let batch_size = input_shape[0]
+        let seq_len = input_shape[1]
+        let head_dim = g.scalar[DType.int64](self.head_dim)
+
+        var xq = input @ self.wq
+        var xk = input @ self.wk
+        var xv = input @ self.wv
+
+        xq = xq.reshape(batch_size, seq_len, self.n_heads, self.head_dim)
+        xk = xk.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+        xv = xv.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+
+        xq = self.rope(xq, freqs_cis)
+        xk = self.rope(xk, freqs_cis)
+
+        var keys = ops.concat((k_cache, xk.transpose(0, 1))).transpose(0, 1)
+        var values = ops.concat((v_cache, xv.transpose(0, 1))).transpose(0, 1)
+
+        keys = self.repeat_kv(keys, self.n_rep)
+        values = self.repeat_kv(values, self.n_rep)
+
+        xq = xq.transpose(1, 2)
+        keys = keys.transpose(1, 2)
+        values = values.transpose(1, 2)
+
+        var scores = (xq @ keys.transpose(2, 3)) * ops.rsqrt(head_dim)
+        scores = scores + self.attention_mask(start_pos, seq_len.reshape(1))
+        var output = ops.softmax(scores) @ values
+        output = output.transpose(1, 2).reshape(batch_size, seq_len, -1)
+        return output @ self.wo, xk, xv
+
+
+@value
+struct FeedForward:
+    var w1: Symbol
+    var w2: Symbol
+    var w3: Symbol
+
+    def __call__(self, input: Symbol) -> Symbol:
+        return (ops.silu(input @ self.w1) * (input @ self.w3)) @ self.w2
+
+
+@value
+struct RMSNorm:
+    var eps: Float32
+    var weight: Symbol
+
+    def __call__(self, input: Symbol) -> Symbol:
+        let scale = ops.rsqrt(ops.mean(input**2.0, axis=-1) + self.eps)
+        return input * scale * self.weight
+
+
+@value
+struct TransformerBlock(CollectionElement):
+    var attention: Attention
+    var feed_forward: FeedForward
+    var attention_norm: RMSNorm
+    var ffn_norm: RMSNorm
+
+    def __call__(
+        self,
+        input: Symbol,
+        start_pos: Symbol,
+        freqs_cis: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> SymbolTuple:  # TODO(27660): in-memory unpacking
+        let _attention_out = self.attention(
+            self.attention_norm(input), start_pos, freqs_cis, k_cache, v_cache
+        )
+        # TODO(27660): in-memory unpacking
+        let attention_out = _attention_out[0]
+        let k_cache_update = _attention_out[1]
+        let v_cache_update = _attention_out[2]
+        var h = input + attention_out
+        h = h + self.feed_forward(self.ffn_norm(h))
+        return h, k_cache_update, v_cache_update
+
+
+@value
+struct Embedding:
+    var weights: Symbol
+
+    def __call__(self, input: Symbol) -> Symbol:
+        return ops.gather(self.weights, input, axis=0)
+
+
+@value
+struct Transformer:
+    alias max_seq_len = 2048
+    alias theta = 10000.0
+
+    var dim: Int
+    var n_heads: Int
+
+    var embedding: Embedding
+    var layers: DynamicVector[TransformerBlock]
+    var norm: RMSNorm
+    var output: Symbol
+
+    def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
+        var g = start_pos.graph()
+        let n = self.dim // self.n_heads
+        let iota = g.range[DType.float32](0, n - 1, 2)
+        var freqs = 1.0 / (Self.theta ** (iota / n))
+        let t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
+        freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
+
+        let retval = ops.stack((ops.cos(freqs), ops.sin(freqs)), axis=-1)
+        return retval[start_pos : start_pos + seq_len]
+
+    def __call__(
+        self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
+    ) -> SymbolTuple:  # TODO(27660): in-memory unpacking
+        let g = tokens.graph()
+        let start_pos = ops.shape_of(k_cache)[0]
+        var h = self.embedding(tokens)
+        let freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
+
+        var k_cache_updates = DynamicVector[Symbol]()
+        var v_cache_updates = DynamicVector[Symbol]()
+        for i in range(len(self.layers)):
+            let layer_out = self.layers[i](
+                h, start_pos, freqs_cis, k_cache[i, axis=1], v_cache[i, axis=1]
+            )
+            h = layer_out[0]
+            let k_cache_layer_update = layer_out[1]
+            let v_cache_layer_update = layer_out[2]
+            k_cache_updates.append(k_cache_layer_update.transpose(0, 1))
+            v_cache_updates.append(v_cache_layer_update.transpose(0, 1))
+
+        return (
+            self.norm(h) @ self.output,
+            ops.stack(k_cache_updates, axis=1),
+            ops.stack(v_cache_updates, axis=1),
+        )
+
+
+struct Llama2[ModelT: LoadableModel]:
+    alias batch_size = 1
+
+    var params: ModelT
+    var hyperparams: LlamaHParams
+
+    fn __init__(inout self, model_path: Path) raises:
+        self.params = ModelT(model_path)
+        self.hyperparams = self.params.hyperparams()
+
+    fn build_graph(inout self, name: String) raises -> Module:
+        let cache_type = MOTensor(
+            DType.float32,
+            Dim.dynamic(),
+            self.hyperparams.n_layers,
+            Self.batch_size,
+            self.hyperparams.n_kv_heads,
+            self.hyperparams.head_dim,
+        )
+        let cache_out_type = MOTensor(  # We can improve our shape inference here!
+            DType.float32,
+            Dim.dynamic(),
+            self.hyperparams.n_layers,
+            Dim.dynamic(),
+            self.hyperparams.n_kv_heads,
+            self.hyperparams.head_dim,
+        )
+        let tokens_type = MOTensor(DType.int64, self.batch_size, Dim.dynamic())
+        let m = Module()
+        var g = m.graph(
+            name,
+            in_types=TypeTuple(tokens_type, cache_type, cache_type),
+            out_types=TypeTuple(tokens_type, cache_out_type, cache_out_type),
+        )
+
+        @parameter
+        fn weight(name: String, i: Optional[Int] = None) raises -> Symbol:
+            return g.constant(self.params.get[DType.float32](name, i))
+
+        var layers = DynamicVector[TransformerBlock]()
+        for i in range(self.hyperparams.n_layers):
+            let layer = TransformerBlock(
+                attention=Attention(
+                    n_heads=self.hyperparams.n_heads,
+                    n_kv_heads=self.hyperparams.n_kv_heads,
+                    head_dim=self.hyperparams.head_dim,
+                    dim=self.hyperparams.dims,
+                    n_rep=self.hyperparams.n_rep,
+                    wq=weight("attn_q", i).transpose(),
+                    wk=weight("attn_k", i).transpose(),
+                    wv=weight("attn_v", i).transpose(),
+                    wo=weight("attn_output", i).transpose(),
+                ),
+                feed_forward=FeedForward(
+                    w1=weight("ffn_gate", i).transpose(),
+                    w2=weight("ffn_down", i).transpose(),
+                    w3=weight("ffn_up", i).transpose(),
+                ),
+                attention_norm=RMSNorm(
+                    self.hyperparams.norm_eps, weight("attn_norm", i)
+                ),
+                ffn_norm=RMSNorm(
+                    self.hyperparams.norm_eps, weight("ffn_norm", i)
+                ),
+            )
+            layers.append(layer)
+
+        var logits: Symbol
+        var k_cache = g[1]
+        var v_cache = g[2]
+        # TODO(27660): in-memory unpacking
+        let _model_out = Transformer(
+            dim=self.hyperparams.dims,
+            n_heads=self.hyperparams.n_heads,
+            embedding=Embedding(weight("token_embd")),
+            layers=layers,
+            norm=RMSNorm(self.hyperparams.norm_eps, weight("output_norm")),
+            output=weight("output").transpose(),
+        )(tokens=g[0], k_cache=k_cache, v_cache=v_cache)
+        logits = _model_out[0]
+        k_cache = _model_out[1]
+        v_cache = _model_out[2]
+
+        logits = ops.gather(logits, g.scalar[DType.int64](-1, rank=1), axis=1)
+        let next_token = ops.arg_max(
+            logits.reshape(-1, self.hyperparams.vocab_size), axis=-1
+        )
+        g.output((next_token.reshape(self.batch_size, -1), k_cache, v_cache))
+        return m
