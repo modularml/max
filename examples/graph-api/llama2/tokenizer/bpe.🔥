@@ -109,7 +109,7 @@ struct BPETokenizer:
         var read_ptr = AnyPointer[Int8].__from_index(ptr.__as_index())
 
         let max_token_len = read[Int32](read_ptr)
-        while read_ptr != end:
+        while read_ptr.__as_index() != end.__as_index():
             let score = read[Float32](read_ptr)
             let token_len = read[Int32](read_ptr)
             let token = read_string(read_ptr, token_len.to_int())
