@@ -292,7 +292,7 @@ struct Llama2[ModelT: LoadableModel]:
     fn _w(inout self, inout g: Graph, name: String, i: Int) raises -> Symbol:
         return g.constant(self.params.get[DType.float32](name, i))
 
-    fn build_into(inout self, inout m: Module, name: String) raises:
+    fn build_into(inout self, inout m: Module, name: StringRef) raises:
         let kv_cache_update_in_type = MOTensor(
             DType.float32,
             Dim.dynamic(),

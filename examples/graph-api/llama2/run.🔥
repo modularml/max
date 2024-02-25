@@ -99,7 +99,8 @@ fn run[ModelT: LoadableModel]() raises:
 
     print("Building model...")
     var model = Llama2[ModelT](MODEL_PATH)
-    var module = model.build_graph("llama_model")
+    var module = Module()
+    model.build_into(module, "llama_model")
     let session = InferenceSession()
 
     print("Compiling...")
