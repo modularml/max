@@ -117,7 +117,7 @@ struct Ball[T: CollectionElement]:
                 _type = Reference[Node[T], mutability, lifetime].mlir_ref_type
             ](
                 AnyPointer[Node[T]]
-                .__from_index(int(node_ref.get_unsafe_pointer()))
+                .__from_index(node_ref.get_unsafe_pointer().__as_index())
                 .value
             )
         )
@@ -135,7 +135,7 @@ struct Ball[T: CollectionElement]:
                 _type = Reference[T, mutability, lifetime].mlir_ref_type
             ](
                 AnyPointer[T]
-                .__from_index(int(node_ref.get_unsafe_pointer()))
+                .__from_index(node_ref.get_unsafe_pointer().__as_index())
                 .value
             )
         )
