@@ -13,6 +13,9 @@ This is a minimal text completion demo compatible with the the official Llama 2
    . examples/graph-api/llama2/setup.sh
    ```
 
+   This script can be run from any directory and will download models to
+   a `model` directory in your current working directory.
+
 2. Run the text completion demo:
 
    ```shell
@@ -26,5 +29,5 @@ This is a minimal text completion demo compatible with the the official Llama 2
    or
 
    ```shell
-   ./quickrun.sh "$MODELS/stories110M.bin"
+   examples/graph-api-llama2/quickrun.sh "$MODELS/stories110M.bin"
    ```
