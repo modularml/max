@@ -10,7 +10,7 @@ This is a minimal text completion demo compatible with the the official Llama 2
 1. Set environment variables and download weights:
 
    ```shell
-   ~/max/examples/graph-api/llama2/setup.sh
+   . ~/max/examples/graph-api/llama2/setup.sh
    ```
 
    This script can be run from any directory and will download models to
@@ -29,5 +29,5 @@ This is a minimal text completion demo compatible with the the official Llama 2
    or
 
    ```shell
-   ~/max/examples/graph-api/llama2/quickrun.sh "$MODELS/stories110M.bin"
+   . ~/max/examples/graph-api/llama2/quickrun.sh "$MODELS/stories110M.bin"
    ```
