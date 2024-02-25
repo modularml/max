@@ -19,7 +19,7 @@
 
 # Usage: source setup.sh
 
-SCRIPT_PATH="$(readlink -f "$0")"
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE:-0}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
 export MODELS="$(pwd)/models"
