@@ -106,10 +106,10 @@ struct BPETokenizer:
         """
 
         var model = BPETokenizer()
-        var read_ptr = AnyPointer[Int8].__from_index(int(ptr))
+        var read_ptr = AnyPointer[Int8].__from_index(ptr.__as_index())
 
         let max_token_len = read[Int32](read_ptr)
-        while int(read_ptr) != int(end):
+        while read_ptr != end:
             let score = read[Float32](read_ptr)
             let token_len = read[Int32](read_ptr)
             let token = read_string(read_ptr, token_len.to_int())
