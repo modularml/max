@@ -24,9 +24,7 @@ from memory import memcpy
 from python import Python
 from tensor import Tensor, TensorShape, TensorSpec
 
-from max.engine import InferenceSession
-from max.engine import SessionOptions
-from max.engine import Model
+from max.engine import InferenceSession, Model, SessionOptions
 
 ## Local Mojo imports
 import python_utils
@@ -189,7 +187,8 @@ fn main() raises -> None:
     let np = Python.import_module('numpy')
     let Image = Python.import_module('PIL.Image')
     let Tokenizer = Python.import_module('tokenizer')
-    let ALPHAS = Python.import_module('constants')._ALPHAS_CUMPROD
+    Python.add_to_path('..')
+    let ALPHAS = Python.import_module('common.stable_diffusion_tensorflow.constants')._ALPHAS_CUMPROD
 
     ## Compile & load models
     print('Loading models into MAX AI Engine...')
