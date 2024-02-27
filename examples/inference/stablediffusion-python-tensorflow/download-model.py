@@ -23,12 +23,13 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import keras_cv
 import tensorflow as tf
 
-from max import engine
-
 # In TensorFlow 2.0, setting TF_CPP_MIN_LOG_LEVEL does not work for all
 # logging messages, so we have to setLevel here again to suppress them.
 logger = tf.get_logger()
 logger.setLevel(logging.ERROR)
+
+from max import engine
+
 
 DEFAULT_MODEL_DIR = "stable-diffusion"
 DESCRIPTION = "Download a Stable Diffusion model."
