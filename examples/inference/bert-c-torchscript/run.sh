@@ -3,7 +3,8 @@
 set -e
 
 # set MAX path
-export MAX_PKG_DIR=`modular config max.path`
+MAX_PKG_DIR="$(modular config max.path)"
+export MAX_PKG_DIR
 
 CURRENT_DIR=$(dirname "$0")
 MODEL_PATH="bert-base-uncased.torchscript"
@@ -12,14 +13,14 @@ MODEL_PATH="bert-base-uncased.torchscript"
 INPUT_EXAMPLE="My dog is cute."
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" --text "$INPUT_EXAMPLE" -o $MODEL_PATH
+python3 "$CURRENT_DIR/download-model.py" --text "$INPUT_EXAMPLE" -o "$MODEL_PATH"
 
 # Build the example
 cmake -B build -S "$CURRENT_DIR"
 cmake --build build
 
 # Run example
-./build/bert $MODEL_PATH
+./build/bert "$MODEL_PATH"
 
 # Post process
 python3 "$CURRENT_DIR/post-process.py"
