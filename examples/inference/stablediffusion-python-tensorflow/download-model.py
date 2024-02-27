@@ -13,8 +13,6 @@
 
 #!/usr/bin/env python3
 
-from max import engine
-
 import logging
 import os
 from argparse import ArgumentParser
@@ -24,6 +22,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import keras_cv
 import tensorflow as tf
+
+from max import engine
 
 # In TensorFlow 2.0, setting TF_CPP_MIN_LOG_LEVEL does not work for all
 # logging messages, so we have to setLevel here again to suppress them.
