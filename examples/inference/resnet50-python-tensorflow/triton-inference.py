@@ -34,13 +34,15 @@ HF_MODEL_NAME = "microsoft/resnet-50"
 
 def execute(triton_client, model_name, inputs):
     # Set the input data
-    triton_inputs = [httpclient.InferInput("args_0", inputs["pixel_values"].shape, "FP32")]
+    triton_inputs = [
+        httpclient.InferInput("args_0", inputs["pixel_values"].shape, "FP32")
+    ]
     triton_inputs[0].set_data_from_numpy(inputs["pixel_values"])
 
     print("Executing model...")
     results = triton_client.infer(model_name, triton_inputs).as_numpy("logits")
     print("Model executed.\n")
-    
+
     return results
 
 
@@ -48,13 +50,17 @@ def main():
     # Parse args
     parser = ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--input", type=str, metavar="<jpg>", required=True, help="Path to input image."
+        "--input",
+        type=str,
+        metavar="<jpg>",
+        required=True,
+        help="Path to input image.",
     )
     parser.add_argument(
         "--model-name",
         type=str,
         default=DEFAULT_MODEL_NAME,
-        help="Model name to execute inference."
+        help="Model name to execute inference.",
     )
     parser.add_argument(
         "--url",

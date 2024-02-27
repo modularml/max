@@ -30,8 +30,6 @@ import tensorflow as tf
 logger = tf.get_logger()
 logger.setLevel(logging.ERROR)
 
-from max import engine
-
 
 DEFAULT_MODEL_DIR = "stable-diffusion"
 DESCRIPTION = "Download a Stable Diffusion model."
