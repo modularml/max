@@ -11,7 +11,7 @@ PPROMPT="Cute puppy chewing on a big steak"
 cd "$(dirname "$0")"
 
 # Download model
-python3 ../common/stable_diffusion_tensorflow/download-model.py -o "$MODEL_DIR"
+python3 ../common/stable-diffusion-tensorflow/download-model.py -o "$MODEL_DIR"
 
 # Execute model
 mojo text-to-image.🔥 --seed 4 --num-steps 15 \
