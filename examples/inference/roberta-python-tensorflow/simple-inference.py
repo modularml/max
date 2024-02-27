@@ -13,6 +13,8 @@
 
 #!/usr/bin/env python3
 
+from max import engine
+
 import os
 
 # suppress extraneous logging
@@ -21,7 +23,6 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from argparse import ArgumentParser
-from max import engine
 from transformers import AutoTokenizer, TFRobertaForSequenceClassification
 
 DEFAULT_MODEL_DIR = "roberta"
