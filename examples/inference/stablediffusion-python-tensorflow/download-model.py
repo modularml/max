@@ -13,6 +13,8 @@
 
 #!/usr/bin/env python3
 
+from max import engine
+
 import logging
 import os
 from argparse import ArgumentParser
