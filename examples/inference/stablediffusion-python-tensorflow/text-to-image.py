@@ -18,6 +18,9 @@ import os
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+from max.engine import InferenceSession
+from max.engine import Model
+
 import keras_cv
 import numpy as np
 
@@ -25,9 +28,6 @@ from argparse import ArgumentParser
 from constants import _ALPHAS_CUMPROD as ALPHAS
 from math import log, sqrt
 from PIL import Image
-
-from max.engine import InferenceSession
-from max.engine import Model
 
 DEFAULT_MODEL_DIR = "stable-diffusion"
 DESCRIPTION = "Generate an image based on the given prompt."
