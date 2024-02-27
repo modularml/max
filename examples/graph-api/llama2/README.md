@@ -10,7 +10,7 @@ This is a minimal text completion demo compatible with the the official Llama 2
 1. Set environment variables and download weights:
 
    ```shell
-   . ~/max/examples/graph-api/llama2/setup.sh
+   bash setup.sh
    ```
 
    This script can be run from any directory and will download models to
@@ -19,6 +19,12 @@ This is a minimal text completion demo compatible with the the official Llama 2
 2. Run the text completion demo:
 
    ```shell
+   bash run.sh
+   ```
+   or
+
+   ```shell
+   source setup.sh && \
    mojo \
        -D LLAMA_MODEL_PATH="$MODELS/stories110M.bin" \
        -D TOKENIZER_PATH="$MODELS/tokenizer.bin" \
@@ -26,8 +32,3 @@ This is a minimal text completion demo compatible with the the official Llama 2
        "$SCRIPT_DIR/run.🔥"
    ```
 
-   or
-
-   ```shell
-   ~/max/examples/graph-api/llama2/quickrun.sh "$MODELS/stories110M.bin"
-   ```

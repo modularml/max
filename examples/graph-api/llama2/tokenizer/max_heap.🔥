@@ -11,11 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-#
-# This file is Modular Inc proprietary.
-#
-# ===----------------------------------------------------------------------=== #
 """A simple generic max-heap implementation."""
 
 from collections.vector import DynamicVector
