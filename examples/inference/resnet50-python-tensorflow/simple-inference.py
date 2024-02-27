@@ -13,6 +13,8 @@
 
 #!/usr/bin/env python3
 
+from max import engine
+
 import os
 
 # suppress extraneous logging
@@ -23,7 +25,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import numpy as np
 
 from argparse import ArgumentParser
-from max import engine
 from PIL import Image
 from transformers import AutoImageProcessor, TFAutoModelForImageClassification
 

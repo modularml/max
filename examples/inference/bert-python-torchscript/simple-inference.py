@@ -11,12 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from max import engine
+
 from argparse import ArgumentParser
 
 import torch
 from transformers import AutoTokenizer
-
-from max import engine
 
 # suppress extraneous logging
 import os
