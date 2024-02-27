@@ -13,6 +13,8 @@
 
 #!/usr/bin/env python3
 
+from max import engine
+
 import logging
 import os
 from argparse import ArgumentParser
@@ -27,9 +29,6 @@ import tensorflow as tf
 # logging messages, so we have to setLevel here again to suppress them.
 logger = tf.get_logger()
 logger.setLevel(logging.ERROR)
-
-from max import engine
-
 
 DEFAULT_MODEL_DIR = "stable-diffusion"
 DESCRIPTION = "Download a Stable Diffusion model."
