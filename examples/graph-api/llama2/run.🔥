@@ -11,12 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-#
-# This file is Modular Inc proprietary.
-#
-# ===----------------------------------------------------------------------=== #
-
 from sys.param_env import env_get_string
 from tensor import Tensor, TensorShape
 from collections.vector import DynamicVector

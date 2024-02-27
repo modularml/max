@@ -11,12 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-#
-# This file is Modular Inc proprietary.
-#
-# ===----------------------------------------------------------------------=== #
-
 """Mojo port of the sentencepiece BPE tokenizer.
 
 For more infomation, see https://github.com/google/sentencepiece.

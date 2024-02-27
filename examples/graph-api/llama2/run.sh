@@ -12,13 +12,9 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-##===----------------------------------------------------------------------===##
-#
-# This file is Modular Inc proprietary.
-#
-##===----------------------------------------------------------------------===##
+set -e
 
-# Usage: ./quickrun.sh [model_file]
+# Usage: ./run.sh [model_file]
 
 SCRIPT_PATH="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"

@@ -11,12 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-#
-# This file is Modular Inc proprietary.
-#
-# ===----------------------------------------------------------------------=== #
-
 from math import max
 from tensor import Tensor, TensorShape
 from pathlib import Path
