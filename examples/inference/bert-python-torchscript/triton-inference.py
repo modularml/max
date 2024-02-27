@@ -30,6 +30,7 @@ DEFAULT_MODEL_NAME = "bert"
 DESCRIPTION = "BERT model"
 HF_MODEL_NAME = "bert-base-uncased"
 
+
 def execute(triton_client, model_name, inputs):
     # Set the input data
     triton_inputs = [
@@ -99,7 +100,7 @@ def main():
 
     # Classify input statement
     outputs = execute(triton_client, args.model_name, inputs)
-    
+
     # Extract class prediction from output
     predicted_class_id = outputs.argmax(axis=-1)[0]
     sentiment_labels = {0: "Negative", 1: "Positive"}

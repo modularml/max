@@ -167,21 +167,23 @@ class SimpleTokenizer(object):
         return [49406] + bpe_tokens + [49407]
 
     def tokenize(self, prompt, N) -> np.ndarray:
-        '''
+        """
         Tokenize & pad the given prompt.
         Returns: (token_ids, position_ids)
         Raises: ValueError if given prompt exceeds encoder range.
-        '''
+        """
         # Tokenize prompt
         tokens = self.encode(prompt)
 
         # Pad prompt if shorter than N
         if len(tokens) < N:
-            tokens += [49407] * (N-len(tokens))
+            tokens += [49407] * (N - len(tokens))
 
         # Throw an error if the prompt is too long.
         if len(tokens) > N:
-            raise ValueError(f'Prompt (len={len(tokens)} cannot exceed {N} tokens.')
+            raise ValueError(
+                f"Prompt (len={len(tokens)} cannot exceed {N} tokens."
+            )
 
         # Return token & position IDs
         return np.array(tokens)
