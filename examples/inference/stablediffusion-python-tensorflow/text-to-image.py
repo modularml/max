@@ -25,9 +25,9 @@ import keras_cv
 import numpy as np
 
 from argparse import ArgumentParser
+from constants import _ALPHAS_CUMPROD as ALPHAS
 from math import log, sqrt
 from PIL import Image
-
 
 DEFAULT_MODEL_DIR = "stable-diffusion"
 DESCRIPTION = "Generate an image based on the given prompt."
