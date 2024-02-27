@@ -149,4 +149,4 @@ cython_debug/
 .vscode
 
 # Downloaded example models
-.models/
+models/
