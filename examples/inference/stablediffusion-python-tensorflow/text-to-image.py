@@ -14,7 +14,6 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -29,12 +28,6 @@ from argparse import ArgumentParser
 from math import log, sqrt
 from PIL import Image
 
-
-# This is required for import the common module from an ancestor directory.
-sys.path.append("..")
-from common.stable_diffusion_tensorflow.constants import (
-    _ALPHAS_CUMPROD as ALPHAS,
-)
 
 DEFAULT_MODEL_DIR = "stable-diffusion"
 DESCRIPTION = "Generate an image based on the given prompt."

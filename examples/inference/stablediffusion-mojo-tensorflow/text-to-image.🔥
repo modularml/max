@@ -187,8 +187,7 @@ fn main() raises -> None:
     let np = Python.import_module('numpy')
     let Image = Python.import_module('PIL.Image')
     let Tokenizer = Python.import_module('tokenizer')
-    Python.add_to_path('..')
-    let ALPHAS = Python.import_module('common.stable_diffusion_tensorflow.constants')._ALPHAS_CUMPROD
+    let ALPHAS = Python.import_module('constants')._ALPHAS_CUMPROD
 
     ## Compile & load models
     print('Loading models into MAX AI Engine...')
