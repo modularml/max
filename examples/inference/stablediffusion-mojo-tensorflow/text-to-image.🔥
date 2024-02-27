@@ -24,9 +24,7 @@ from memory import memcpy
 from python import Python
 from tensor import Tensor, TensorShape, TensorSpec
 
-from max.engine import InferenceSession
-from max.engine import SessionOptions
-from max.engine import Model
+from max.engine import InferenceSession, Model, SessionOptions
 
 ## Local Mojo imports
 import python_utils

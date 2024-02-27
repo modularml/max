@@ -18,8 +18,8 @@ import os
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-from max.engine import InferenceSession
-from max.engine import Model
+from max.engine import InferenceSession, Model
+
 
 import keras_cv
 import numpy as np

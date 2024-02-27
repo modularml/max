@@ -12,7 +12,7 @@ PPROMPT="Cute puppy chewing on a stick"
 cd "$(dirname "$0")"
 
 # Download model
-python3 download-model.py -o "$MODEL_DIR"
+python3 ../common/stable-diffusion-tensorflow/download-model.py -o "$MODEL_DIR"
 
 # Execute model
 python3 text-to-image.py --seed=7 --num-steps=20 --prompt "$PPROMPT" --negative "$NPROMPT" --model-dir "$MODEL_DIR"
