@@ -29,7 +29,7 @@ from PIL import Image
 from transformers import AutoImageProcessor, TFAutoModelForImageClassification
 
 
-DEFAULT_MODEL_DIR = "resnet-50"
+DEFAULT_MODEL_DIR = "../../models/resnet50-tensorflow"
 DESCRIPTION = "Classify an input image."
 HF_MODEL_NAME = "microsoft/resnet-50"
 
