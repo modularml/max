@@ -160,7 +160,7 @@ def shell(commands, stdout=subprocess.PIPE, print_progress=False, env={}):
     while task is not None:
         if task.poll() is not None:
             try:
-                task = subprocess.Popen(next(tasks), stdout=stdout)
+                task = subprocess.Popen(next(tasks), stdout=stdout, stderr=subprocess.STDOUT, env=my_env)
                 tasks_completed += 1
             except:
                 task = None
