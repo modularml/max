@@ -36,7 +36,7 @@ python3 examples/console.py
 which opens up
 
 <p align="center">
-    <img src="./assets/console.png" width="600" height="500">
+    <img src="./assets/console.png" width="500" height="450">
 </p>
 
 
@@ -48,7 +48,12 @@ Follow the instructions in the README for each example, notebook or tool you wan
 
 Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
 
-A: Please make sure you run `python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine`
+A: Please make sure you run
+
+```sh
+python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
+```
+
 in your local python environment. Note that `max` can also be available in your `PATH`
 
 
