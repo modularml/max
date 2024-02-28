@@ -11,8 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-set -e
-
 # Usage: source setup.sh
 
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE:-0}")"
