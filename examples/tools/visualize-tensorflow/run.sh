@@ -13,4 +13,6 @@ fi
 
 # Now for the easy part -- visualization ;)
 max visualize ../common/resnet50-tensorflow/resnet50-savedmodel
-python3 -m webbrowser https://netron.app || true
+if [ "$CI" != true ]; then
+	python3 -m webbrowser https://netron.app || true
+fi

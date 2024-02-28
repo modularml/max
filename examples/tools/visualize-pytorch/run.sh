@@ -13,4 +13,6 @@ fi
 
 # Now for the easy part -- visualization ;)
 max visualize --input-data-schema=../common/resnet50-pytorch/input-spec.yaml ../common/resnet50-pytorch/resnet50.torchscript
-python3 -m webbrowser https://netron.app || true
+if [ "$CI" != true ]; then
+	python3 -m webbrowser https://netron.app || true
+fi
