@@ -1,15 +1,15 @@
-# MAX code examples
+# Welcome to MAX
 
-This is a collection of sample programs, notebooks, and tools which highlight the power of the [MAX platform](https://www.modular.com/max).  This includes:
+The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform is an integrated suite of AI libraries, tools, and technologies that unifies commonly fragmented AI deployment workflows. MAX accelerates time to market for the latest innovations by giving AI developers a single toolchain that unlocks full programmability, unparalleled performance, and seamless hardware portability.
 
-1. **inference:**
-    These examples download a pre-trained model and showcase how to run it with the MAX inference engine. For certain models, deploying to Triton is also available.
+[See here to get started with MAX](https://docs.beta.modular.com/engine/get-started) and when you want to report issues or request features,
+[please create a GitHub issue here](https://github.com/modularml/max/issues/new/choose).
 
-2. **notebooks:**
-    Includes Jupyter notebooks for an interactive learning experience.
+The [Discord](https://discord.gg/modular) community is the best place to share your experiences and chat with the team and other community members.
 
-3. **tools:**
-    This demonstrates benchmarking and visualization tooling that's available to use with MAX.
+In the [examples directory](https://github.com/modularml/max/tree/main/examples), you will find code examples for model inference, Jupyter notebooks for an interactive experience learning experience and instructions for how to work with benchmarking and visualization tooling.
+
+
 
 ## Getting Started
 
@@ -23,9 +23,9 @@ git clone https://github.com/modularml/max.git
 
 ## Running
 
-### Option 1: Example console
+### Option 1: Example console (excludes notebooks)
 
-Run the console and follow the prompt to choose which example to run (excludes notebooks)
+Run the console and follow the prompt to choose which example to run.
 
 ```sh
 python3 -m venv venv && source venv/bin/activate
@@ -40,7 +40,7 @@ which opens up
 </p>
 
 
-### Option 2: Individual example
+### Option 2: Follow the README
 
 Follow the instructions in the README for each example, notebook or tool you want to run.
 
