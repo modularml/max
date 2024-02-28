@@ -18,14 +18,14 @@ Either of these scripts start by downloading a ResNet50 model (a
 model typically used for image classification) and converting it into the
 proper format -- for TensorFlow, this is a [SavedModel], and for PyTorch, this
 is [TorchScript].  This model will be stored in
-`common/resnet50-tensorflow/resnet50-savedmodel` or
-`common/resnet50-pytorch/resnet50.torchscript`.  Then, we run `max benchmark`
+`../models/resnet50-tensorflow` or
+`../models/resnet50.torchscript`.  Then, we run `max benchmark`
 or `max visualize` on this model.  TensorFlow needs no extra options:
 
 ```sh
-% max benchmark common/resnet50-tensorflow/resnet50-savedmodel
+% max benchmark ../models/resnet50-tensorflow
 % # Benchmarking results will be printed by above command
-% max visualize common/resnet50-tensorflow/resnet50-savedmodel
+% max visualize ../models/resnet50-tensorflow
 % # Above command will generate a file that can be opened by netron.app
 ```
 
@@ -44,9 +44,9 @@ inputs:
 Benchmarking and visualization works similarly, just with an extra option:
 
 ```sh
-% max benchmark --input-data-schema=common/resnet50-pytorch/input-spec.yaml common/resnet50-pytorch/resnet50.torchscript
+% max benchmark --input-data-schema=common/resnet50-pytorch/input-spec.yaml ../models/resnet50.torchscript
 % # Benchmarking results will be printed by above command
-% max visualize --input-data-schema=common/resnet50-pytorch/input-spec.yaml common/resnet50-pytorch/resnet50.torchscript
+% max visualize --input-data-schema=common/resnet50-pytorch/input-spec.yaml ../models/resnet50.torchscript
 % # Above command will generate a file that can be opened by netron.app
 ```
 
