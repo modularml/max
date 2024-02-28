@@ -19,7 +19,7 @@ import tensorflow as tf
 from transformers import TFBertForMaskedLM
 
 HF_MODEL_NAME = "bert-base-uncased"
-DEFAULT_MODEL_DIR = "bert-tf-model"
+DEFAULT_MODEL_DIR = "../../models/bert-tensorflow"
 
 
 def main():
