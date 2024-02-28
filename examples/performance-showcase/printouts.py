@@ -4,12 +4,16 @@ import random
 exclamation_msgs = ["ZAP!", "SHAZAM!", "KAPOW!", "BANG!", "WHAM!"]
 framework_labels = dict(tf="TensorFlow", pt="PyTorch", onnx="ONNX")
 
+# TODO: pull these from performance dashboard
 expected_speedups = {
     "X86_64": dict(
         roberta=dict(tf=3.0, pt=1.5),
         clip=dict(tf=2.0, pt=1.5),
     ),
-    "ARM": dict()
+    "ARM_8": dict(
+        roberta=dict(tf=2.0, pt=3.5),
+        clip=dict(tf=2.5, pt=2.5),
+    )
 }
 
 def _get_arch():
