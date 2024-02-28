@@ -16,12 +16,12 @@
 set -ex
 
 CURRENT_DIR=$(dirname "$0")
-MODEL_PATH="$CURRENT_DIR/bert.torchscript"
+MODEL_PATH="$CURRENT_DIR/../../models/bert.torchscript"
 
-# Example input for the model
-INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"
+# Make sure we're running from inside the directory containing this file.
+cd "$(dirname "$0")"
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" -o "$MODEL_PATH"
+python3 download-model.py -o "$MODEL_PATH"
 
 python3 "$CURRENT_DIR/simple-inference.py" --text "$INPUT_EXAMPLE" --model-path "$MODEL_PATH"
