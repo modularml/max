@@ -7,10 +7,10 @@ set -e
 cd "$(dirname "$0")"
 
 # If RoBERTa hasn't been downloaded yet, download it.
-if ! [ -d ../common/roberta-tensorflow/roberta-savedmodel ]; then
-	../common/roberta-tensorflow/download-model.sh -o ../common/roberta-tensorflow/roberta-savedmodel
+if ! [ -d ../../models/roberta-tensorflow ]; then
+	../common/roberta-tensorflow/download-model.sh -o ../../models/roberta-tensorflow
 fi
 
 # Now for the easy part -- benchmarking ;)
 # Even though this is a TensorFlow model, we need --input-data-schema in order to override how the inputs are generated, since the inputs must have a fixed range and the model has dynamic input shapes.
-max benchmark  --input-data-schema=../common/roberta-tensorflow/input-spec.yaml ../common/roberta-tensorflow/roberta-savedmodel
+max benchmark  --input-data-schema=../common/roberta-tensorflow/input-spec.yaml ../../models/roberta-tensorflow
