@@ -25,7 +25,7 @@ from pathlib import Path
 from transformers import TFRobertaForSequenceClassification
 
 
-DEFAULT_MODEL_DIR = "roberta"
+DEFAULT_MODEL_DIR = "../../models/roberta-tensorflow"
 DESCRIPTION = "Download a RoBERTa model."
 HF_MODEL_NAME = "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
 

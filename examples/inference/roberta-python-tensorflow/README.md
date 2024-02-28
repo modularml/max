@@ -21,7 +21,8 @@ bash deploy.sh
 - `download-model.py`
     Downloads the model from HuggingFace, converts it to a TensorFlow
     [SavedModel](https://www.tensorflow.org/guide/saved_model),
-    and saves it to an output directory of your choosing, or defaults to `roberta/`.
+    and saves it to an output directory of your choosing, or defaults to
+    `../../models/roberta-tensorflow/`.
 
     For more information about the model, please refer to the
     [model card](https://huggingface.co/microsoft/RoBERTa).
