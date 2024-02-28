@@ -31,7 +31,7 @@ echo "Starting container"
 CONTAINER_ID=$(\
   docker run --rm -d --net=host \
     -v $(pwd)/model-repository:/model-repository \
-    public.ecr.aws/o4d0h4e7/max-serving-de \
+    public.ecr.aws/modular/max-serving-de \
     tritonserver --model-repository=/model-repository \
     --load-model=${MODEL_DIR} \
 )
