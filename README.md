@@ -57,12 +57,6 @@ python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engi
 in your local python environment. Note that `max` can also be available in your `PATH`
 
 
-## License
-
-The Mojo examples and notebooks in this repository are licensed
-under the Apache License v2.0 with LLVM Exceptions
-(see the LLVM [License](https://llvm.org/LICENSE.txt)).
-
 ## Contributing
 
 Thanks for your interest in contributing to this repository!
@@ -71,3 +65,14 @@ We are not accepting pull requests at this time.
 However, we welcome your bug reports.  If you have a bug, please file an issue [here](https://github.com/modularml/max/issues/new/choose).
 
 If you need support, the [Discord](https://discord.gg/modular) community is the best place to share your experiences and chat with the team and other community members.
+
+## License
+
+The Mojo examples and notebooks in this repository are licensed
+under the Apache License v2.0 with LLVM Exceptions
+(see the LLVM [License](https://llvm.org/LICENSE.txt)).
+
+#### Third Party Licenses
+You are entirely responsible for checking and validating the licenses of third parties (i.e. Huggingface) for related software and libraries that are downloaded.
+
+
