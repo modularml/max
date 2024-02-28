@@ -68,3 +68,6 @@ under the Apache License v2.0 with LLVM Exceptions
 Thanks for your interest in contributing to this repository!
 We are not accepting pull requests at this time.
 
+However, we welcome your bug reports.  If you have a bug, please file an issue [here](https://github.com/modularml/max/issues/new/choose).
+
+If you need support, the [Discord](https://discord.gg/modular) community is the best place to share your experiences and chat with the team and other community members.
