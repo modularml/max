@@ -11,6 +11,11 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
 """A simple arena linked-list implementation."""
 
 from collections import DynamicVector, Optional
@@ -35,8 +40,8 @@ struct Ball[T: CollectionElement]:
     ```mojo
     from tokenizer.ball import Ball
     var list = Ball[Int]()
-    let id1 = list.append(0)
-    let id2 = list.append(1)
+    var id1 = list.append(0)
+    var id2 = list.append(1)
     list[id2] == 1
     list.next(id1).value() == id2
     list.prev(id2).value() == id1
@@ -65,8 +70,8 @@ struct Ball[T: CollectionElement]:
 
     fn append(inout self, owned value: T) -> Self.ID:
         """Adds a new element to the back of the list."""
-        let id = len(self._arena)
-        let node = Node(value ^, self._tail, None)
+        var id = len(self._arena)
+        var node = Node(value ^, self._tail, None)
         if self._tail:
             var tail = self._ref(self._tail.value())[]
             tail.next = id
@@ -106,13 +111,13 @@ struct Ball[T: CollectionElement]:
     ](
         self: Reference[Self, mutability, lifetime].mlir_ref_type, id: Self.ID
     ) -> Reference[Node[T], mutability, lifetime]:
-        let node_ref = Reference(self)[]._arena.__get_ref(id)
+        var node_ref = Reference(self)[]._arena.__get_ref(id)
         return Reference(
             __mlir_op.`lit.ref.from_pointer`[
                 _type = Reference[Node[T], mutability, lifetime].mlir_ref_type
             ](
                 AnyPointer[Node[T]]
-                .__from_index(node_ref.get_unsafe_pointer().__as_index())
+                .__from_index(int(node_ref.get_unsafe_pointer()))
                 .value
             )
         )
@@ -124,13 +129,13 @@ struct Ball[T: CollectionElement]:
         self: Reference[Self, mutability, lifetime].mlir_ref_type, id: Self.ID
     ) -> Reference[T, mutability, lifetime]:
         """Gets a reference to a value in the list."""
-        let node_ref = Reference(self)[]._arena.__get_ref(id)
+        var node_ref = Reference(self)[]._arena.__get_ref(id)
         return Reference(
             __mlir_op.`lit.ref.from_pointer`[
                 _type = Reference[T, mutability, lifetime].mlir_ref_type
             ](
                 AnyPointer[T]
-                .__from_index(node_ref.get_unsafe_pointer().__as_index())
+                .__from_index(int(node_ref.get_unsafe_pointer()))
                 .value
             )
         )

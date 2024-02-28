@@ -11,6 +11,11 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
 """A simple generic max-heap implementation."""
 
 from collections.vector import DynamicVector
@@ -39,7 +44,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
     pq = MaxHeap[...]()
     pq.push(initial)
     while pq:
-        let top = pq.pop()
+        var top = pq.pop()
         if something: pq.push(another)
     ```
     """
@@ -70,13 +75,13 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         debug_assert(self, "heap is empty")
         self._sink_down(self.begin_idx)
 
-        let top = self.heap[self.begin_idx]
+        var top = self.heap[self.begin_idx]
         self.begin_idx += 1
         return top
 
     fn _swap(inout self, i1: Int, i2: Int):
         # TODO: Swap syntax doesn't support non-register-passable types
-        let tmp = self.heap[i1]
+        var tmp = self.heap[i1]
         self.heap[i1] = self.heap[i2]
         self.heap[i2] = tmp
 
@@ -84,16 +89,16 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         if idx == self.begin_idx:
             return
 
-        let parent_idx = self._parent_idx(idx)
-        let parent = self.heap[parent_idx]
-        let current = self.heap[idx]
+        var parent_idx = self._parent_idx(idx)
+        var parent = self.heap[parent_idx]
+        var current = self.heap[idx]
         if parent < current:
             self._swap(parent_idx, idx)
             self._bubble_up(parent_idx)
 
     fn _sink_down(inout self, idx: Int):
-        let li = self._left_child_idx(idx)
-        let ri = self._right_child_idx(idx)
+        var li = self._left_child_idx(idx)
+        var ri = self._right_child_idx(idx)
 
         var target_idx = idx  # smaller of the two children, if we should sink down
         if li < len(self.heap) - 1 and self.heap[target_idx] < self.heap[li]:

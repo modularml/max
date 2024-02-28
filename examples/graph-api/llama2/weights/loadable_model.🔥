@@ -11,6 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+
 """A module containing generic weight loading traits and types."""
 from pathlib import Path
 from tensor import Tensor
@@ -34,7 +40,7 @@ struct LlamaHParams:
     var vocab_size: Int
     """Number of tokens in vocabulary."""
 
-    var norm_eps: Float32
+    var norm_eps: FloatLiteral
     """Epsilon used in normalization layers."""
 
     var n_kv_heads: Int

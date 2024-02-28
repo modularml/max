@@ -11,6 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+# ===----------------------------------------------------------------------=== #
+#
+# This file is Modular Inc proprietary.
+#
+# ===----------------------------------------------------------------------=== #
+
 """Interface to GGUF following the logic in ggml.c, in particular
 `gguf_init_from_file()`:
 https://github.com/ggerganov/llama.cpp/blob/8da46278e1a57107591653275f8e03a281de94f0/ggml.c#L18016
@@ -811,10 +817,10 @@ struct GGUFTensorInfo:
 
     @always_inline
     fn num_bytes(self) raises -> Int:
-        let ne = self.ne
-        let num_elements = ne[0] * ne[1] * ne[2] * ne[3]
+        var ne = self.ne
+        var num_elements = ne[0] * ne[1] * ne[2] * ne[3]
 
-        let type_trait = self.type.type_trait()
+        var type_trait = self.type.type_trait()
         return (
             num_elements * type_trait.type_size // type_trait.blck_size
         ).to_int()
@@ -825,7 +831,7 @@ struct GGUFTensorInfo:
         Returns:
             A `DynamicVector` of dims compatible with stdlib `TensorShape`.
         """
-        let n_dims = int(self.n_dims)
+        var n_dims = int(self.n_dims)
         var dims = DynamicVector[Int](capacity=n_dims)
         for i in range(n_dims):
             # Opposite to `TensorSpec`, GGUF stores the inner dimension at
@@ -841,7 +847,7 @@ struct GGUFTensorInfo:
         Returns:
             A `TensorShape` describing this GGUF tensor's torage.
         """
-        let dims = self.tensor_dims()
+        var dims = self.tensor_dims()
         if self.type.type_trait().is_quantized:
             if len(dims) != 2:
                 raise (
@@ -874,7 +880,7 @@ struct GGUFReader:
 
     @always_inline
     fn align_to(inout self, alignment: Int) raises -> None:
-        let overshoot = self.offset % alignment
+        var overshoot = self.offset % alignment
         if overshoot == 0:
             return
 
@@ -892,17 +898,17 @@ struct GGUFReader:
 
     @always_inline
     fn dtype_element[type: DType](inout self) raises -> Scalar[type]:
-        let bytes_tensor: Tensor[DType.int8] = self.read_bytes(
+        var bytes_tensor: Tensor[DType.int8] = self.read_bytes(
             sizeof[Scalar[type]]()
         )
-        let result = bytes_tensor.data().bitcast[type]().load()
+        var result = bytes_tensor.data().bitcast[type]().load()
         _ = bytes_tensor ^
 
         return result
 
     @always_inline
     fn gguf_string(inout self) raises -> GGUFString:
-        let n = self.dtype_element[DType.uint64]().to_int()
+        var n = self.dtype_element[DType.uint64]().to_int()
         var key_data: Tensor[DType.int8] = self.read_bytes(n)
         return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
 
@@ -910,33 +916,33 @@ struct GGUFReader:
         @always_inline
         @parameter
         fn _gguf_value[type: DType]() raises -> GGUFValue:
-            let bytes_tensor: Tensor[DType.int8] = self.read_bytes(
+            var bytes_tensor: Tensor[DType.int8] = self.read_bytes(
                 sizeof[Scalar[type]]()
             )
-            let result = bytes_tensor.data().bitcast[type]().load()
+            var result = bytes_tensor.data().bitcast[type]().load()
             _ = bytes_tensor ^
 
             return GGUFValue.from_dtype[type](result)
 
-        let key = self.gguf_string()
+        var key = self.gguf_string()
         if (
             StringRef(key.data.bitcast[DType.int8](), key.n.to_int())
             == "general.alignment"
         ):
             raise "don't support specifying alignment"
 
-        let kv_type = GGUFType(self.dtype_element[DType.int32]())
+        var kv_type = GGUFType(self.dtype_element[DType.int32]())
         if kv_type.is_string():
             return GGUFKV(key, GGUFValue(self.gguf_string()))
 
         if kv_type.is_array():
-            let array_type = GGUFType(self.dtype_element[DType.int32]())
+            var array_type = GGUFType(self.dtype_element[DType.int32]())
             if array_type.is_array():
                 raise "don't support array of arrays"
 
-            let array_n = self.dtype_element[DType.uint64]().to_int()
+            var array_n = self.dtype_element[DType.uint64]().to_int()
             if array_type.is_string():
-                let ptr = Pointer[GGUFString].alloc(array_n)
+                var ptr = Pointer[GGUFString].alloc(array_n)
                 for i in range(array_n):
                     ptr[i] = self.gguf_string()
 
@@ -952,8 +958,8 @@ struct GGUFReader:
         return GGUFKV(key, kv_type.dispatch[_gguf_value]())
 
     fn gguf_tensor_info(inout self) raises -> GGUFTensorInfo:
-        let name = self.gguf_string()
-        let n_dims = self.dtype_element[DType.uint32]()
+        var name = self.gguf_string()
+        var n_dims = self.dtype_element[DType.uint32]()
 
         var ne = StaticTuple[GGUFTensorInfo.GGML_MAX_DIMS, UInt64]()
         for i in range(GGUFTensorInfo.GGML_MAX_DIMS):
@@ -962,8 +968,8 @@ struct GGUFReader:
         for i in range(n_dims.to_int()):
             ne[i] = self.dtype_element[DType.uint64]()
 
-        let type = GGMLType(self.dtype_element[DType.int32]())
-        let offset = self.dtype_element[DType.uint64]()
+        var type = GGMLType(self.dtype_element[DType.int32]())
+        var offset = self.dtype_element[DType.uint64]()
 
         return GGUFTensorInfo(
             name,
@@ -1010,19 +1016,19 @@ struct GGUFFile(LoadableModel):
         var reader = GGUFReader(open(model_path, "r"))
 
         # Read the header.
-        let magic: Tensor[DType.int8] = reader.read_bytes(
+        var magic: Tensor[DType.int8] = reader.read_bytes(
             sizeof[StaticTuple[4, Int8]]()
         )
         for i in range(magic.num_elements()):
             if magic[i] != GGUFFile.GGUF_MAGIC.data().load(i):
                 raise "invalid magic character"
 
-        let version = reader.dtype_element[DType.uint32]()
+        var version = reader.dtype_element[DType.uint32]()
         if version == 1:
             raise "GGUFv1 is not supported"
 
-        let n_tensors = reader.dtype_element[DType.uint64]().to_int()
-        let n_kv = reader.dtype_element[DType.uint64]().to_int()
+        var n_tensors = reader.dtype_element[DType.uint64]().to_int()
+        var n_kv = reader.dtype_element[DType.uint64]().to_int()
 
         self.header = GGUFHeader(
             StaticTuple[4, Int8](magic[0], magic[1], magic[2], magic[3]),
@@ -1050,7 +1056,7 @@ struct GGUFFile(LoadableModel):
         # Compute total size of the data section accounting for alignment.
         self.size = 0
         for i in range(n_tensors):
-            let size_cur = self.infos[i].num_bytes()
+            var size_cur = self.infos[i].num_bytes()
 
             @always_inline
             fn pad(x: Int, n: Int) -> Int:
@@ -1063,7 +1069,7 @@ struct GGUFFile(LoadableModel):
     fn __moveinit__(inout self, owned other: GGUFFile):
         @always_inline
         fn exchange[T: AnyRegType](inout old_var: T, owned new_value: T) -> T:
-            let old_value = old_var
+            var old_value = old_var
             old_var = new_value
             return old_value
 
@@ -1097,7 +1103,7 @@ struct GGUFFile(LoadableModel):
             full_key = "blk." + String(layer_idx.value()) + "." + full_key
 
         for i in range(self.n_tensors()):
-            let info = self.infos[i]
+            var info = self.infos[i]
             if info.name.str() != full_key:
                 continue
 
