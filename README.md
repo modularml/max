@@ -60,7 +60,7 @@ in your local python environment. Note that `max` can also be available in your 
 ## Contributing
 
 Thanks for your interest in contributing to this repository!
-We are not accepting pull requests at this time.
+We are not accepting pull requests yet.
 
 However, we welcome your bug reports.  If you have a bug, please file an issue [here](https://github.com/modularml/max/issues/new/choose).
 
