@@ -3,7 +3,7 @@
 # If anything goes wrong, stop running the script.
 set -e
 
-MODEL_DIR="resnet-50"
+MODEL_DIR="../../models/resnet50-tensorflow/"
 INPUT_EXAMPLE="input/leatherback_turtle.jpg"
 
 # Make sure we're running from inside the directory containing this file.

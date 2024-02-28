@@ -24,7 +24,7 @@ import tensorflow as tf
 from pathlib import Path
 from transformers import TFAutoModelForImageClassification
 
-DEFAULT_MODEL_DIR = "resnet-50"
+DEFAULT_MODEL_DIR = "../../models/resnet50-tensorflow"
 DESCRIPTION = "Download a ResNet-50 model."
 HF_MODEL_NAME = "microsoft/resnet-50"
 
