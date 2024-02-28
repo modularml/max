@@ -27,7 +27,7 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 HF_MODEL_NAME = "bert-base-uncased"
-DEFAULT_MODEL_PATH = "bert.torchscript"
+DEFAULT_MODEL_PATH = "../../models/bert.torchscript"
 
 
 def main():

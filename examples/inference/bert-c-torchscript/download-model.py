@@ -21,7 +21,7 @@ import torch
 from transformers import BertForSequenceClassification, BertTokenizer, logging
 
 HF_MODEL_NAME = "bert-base-uncased"
-DEFAULT_MODEL_PATH = "bert.torchscript"
+DEFAULT_MODEL_PATH = "../../models/bert.torchscript"
 
 
 def main():

@@ -3,7 +3,7 @@
 set -ex
 
 CURRENT_DIR=$(dirname "$0")
-MODEL_PATH="bert.torchscript"
+MODEL_PATH="../../models/bert.torchscript"
 
 # Example input for the model
 INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"

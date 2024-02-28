@@ -4,7 +4,7 @@
 set -e
 
 CURRENT_DIR=$(dirname "$0")
-MODEL_PATH="bert.torchscript"
+MODEL_PATH="../../models/bert.torchscript"
 MODEL_DIR="bert"
 
 # Example input for the model
