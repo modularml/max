@@ -31,7 +31,7 @@ logger = tf.get_logger()
 logger.setLevel(logging.ERROR)
 
 
-DEFAULT_MODEL_DIR = "stable-diffusion"
+DEFAULT_MODEL_DIR = "../../../models/stable-diffusion-tensorflow"
 DESCRIPTION = "Download a Stable Diffusion model."
 
 

@@ -3,7 +3,7 @@
 # If anything goes wrong, stop running the script.
 set -e
 
-MODEL_DIR="stable-diffusion"
+MODEL_DIR="../../models/stable-diffusion-tensorflow"
 NPROMPT="bad anatomy, looking away, looking sideways, crooked stick"
 NPROMPT="$NPROMPT, stick not going through jaw, orange tongue"
 PPROMPT="Cute puppy chewing on a stick"

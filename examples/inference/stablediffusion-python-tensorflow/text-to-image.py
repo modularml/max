@@ -29,7 +29,7 @@ from constants import _ALPHAS_CUMPROD as ALPHAS
 from math import log, sqrt
 from PIL import Image
 
-DEFAULT_MODEL_DIR = "stable-diffusion"
+DEFAULT_MODEL_DIR = "../../models/stable-diffusion-tensorflow"
 DESCRIPTION = "Generate an image based on the given prompt."
 GUIDANCE_SCALE_FACTOR = 7.5
 

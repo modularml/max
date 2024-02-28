@@ -155,7 +155,7 @@ fn main() raises -> None:
     var negative_prompt: String = ''
     var num_steps: Int = 25
     var seed: Int = 0
-    var model_dir: String = 'stable-diffusion'
+    var model_dir: String = '../../models/stable-diffusion-tensorflow'
     var output: String = 'output.png'
 
     for i in range(1,len(argv),2):
