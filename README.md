@@ -1,5 +1,3 @@
-.. image:: https://modular-assets.s3.amazonaws.com/images/modular_twilight_word_mark.jpg
-
 # Welcome to MAX
 
 The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform is an integrated suite of AI libraries, tools, and technologies that unifies commonly fragmented AI deployment workflows. MAX accelerates time to market for the latest innovations by giving AI developers a single toolchain that unlocks full programmability, unparalleled performance, and seamless hardware portability.
