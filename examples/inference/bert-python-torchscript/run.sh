@@ -2,8 +2,10 @@
 
 set -ex
 
-CURRENT_DIR=$(dirname "$0")
-MODEL_PATH="$CURRENT_DIR/../../models/bert.torchscript"
+# Example input for the model
+INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"
+
+MODEL_PATH="../../models/bert.torchscript"
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
