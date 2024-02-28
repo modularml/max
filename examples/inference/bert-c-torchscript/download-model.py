@@ -21,7 +21,7 @@ import torch
 from transformers import BertForSequenceClassification, BertTokenizer, logging
 
 HF_MODEL_NAME = "bert-base-uncased"
-DEFAULT_MODEL_FILE = "bert-base-uncased.torchscript"
+DEFAULT_MODEL_PATH = "bert.torchscript"
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
         "-o",
         type=str,
         help="Location to save the model",
-        default=DEFAULT_MODEL_FILE,
+        default=DEFAULT_MODEL_PATH,
     )
     parser.add_argument(
         "--text",
