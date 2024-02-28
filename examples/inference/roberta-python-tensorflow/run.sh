@@ -4,7 +4,7 @@
 set -e
 
 INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"
-MODEL_DIR="roberta"
+MODEL_DIR="../../models/roberta-tensorflow"
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"

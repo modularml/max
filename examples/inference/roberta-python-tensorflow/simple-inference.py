@@ -25,7 +25,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from argparse import ArgumentParser
 from transformers import AutoTokenizer, TFRobertaForSequenceClassification
 
-DEFAULT_MODEL_DIR = "roberta"
+DEFAULT_MODEL_DIR = "../../models/roberta-tensorflow"
 DESCRIPTION = "Identify the sentiment of an input statement."
 HF_MODEL_NAME = "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
 

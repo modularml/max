@@ -7,10 +7,10 @@ set -e
 cd "$(dirname "$0")"
 
 # If RoBERTa hasn't been downloaded yet, download it.
-if ! [ -f ../common/roberta-pytorch/roberta.torchscript ]; then
-	../common/roberta-pytorch/download-model.sh -o ../common/roberta-pytorch/roberta.torchscript
+if ! [ -f ../../models/roberta.torchscript ]; then
+	../common/roberta-pytorch/download-model.sh -o ../../models/roberta.torchscript
 fi
 
 # Now for the easy part -- benchmarking ;)
 # PyTorch models require --input-data-schema to be specified.
-max benchmark --input-data-schema=../common/roberta-pytorch/input-spec.yaml ../common/roberta-pytorch/roberta.torchscript
+max benchmark --input-data-schema=../common/roberta-pytorch/input-spec.yaml ../../models/roberta.torchscript
