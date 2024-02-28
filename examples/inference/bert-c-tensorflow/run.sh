@@ -25,7 +25,7 @@ MAX_PKG_DIR="$(modular config max.path)"
 export MAX_PKG_DIR
 
 CURRENT_DIR=$(dirname "$0")
-MODEL_DIR="$CURRENT_DIR/bert-tf-model"
+MODEL_DIR="$CURRENT_DIR/../../models/bert-tensorflow"
 
 # Download model from HuggingFace
 python3 "$CURRENT_DIR/download-model.py" "--output-dir=$MODEL_DIR"

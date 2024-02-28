@@ -45,5 +45,5 @@ The executable is called `bert` and will be present in the build directory.
 - Make sure `bin` directory of `max` package is in `PATH`.
 
 ```sh
-./build/bert ./bert-tf-model
+./build/bert ../../models/bert-tensorflow
 ```
