@@ -26,4 +26,4 @@ cd "$(dirname "$0")"
 # Download model from HuggingFace
 python3 download-model.py -o "$MODEL_PATH"
 
-python3 "$CURRENT_DIR/simple-inference.py" --text "$INPUT_EXAMPLE" --model-path "$MODEL_PATH"
+python3 simple-inference.py" --text "$INPUT_EXAMPLE" --model-path "$MODEL_PATH"
