@@ -48,7 +48,7 @@ fn cache_init(model: Llama2, size: Int) -> Tensor[DType.float32]:
 fn cache_view(
     model: Llama2, size: Int, buff: Tensor[DType.float32]
 ) -> Tensor[DType.float32]:
-    let shape = buff.shape()
+    var shape = buff.shape()
     return Tensor(
         buff.data(), TensorShape(size, shape[1], shape[2], shape[3], shape[4])
     )
@@ -61,10 +61,10 @@ fn cache_update(
     owned current: Tensor[DType.float32],
     n: Int,
 ) raises:
-    let update = results.buffer[DType.float32](name)
-    let shape = buff.shape()
-    let stride = shape[1] * shape[2] * shape[3] * shape[4]
-    let pos = current.shape()[0]
+    var update = results.buffer[DType.float32](name)
+    var shape = buff.shape()
+    var stride = shape[1] * shape[2] * shape[3] * shape[4]
+    var pos = current.shape()[0]
     memcpy[DType.float32](buff.data() + pos * stride, update.data, n * stride)
     _ = current._steal_ptr()
 
@@ -76,36 +76,35 @@ fn execute(
     k_cache_buff: Tensor[DType.float32],
     v_cache_buff: Tensor[DType.float32],
 ) raises -> TensorMap:
-    let input_map = session.new_tensor_map()
+    var input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", k_cache_buff)
     input_map.borrow("input2", v_cache_buff)
-    let result_map = model.execute(input_map)
+    var result_map = model.execute(input_map)
     return result_map ^
 
 
 fn run[ModelT: LoadableModel]() raises:
     print("Initializing tokenizer...")
-    let tokenizer = BPETokenizer.from_file(TOKENIZER_PATH)
+    var tokenizer = BPETokenizer.from_file(TOKENIZER_PATH)
 
-    let initial_prompt = "<s> I believe the meaning of life is"
+    var initial_prompt = "<s> I believe the meaning of life is"
     var prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
     var model = Llama2[ModelT](MODEL_PATH)
-    var module = Module()
-    model.build_into(module, "llama_model")
-    let session = InferenceSession()
+    var module = model.build_graph("llama_model")
+    var session = InferenceSession()
 
     print("Compiling...")
-    let compiled_model = session.load_model(module)
+    var compiled_model = session.load_model(module)
 
     print("Executing...")
-    let max_tokens = 256
+    var max_tokens = 256
     print_no_newline(initial_prompt)
 
-    let k_cache_buff = cache_init(model, max_tokens)
-    let v_cache_buff = cache_init(model, max_tokens)
+    var k_cache_buff = cache_init(model, max_tokens)
+    var v_cache_buff = cache_init(model, max_tokens)
 
     var tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
     for i in range(prompt.size):
@@ -117,12 +116,12 @@ fn run[ModelT: LoadableModel]() raises:
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, max_tokens + 1):
-        let k_cache_view = cache_view(model, cache_size, k_cache_buff)
-        let v_cache_view = cache_view(model, cache_size, v_cache_buff)
-        let n_inputs = tokens.shape()[1]
+        var k_cache_view = cache_view(model, cache_size, k_cache_buff)
+        var v_cache_view = cache_view(model, cache_size, v_cache_buff)
+        var n_inputs = tokens.shape()[1]
         cache_size += n_inputs
 
-        let results = execute(
+        var results = execute(
             compiled_model,
             session,
             tokens=tokens,
