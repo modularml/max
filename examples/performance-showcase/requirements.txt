@@ -2,3 +2,4 @@ pillow
 tensorflow
 transformers
 py-cpuinfo
+torch
