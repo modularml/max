@@ -20,17 +20,18 @@ from typing import Optional, List, Tuple
 try:
     from rich.console import Console
     from rich.table import Table
+    from rich.prompt import Confirm
 
 except ImportError:
     print("rich not found. Installing rich...")
     subprocess.run(["python3", "-m", "pip", "install", "rich"])
     from rich.console import Console
     from rich.table import Table
+    from rich.prompt import Confirm
 
 ROOT = Path(os.path.dirname(__file__))
 RETRIES = 10
 EXCEEDED_RETRY_ERROR = "Exceeded the number of retries. Please re-run the console again and follow the prompt."
-RETRIES_ANOTHER = 5
 
 
 def list_repositories() -> List[Tuple[str, str]]:
@@ -162,19 +163,11 @@ def main():
         _, selected_repo = selected
         console.print(f"Running {selected_repo} ...")
         run_repository(selected_repo)
-        another = console.input(
-            "Would you like to run another example? (y/n): "
-        ).lower()
-        for _ in range(RETRIES_ANOTHER):
-            if another not in ("y", "n"):
-                another = console.input(
-                    "Would you like to run another example? (y/n): "
-                ).lower()
-
-            if another == "n":
-                exit_ = True
-                console.print("Thanks for trying the examples! Bye 👋", style="green")
-                break
+        another = Confirm.ask("Would you like to run another example?")
+        if not another:
+            exit_ = True
+            console.print("Thanks for trying the examples! Bye 👋", style="green")
+            break
         else:
             console.print(
                 "Here is the example table again \n", style="green"
