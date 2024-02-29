@@ -26,4 +26,4 @@ cd "$(dirname "$0")"
 python3 ../common/stable-diffusion-tensorflow/download-model.py -o "$MODEL_DIR"
 
 # Execute the model with example input
-python3 simple-inference.py --input "$INPUT_EXAMPLE" --model-dir "$MODEL_DIR"
+python3 simple-inference.🔥 --input "$INPUT_EXAMPLE" --model-dir "$MODEL_DIR"
