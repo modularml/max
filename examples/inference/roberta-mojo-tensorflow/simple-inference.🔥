@@ -32,10 +32,9 @@ def argmax_tensor(
     return output[0]
 
 
-fn run(model_name: String, model_dir: String) raises -> engine.TensorMap:
+fn run(model_name: String, model_dir: String, input: String) raises -> engine.TensorMap:
     var batch = 1
     var seqlen = 128
-    var INPUT = "There are many exciting developments in the field of AI Infrastructure!"
 
     var session = engine.InferenceSession()
     var model = session.load_model(model_dir)
@@ -43,7 +42,7 @@ fn run(model_name: String, model_dir: String) raises -> engine.TensorMap:
     var transformers = Python.import_module("transformers")
     var tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
     var inputs = tokenizer(
-        INPUT,
+        input,
         None,
         None,
         None,
@@ -116,7 +115,7 @@ fn main() raises:
         HF_MODEL_NAME
     )
 
-    var outputs = run(HF_MODEL_NAME, model_dir)
+    var outputs = run(HF_MODEL_NAME, model_dir, input)
     var logits = outputs.get[DType.float32]("logits")
     var predicted_class_id = argmax_tensor(logits)
     var classification = hf_model.config.id2label[predicted_class_id]
