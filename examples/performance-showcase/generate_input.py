@@ -14,17 +14,20 @@
 import common
 import pickle
 import sys
-from transformers import AutoTokenizer, TFRobertaForSequenceClassification, AutoProcessor
+import numpy as np
+from transformers import AutoProcessor
 from PIL import Image
 import requests
 
 
 model_name = sys.argv[1]
 if model_name == "roberta":
-    tokenizer = AutoTokenizer.from_pretrained("cardiffnlp/twitter-roberta-base-emotion-multilabel-latest")
-    inputs = tokenizer(
-        "I am a little teapot", return_tensors="np", return_token_type_ids=True
-    )
+    rng = np.random.default_rng()
+    inputs = {
+        "input_ids": rng.integers(low=0, high=50264, size=(1, 128), dtype=np.int64),
+        "token_type_ids": np.zeros((1, 128), dtype=np.int64),
+        "attention_mask": np.ones((1, 128), dtype=np.int64),
+    }
     with open(".cache/roberta.pkl", "wb") as f:
         pickle.dump(dict(**inputs), f)
 elif model_name == "clip":  
