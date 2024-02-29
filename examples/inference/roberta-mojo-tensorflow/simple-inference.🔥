@@ -32,7 +32,9 @@ def argmax_tensor(
     return output[0]
 
 
-fn run(model_name: String, model_dir: String, input: String) raises -> engine.TensorMap:
+fn run(
+    model_name: String, model_dir: String, input: String
+) raises -> engine.TensorMap:
     var batch = 1
     var seqlen = 128
 
@@ -80,10 +82,9 @@ fn run(model_name: String, model_dir: String, input: String) raises -> engine.Te
     return outputs ^
 
 
-# mojo simple-inference.🔥 --input "$INPUT_EXAMPLE" --model-dir "$MODEL_DIR"
 fn main() raises:
     ## Parse args
-    var USAGE = "Usage: simple-inference.🔥 --input <str> [-o <str>]"
+    var USAGE = "Usage: simple-inference.🔥 --input <str> --model-dir <str> [-o <str>]"
 
     var argv = sys.argv()
     if len(argv) % 2 == 0:
