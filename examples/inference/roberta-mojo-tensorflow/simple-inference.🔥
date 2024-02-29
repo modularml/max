@@ -37,7 +37,9 @@ fn run(model_name: String, model_dir: String, input: String) raises -> engine.Te
     var seqlen = 128
 
     var session = engine.InferenceSession()
+    print("Loading and compiling model...")
     var model = session.load_model(model_dir)
+    print("Model compiled.\n")
 
     var transformers = Python.import_module("transformers")
     var tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
@@ -65,6 +67,7 @@ fn run(model_name: String, model_dir: String, input: String) raises -> engine.Te
     var input_ids = inputs["input_ids"]
     var token_type_ids = inputs["token_type_ids"]
     var attention_mask = inputs["attention_mask"]
+    print("Executing model...")
     var outputs = model.execute(
         "input_ids",
         input_ids,
@@ -73,6 +76,7 @@ fn run(model_name: String, model_dir: String, input: String) raises -> engine.Te
         "attention_mask",
         attention_mask,
     )
+    print("Model executed.\n")
     return outputs ^
 
 
