@@ -1,0 +1,62 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+from max import engine
+from pathlib import Path
+from python import Python
+from tensor import *
+from algorithm import argmax
+
+
+def argmax_tensor(
+    borrowed input: Tensor[DType.float32],
+) -> Scalar[DType.float32]:
+    var output = Tensor[DType.float32](TensorShape(1, 1))
+
+    argmax(input._to_ndbuffer[2](), -1, output._to_ndbuffer[2]())
+
+    return output[0]
+
+fn run(model_name: String) raises -> engine.TensorMap:
+    var batch = 1
+    var seqlen = 128
+    var INPUT="There are many exciting developments in the field of AI Infrastructure!"
+
+    var model_path = "roberta"
+    var session = engine.InferenceSession()
+    var model = session.load_model(model_path)
+
+    var transformers = Python.import_module("transformers")
+    var tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+    var inputs = tokenizer(INPUT, None, None, None, True, 'max_length', True,
+        seqlen, 0, False, None, 'np', True, None, False, False, False, False, True)
+    var input_ids = inputs["input_ids"]
+    var token_type_ids = inputs["token_type_ids"]
+    var attention_mask = inputs["attention_mask"]
+    var outputs = model.execute("input_ids", input_ids,
+                                "token_type_ids", token_type_ids,
+                                "attention_mask", attention_mask)
+    return outputs^
+
+
+fn main() raises:
+    var HF_MODEL_NAME = "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
+    var transformers = Python.import_module("transformers")
+    var hf_model = transformers.TFAutoModelForSequenceClassification.from_pretrained(HF_MODEL_NAME)
+
+    var outputs = run(HF_MODEL_NAME)
+    var logits = outputs.get[DType.float32]("logits")
+    var predicted_class_id = argmax_tensor(logits)
+    var classification = hf_model.config.id2label[predicted_class_id]
+
+    print("The sentiment is:", classification)
