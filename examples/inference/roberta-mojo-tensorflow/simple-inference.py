@@ -44,7 +44,6 @@ def execute(model_path, inputs):
 
 
 def main():
-
     # Parse args
     parser = ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
