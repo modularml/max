@@ -178,7 +178,7 @@ fn main() raises -> None:
     # Only required arg is --prompt
     if prompt == '':
         print(USAGE)
-        raise Error('--prompt option is require')
+        raise Error('--prompt option is required')
 
     random.seed(seed)
 
