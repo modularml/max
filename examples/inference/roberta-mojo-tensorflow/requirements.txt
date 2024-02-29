@@ -1,0 +1,4 @@
+setuptools>=69.1.0
+tensorflow>=2.13.0
+transformers>=4.0.0
+tritonclient[http]>=2.42.0
