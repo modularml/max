@@ -11,9 +11,9 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from max import engine
 import pickle
 import common
-from max import engine
 import numpy as np
 import sys
 

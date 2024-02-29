@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from max import engine
 import os
 import subprocess
 import common
@@ -43,7 +44,7 @@ shell(commands, print_progress=True, env={"TF_CPP_MIN_LOG_LEVEL": "9"})
 print("\nStarting inference throughput comparison")
 try:
     import cpuinfo
-    
+
     cpu = cpuinfo.get_cpu_info()
 
     keys = ["brand_raw", "arch", "hz_advertised_friendly", "count"]
