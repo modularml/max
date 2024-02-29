@@ -2,7 +2,7 @@
 
 The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform is an integrated suite of AI libraries, tools, and technologies that unifies commonly fragmented AI deployment workflows. MAX accelerates time to market for the latest innovations by giving AI developers a single toolchain that unlocks full programmability, unparalleled performance, and seamless hardware portability.
 
-[See here to get started with MAX](https://docs.beta.modular.com/engine/get-started) and when you want to report issues or request features,
+[See here to get started with MAX](https://docs.modular.com/engine/get-started) and when you want to report issues or request features,
 [please create a GitHub issue here](https://github.com/modularml/max/issues/new/choose).
 
 The [Discord](https://discord.gg/modular) community is the best place to share your experiences and chat with the team and other community members.
@@ -13,7 +13,7 @@ In the [examples directory](https://github.com/modularml/max/tree/main/examples)
 
 ## Getting Started
 
-1. Install the [MAX SDK](https://docs.beta.modular.com/engine/get-started).
+1. Install the [MAX SDK](https://docs.modular.com/engine/get-started).
 
 2. Git clone the repository of MAX samples using the command below:
 
