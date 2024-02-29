@@ -23,7 +23,7 @@ MODEL_DIR="../../models/roberta-tensorflow"
 cd "$(dirname "$0")"
 
 # Download model from HuggingFace
-python3 download-model.py -o "$MODEL_DIR"
+python3 ../common/stable-diffusion-tensorflow/download-model.py -o "$MODEL_DIR"
 
 # Execute the model with example input
 python3 simple-inference.py --input "$INPUT_EXAMPLE" --model-dir "$MODEL_DIR"

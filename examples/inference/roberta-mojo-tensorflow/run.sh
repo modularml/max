@@ -22,7 +22,7 @@ MODEL_DIR="../../models/roberta-tensorflow"
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
 
-# Download model
+# Download model from HuggingFace
 python3 ../common/stable-diffusion-tensorflow/download-model.py -o "$MODEL_DIR"
 
 # Execute the model with example input
