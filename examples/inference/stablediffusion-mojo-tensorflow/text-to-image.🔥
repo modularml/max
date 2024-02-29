@@ -41,7 +41,7 @@ fn tokenize(np: PythonObject,
             tokenizer: PythonObject,
             prompt: String, N: Int) raises -> Tensor[int32]:
     '''Invoke the python tokenizer and convert the result to a mojo Tensor.'''
-    let inputs = tokenizer.tokenize(prompt, N)
+    var inputs = tokenizer.tokenize(prompt, N)
     var tokens = python_utils.numpy_to_tensor[int64](
         inputs).astype[int32]()
     tokens.ireshape(TensorShape(1, tokens.num_elements()))
@@ -49,7 +49,7 @@ fn tokenize(np: PythonObject,
 
 fn arange[dtype: DType](start: Int, stop: Int, step: Int) -> Tensor[dtype]:
     '''Return a sequence vector from <start> to <stop>, incrementing by <step>.'''
-    let N = len(range(start, stop, step))
+    var N = len(range(start, stop, step))
     var x = Tensor[dtype](TensorSpec(dtype, N))
     for i in range(N):
         x[i] = range(start, stop, step)[i]
@@ -59,7 +59,7 @@ fn arange[dtype: DType](start: Int, stop: Int, step: Int) -> Tensor[dtype]:
 ## helper function instead.
 fn reverse[dtype: DType](x: Tensor[dtype]) -> Tensor[dtype]:
     '''Return a tensor with the elements of x in reverse order; i.e., x[::-1].'''
-    let N = x.num_elements()
+    var N = x.num_elements()
     var xout = Tensor[dtype](x.spec())
     for i in range(N):
         xout[i] = x[N-i-1]
@@ -94,15 +94,15 @@ fn split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
 
 fn get_timestep_embeddings(t_step: Int, num_channels: Int) -> Tensor[float]:
     '''Generate 1D embedding vector for given timestep & num-channels.'''
-    let c_by_2 = num_channels // 2
+    var c_by_2 = num_channels // 2
     # Generate sequence vector
-    let vseq = arange[float](0, c_by_2, 1) / Float32(c_by_2)
+    var vseq = arange[float](0, c_by_2, 1) / Float32(c_by_2)
     # Allocate output tensor
     var temb = Tensor[float](TensorSpec(float,num_channels))
 
     # Generate frequencies & fill lower/upper half with cos/sin
     for i in range(c_by_2):
-        let freq = exp(-log[float,1](10000) * vseq[i] ) * t_step
+        var freq = exp(-log[float,1](10000) * vseq[i] ) * t_step
         temb[i] = cos(freq)
         temb[c_by_2+i] = sin(freq)
     return temb
@@ -110,7 +110,7 @@ fn get_timestep_embeddings(t_step: Int, num_channels: Int) -> Tensor[float]:
 ## The MAX execute APIs index input & output tensors by name rather than
 ## position. But the TF models use ugly output names and all of our models
 ## are single-output, so rather than polluting main() with lots of calls
-## like `let x = res.get[float]("my-ugly-tensor-name")` we define wrappers
+## like `var x = res.get[float]("my-ugly-tensor-name")` we define wrappers
 ## here that extract the only output and return it directly.
 fn execute(model: Model, name0: String, val0: Tensor[float]) raises -> Tensor[float]:
     '''Run the given single-input single-output model and return the result.'''
@@ -137,10 +137,10 @@ fn execute(model: Model,
 
 fn main() raises -> None:
     ## Parse args
-    let USAGE = 'Usage: text-to-image.🔥 --prompt <str> ' + \
+    var USAGE = 'Usage: text-to-image.🔥 --prompt <str> ' + \
         '[--negative-prompt <str>] [--num-steps <int>] [--seed <int>] [-o <str>]'
     
-    let argv = sys.argv()
+    var argv = sys.argv()
     if len(argv) % 2 == 0:
         print(USAGE)
         raise Error('All options require an argument')
@@ -184,41 +184,41 @@ fn main() raises -> None:
 
     ## Import python modules
     Python.add_to_path('.')
-    let np = Python.import_module('numpy')
-    let Image = Python.import_module('PIL.Image')
-    let Tokenizer = Python.import_module('tokenizer')
-    let ALPHAS = Python.import_module('constants')._ALPHAS_CUMPROD
+    var np = Python.import_module('numpy')
+    var Image = Python.import_module('PIL.Image')
+    var Tokenizer = Python.import_module('tokenizer')
+    var ALPHAS = Python.import_module('constants')._ALPHAS_CUMPROD
 
     ## Compile & load models
     print('Loading models into MAX AI Engine...')
-    let session = InferenceSession()
-    let txt_encoder  = session.load_model(model_dir + '/txt-encoder')
-    let img_decoder  = session.load_model(model_dir + '/img-decoder')
-    let img_diffuser = session.load_model(model_dir + '/img-diffuser')
+    var session = InferenceSession()
+    var txt_encoder  = session.load_model(model_dir + '/txt-encoder')
+    var img_decoder  = session.load_model(model_dir + '/img-decoder')
+    var img_diffuser = session.load_model(model_dir + '/img-diffuser')
 
     ## Tokenize & encode prompts
     print('Encoding inputs...')
-    let N = 77 # Max sequence length of text encoder
-    let tokenizer = Tokenizer.SimpleTokenizer()
-    let prompt_p = tokenize(np, tokenizer, prompt, N)
-    let prompt_n = tokenize(np, tokenizer, negative_prompt, N)
+    var N = 77 # Max sequence length of text encoder
+    var tokenizer = Tokenizer.SimpleTokenizer()
+    var prompt_p = tokenize(np, tokenizer, prompt, N)
+    var prompt_n = tokenize(np, tokenizer, negative_prompt, N)
     
     # Generate position ids & reshape to (1,N)
     var positions = arange[int32](0,N,1)
     positions.ireshape(TensorShape(1, N))
 
     # TODO: Merge these into a single batch
-    let context_p = execute(txt_encoder, "tokens", prompt_p, "positions", positions)
-    let context_n = execute(txt_encoder, "tokens", prompt_n, "positions", positions)
-    let context = vstack(context_p, context_n)
+    var context_p = execute(txt_encoder, "tokens", prompt_p, "positions", positions)
+    var context_n = execute(txt_encoder, "tokens", prompt_n, "positions", positions)
+    var context = vstack(context_p, context_n)
 
     ## Initialize latent, timestep and alpha inputs.
     print('Initializing latent...')
     # From model inspection, we know that h=w=64 and c=4
     # Note: For tensorflow, shapes are given in NHWC format.
     var latent = random.randn[float](TensorShape(1, 64, 64, 4))
-    let timesteps = reverse(arange[int32](1, 1000, 1000 // num_steps))
-    let num_timesteps = timesteps.num_elements()
+    var timesteps = reverse(arange[int32](1, 1000, 1000 // num_steps))
+    var num_timesteps = timesteps.num_elements()
 
     # We import alphas from constants.py to avoid forking the 'header' file.
     # This means we need an extra call to to_float64() to convert into mojo.
@@ -230,7 +230,7 @@ fn main() raises -> None:
     ## Loop through diffusion model
     for i in range(num_timesteps):
         print_no_newline('\rGenerating image: ', i+1, '/', num_timesteps)
-        let latent_prev = latent
+        var latent_prev = latent
 
         # Generate embeddings for ith timestep & reshape to 1xC
         # From model inspection, we know that num_embeddings_channels=320
@@ -238,25 +238,25 @@ fn main() raises -> None:
         temb.ireshape(TensorShape(1,320))
 
         # Execute diffusion model
-        let new_latent = execute(
+        var new_latent = execute(
             img_diffuser, "latent", vstack(latent, latent),
             "context", context, "timestep_embedding", vstack(temb, temb))
 
         # Merge conditioned & unconditioned latents        
-        let latent0 = split[float](new_latent,0)
-        let latent1 = split[float](new_latent,1)
+        var latent0 = split[float](new_latent,0)
+        var latent1 = split[float](new_latent,1)
         latent = latent1 + (latent0 - latent1) * GUIDANCE_SCALE_FACTOR
 
         # Merge latent with previous iteration
-        let pred = (latent_prev - latent * sqrt(1-alphas[i])) / sqrt(alphas[i])
+        var pred = (latent_prev - latent * sqrt(1-alphas[i])) / sqrt(alphas[i])
         latent = latent * sqrt(1-alphas[i+1]) + pred * sqrt(alphas[i+1])
     print('')
 
     # Decode final latent
     print('Decoding image...')
-    let decoded = execute(img_decoder, "input_2", latent)
+    var decoded = execute(img_decoder, "input_2", latent)
     var pixels = (((decoded+1.0)/2.0).clip(0,1) * 255.0).astype[uint8]()
-    let np_pixels = python_utils.tensor_to_numpy[uint8](pixels,np)
-    let img = Image.fromarray(np.squeeze(np_pixels), 'RGB')
+    var np_pixels = python_utils.tensor_to_numpy[uint8](pixels,np)
+    var img = Image.fromarray(np.squeeze(np_pixels), 'RGB')
     _ = img.save(output)
     return
