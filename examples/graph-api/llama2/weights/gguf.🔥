@@ -10,13 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
-# ===----------------------------------------------------------------------=== #
-#
-# This file is Modular Inc proprietary.
-#
-# ===----------------------------------------------------------------------=== #
-
 """Interface to GGUF following the logic in ggml.c, in particular
 `gguf_init_from_file()`:
 https://github.com/ggerganov/llama.cpp/blob/8da46278e1a57107591653275f8e03a281de94f0/ggml.c#L18016
