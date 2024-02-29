@@ -26,11 +26,11 @@ bash run.sh
     For more information about the model, please refer to the
     [model card](https://huggingface.co/microsoft/RoBERTa).
 
-- `simple-inference.py`
+- `simple-inference.🔥`
     Classifies example input statement using the MAX Engine. The script prepares an
     example input, executes the model, and generates the resultant classification
     output.
 
     You can use the `--input` CLI flag to specify an input example.
-    For example, `python3 simple-inference.py --input=<YOUR_INPUT_STRING_HERE>`.
+    For example, `mojo simple-inference.🔥 --input=<YOUR_INPUT_STRING_HERE>`.
 
