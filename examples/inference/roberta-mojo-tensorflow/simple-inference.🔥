@@ -59,4 +59,4 @@ fn main() raises:
     var predicted_class_id = argmax_tensor(logits)
     var classification = hf_model.config.id2label[predicted_class_id]
 
-    print("The sentiment is:", classification)
+    print("The sentiment of the input statement is:", classification)
