@@ -33,4 +33,3 @@ bash run.sh
 
     You can use the `--input` CLI flag to specify an input example.
     For example, `mojo simple-inference.🔥 --input=<YOUR_INPUT_STRING_HERE>`.
-
