@@ -32,7 +32,7 @@ fn run(model_name: String) raises -> engine.TensorMap:
     var seqlen = 128
     var INPUT="There are many exciting developments in the field of AI Infrastructure!"
 
-    var model_path = "roberta"
+    var model_path = "../../models/roberta-tensorflow"
     var session = engine.InferenceSession()
     var model = session.load_model(model_path)
 
