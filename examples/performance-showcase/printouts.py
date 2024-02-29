@@ -6,11 +6,11 @@ framework_labels = dict(tf="TensorFlow", pt="PyTorch", onnx="ONNX")
 
 # TODO: pull these from performance dashboard
 expected_speedups = {
-    "X86_64": dict(
+    "xX86_64": dict(
         roberta=dict(tf=3.0, pt=1.5),
         clip=dict(tf=2.0, pt=1.5),
     ),
-    "ARM_8": dict(
+    "xARM_8": dict(
         roberta=dict(tf=2.0, pt=3.5),
         clip=dict(tf=2.5, pt=2.5),
     )
@@ -63,9 +63,11 @@ def print_speedup_summary(results, model):
             addendum = f"{next(exclamations)} We're {speedup:.2f}x faster!"
 
         if speedup <= 1.2:
-            slower.append(
-                f"{expected_speedups[model][framework]:.2f}x on {framework_labels[framework]}"
-            )
+            if _get_arch() in expected_speedups:
+                slower.append(
+                    f"{expected_speedups[_get_arch()][model][framework]:.2f}x on {framework_labels[framework]}"
+                )
+
             addendum = f"That's about {speedup:.2f}x faster."
 
         if speedup <= 1:
