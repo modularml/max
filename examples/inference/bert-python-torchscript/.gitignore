@@ -1,4 +1,1 @@
-# Don't check in / version control the downloaded model
-*.pt
-*.torchscript
 model-repository/

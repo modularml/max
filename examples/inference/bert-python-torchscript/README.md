@@ -19,15 +19,6 @@ bash deploy.sh
 
 ## Scripts Included
 
-- `download-model.py`
-    Downloads the model from HuggingFace, converts it to `TorchScript` format,
-    and saves it to the current directory. The script also produces inputs for
-    the model from the provided input sentence.
-
-    For more information about the model, reference the [model card](https://huggingface.co/bert-base-uncased).
-
-    Usage: `python3 download-model.py --text=<masked text>`.
-
 - `simple-inference.py`
     Classifies example input text using the MAX Engine. The script prepares an
     example input, executes the model, and generates the classification

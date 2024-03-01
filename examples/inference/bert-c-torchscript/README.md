@@ -13,13 +13,9 @@ bash run.sh
 
 ## Scripts Included
 
-- `download-model.py`
-
-    Downloads the model from HuggingFace, converts it to `TorchScript` format, and saves it to the current directory. The script also produces inputs for the model from the provided input sentence.
-
-    For more information about the model, reference the [model card](https://huggingface.co/bert-base-uncased).
-
-    Usage: `python3 download-model.py --text=<masked text>`.
+- `pre-process.py`
+    Loads the generated output, post-processes it, and outputs the prediction.
+    Usage: `python3 pre-process.py --text <masked text>`
 
 - `post-process.py`
     Loads the generated output, post-processes it, and outputs the prediction.
@@ -42,7 +38,8 @@ The executable is called `bert` and will be present in the build directory.
 - Make sure `bin` directory of `max` package is in `PATH`.
 
 ```sh
-python3 download-model.py --text='Your text'
-./build/bert bert-base-uncased.torchscript
+python3 ../common/bert-torchscript/download-model.py
+python3 pre-process.py --text "Your text"
+./build/bert ../../models/bert.torchscript
 python3 post-process.py
 ```

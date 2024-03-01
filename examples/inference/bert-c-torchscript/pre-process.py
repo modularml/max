@@ -18,21 +18,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from transformers import BertForSequenceClassification, BertTokenizer, logging
-
-HF_MODEL_NAME = "bert-base-uncased"
-DEFAULT_MODEL_FILE = "bert-base-uncased.torchscript"
 
 
 def main():
-    parser = ArgumentParser(description="Download model for inference.")
-    parser.add_argument(
-        "--output-path",
-        "-o",
-        type=str,
-        help="Location to save the model",
-        default=DEFAULT_MODEL_FILE,
-    )
+    parser = ArgumentParser(description="Preprocessing for BERT inputs")
     parser.add_argument(
         "--text",
         type=str,
@@ -43,17 +32,15 @@ def main():
 
     args = parser.parse_args()
 
-    model_path = Path(args.output_path)
-
-    print("Downloading model...")
-    logging.set_verbosity_error()  # Disable warning suggesting to train the model
-    tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
-    model = BertForSequenceClassification.from_pretrained(HF_MODEL_NAME)
-    model.eval()
-
     print("Generating input tensors...")
     print(f'Input sentence: "{args.text}".')
-    encoded_inputs = tokenizer(args.text, return_tensors="pt")
+    batch = 1
+    seqlen = 128
+    encoded_inputs = {
+        "input_ids": torch.zeros((batch, seqlen), dtype=torch.int64),
+        "attention_mask": torch.zeros((batch, seqlen), dtype=torch.int64),
+        "token_type_ids": torch.zeros((batch, seqlen), dtype=torch.int64),
+    }
 
     print("Saving inputs to disk...")
     input_dir = Path("inputs")
@@ -72,26 +59,6 @@ def main():
         shape.tofile(shape_file)
         created_files += [str(filename), str(shape_file)]
     print("Inputs saved.")
-
-    print("Saving model in TorchScript format...")
-    model_path = Path(args.output_path)
-    if model_path.exists():
-        print(f"'{args.output_path}' already exists.\n")
-    else:
-        print("Converting the model to TorchScript format...")
-        with torch.no_grad():
-            traced_model = torch.jit.trace(
-                model, example_kwarg_inputs=dict(encoded_inputs), strict=False
-            )
-
-        torch.jit.save(traced_model, model_path)
-        created_files += [str(model_path)]
-        print(f"Model saved.")
-
-    print(
-        "\nCreated/updated following files:\n   %s\n"
-        % "\n   ".join(created_files)
-    )
 
 
 if __name__ == "__main__":
