@@ -4,15 +4,17 @@ import random
 exclamation_msgs = ["ZAP!", "SHAZAM!", "KAPOW!", "BANG!", "WHAM!"]
 framework_labels = dict(tf="TensorFlow", pt="PyTorch", onnx="ONNX")
 
-# TODO: pull these from performance dashboard
+# Numbers taken from performance.modular.com
+# Caveat: arch is far too coarse a cpu descriptor 
+#         to predict performance, so this is very rough guidance. 
 expected_speedups = {
-    "xX86_64": dict(
-        roberta=dict(tf=3.0, pt=1.5),
-        clip=dict(tf=2.0, pt=1.5),
+    "X86_64": dict(
+        roberta=dict(tf=2.5, pt=1.2),
+        clip=dict(tf=2.0, pt=1.4),
     ),
-    "xARM_8": dict(
-        roberta=dict(tf=2.0, pt=3.5),
-        clip=dict(tf=2.5, pt=2.5),
+    "ARM_8": dict(
+        roberta=dict(tf=2.0, pt=4.0),
+        clip=dict(tf=1.5, pt=3),
     )
 }
 
