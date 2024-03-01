@@ -66,9 +66,4 @@ common.shell([f"python3 run_max.py {args.model}"], stdout=None)
 results = common.load_results()
 print("\n====== Speedup Summary ======\n")
 
-# TESTING
-results["tf"] = results["max"] / 1.2
-results["py"] = results["max"] / 0.8
-# TESTING
-
 printouts.print_speedup_summary(results, args.model)
