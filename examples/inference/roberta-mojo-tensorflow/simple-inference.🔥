@@ -1,0 +1,128 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+from max import engine
+
+## Global Mojo imports
+from algorithm import argmax
+from os import setenv
+from pathlib import Path
+from python import Python
+from tensor import *
+import sys
+
+
+def argmax_tensor(
+    borrowed input: Tensor[DType.float32],
+) -> Scalar[DType.float32]:
+    var output = Tensor[DType.float32](TensorShape(1, 1))
+
+    argmax(input._to_ndbuffer[2](), -1, output._to_ndbuffer[2]())
+
+    return output[0]
+
+
+fn run(
+    model_name: String, model_dir: String, input: String
+) raises -> engine.TensorMap:
+    var batch = 1
+    var seqlen = 128
+
+    var session = engine.InferenceSession()
+    print("Loading and compiling model...")
+    var model = session.load_model(model_dir)
+    print("Model compiled.\n")
+
+    var transformers = Python.import_module("transformers")
+    var tokenizer = transformers.AutoTokenizer.from_pretrained(model_name)
+    var inputs = tokenizer(
+        input,
+        None,
+        None,
+        None,
+        True,
+        "max_length",
+        True,
+        seqlen,
+        0,
+        False,
+        None,
+        "np",
+        True,
+        None,
+        False,
+        False,
+        False,
+        False,
+        True,
+    )
+    var input_ids = inputs["input_ids"]
+    var token_type_ids = inputs["token_type_ids"]
+    var attention_mask = inputs["attention_mask"]
+    print("Executing model...")
+    var outputs = model.execute(
+        "input_ids",
+        input_ids,
+        "token_type_ids",
+        token_type_ids,
+        "attention_mask",
+        attention_mask,
+    )
+    print("Model executed.\n")
+    return outputs ^
+
+
+fn main() raises:
+    ## Parse args
+    var USAGE = "Usage: simple-inference.🔥 --input <str> --model-dir <str> [-o <str>]"
+
+    var argv = sys.argv()
+    if len(argv) % 2 == 0:
+        print(USAGE)
+        raise Error("All options require an argument")
+
+    # Suppress extraneous logging
+    _ = setenv("TF_CPP_MIN_LOG_LEVEL", "3")
+    _ = setenv("TRANSFORMERS_VERBOSITY", "critical")
+    _ = setenv("TOKENIZERS_PARALLELISM", "false")
+
+    # Set constants
+    var HF_MODEL_NAME = "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
+
+    # Set default values
+    var input: String = ""
+    var model_dir: String = "../../models/roberta-tensorflow"
+    var output: String = "output.png"
+
+    for i in range(1, len(argv), 2):
+        if argv[i] == "--input":
+            input = argv[i + 1]
+        elif argv[i] == "--model-dir":
+            model_dir = argv[i + 1]
+        elif argv[i] == "-o" or argv[i] == "--output":
+            output = argv[i + 1]
+        else:
+            print(USAGE)
+            raise Error("Unknown option")
+
+    var transformers = Python.import_module("transformers")
+    var hf_model = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+        HF_MODEL_NAME
+    )
+
+    var outputs = run(HF_MODEL_NAME, model_dir, input)
+    var logits = outputs.get[DType.float32]("logits")
+    var predicted_class_id = argmax_tensor(logits)
+    var classification = hf_model.config.id2label[predicted_class_id]
+
+    print("The sentiment of the input statement is:", classification)
