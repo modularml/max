@@ -157,34 +157,8 @@ int main(int argc, char **argv) {
   CHECK(status);
 
   logInfo("Extracting output values");
-  // The model returns a dictionary and we expect a single entry in it with a
-  // key 'logits'.
-  M_AsyncDict *resultDict = M_getDictFromValue(resultValue);
-  size_t dictSize = M_getDictSize(resultDict);
-  printf("Output dictionary size: %ld\n", dictSize);
-
-  // This is the key we are expecting to find in the dictionary:
-  const char *outputKeyInDict = "logits";
-
-  M_AsyncValue *outputValue = NULL;
-  for (size_t i = 0; i < dictSize; i++) {
-    M_AsyncValue *dictKey = M_getDictKey(resultDict, i);
-    const char *keyStr = M_getStringFromValue(dictKey);
-    if (strcmp(keyStr, outputKeyInDict) == 0) {
-      outputValue = M_getDictValue(resultDict, i);
-      break;
-    }
-  }
-
-  // Could not find the key - aborting.
-  if (!outputValue) {
-    printf("Could not find a key '%s' in returned dictionary.\nAborting.\n",
-           outputKeyInDict);
-    return EXIT_FAILURE;
-  }
-
   // Convert the value we found to a tensor and save it to disk.
-  M_AsyncTensor *result = M_getTensorFromValue(outputValue);
+  M_AsyncTensor *result = M_getTensorFromValue(resultValue);
   size_t numElements = M_getTensorNumElements(result);
   printf("Tensor size: %ld\n", numElements);
   M_Dtype dtype = M_getTensorType(result);

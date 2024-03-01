@@ -26,7 +26,8 @@ MODEL_PATH="$CURRENT_DIR/../../models/bert.torchscript"
 INPUT_EXAMPLE="My dog is cute."
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" --text "$INPUT_EXAMPLE" -o "$MODEL_PATH"
+python3 "$CURRENT_DIR/../common/bert-torchscript/download-model.py" -o "$MODEL_PATH"
+python3 "$CURRENT_DIR/pre-process.py" --text "$INPUT_EXAMPLE"
 
 # Build the example
 cmake -B build -S "$CURRENT_DIR"
