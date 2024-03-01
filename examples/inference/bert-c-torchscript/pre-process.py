@@ -19,8 +19,6 @@ from pathlib import Path
 import numpy as np
 import torch
 
-DEFAULT_MODEL_FILE = "../../models/bert.torchscript"
-
 
 def main():
     parser = ArgumentParser(description="Download model for inference.")
@@ -43,7 +41,7 @@ def main():
         "attention_mask": torch.zeros((batch, seqlen), dtype=torch.int64),
         "token_type_ids": torch.zeros((batch, seqlen), dtype=torch.int64),
     }
-    
+
     print("Saving inputs to disk...")
     input_dir = Path("inputs")
     input_dir.mkdir(exist_ok=True)
