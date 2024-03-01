@@ -45,7 +45,7 @@ if model_name == "roberta":
             torch.from_numpy(inputs["attention_mask"]),
             torch.from_numpy(inputs["token_type_ids"]),
         ]
-        
+
     with torch.inference_mode():
         qps = common.run(lambda: loaded.forward(*inputs))
     common.save_result("pt", qps)

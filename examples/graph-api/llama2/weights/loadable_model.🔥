@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
 """A module containing generic weight loading traits and types."""
+
 from pathlib import Path
 from tensor import Tensor
 from collections.optional import Optional
@@ -34,7 +34,7 @@ struct LlamaHParams:
     var vocab_size: Int
     """Number of tokens in vocabulary."""
 
-    var norm_eps: Float32
+    var norm_eps: FloatLiteral
     """Epsilon used in normalization layers."""
 
     var n_kv_heads: Int

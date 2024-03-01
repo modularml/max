@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
 # If anything goes wrong, stop running the script.
 set -e
 
@@ -30,7 +43,7 @@ echo "Starting container"
 CONTAINER_ID=$(\
   docker run --rm -d --net=host --ipc=host \
     -v $(pwd)/model-repository:/model-repository \
-    public.ecr.aws/o4d0h4e7/max-serving-de \
+    public.ecr.aws/modular/max-serving-de \
     tritonserver --model-repository=/model-repository \
     --load-model=${MODEL_DIR} \
 )

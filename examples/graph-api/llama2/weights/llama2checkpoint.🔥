@@ -64,20 +64,20 @@ struct LlamaCFile(LoadableModel):
             @parameter
             @always_inline
             fn read_int32() raises -> Int32:
-                let bytes_tensor = f.read_bytes(sizeof[Int32]())
-                let result = bytes_tensor.data().bitcast[DType.int32]().load()
+                var bytes_tensor = f.read_bytes(sizeof[Int32]())
+                var result = bytes_tensor.data().bitcast[DType.int32]().load()
                 _ = bytes_tensor ^
                 return result
 
-            let dim = read_int32()
-            let hidden_dim = read_int32()
-            let n_layers = read_int32()
-            let n_heads = read_int32()
-            let n_kv_heads = read_int32()
-            let vocab_size = read_int32()
+            var dim = read_int32()
+            var hidden_dim = read_int32()
+            var n_layers = read_int32()
+            var n_heads = read_int32()
+            var n_kv_heads = read_int32()
+            var vocab_size = read_int32()
             if vocab_size < 0:
                 raise "negative vocab size unsupported"
-            let seq_len = read_int32()
+            var seq_len = read_int32()
 
             self.config = Config(
                 int(dim),
@@ -197,7 +197,7 @@ struct LlamaCFile(LoadableModel):
         inout self, key: String, layer_idx: Optional[Int] = None
     ) raises -> Tensor[type]:
         # Heap allocates and copies output, which is owned by the caller.
-        let tensor_ref: TensorRef[type]
+        var tensor_ref: TensorRef[type]
         if key == "token_embd":
             tensor_ref = self.token_embd[type]()
         elif key == "output_norm":
@@ -228,8 +228,8 @@ struct LlamaCFile(LoadableModel):
         else:
             raise "key not found"
 
-        let ptr = DTypePointer[type].alloc(tensor_ref.nelems())
-        let layer_offset = layer_idx.value() * tensor_ref.nelems() if layer_idx else 0
+        var ptr = DTypePointer[type].alloc(tensor_ref.nelems())
+        var layer_offset = layer_idx.value() * tensor_ref.nelems() if layer_idx else 0
         memcpy(ptr, tensor_ref.offset + layer_offset, tensor_ref.nelems())
 
         return Tensor(ptr, tensor_ref.shape)

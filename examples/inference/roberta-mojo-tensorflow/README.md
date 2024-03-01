@@ -1,6 +1,7 @@
 # Tensorflow RoBERTa Inference
 
-This directory includes scripts used to run simple RoBERTa inference via the MAX Engine to predict the sentiment of the given text.
+This directory includes scripts used to run simple RoBERTa inference via the
+MAX Engine and Mojo APIs to predict the sentiment of the given text.
 
 ## Quickstart
 
@@ -12,8 +13,6 @@ python3 -m pip install -r requirements.txt
 python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
 # Run the MAX Engine example
 bash run.sh
-# Run the MAX Serving example
-bash deploy.sh
 ```
 
 ## Scripts Included
@@ -27,16 +26,10 @@ bash deploy.sh
     For more information about the model, please refer to the
     [model card](https://huggingface.co/microsoft/RoBERTa).
 
-- `simple-inference.py`
+- `simple-inference.🔥`
     Classifies example input statement using the MAX Engine. The script prepares an
     example input, executes the model, and generates the resultant classification
     output.
 
     You can use the `--input` CLI flag to specify an input example.
-    For example, `python3 simple-inference.py --input=<YOUR_INPUT_STRING_HERE>`.
-
-- `triton-inference.py`
-    Classifies example input image using the MAX Serving. The script launches a Triton container, prepares an example input, executes the model by calling HTTP inference endpoint, and returns the classification result.
-
-    You can use the `--input` CLI flag to specify an input example.
-    For example, `python3 triton-inference.py --input=<YOUR_INPUT_STRING_HERE>`.
+    For example, `mojo simple-inference.🔥 --input=<YOUR_INPUT_STRING_HERE>`.

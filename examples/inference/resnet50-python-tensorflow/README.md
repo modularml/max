@@ -23,7 +23,8 @@ bash deploy.sh
 - `download-model.py`
     Downloads the model from HuggingFace, converts it to a TensorFlow
     [SavedModel](https://www.tensorflow.org/guide/saved_model),
-    and saves it to an output directory of your choosing, or defaults to `resnet-50/`.
+    and saves it to an output directory of your choosing, or defaults
+    to `../../models/resnet50-tensorflow/`.
 
     For more information about the model, please refer to the
     [model card](https://huggingface.co/microsoft/resnet-50).

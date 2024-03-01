@@ -10,7 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
 """A byte pair encoding tokenizer implementation for use with LLMs."""
 
 from collections import Dict, DynamicVector, Optional
@@ -53,14 +52,14 @@ struct MergeOption(OrderableElement):
 
 fn read[T: CollectionElement](inout ptr: AnyPointer[Int8]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
-    let value = ptr.bitcast[T]()[]
+    var value = ptr.bitcast[T]()[]
     ptr = ptr + sizeof[T]()
     return value ^
 
 
 fn read_string(inout ptr: AnyPointer[Int8], length: Int) -> StringRef:
     """Read a string reference of known length and increment the pointer."""
-    let value = StringRef(
+    var value = StringRef(
         Reference(ptr.__refitem__()).get_unsafe_pointer(), length
     )
     ptr = ptr + length
@@ -101,13 +100,13 @@ struct BPETokenizer:
         """
 
         var model = BPETokenizer()
-        var read_ptr = AnyPointer[Int8].__from_index(ptr.__as_index())
+        var read_ptr = AnyPointer[Int8].__from_index(int(ptr))
 
-        let max_token_len = read[Int32](read_ptr)
-        while read_ptr.__as_index() != end.__as_index():
-            let score = read[Float32](read_ptr)
-            let token_len = read[Int32](read_ptr)
-            let token = read_string(read_ptr, token_len.to_int())
+        var max_token_len = read[Int32](read_ptr)
+        while int(read_ptr) != int(end):
+            var score = read[Float32](read_ptr)
+            var token_len = read[Int32](read_ptr)
+            var token = read_string(read_ptr, token_len.to_int())
             model.add_token(token, score)
 
         return model ^
@@ -118,8 +117,8 @@ struct BPETokenizer:
 
         See `BPETokenizer.from_bytes()` for the expected file format.
         """
-        let file = path.read_bytes()
-        let t = Self.from_bytes(file.data(), file.data() + file.num_elements())
+        var file = path.read_bytes()
+        var t = Self.from_bytes(file.data(), file.data() + file.num_elements())
         _ = file ^
         return t ^
 
@@ -168,31 +167,31 @@ struct BPETokenizer:
 
         @parameter
         fn maybe_add_merge(left: tokens.ID, right: tokens.ID) raises:
-            let merged = tokens[left] + tokens[right]
+            var merged = tokens[left] + tokens[right]
             if merged in self.token_ids:
-                let score = self.vocab[self.token_ids[merged]].score
+                var score = self.vocab[self.token_ids[merged]].score
                 merge_options.push(MergeOption(left, right, score, len(merged)))
 
         # Initialize the tokens linked-list and initial merges.
         var prev: Optional[Ball[String].ID] = None
         for i in range(len(str)):
-            let id = tokens.append(str[i])
+            var id = tokens.append(str[i])
             if prev:
                 maybe_add_merge(prev.value(), id)
             prev = id
 
         while merge_options:
-            let merge = merge_options.pop()
+            var merge = merge_options.pop()
             # Check whether the best merge is still valid
             if merge.left not in tokens or merge.right not in tokens:
                 continue  # outdated merge option
-            let merged = tokens[merge.left] + tokens[merge.right]
+            var merged = tokens[merge.left] + tokens[merge.right]
             if len(merged) != merge.checksum:
                 continue  # outdated merge option
             # Merge the right token into the left token, then
             # add any new valid merge options to the priority queue.
-            let left = tokens.prev(merge.left)
-            let right = tokens.next(merge.right)
+            var left = tokens.prev(merge.left)
+            var right = tokens.next(merge.right)
             tokens[merge.left] = merged
             tokens.remove(merge.right)
             if right:
@@ -203,8 +202,8 @@ struct BPETokenizer:
         # Loop through the final list and construct the token sequence.
         var node_id = tokens._head
         while node_id:
-            let id = node_id.value()
-            let token = tokens[id]
+            var id = node_id.value()
+            var token = tokens[id]
             output.append(TokenWithID(token, self._encode_token(token)))
             node_id = tokens.next(id)
 

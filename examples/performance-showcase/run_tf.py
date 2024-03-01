@@ -50,7 +50,7 @@ elif model_name == "clip":
     if not os.path.exists(model_path):
         model = TFCLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         tf.saved_model.save(model, model_dir)
-        
+
     with open(".cache/clip.pkl", "rb") as f:
         inputs = pickle.load(f)
         inputs = {
