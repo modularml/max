@@ -21,7 +21,7 @@ import torch
 
 
 def main():
-    parser = ArgumentParser(description="Download model for inference.")
+    parser = ArgumentParser(description="Preprocessing for BERT inputs")
     parser.add_argument(
         "--text",
         type=str,
