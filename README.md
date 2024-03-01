@@ -1,7 +1,7 @@
 <picture align="left">
-  <source media="(prefers-color-scheme: dark)" srcset="https://modular-assets.s3.amazonaws.com/images/modular_white_transparent.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://modular-assets.s3.amazonaws.com/images/modular_black_transparent.png">
-  <img src="https://modular-assets.s3.amazonaws.com/images/modular_black_transparent.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://modular-assets.s3.amazonaws.com/images/max_logo_bg.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://modular-assets.s3.amazonaws.com/images/max_logo_bg.png">
+  <img src="https://modular-assets.s3.amazonaws.com/images/max_logo_bg.png">
 </picture>
 
 # Welcome to MAX
@@ -10,9 +10,9 @@ The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform i
 
 
 <picture align="center">
-  <source media="(prefers-color-scheme: dark)" srcset="https://modular-assets.s3.amazonaws.com/images/max_engine_stack_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://modular-assets.s3.amazonaws.com/images/max_arhitecture_diagram.png">
-  <img src="https://modular-assets.s3.amazonaws.com/images/max_arhitecture_diagram.png">
+  <source media="(prefers-color-scheme: dark)" srcset="https://modular-assets.s3.amazonaws.com/images/max_architecture_diagram_bg.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://modular-assets.s3.amazonaws.com/images/max_architecture_diagram_bg.png">
+  <img src="https://modular-assets.s3.amazonaws.com/images/max_architecture_diagram_bg.png">
 </picture>
 
 
@@ -50,7 +50,7 @@ python3 examples/console.py
 which opens up
 
 <p align="center">
-    <img src="./assets/console.png" width="500" height="450">
+    <img src="https://modular-assets.s3.amazonaws.com/images/max_console_bg.png">
 </p>
 
 
