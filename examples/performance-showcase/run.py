@@ -14,13 +14,21 @@
 from max import engine
 import os
 import subprocess
-import common
 import random
-from common import shell
 import argparse
 
+import common
+import printouts
+
+
 parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--model", choices=["roberta", "clip"], help="Choose from one of these models", required=True)
+parser.add_argument(
+    "-m",
+    "--model",
+    choices=["roberta", "clip"],
+    help="Choose from one of these models",
+    required=True,
+)
 args = parser.parse_args()
 
 common.clear_results()
@@ -40,50 +48,22 @@ commands = [
     f"python3 run_max.py {args.model}",
 ]
 
-shell(commands, print_progress=True, env={"TF_CPP_MIN_LOG_LEVEL": "9"})
+common.shell(commands, print_progress=True, env={"TF_CPP_MIN_LOG_LEVEL": "9"})
 print("\nStarting inference throughput comparison")
-try:
-    import cpuinfo
 
-    cpu = cpuinfo.get_cpu_info()
-
-    keys = ["brand_raw", "arch", "hz_advertised_friendly", "count"]
-    labels = {"brand_raw": "CPU", "arch": "Arch", "hz_advertised_friendly": "Clock speed", "count": "Cores"}
-
-    info_message = "\n" + "-" * 40 + "System Info" + "-" * 40
-    info_message += "\n"
-    info_message += "\n".join([ f'{labels[k]}: {cpu.get(k, "")}' for k in keys ]) 
-
-    print(info_message)
-except:
-    pass
+printouts.print_sys_info()
 
 print("\nRunning with TensorFlow")
-shell([f"python3 run_tf.py {args.model}"], stdout=None)
+common.shell([f"python3 run_tf.py {args.model}"], stdout=None)
 
 print("\nRunning with PyTorch")
-shell([f"python3 run_pt.py {args.model}"], stdout=None)
+common.shell([f"python3 run_pt.py {args.model}"], stdout=None)
 
 print("\nRunning with MAX Engine")
-shell([f"python3 run_max.py {args.model}"], stdout=None)
+common.shell([f"python3 run_max.py {args.model}"], stdout=None)
 
 # Summary table
 results = common.load_results()
-print("\n====== Speedup Summary ======")
-from itertools import cycle
+print("\n====== Speedup Summary ======\n")
 
-exclamations = cycle(["ZAP!", "SHAZAM!", "KAPOW!", "BANG!", "WHAM!"])
-[next(exclamations) for i in range(random.randint(0, 4))]
-
-print(
-    f'Modular ({results["max"]:.2f} QPS) > TensorFlow ({results["tf"]:.2f} QPS). {next(exclamations)} It\'s {results["max"]/results["tf"]:.2f}x faster!'
-)
-
-if "pt" in results:
-    print(
-        f'Modular ({results["max"]:.2f} QPS) > PyTorch ({results["pt"]:.2f} QPS). {next(exclamations)} It\'s {results["max"]/results["pt"]:.2f}x faster!'
-    )
-else:
-    pass
-
-print()
+printouts.print_speedup_summary(results, args.model)
