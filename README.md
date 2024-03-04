@@ -54,6 +54,12 @@ which opens up
 
 Follow the instructions in the README for each example, notebook or tool you want to run.
 
+### Option 3: Get the Docker Container
+
+You can pull a Docker Container from the the public ECR here: [https://gallery.ecr.aws/modular/max-serving-de](https://gallery.ecr.aws/modular/max-serving-de)
+
+```public.ecr.aws/modular/max-serving-de```
+
 ### FAQ
 
 Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
