@@ -42,7 +42,7 @@ Other types expose a `.destroy()` method simply to facilitate this.
 """
 
 from collections.optional import Optional
-from collections import List
+from collections.vector import DynamicVector
 from memory.unsafe import DTypePointer
 from tensor import Tensor, TensorShape
 from pathlib import Path
@@ -818,14 +818,14 @@ struct GGUFTensorInfo:
             num_elements * type_trait.type_size // type_trait.blck_size
         ).to_int()
 
-    fn tensor_dims(self) -> List[Int]:
+    fn tensor_dims(self) -> DynamicVector[Int]:
         """Converts from GGML `ne` to dims compatible with stdlib `Tensor`.
 
         Returns:
-            A `List` of dims compatible with stdlib `TensorShape`.
+            A `DynamicVector` of dims compatible with stdlib `TensorShape`.
         """
         var n_dims = int(self.n_dims)
-        var dims = List[Int](capacity=n_dims)
+        var dims = DynamicVector[Int](capacity=n_dims)
         for i in range(n_dims):
             # Opposite to `TensorSpec`, GGUF stores the inner dimension at
             # the smaller index, so reverse them.

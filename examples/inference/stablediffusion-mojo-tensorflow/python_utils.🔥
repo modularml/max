@@ -20,7 +20,7 @@
 import python
 from memory import memcpy
 from tensor import Tensor, TensorShape
-from collections import List
+from collections.vector import DynamicVector
 
 
 fn expandvars(path: String) raises -> String:
@@ -101,7 +101,7 @@ fn tensor_to_numpy[
 
 @always_inline
 fn numpy_to_tensor[type: DType](array: PythonObject) raises -> Tensor[type]:
-    var shape = List[Int]()
+    var shape = DynamicVector[Int]()
     var array_shape = array.shape
     for dim in array_shape:
         shape.push_back(dim.__index__())

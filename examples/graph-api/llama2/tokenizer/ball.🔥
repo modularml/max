@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """A simple arena linked-list implementation."""
 
-from collections import List, Optional
+from collections import DynamicVector, Optional
 
 
 @value
@@ -48,13 +48,13 @@ struct Ball[T: CollectionElement]:
 
     alias ID = Int
 
-    var _arena: List[Optional[Node[T]]]
+    var _arena: DynamicVector[Optional[Node[T]]]
     var _head: Optional[Self.ID]
     var _tail: Optional[Self.ID]
 
     fn __init__(inout self):
         """Constructs a new empty linked list."""
-        self._arena = List[Optional[Node[T]]]()
+        self._arena = DynamicVector[Optional[Node[T]]]()
         self._head = None
         self._tail = None
 
