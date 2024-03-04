@@ -54,6 +54,14 @@ which opens up
 
 Follow the instructions in the README for each example, notebook or tool you want to run.
 
+### Notebooks
+
+Check out the [notebooks examples](./examples/notebooks/) for using MAX Engine 🏎️ for models such as
+
+* [Mistral-7B](./examples/notebooks/mistral7b-python-onnx.ipynb)
+* [Roberta-pytorch](./examples/notebooks/roberta-python-pytorch.ipynb)
+* [Roberta-tensorflow](./examples/notebooks/roberta-python-tensorflow.ipynb)
+
 ### FAQ
 
 Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
