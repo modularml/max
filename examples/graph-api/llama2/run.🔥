@@ -13,7 +13,7 @@
 
 from sys.param_env import env_get_string
 from tensor import Tensor, TensorShape
-from collections import List
+from collections.vector import DynamicVector
 from utils.index import Index
 from pathlib import Path
 
