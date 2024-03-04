@@ -18,7 +18,7 @@ import random
 
 from os import setenv
 
-from collections.vector import DynamicVector
+from collections import List
 from math import exp, log, sin, cos, sqrt
 from memory import memcpy
 from python import Python
@@ -73,7 +73,7 @@ fn reverse[dtype: DType](x: Tensor[dtype]) -> Tensor[dtype]:
 fn vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
     """Concatenate tensors a & b along the outermost dimension."""
     # Generate return shape
-    var out_shape = DynamicVector[Int]()
+    var out_shape = List[Int]()
     out_shape.push_back(a.shape()[0] + b.shape()[0])
     for i in range(1, a.shape().rank()):
         out_shape.append(a.shape()[i])
@@ -88,7 +88,7 @@ fn vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
 fn split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
     """Return the ith slice of the outermost dim; i.e., x[idx, :, :, ..., :]."""
     # Generate return shape
-    var shape = DynamicVector[Int]()
+    var shape = List[Int]()
     shape.push_back(1)
     for i in range(1, x.shape().rank()):
         shape.push_back(x.shape()[i])
