@@ -179,7 +179,7 @@ struct Transformer:
     var n_heads: Int
 
     var embedding: Embedding
-    var layers: DynamicVector[TransformerBlock]
+    var layers: List[TransformerBlock]
     var norm: RMSNorm
     var output: Symbol
 
@@ -202,8 +202,8 @@ struct Transformer:
         var h = self.embedding(tokens)
         var freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
 
-        var k_cache_updates = DynamicVector[Symbol]()
-        var v_cache_updates = DynamicVector[Symbol]()
+        var k_cache_updates = List[Symbol]()
+        var v_cache_updates = List[Symbol]()
         for i in range(len(self.layers)):
             var layer_out = self.layers[i](
                 h, start_pos, freqs_cis, k_cache[i, axis=1], v_cache[i, axis=1]
@@ -260,7 +260,7 @@ struct Llama2[ModelT: LoadableModel]:
         fn weight(name: String, i: Optional[Int] = None) raises -> Symbol:
             return g.constant(self.params.get[DType.float32](name, i))
 
-        var layers = DynamicVector[TransformerBlock]()
+        var layers = List[TransformerBlock]()
         for i in range(self.hyperparams.n_layers):
             var layer = TransformerBlock(
                 attention=Attention(
