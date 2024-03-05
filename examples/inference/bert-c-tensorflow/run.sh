@@ -28,7 +28,7 @@ CURRENT_DIR=$(dirname "$0")
 MODEL_DIR="$CURRENT_DIR/../../models/bert-tensorflow"
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" "--output-dir=$MODEL_DIR"
+python3 "$CURRENT_DIR/download-model.py" "-o $MODEL_DIR"
 
 # Execute the model with example input
 INPUT_EXAMPLE="The capital of France is [MASK]."
