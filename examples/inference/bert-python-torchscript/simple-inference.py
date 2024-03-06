@@ -16,7 +16,7 @@ from max import engine
 from argparse import ArgumentParser
 
 import torch
-from transformers import AutoTokenizer
+from transformers import BertTokenizer
 
 # suppress extraneous logging
 import os
@@ -26,23 +26,21 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 BATCH = 1
 SEQLEN = 128
-DEFAULT_MODEL_PATH = "bert.torchscript"
+DEFAULT_MODEL_PATH = "../../models/bert.torchscript"
 DESCRIPTION = "BERT model"
 HF_MODEL_NAME = "bert-base-uncased"
 
 
 def execute(model_path, text, input_dict):
     session = engine.InferenceSession()
-
     input_spec_list = [
         engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
         for tensor in input_dict.values()
     ]
     options = engine.TorchLoadOptions(input_spec_list)
-
     model = session.load(model_path, options)
-
-    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
+    tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
+    print("Processing input...")
     inputs = tokenizer(
         text,
         return_tensors="pt",
@@ -50,17 +48,19 @@ def execute(model_path, text, input_dict):
         truncation=True,
         max_length=SEQLEN,
     )
-
-    outputs = model.execute(**inputs)
-
-    print("Loading and compiling model...")
-    model = session.load(model_path, options)
-    print("Model compiled.\n")
-
-    print("Executing model...")
-    outputs = model.execute(**inputs)
-    print("Model executed.\n")
-    return outputs
+    print("Input processed.\n")
+    masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
+        as_tuple=True
+    )[1]
+    outputs = model.execute(**inputs)["result0"]
+    logits = torch.from_numpy(outputs[0, masked_index, :])
+    predicted_token_id = logits.argmax(dim=-1)
+    predicted_tokens = tokenizer.decode(
+        [predicted_token_id],
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=True,
+    )
+    return predicted_tokens
 
 
 def main():
@@ -71,7 +71,7 @@ def main():
         type=str,
         metavar="<text>",
         required=True,
-        help="Statement to classify.",
+        help="Masked language model.",
     )
     parser.add_argument(
         "--model-path",
@@ -88,11 +88,9 @@ def main():
     }
 
     outputs = execute(args.model_path, args.text, input_dict)
-
-    # Extract class prediction from output
-    predicted_class_id = outputs["result0"].argmax(axis=-1)[0]
-    sentiment_labels = {0: "Negative", 1: "Positive"}
-    print(f"Predicted sentiment: {sentiment_labels[predicted_class_id]}")
+    # Get the predictions for the masked token
+    print(f"input text: {args.text}")
+    print(f"filled mask: {args.text.replace('[MASK]', outputs)}")
 
 
 if __name__ == "__main__":

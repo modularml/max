@@ -1,19 +1,15 @@
-<picture align="left">
-  <source media="(prefers-color-scheme: dark)" srcset="https://modular-assets.s3.amazonaws.com/images/max_logo_bg.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://modular-assets.s3.amazonaws.com/images/max_logo_bg.png">
-  <img src="https://modular-assets.s3.amazonaws.com/images/max_logo_bg.png">
-</picture>
+<p align="center">
+    <img src="https://modular-assets.s3.amazonaws.com/images/modular_github_logo_bg.png">
+</p>
 
 # Welcome to MAX
 
 The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform is an integrated suite of AI libraries, tools, and technologies that unifies commonly fragmented AI deployment workflows. MAX accelerates time to market for the latest innovations by giving AI developers a single toolchain that unlocks full programmability, unparalleled performance, and seamless hardware portability.
 
 
-<picture align="center">
-  <source media="(prefers-color-scheme: dark)" srcset="https://modular-assets.s3.amazonaws.com/images/max_architecture_diagram_bg.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://modular-assets.s3.amazonaws.com/images/max_architecture_diagram_bg.png">
-  <img src="https://modular-assets.s3.amazonaws.com/images/max_architecture_diagram_bg.png">
-</picture>
+<p align="center">
+    <img src="https://modular-assets.s3.amazonaws.com/images/modular_architecture_diagram_bg.png">
+</p>
 
 
 [See here to get started with MAX](https://docs.modular.com/engine/get-started) and when you want to report issues or request features,
@@ -50,13 +46,21 @@ python3 examples/console.py
 which opens up
 
 <p align="center">
-    <img src="https://modular-assets.s3.amazonaws.com/images/max_console_bg.png">
+    <img src="https://modular-assets.s3.amazonaws.com/images/modular_console_bg.png">
 </p>
 
 
 ### Option 2: Follow the README
 
 Follow the instructions in the README for each example, notebook or tool you want to run.
+
+### Notebooks
+
+Check out the [notebooks examples](./examples/notebooks/) for using MAX Engine 🏎️ for models such as
+
+* [Mistral-7B](./examples/notebooks/mistral7b-python-onnx.ipynb)
+* [Roberta-pytorch](./examples/notebooks/roberta-python-pytorch.ipynb)
+* [Roberta-tensorflow](./examples/notebooks/roberta-python-tensorflow.ipynb)
 
 ### FAQ
 
@@ -70,6 +74,11 @@ python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engi
 
 in your local python environment. Note that `max` can also be available in your `PATH`
 
+### MAX Serving Docker Container
+
+For MAX Serving, you can pull our Docker Container from the the public ECR here: [https://gallery.ecr.aws/modular/max-serving-de](https://gallery.ecr.aws/modular/max-serving-de)
+
+```public.ecr.aws/modular/max-serving-de```
 
 ## Contributing
 

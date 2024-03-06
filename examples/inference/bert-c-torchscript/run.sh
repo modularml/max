@@ -20,13 +20,14 @@ MAX_PKG_DIR="$(modular config max.path)"
 export MAX_PKG_DIR
 
 CURRENT_DIR=$(dirname "$0")
-MODEL_PATH="bert-base-uncased.torchscript"
+MODEL_PATH="$CURRENT_DIR/../../models/bert.torchscript"
 
 # Example input for the model
 INPUT_EXAMPLE="My dog is cute."
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" --text "$INPUT_EXAMPLE" -o "$MODEL_PATH"
+python3 "$CURRENT_DIR/../common/bert-torchscript/download-model.py" -o "$MODEL_PATH"
+python3 "$CURRENT_DIR/pre-process.py" --text "$INPUT_EXAMPLE"
 
 # Build the example
 cmake -B build -S "$CURRENT_DIR"
