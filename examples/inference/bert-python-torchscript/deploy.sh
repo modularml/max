@@ -16,15 +16,14 @@
 # If anything goes wrong, stop running the script.
 set -e
 
-CURRENT_DIR=$(dirname "$0")
-MODEL_PATH="bert.torchscript"
+MODEL_PATH="../../models/bert.torchscript"
 MODEL_DIR="bert"
 
-# Example input for the model
-INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"
+# Make sure we're running from inside the directory containing this file.
+cd "$(dirname "$0")"
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" -o $MODEL_PATH
+python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH"
 
 echo "Preparing model repository"
 # Triton expects models to reside in the specific layout, i.e.
@@ -55,6 +54,9 @@ until curl --output /dev/null --silent --fail localhost:8000/v2/health/ready; do
     sleep 5
 done
 printf "\nMAX Serving container started\n\n"
+
+# Example input for the model
+INPUT_EXAMPLE="Paris is the [MASK] of France."
 
 # Execute the model with example input
 python3 triton-inference.py --text "$INPUT_EXAMPLE"

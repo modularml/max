@@ -16,7 +16,7 @@
 set -ex
 
 # Example input for the model
-INPUT_EXAMPLE="There are many exciting developments in the field of AI Infrastructure!"
+INPUT_EXAMPLE="Paris is the [MASK] of France."
 
 MODEL_PATH="../../models/bert.torchscript"
 
