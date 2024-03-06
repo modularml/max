@@ -1,9 +1,14 @@
-# TorchScript BERT Inference
+# TorchScript BERT inference with Python
 
 This directory includes scripts used to run simple BERT inference via the MAX
-Python API to predict the sentiment of the given text.
+Engine Python API to predict the masked words in a sentence.
 
 ## Quickstart
+
+First, install MAX as per the [MAX Engine get started
+guide](https://docs.modular.com/engine/get-started/).
+
+Then you can install the package requirements and run this example:
 
 ```sh
 python3 -m venv venv && source venv/bin/activate
@@ -17,17 +22,27 @@ bash run.sh
 bash deploy.sh
 ```
 
-## Scripts Included
+## Scripts included
 
-- `simple-inference.py`
-    Masked language model example input text using the MAX Engine. The script prepares an
-    example input, executes the model, and generates the filled mask.
+- `simple-inference.py`: Predicts the masked words in the input text using the
+MAX Engine Python API. The script prepares an example input, executes the
+model, and generates the filled mask.
 
     You can use the `--text` CLI flag to specify an input sentence.
-    For example, `python3 simple-inference.py --text "Paris is the [MASK] of France."`
+    For example:
 
-- `triton-inference.py`
-    Masked language model example input text using the MAX Serving. The script launches a Triton container, prepares an example input, executes the model by calling HTTP inference endpoint, and returns the filled mask.
+    ```sh
+    python3 simple-inference.py --text "Paris is the [MASK] of France."
+    ```
+
+- `triton-inference.py`: Predicts the masked words in the input text using MAX
+Serving. The script launches a Triton container, prepares an example input,
+executes the model by calling HTTP inference endpoint, and returns the filled
+mask.
 
     You can use the `--text` CLI flag to specify an input example.
-    For example, `python3 triton-inference.py --text "Paris is the [MASK] of France."`.
+    For example:
+
+    ```sh
+    python3 triton-inference.py --text "Paris is the [MASK] of France."
+    ```

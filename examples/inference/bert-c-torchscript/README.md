@@ -1,8 +1,14 @@
-# TorchScript BERT Inference
+# TorchScript BERT inference with C
 
-This directory includes scripts used to run simple BERT inference via the MAX Engine C API to predict the sentiment of the given text.
+This directory includes scripts used to run simple BERT inference via the MAX
+Engine C API to predict the sentiment of the given text.
 
 ## Quickstart
+
+First, install MAX as per the [MAX Engine get started
+guide](https://docs.modular.com/engine/get-started/).
+
+Then you can install the package requirements and run this example:
 
 ```
 python3 -m venv venv && source venv/bin/activate
@@ -11,19 +17,26 @@ python3 -m pip install -r requirements.txt
 bash run.sh
 ```
 
-## Scripts Included
+## Scripts included
 
-- `pre-process.py`
-    Loads the generated output, post-processes it, and outputs the prediction.
-    Usage: `python3 pre-process.py --text <masked text>`
+- `pre-process.py`: Prepares an example input and saves the pre-processed input
+to a local directory, for use use in the `main.c` program. Example:
 
-- `post-process.py`
-    Loads the generated output, post-processes it, and outputs the prediction.
-    Usage: `python3 post-process.py`.
+    ```sh
+    python3 pre-process.py --text "Paris is the [MASK] of France."
+    ```
+
+- `post-process.py`: Loads the generated output, post-processes it, and outputs
+the prediction. Example:
+
+    ```sh
+    python3 post-process.py
+    ```
 
 ## Building the example
 
-This example uses CMake. To build the executable, please use the following commands:
+This example uses CMake. To build the executable, please use the following
+commands:
 
 ```sh
 export MAX_PKG_DIR=`modular config max.path`

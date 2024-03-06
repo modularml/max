@@ -1,12 +1,16 @@
-# Stable Diffusion Inference
+# Stable Diffusion inference with Python
 
-This directory illustrates how to run Stable Diffusion through the MAX AI Engine.
+This directory illustrates how to run Stable Diffusion through MAX Engine.
 Specifically, this example extracts StableDiffusion-1.4 from Keras-CV and executes
-it via the MAX Python API.
+it via the MAX Engine Python API.
 
 ## Quickstart
 
-Once you have the MAX AI engine installed, this example can be run with:
+First, install MAX as per the [MAX Engine get started
+guide](https://docs.modular.com/engine/get-started/).
+
+Then you can install the package requirements and run this example:
+
 ```bash
 python3 -m venv venv && source venv/bin/activate
 python3 -m pip install --upgrade pip setuptools
@@ -31,13 +35,10 @@ details.
 
 ## Files
 
-- `download-model.py`
+- `download-model.py`: Downloads [keras SD
+model](https://github.com/keras-team/keras-cv/tree/master/keras_cv/models/stable_diffusion),
+exports each component model as a TF `SavedModel`, compiles & loads into
+MAX Engine and prints input/output info.
 
-  Download [keras SD model](https://github.com/keras-team/keras-cv/tree/master/keras_cv/models/stable_diffusion),
-  export each component model as a TF `SavedModel`, compile & load into
-  modular & print input/output info.
-
-- `text-to-image.py`
-
-  Example program which runs full stable-diffusion pipeline through the MAX AI
-  Engine in order to generate images from the given prompt.
+- `text-to-image.py`: Example program that runs full stable-diffusion pipeline
+through MAX Engine in order to generate images from the given prompt.
