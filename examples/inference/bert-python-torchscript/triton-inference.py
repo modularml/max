@@ -27,7 +27,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 BATCH = 1
 SEQLEN = 128
-DEFAULT_MODEL_NAME = "bert"
+DEFAULT_MODEL_NAME = "bert-mlm"
 DESCRIPTION = "BERT model"
 HF_MODEL_NAME = "bert-base-uncased"
 

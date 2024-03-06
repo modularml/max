@@ -16,8 +16,8 @@
 # If anything goes wrong, stop running the script.
 set -e
 
-MODEL_PATH="../../models/bert.torchscript"
-MODEL_DIR="bert"
+MODEL_PATH="../../models/bert-mlm.torchscript"
+MODEL_DIR="bert-mlm"
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"

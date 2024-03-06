@@ -26,7 +26,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 BATCH = 1
 SEQLEN = 128
-DEFAULT_MODEL_PATH = "../../models/bert.torchscript"
+DEFAULT_MODEL_PATH = "../../models/bert-mlm.torchscript"
 DESCRIPTION = "BERT model"
 HF_MODEL_NAME = "bert-base-uncased"
 
