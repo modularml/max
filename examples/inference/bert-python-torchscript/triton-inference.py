@@ -18,7 +18,8 @@ import numpy as np
 
 from argparse import ArgumentParser
 import tritonclient.http as httpclient
-from transformers import AutoTokenizer
+from transformers import BertTokenizer
+import torch
 
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
@@ -65,7 +66,7 @@ def main():
         type=str,
         metavar="<text>",
         required=True,
-        help="Statement to classify.",
+        help="Masked language model.",
     )
     parser.add_argument(
         "--model-name",
@@ -87,7 +88,7 @@ def main():
 
     # Preprocess input statement
     print("Processing input...")
-    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
+    tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
     inputs = tokenizer(
         args.text,
         return_tensors="np",
@@ -97,14 +98,22 @@ def main():
         max_length=SEQLEN,
     )
     print("Input processed.\n")
-
-    # Classify input statement
+    masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero()[1]
     outputs = execute(triton_client, args.model_name, inputs)
-
-    # Extract class prediction from output
-    predicted_class_id = outputs.argmax(axis=-1)[0]
-    sentiment_labels = {0: "Negative", 1: "Positive"}
-    print(f"Predicted sentiment: {sentiment_labels[predicted_class_id]}")
+    logits = torch.from_numpy(outputs[0, masked_index, :])
+    predicted_token_ids = logits.argmax(dim=-1)
+    predicted_tokens = [
+        tokenizer.decode(
+            [token_id],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        )
+        for token_id in predicted_token_ids
+    ]
+    filled_mask = "".join(predicted_tokens)
+    # Get the predictions for the masked token
+    print(f"input text: {args.text}")
+    print(f"filled mask: {args.text.replace('[MASK]', filled_mask)}")
 
 
 if __name__ == "__main__":
