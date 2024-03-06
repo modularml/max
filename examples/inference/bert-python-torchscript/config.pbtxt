@@ -22,4 +22,4 @@ instance_group {
   kind: KIND_CPU
 }
 backend: "max"
-default_model_filename: "bert.torchscript"
+default_model_filename: "bert-mlm.torchscript"

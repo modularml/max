@@ -18,7 +18,7 @@ set -ex
 # Example input for the model
 INPUT_EXAMPLE="Paris is the [MASK] of France."
 
-MODEL_PATH="../../models/bert.torchscript"
+MODEL_PATH="../../models/bert-mlm.torchscript"
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
