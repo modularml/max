@@ -3,3 +3,4 @@ tensorflow
 transformers
 py-cpuinfo
 torch
+tf-keras
