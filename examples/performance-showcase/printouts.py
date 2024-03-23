@@ -61,7 +61,7 @@ def print_speedup_summary(results, model):
 
         modular_txt = f"MAX Engine vs {framework_labels[framework]}:"
 
-        if speedup > 1.5:
+        if speedup > 1.2:
             addendum = f"{next(exclamations)} We're {speedup:.2f}x faster!"
 
         if speedup <= 1.2:
