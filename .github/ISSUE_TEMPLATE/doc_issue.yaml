@@ -1,3 +1,16 @@
+##===----------------------------------------------------------------------===##
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##===----------------------------------------------------------------------===##
+
 name: Documentation issue
 description: Report a problem with the MAX docs
 title: "[Docs]"
@@ -8,7 +21,7 @@ body:
     attributes:
       value: |
         Thank you for helping us improve the MAX docs!
-        
+
         Please add a title above and fill in the following fields so we can understand the problem.
 
   - type: input

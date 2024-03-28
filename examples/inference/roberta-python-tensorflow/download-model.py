@@ -42,6 +42,8 @@ def main():
     )
     args = parser.parse_args()
 
+    tf.config.set_visible_devices([], "GPU")
+
     print("Downloading model ...")
     script_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = Path(script_dir, args.output_dir)

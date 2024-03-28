@@ -15,24 +15,27 @@
 
 import common
 import os
-import tensorflow as tf
 from pathlib import Path
-import transformers
-from transformers import TFRobertaForSequenceClassification, TFCLIPModel
 import pickle
 import sys
 
-transformers.utils.logging.set_verbosity_error()
+import tensorflow as tf
+import transformers
+from transformers import TFRobertaForSequenceClassification, TFCLIPModel
 
+transformers.utils.logging.set_verbosity_error()
+tf.config.set_visible_devices([], "GPU")
 
 model_name = sys.argv[1]
-model_dir =  f"./.cache/{model_name}_savedmodel"
+model_dir = f"./.cache/{model_name}_savedmodel"
 script_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = Path(script_dir, model_dir)
 
 if model_name == "roberta":
     if not os.path.exists(model_path):
-        model = TFRobertaForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-emotion-multilabel-latest")
+        model = TFRobertaForSequenceClassification.from_pretrained(
+            "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
+        )
         tf.saved_model.save(model, model_dir)
 
     with open(".cache/roberta.pkl", "rb") as f:
@@ -41,7 +44,9 @@ if model_name == "roberta":
             "attention_mask": tf.convert_to_tensor(
                 inputs["attention_mask"], dtype=tf.int32
             ),
-            "input_ids": tf.convert_to_tensor(inputs["input_ids"], dtype=tf.int32),
+            "input_ids": tf.convert_to_tensor(
+                inputs["input_ids"], dtype=tf.int32
+            ),
             "token_type_ids": tf.convert_to_tensor(
                 inputs["token_type_ids"], dtype=tf.int32
             ),
@@ -57,7 +62,9 @@ elif model_name == "clip":
             "attention_mask": tf.convert_to_tensor(
                 inputs["attention_mask"].numpy(), dtype=tf.int32
             ),
-            "input_ids": tf.convert_to_tensor(inputs["input_ids"].numpy(), dtype=tf.int32),
+            "input_ids": tf.convert_to_tensor(
+                inputs["input_ids"].numpy(), dtype=tf.int32
+            ),
             "pixel_values": tf.convert_to_tensor(
                 inputs["pixel_values"].numpy(), dtype=tf.float32
             ),

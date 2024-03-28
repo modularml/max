@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
@@ -11,7 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 
 set -e
 
@@ -28,7 +27,7 @@ CURRENT_DIR=$(dirname "$0")
 MODEL_DIR="$CURRENT_DIR/../../models/bert-tensorflow"
 
 # Download model from HuggingFace
-python3 "$CURRENT_DIR/download-model.py" "-o $MODEL_DIR"
+python3 "$CURRENT_DIR/download-model.py" -o $MODEL_DIR
 
 # Execute the model with example input
 INPUT_EXAMPLE="The capital of France is [MASK]."

@@ -20,7 +20,6 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 
-import tensorflow as tf
 from pathlib import Path
 from transformers import TFRobertaForSequenceClassification
 
@@ -51,7 +50,7 @@ def main():
 
     model = TFRobertaForSequenceClassification.from_pretrained(HF_MODEL_NAME)
     print(f"Converting Transformers Model to Tensorflow SavedModel...")
-    tf.saved_model.save(model, args.output_dir)
+    model.save(args.output_dir, save_format="tf")
     print(f"Model saved to {args.output_dir}/.\n")
 
 

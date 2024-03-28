@@ -83,6 +83,7 @@ def main():
     )
     args = parser.parse_args()
 
+    torch.set_default_device("cpu")
     # Create a triton client
     triton_client = httpclient.InferenceServerClient(url=args.url)
 

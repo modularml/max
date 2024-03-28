@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
@@ -11,11 +12,11 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-#!/usr/bin/env python3
 
 from max import engine
 
 import os
+import signal
 
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -44,7 +45,6 @@ def execute(model_path, inputs):
 
 
 def main():
-
     # Parse args
     parser = ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
@@ -61,6 +61,8 @@ def main():
         help="Directory for the downloaded model.",
     )
     args = parser.parse_args()
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Preprocess input statement
     print("Processing input...")

@@ -11,27 +11,10 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-#
-# This file is Modular Inc proprietary.
-#
-# ===----------------------------------------------------------------------=== #
-
 import python
 from memory import memcpy
 from tensor import Tensor, TensorShape
-from collections.vector import DynamicVector
-
-
-fn expandvars(path: String) raises -> String:
-    var os = python.Python.import_module("os")
-    return str(os.path.expandvars(path))
-
-
-fn add_to_path(path: String) raises:
-    var path_obj = expandvars(path)
-    python.Python.add_to_path(path_obj)
-    print("Added", path_obj, "to Python path")
+from collections import List
 
 
 @always_inline
@@ -101,10 +84,10 @@ fn tensor_to_numpy[
 
 @always_inline
 fn numpy_to_tensor[type: DType](array: PythonObject) raises -> Tensor[type]:
-    var shape = DynamicVector[Int]()
+    var shape = List[Int]()
     var array_shape = array.shape
     for dim in array_shape:
-        shape.push_back(dim.__index__())
+        shape.append(dim.__index__())
     var out = Tensor[type](shape)
     memcpy_from_numpy(array, out)
     return out ^

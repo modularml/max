@@ -20,6 +20,7 @@ built with the [MAX Graph API](https://docs.modular.com/engine/graph).
    ```shell
    bash run.sh
    ```
+
    or
 
    ```shell
@@ -30,4 +31,3 @@ built with the [MAX Graph API](https://docs.modular.com/engine/graph).
        -I "$SCRIPT_DIR/tokenizer" \
        "$SCRIPT_DIR/run.🔥"
    ```
-

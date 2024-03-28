@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
@@ -11,12 +12,9 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-#!/usr/bin/env python3
-
-from max import engine
-
 import logging
 import os
+import signal
 from argparse import ArgumentParser
 
 # suppress extraneous logging
@@ -46,19 +44,9 @@ def export(model, output_dir: str):
 def print_metadata(metadata):
     for x in metadata:
         print(
-            f"\tname: {x.name:<25} shape: {str(x.shape):<20} dtype: {x.dtype:<15}"
+            f"\tname: {x.name:<25} shape: {str(x.shape):<20} dtype:"
+            f" {x.dtype:<15}"
         )
-
-
-def load(session, output_dir: str, model_name: str):
-    model = session.load(f"{output_dir}/{model_name}")
-    print(f"{model_name}:")
-    print("=" * 80)
-    print("Inputs:")
-    print_metadata(model.input_metadata)
-    print("Outputs:")
-    print_metadata(model.output_metadata)
-    print("")
 
 
 def main():
@@ -73,6 +61,10 @@ def main():
     )
     args = parser.parse_args()
 
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    tf.config.set_visible_devices([], "GPU")
+
     # Download Keras model.
     print("Downloading model ...\n")
     model = keras_cv.models.StableDiffusion(
@@ -85,16 +77,6 @@ def main():
     export(model.image_encoder, f"{args.output_dir}/img-encoder")
     export(model.decoder, f"{args.output_dir}/img-decoder")
     export(model.diffusion_model, f"{args.output_dir}/img-diffuser")
-
-    # Load models and print input/output metadata. This step enables one to see
-    # the input shapes and tensor names used when writing the application code.
-    # NOTE: This compiles each model in full; it may take a few minutes.
-    print("\nLoading...")
-    session = engine.InferenceSession()
-    load(session, args.output_dir, "txt-encoder")
-    load(session, args.output_dir, "img-encoder")
-    load(session, args.output_dir, "img-decoder")
-    load(session, args.output_dir, "img-diffuser")
 
 
 if __name__ == "__main__":

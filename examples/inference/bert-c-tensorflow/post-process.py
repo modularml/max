@@ -61,5 +61,6 @@ def cleanup():
 
 
 if __name__ == "__main__":
+    tf.config.set_visible_devices([], "GPU")
     post_process()
     cleanup()

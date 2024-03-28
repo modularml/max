@@ -16,7 +16,9 @@ import common
 try:
     import torch
 except ModuleNotFoundError:
-    print("PyTorch not found. Please python3 -m pip install torch to get results!")
+    print(
+        "PyTorch not found. Please python3 -m pip install torch to get results!"
+    )
     exit(1)
 
 import torch
@@ -27,14 +29,16 @@ import sys
 from transformers import RobertaForSequenceClassification, CLIPModel
 
 model_name = sys.argv[1]
-model_dir =  f"./.cache/{model_name}_pt"
+model_dir = f"./.cache/{model_name}_pt"
 script_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = Path(script_dir, model_dir)
 
 
 if model_name == "roberta":
     if not os.path.exists(model_path):
-        model = RobertaForSequenceClassification.from_pretrained("cardiffnlp/twitter-roberta-base-emotion-multilabel-latest")
+        model = RobertaForSequenceClassification.from_pretrained(
+            "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
+        )
         torch.save(model, model_dir)
 
     loaded = torch.load(model_dir)

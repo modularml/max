@@ -11,11 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+import sys
+from collections import List
+from pathlib import Path
 from sys.param_env import env_get_string
 from tensor import Tensor, TensorShape
-from collections.vector import DynamicVector
 from utils.index import Index
-from pathlib import Path
 
 from max.engine import InferenceSession, Model, TensorMap
 from max.graph import Module
@@ -27,55 +28,114 @@ from weights.llama2checkpoint import LlamaCFile
 from weights.loadable_model import LoadableModel
 
 
-alias BATCH_SIZE: Int = 1
-alias MODEL_PATH = Path(env_get_string["LLAMA_MODEL_PATH"]())
-alias TEMP_PATH = Path(env_get_string["TEMP_PATH"]())
-alias TOKENIZER_PATH = Path(env_get_string["TOKENIZER_PATH"]())
+@value
+struct Config:
+    """Configuration for token generation runtime options."""
+
+    var batch_size: Int
+    var float_dtype: String
+    var model_path: Path
+    var custom_ops_path: Path
+    var tokenizer_path: Path
+
+    fn __init__(
+        inout self,
+        /,
+        batch_size: Int = 1,
+        float_dtype: DType = DType.float16,
+        model_path: Path = "",
+        custom_ops_path: Path = "",
+        tokenizer_path: Path = "",
+    ) raises:
+        self.batch_size = batch_size
+        self.float_dtype = float_dtype
+        self.model_path = model_path
+        self.custom_ops_path = custom_ops_path
+        self.tokenizer_path = tokenizer_path
+
+        self.parse_args()
+
+    fn parse_args(inout self) raises:
+        var args = sys.argv()
+        # Skip the run.mojo Mojo file arg.
+        var i = 1
+        while i < len(args):
+            if args[i] == "--batch-size":
+                self.batch_size = atol(args[i + 1])
+                i += 2
+            elif args[i] == "--float-dtype":
+                self.float_dtype = args[i + 1]
+                i += 2
+            elif args[i] == "--model-path":
+                self.model_path = Path(args[i + 1])
+                i += 2
+            elif args[i] == "--custom-ops-path":
+                self.custom_ops_path = Path(args[i + 1])
+                i += 2
+            elif args[i] == "--tokenizer-path":
+                self.tokenizer_path = Path(args[i + 1])
+                i += 2
+            else:
+                raise "unsupported CLI argument: " + String(args[i])
 
 
-fn cache_init(model: Llama2, size: Int) -> Tensor[DType.float32]:
-    return Tensor[DType.float32](
+fn cache_init[
+    float_dtype: DType
+](model: Llama2, size: Int, config: Config) -> Tensor[float_dtype]:
+    constrained[float_dtype.is_floating_point(), "expected float dtype"]()
+
+    return Tensor[float_dtype](
         TensorShape(
             size,
             model.hyperparams.n_layers,
-            BATCH_SIZE,
+            config.batch_size,
             model.hyperparams.n_kv_heads,
             model.hyperparams.head_dim,
         )
     )
 
 
-fn cache_view(
-    model: Llama2, size: Int, buff: Tensor[DType.float32]
-) -> Tensor[DType.float32]:
+fn cache_view[
+    float_dtype: DType
+](size: Int, buff: Tensor[float_dtype]) -> Tensor[float_dtype]:
     var shape = buff.shape()
-    return Tensor(
+    return Tensor[float_dtype](
         buff.data(), TensorShape(size, shape[1], shape[2], shape[3], shape[4])
     )
 
 
-fn cache_update(
+fn cache_update[
+    float_dtype: DType
+](
     results: TensorMap,
     name: String,
-    buff: Tensor[DType.float32],
-    owned current: Tensor[DType.float32],
+    buff: Tensor[float_dtype],
+    owned current: Tensor[float_dtype],
     n: Int,
 ) raises:
-    var update = results.buffer[DType.float32](name)
+    constrained[float_dtype.is_floating_point(), "expected float dtype"]()
+
+    var update = results.buffer[float_dtype](name)
     var shape = buff.shape()
     var stride = shape[1] * shape[2] * shape[3] * shape[4]
     var pos = current.shape()[0]
-    memcpy[DType.float32](buff.data() + pos * stride, update.data, n * stride)
+    memcpy(buff.data() + pos * stride, update.data, n * stride)
     _ = current._steal_ptr()
 
 
-fn execute(
+fn execute[
+    float_dtype: DType
+](
     model: Model,
     session: InferenceSession,
     tokens: Tensor[DType.int64],
-    k_cache_buff: Tensor[DType.float32],
-    v_cache_buff: Tensor[DType.float32],
+    k_cache_buff: Tensor[float_dtype],
+    v_cache_buff: Tensor[float_dtype],
 ) raises -> TensorMap:
+    constrained[
+        float_dtype.is_floating_point(), "expected float inputs and outputs"
+    ]()
+
     var input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", k_cache_buff)
@@ -84,15 +144,17 @@ fn execute(
     return result_map ^
 
 
-fn run[ModelT: LoadableModel]() raises:
+fn run[
+    ModelT: LoadableModel, float_dtype: DType = DType.float32
+](config: Config) raises:
     print("Initializing tokenizer...")
-    var tokenizer = BPETokenizer.from_file(TOKENIZER_PATH)
+    var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
     var initial_prompt = "<s> I believe the meaning of life is"
     var prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
-    var model = Llama2[ModelT](MODEL_PATH)
+    var model = Llama2[ModelT, float_dtype](config.model_path)
     var module = model.build_graph("llama_model")
     var session = InferenceSession()
 
@@ -101,10 +163,10 @@ fn run[ModelT: LoadableModel]() raises:
 
     print("Executing...")
     var max_tokens = 256
-    print_no_newline(initial_prompt)
+    print(initial_prompt, end="")
 
-    var k_cache_buff = cache_init(model, max_tokens)
-    var v_cache_buff = cache_init(model, max_tokens)
+    var k_cache_buff = cache_init[float_dtype](model, max_tokens, config)
+    var v_cache_buff = cache_init[float_dtype](model, max_tokens, config)
 
     var tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
     for i in range(prompt.size):
@@ -116,12 +178,12 @@ fn run[ModelT: LoadableModel]() raises:
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, max_tokens + 1):
-        var k_cache_view = cache_view(model, cache_size, k_cache_buff)
-        var v_cache_view = cache_view(model, cache_size, v_cache_buff)
+        var k_cache_view = cache_view(cache_size, k_cache_buff)
+        var v_cache_view = cache_view(cache_size, v_cache_buff)
         var n_inputs = tokens.shape()[1]
         cache_size += n_inputs
 
-        var results = execute(
+        var results = execute[float_dtype](
             compiled_model,
             session,
             tokens=tokens,
@@ -133,15 +195,22 @@ fn run[ModelT: LoadableModel]() raises:
         cache_update(results, "output2", v_cache_buff, v_cache_view ^, n_inputs)
 
         tokens = results.get[DType.int64]("output0")
-        print_no_newline(tokenizer.vocab[tokens[0, 0].to_int()].token)
+        print(tokenizer.vocab[int(tokens[0, 0])].token, end="")
 
     print()
 
 
 fn main() raises:
-    if MODEL_PATH.suffix() == ".gguf":
-        run[GGUFFile]()
-    elif MODEL_PATH.suffix() == ".bin":
-        run[LlamaCFile]()
+    var config = Config()
+
+    if config.model_path.suffix() == ".gguf":
+        if config.float_dtype == str(DType.float16):
+            run[GGUFFile, DType.float16](config)
+        elif config.float_dtype == str(DType.float32):
+            run[GGUFFile, DType.float32](config)
+        else:
+            raise "invalid float dtype"
+    elif config.model_path.suffix() == ".bin":
+        run[LlamaCFile](config)
     else:
         raise "invalid model path"

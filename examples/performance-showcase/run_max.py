@@ -22,7 +22,9 @@ loaded = None
 inputs = None
 
 session = engine.InferenceSession()
-model = session.load(f"./.cache/{model_name}_savedmodel") # Load TensorFlow model
+model = session.load(
+    f"./.cache/{model_name}_savedmodel"
+)  # Load TensorFlow model
 
 if model_name == "roberta":
     with open(".cache/roberta.pkl", "rb") as f:
@@ -33,7 +35,7 @@ elif model_name == "clip":
         inputs = {
             "attention_mask": inputs["attention_mask"].numpy().astype(np.int32),
             "input_ids": inputs["input_ids"].numpy().astype(np.int32),
-            "pixel_values": inputs["pixel_values"].numpy().astype(np.float32)
+            "pixel_values": inputs["pixel_values"].numpy().astype(np.float32),
         }
 
 qps = common.run(lambda: model.execute(**inputs))

@@ -41,8 +41,7 @@ destructor.
 Other types expose a `.destroy()` method simply to facilitate this.
 """
 
-from collections.optional import Optional
-from collections.vector import DynamicVector
+from collections import List, Optional
 from memory.unsafe import DTypePointer
 from tensor import Tensor, TensorShape
 from pathlib import Path
@@ -230,7 +229,7 @@ struct GGMLType:
 
 @value
 @register_passable("trivial")
-struct GGUFString:
+struct GGUFString(Stringable):
     # The length of the string in bytes.
     var n: UInt64
     # The string as a UTF-8 non-null-terminated string.
@@ -241,7 +240,7 @@ struct GGUFString:
         self.data.free()
 
     @always_inline
-    fn str(self) -> String:
+    fn __str__(self) -> String:
         return String(
             StringRef(self.data.bitcast[DType.int8](), self.n.to_int())
         )
@@ -741,7 +740,7 @@ struct GGUFHeader:
     # Your executor might do little-endian byte order, so it might be
     # checking for 0x46554747 and letting the endianness cancel out.
     # Consider being *very* explicit about the byte order here.
-    var magic: StaticTuple[4, Int8]
+    var magic: StaticTuple[Int8, 4]
     # The version of the format implemented.
     # Must be `3` for version described in this spec, which introduces big-endian support.
     #
@@ -757,7 +756,7 @@ struct GGUFHeader:
 
     fn __init__() -> Self:
         return Self {
-            magic: StaticTuple[4, Int8](ord("N"), ord("U"), ord("L"), ord("L")),
+            magic: StaticTuple[Int8, 4](ord("N"), ord("U"), ord("L"), ord("L")),
             version: 0,
             n_tensors: 0,
             n_kv: 0,
@@ -785,7 +784,7 @@ struct GGUFTensorInfo:
     # The number of dimensions in the tensor.
     # Currently at most 4, but this may change in the future.
     var n_dims: UInt32
-    var ne: StaticTuple[Self.GGML_MAX_DIMS, UInt64]
+    var ne: StaticTuple[UInt64, Self.GGML_MAX_DIMS]
 
     var type: GGMLType
 
@@ -818,14 +817,14 @@ struct GGUFTensorInfo:
             num_elements * type_trait.type_size // type_trait.blck_size
         ).to_int()
 
-    fn tensor_dims(self) -> DynamicVector[Int]:
+    fn tensor_dims(self) -> List[Int]:
         """Converts from GGML `ne` to dims compatible with stdlib `Tensor`.
 
         Returns:
-            A `DynamicVector` of dims compatible with stdlib `TensorShape`.
+            A `List` of dims compatible with stdlib `TensorShape`.
         """
         var n_dims = int(self.n_dims)
-        var dims = DynamicVector[Int](capacity=n_dims)
+        var dims = List[Int](capacity=n_dims)
         for i in range(n_dims):
             # Opposite to `TensorSpec`, GGUF stores the inner dimension at
             # the smaller index, so reverse them.
@@ -954,7 +953,7 @@ struct GGUFReader:
         var name = self.gguf_string()
         var n_dims = self.dtype_element[DType.uint32]()
 
-        var ne = StaticTuple[GGUFTensorInfo.GGML_MAX_DIMS, UInt64]()
+        var ne = StaticTuple[UInt64, GGUFTensorInfo.GGML_MAX_DIMS]()
         for i in range(GGUFTensorInfo.GGML_MAX_DIMS):
             ne[i] = 1
 
@@ -1010,7 +1009,7 @@ struct GGUFFile(LoadableModel):
 
         # Read the header.
         var magic: Tensor[DType.int8] = reader.read_bytes(
-            sizeof[StaticTuple[4, Int8]]()
+            sizeof[StaticTuple[Int8, 4]]()
         )
         for i in range(magic.num_elements()):
             if magic[i] != GGUFFile.GGUF_MAGIC.data().load(i):
@@ -1024,7 +1023,7 @@ struct GGUFFile(LoadableModel):
         var n_kv = reader.dtype_element[DType.uint64]().to_int()
 
         self.header = GGUFHeader(
-            StaticTuple[4, Int8](magic[0], magic[1], magic[2], magic[3]),
+            StaticTuple[Int8, 4](magic[0], magic[1], magic[2], magic[3]),
             version,
             n_tensors,
             n_kv,
@@ -1097,16 +1096,22 @@ struct GGUFFile(LoadableModel):
 
         for i in range(self.n_tensors()):
             var info = self.infos[i]
-            if info.name.str() != full_key:
+            if str(info.name) != full_key:
                 continue
 
             if type != info.type.dtype():
-                raise "compile/runtime dtype mismatch"
+                raise "compile/runtime dtype mismatch of " + str(
+                    type
+                ) + "; expected " + str(info.type.dtype()) + " for " + str(
+                    info.name
+                )
 
             # Add tensor data offset since `info.offset` is from the start of
             # the tensor data.
             _ = self.fp.seek(self.offset + int(info.offset))
-            var bytes_tensor = self.fp.read_bytes(info.num_bytes())
+            var bytes_tensor = Tensor[DType.int8](
+                self.fp.read_bytes(info.num_bytes())
+            )
 
             return Tensor(
                 bytes_tensor._steal_ptr().bitcast[type](),

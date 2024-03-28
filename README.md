@@ -4,22 +4,27 @@
 
 # Welcome to MAX
 
-The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform is an integrated suite of AI libraries, tools, and technologies that unifies commonly fragmented AI deployment workflows. MAX accelerates time to market for the latest innovations by giving AI developers a single toolchain that unlocks full programmability, unparalleled performance, and seamless hardware portability.
-
+The Modular Accelerated Xecution ([MAX](https://www.modular.com/max)) platform
+is an integrated suite of AI libraries, tools, and technologies that unifies
+commonly fragmented AI deployment workflows. MAX accelerates time to market
+for the latest innovations by giving AI developers a single toolchain that
+unlocks full programmability, unparalleled performance, and seamless hardware portability.
 
 <p align="center">
     <img src="https://modular-assets.s3.amazonaws.com/images/modular_architecture_diagram_bg.png">
 </p>
 
-
-[See here to get started with MAX](https://docs.modular.com/engine/get-started) and when you want to report issues or request features,
+[See here to get started with MAX](https://docs.modular.com/engine/get-started)
+and when you want to report issues or request features,
 [please create a GitHub issue here](https://github.com/modularml/max/issues/new/choose).
 
-The [Discord](https://discord.gg/modular) community is the best place to share your experiences and chat with the team and other community members.
+The [Discord](https://discord.gg/modular) community is the best place to share
+your experiences and chat with the team and other community members.
 
-In the [examples directory](https://github.com/modularml/max/tree/main/examples), you will find code examples for model inference, Jupyter notebooks for an interactive experience learning experience and instructions for how to work with benchmarking and visualization tooling.
-
-
+In the [examples directory](https://github.com/modularml/max/tree/main/examples),
+you will find code examples for model inference, Jupyter notebooks for an
+interactive experience learning experience and instructions for how to work
+with benchmarking and visualization tooling.
 
 ## Getting Started
 
@@ -49,18 +54,19 @@ which opens up
     <img src="https://modular-assets.s3.amazonaws.com/images/modular_console_bg.png">
 </p>
 
-
 ### Option 2: Follow the README
 
-Follow the instructions in the README for each example, notebook or tool you want to run.
+Follow the instructions in the README for each example, notebook or tool
+you want to run.
 
 ### Notebooks
 
-Check out the [notebooks examples](./examples/notebooks/) for using MAX Engine 🏎️ for models such as
+Check out the [notebooks examples](./examples/notebooks/) for using MAX Engine
+🏎️ for models such as
 
-* [Mistral-7B](./examples/notebooks/mistral7b-python-onnx.ipynb)
-* [Roberta-pytorch](./examples/notebooks/roberta-python-pytorch.ipynb)
-* [Roberta-tensorflow](./examples/notebooks/roberta-python-tensorflow.ipynb)
+- [Mistral-7B](./examples/notebooks/mistral7b-python-onnx.ipynb)
+- [Roberta-pytorch](./examples/notebooks/roberta-python-pytorch.ipynb)
+- [Roberta-tensorflow](./examples/notebooks/roberta-python-tensorflow.ipynb)
 
 ### FAQ
 
@@ -76,7 +82,8 @@ in your local python environment. Note that `max` can also be available in your 
 
 ### MAX Serving Docker Container
 
-For MAX Serving, you can pull our Docker Container from the the public ECR here: [https://gallery.ecr.aws/modular/max-serving-de](https://gallery.ecr.aws/modular/max-serving-de)
+For MAX Serving, you can pull our Docker Container from the the public ECR here:
+[https://gallery.ecr.aws/modular/max-serving-de](https://gallery.ecr.aws/modular/max-serving-de)
 
 ```public.ecr.aws/modular/max-serving-de```
 
@@ -85,9 +92,12 @@ For MAX Serving, you can pull our Docker Container from the the public ECR here:
 Thanks for your interest in contributing to this repository!
 We are not accepting pull requests yet.
 
-However, we welcome your bug reports.  If you have a bug, please file an issue [here](https://github.com/modularml/max/issues/new/choose).
+However, we welcome your bug reports.  If you have a bug, please file an issue
+[here](https://github.com/modularml/max/issues/new/choose).
 
-If you need support, the [Discord](https://discord.gg/modular) community is the best place to share your experiences and chat with the team and other community members.
+If you need support, the [Discord](https://discord.gg/modular)
+community is the best place to share your experiences and chat with
+the team and other community members.
 
 ## License
 
@@ -95,7 +105,7 @@ The Mojo examples and notebooks in this repository are licensed
 under the Apache License v2.0 with LLVM Exceptions
 (see the LLVM [License](https://llvm.org/LICENSE.txt)).
 
-#### Third Party Licenses
-You are entirely responsible for checking and validating the licenses of third parties (i.e. Huggingface) for related software and libraries that are downloaded.
+### Third Party Licenses
 
-
+You are entirely responsible for checking and validating the licenses of
+third parties (i.e. Huggingface) for related software and libraries that are downloaded.

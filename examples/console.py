@@ -31,7 +31,10 @@ except ImportError:
 
 ROOT = Path(os.path.dirname(__file__))
 RETRIES = 10
-EXCEEDED_RETRY_ERROR = "Exceeded the number of retries. Please re-run the console again and follow the prompt."
+EXCEEDED_RETRY_ERROR = (
+    "Exceeded the number of retries. Please re-run the console again and follow"
+    " the prompt."
+)
 
 
 def list_repositories() -> List[Tuple[str, str]]:
@@ -122,7 +125,9 @@ def select_repository(
 ) -> Optional[Tuple[str, str]]:
     table = Table(title="Select the Example to Run", highlight=True)
     table.add_column("Index", style="cyan", justify="center")
-    table.add_column("MAX Engine 🏎️  Examples 🔥", style="magenta", justify="left")
+    table.add_column(
+        "MAX Engine 🏎️  Examples 🔥", style="magenta", justify="left"
+    )
     for index, (name, _) in enumerate(repos):
         table.add_row(str(index), name)
 
@@ -166,12 +171,13 @@ def main():
         another = Confirm.ask("Would you like to run another example?")
         if not another:
             exit_ = True
-            console.print("Thanks for trying the examples! Bye 👋", style="green")
+            console.print(
+                "Thanks for trying the examples! Bye 👋", style="green"
+            )
             break
         else:
-            console.print(
-                "Here is the example table again \n", style="green"
-            )
+            console.print("Here is the example table again \n", style="green")
+
 
 if __name__ == "__main__":
     main()

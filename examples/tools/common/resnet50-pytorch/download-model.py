@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
@@ -11,7 +12,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-#!/usr/bin/env python3
 """Download ResNet-50 PyTorch model from HuggingFace."""
 
 import argparse
@@ -19,7 +19,6 @@ import os
 import sys
 import tempfile
 import traceback
-import urllib.request
 
 
 SOURCE_URL = (
@@ -59,8 +58,10 @@ def main():
         ) as log_file:
             traceback.print_exc(file=log_file)
         print(
-            f"Torch module was not found.  {INSTALL_PROSE}"
-            f"Detailed error info in {log_file.name}",
+            (
+                f"Torch module was not found.  {INSTALL_PROSE}"
+                f"Detailed error info in {log_file.name}"
+            ),
             file=sys.stderr,
         )
         sys.exit(1)
@@ -70,10 +71,12 @@ def main():
         ) as log_file:
             traceback.print_exc(file=log_file)
         print(
-            "PyTorch installation seems to be broken.\n"
-            "Make sure you can 'import torch' "
-            "from a Python prompt and try again.\n"
-            f"Detailed error info in {log_file.name}",
+            (
+                "PyTorch installation seems to be broken.\n"
+                "Make sure you can 'import torch' "
+                "from a Python prompt and try again.\n"
+                f"Detailed error info in {log_file.name}"
+            ),
             file=sys.stderr,
         )
         sys.exit(1)
@@ -87,8 +90,10 @@ def main():
         ) as log_file:
             traceback.print_exc(file=log_file)
         print(
-            f"HuggingFace transformers module was not found.  {INSTALL_PROSE}"
-            f"Detailed error info in {log_file.name}",
+            (
+                "HuggingFace transformers module was not found. "
+                f" {INSTALL_PROSE}Detailed error info in {log_file.name}"
+            ),
             file=sys.stderr,
         )
         sys.exit(1)
@@ -98,13 +103,17 @@ def main():
         ) as log_file:
             traceback.print_exc(file=log_file)
         print(
-            "HuggingFace transformers installation seems to be broken.\n"
-            "Make sure you can 'import transformers' "
-            "from a Python prompt and try again.\n"
-            f"Detailed error info in {log_file.name}",
+            (
+                "HuggingFace transformers installation seems to be broken.\n"
+                "Make sure you can 'import transformers' "
+                "from a Python prompt and try again.\n"
+                f"Detailed error info in {log_file.name}"
+            ),
             file=sys.stderr,
         )
         sys.exit(1)
+
+    torch.set_default_device("cpu")
 
     print("Getting pre-trained model...", flush=True)
     model = AutoModelForImageClassification.from_pretrained(

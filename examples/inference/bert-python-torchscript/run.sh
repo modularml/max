@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
@@ -11,7 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 
 set -ex
 
@@ -24,6 +23,6 @@ MODEL_PATH="../../models/bert-mlm.torchscript"
 cd "$(dirname "$0")"
 
 # Download model from HuggingFace
-python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH"
+python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH" --mlm
 
 python3 simple-inference.py --text "$INPUT_EXAMPLE" --model-path "$MODEL_PATH"

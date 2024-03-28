@@ -12,8 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 
 from memory import memcpy
-from tensor import TensorShape
-from collections.optional import Optional
+from tensor import Tensor, TensorShape
+from collections import Optional
 from pathlib import Path
 
 from .loadable_model import LlamaHParams, LoadableModel
@@ -64,7 +64,9 @@ struct LlamaCFile(LoadableModel):
             @parameter
             @always_inline
             fn read_int32() raises -> Int32:
-                var bytes_tensor = f.read_bytes(sizeof[Int32]())
+                var bytes_tensor = Tensor[DType.int8](
+                    f.read_bytes(sizeof[Int32]())
+                )
                 var result = bytes_tensor.data().bitcast[DType.int32]().load()
                 _ = bytes_tensor ^
                 return result
@@ -90,7 +92,7 @@ struct LlamaCFile(LoadableModel):
                 head_size=int(dim // n_heads),
             )
 
-            var bytes_tensor = f.read_bytes()
+            var bytes_tensor = Tensor[DType.int8](f.read_bytes())
             self.weights_ptr = bytes_tensor._steal_ptr()
 
     fn __moveinit__(inout self, owned existing: Self):
