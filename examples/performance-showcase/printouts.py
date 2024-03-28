@@ -79,12 +79,6 @@ def print_speedup_summary(results, model):
 
         if speedup > 1.5:
             addendum = f"{next(exclamations)} We're {speedup:.2f}x faster!"
-        elif speedup > 1:
-            # 1.5 > speedup > 1
-            addendum = f"That's about {speedup:.2f}x faster."
-        else:
-            # speedup <= 1.0
-            addendum = f"Oh, darn that's only {speedup:.2f}x stock performance."
 
         if speedup <= 1.2:
             if _get_arch() in expected_speedups:
@@ -92,6 +86,11 @@ def print_speedup_summary(results, model):
                     f"{expected_speedups[_get_arch()][model][framework]:.2f}x"
                     f" on {framework_labels[framework]}"
                 )
+
+            addendum = f"That's about {speedup:.2f}x faster."
+
+        if speedup <= 1:
+            addendum = f"Oh, darn that's only {speedup:.2f}x stock performance."
 
         print(f"{modular_txt} {addendum}")
 
