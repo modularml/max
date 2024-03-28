@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
@@ -10,8 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
-#!/usr/bin/env python3
 
 import os
 from argparse import ArgumentParser
@@ -40,6 +39,8 @@ def main():
         help="Output directory for the downloaded model.",
     )
     args = parser.parse_args()
+
+    tf.config.set_visible_devices([], "GPU")
 
     print("Downloading model...")
     script_dir = os.path.dirname(os.path.abspath(__file__))

@@ -30,7 +30,7 @@ saves it to an output directory of your choosing, or defaults to
 `../../models/roberta-tensorflow/`.
 
     For more information about the model, please refer to the
-    [model card](https://huggingface.co/microsoft/RoBERTa).
+    [model card](https://huggingface.co/cardiffnlp/twitter-roberta-base-emotion-multilabel-latest).
 
 - `simple-inference.py`: Classifies example input statement using MAX
 Engine. The script prepares an example input, executes the model, and generates

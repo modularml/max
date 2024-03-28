@@ -91,7 +91,8 @@ def main():
     predicted_class = model.config.id2label[predicted_label]
 
     print(
-        f"\nThe input image is likely one of the following classes: \n{predicted_class}"
+        "\nThe input image is likely one of the following classes:"
+        f" \n{predicted_class}"
     )
 
 

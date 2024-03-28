@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """A simple generic max-heap implementation."""
 
-from collections.vector import DynamicVector
+from collections import List
 
 
 trait Orderable:
@@ -43,12 +43,12 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
     ```
     """
 
-    var heap: DynamicVector[ElementType]
+    var heap: List[ElementType]
     var begin_idx: Int
 
     fn __init__(inout self):
         """Constructs an empty heap."""
-        self.heap = DynamicVector[ElementType]()
+        self.heap = List[ElementType]()
         self.begin_idx = 0
 
     fn __len__(self) -> Int:

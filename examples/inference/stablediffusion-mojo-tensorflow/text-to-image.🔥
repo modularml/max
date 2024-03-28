@@ -18,11 +18,11 @@ import random
 
 from os import setenv
 
-from collections.vector import DynamicVector
+from collections import List
 from math import exp, log, sin, cos, sqrt
 from memory import memcpy
 from python import Python
-from tensor import Tensor, TensorShape, TensorSpec
+from tensor import randn, Tensor, TensorShape, TensorSpec
 
 from max.engine import InferenceSession, Model, SessionOptions
 
@@ -73,8 +73,8 @@ fn reverse[dtype: DType](x: Tensor[dtype]) -> Tensor[dtype]:
 fn vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
     """Concatenate tensors a & b along the outermost dimension."""
     # Generate return shape
-    var out_shape = DynamicVector[Int]()
-    out_shape.push_back(a.shape()[0] + b.shape()[0])
+    var out_shape = List[Int]()
+    out_shape.append(a.shape()[0] + b.shape()[0])
     for i in range(1, a.shape().rank()):
         out_shape.append(a.shape()[i])
     # Allocate return tensor
@@ -88,10 +88,10 @@ fn vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
 fn split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
     """Return the ith slice of the outermost dim; i.e., x[idx, :, :, ..., :]."""
     # Generate return shape
-    var shape = DynamicVector[Int]()
-    shape.push_back(1)
+    var shape = List[Int]()
+    shape.append(1)
     for i in range(1, x.shape().rank()):
-        shape.push_back(x.shape()[i])
+        shape.append(x.shape()[i])
     # Allocate return tensor
     var ret = Tensor[dtype](TensorShape(shape))
     # Fill data
@@ -245,7 +245,7 @@ fn main() raises -> None:
     print("Initializing latent...")
     # From model inspection, we know that h=w=64 and c=4
     # Note: For tensorflow, shapes are given in NHWC format.
-    var latent = random.randn[float](TensorShape(1, 64, 64, 4))
+    var latent = randn[float](TensorShape(1, 64, 64, 4))
     var timesteps = reverse(arange[int32](1, 1000, 1000 // num_steps))
     var num_timesteps = timesteps.num_elements()
 
@@ -258,7 +258,7 @@ fn main() raises -> None:
 
     ## Loop through diffusion model
     for i in range(num_timesteps):
-        print_no_newline("\rGenerating image: ", i + 1, "/", num_timesteps)
+        print("\rGenerating image: ", i + 1, "/", num_timesteps, end="")
         var latent_prev = latent
 
         # Generate embeddings for ith timestep & reshape to 1xC

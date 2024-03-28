@@ -1,0 +1,6 @@
+onnx>=1.15.0
+onnxruntime==1.16.3
+optimum>=1.17.1
+setuptools>=69.1.0
+torch>=2.1.2
+transformers>=4.0.0

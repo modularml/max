@@ -1,6 +1,6 @@
 /*******************************************************************************
  * Copyright (c) 2024, Modular Inc. All rights reserved.
- * 
+ *
  * Licensed under the Apache License v2.0 with LLVM Exceptions:
  * https://llvm.org/LICENSE.txt
  *
@@ -122,7 +122,6 @@ int main(int argc, char **argv) {
   M_TensorSpec *inputIdsSpec =
       M_newTensorSpec(inputIdsShape, /*rankSize=*/2, /*dtype=*/M_INT32,
                       /*tensorName=*/"input_ids");
-  free(inputIdsShape);
   int32_t *inputIdsTensor = (int32_t *)readFileOrExit("inputs/input_ids.bin");
   M_borrowTensorInto(inputToModel, inputIdsTensor, inputIdsSpec, status);
   CHECK(status);
@@ -130,7 +129,6 @@ int main(int argc, char **argv) {
   M_TensorSpec *attentionMaskSpec =
       M_newTensorSpec(attentionMaskShape, /*rankSize=*/2, /*dtype=*/M_INT32,
                       /*tensorName=*/"attention_mask");
-  free(attentionMaskShape);
   int32_t *attentionMaskTensor =
       (int32_t *)readFileOrExit("inputs/attention_mask.bin");
   M_borrowTensorInto(inputToModel, attentionMaskTensor, attentionMaskSpec,
@@ -140,7 +138,6 @@ int main(int argc, char **argv) {
   M_TensorSpec *tokenTypeIdsSpec =
       M_newTensorSpec(tokenTypeIdsShape, /*rankSize=*/2, /*dtype=*/M_INT32,
                       /*tensorName=*/"token_type_ids");
-  free(tokenTypeIdsShape);
   int32_t *tokenTypeIdsTensor =
       (int32_t *)readFileOrExit("inputs/token_type_ids.bin");
   M_borrowTensorInto(inputToModel, tokenTypeIdsTensor, tokenTypeIdsSpec,
@@ -170,6 +167,44 @@ int main(int argc, char **argv) {
   }
   fwrite(M_getTensorData(result), M_sizeOf(dtype), numElements, file);
   fclose(file);
+
+  // free memory buffers
+  free(tokenTypeIdsTensor);
+  free(attentionMaskTensor);
+  free(inputIdsTensor);
+
+  free(tokenTypeIdsShape);
+  free(attentionMaskShape);
+  free(inputIdsShape);
+
+  // free resources
+  M_freeTensor(result);
+
+  M_freeValue(resultValue);
+
+  M_freeAsyncTensorMap(outputs);
+
+  M_freeTensorSpec(tokenTypeIdsSpec);
+  M_freeTensorSpec(attentionMaskSpec);
+  M_freeTensorSpec(inputIdsSpec);
+
+  M_freeAsyncTensorMap(inputToModel);
+
+  M_freeTensorNameArray(tensorNames);
+
+  M_freeModel(model);
+
+  M_freeCompileConfig(compileConfig);
+  M_freeCompiledModel(compiledModel);
+
+  M_freeTorchInputSpec(tokenTypeIdsInputSpec);
+  M_freeTorchInputSpec(attentionMaskInputSpec);
+  M_freeTorchInputSpec(inputIdsInputSpec);
+
+  M_freeCompileConfig(compileConfig);
+  M_freeRuntimeContext(context);
+
+  M_freeStatus(status);
 
   logInfo("Inference successfully completed");
   return EXIT_SUCCESS;

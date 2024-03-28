@@ -11,11 +11,8 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from max import engine
-import os
-import subprocess
-import random
 import argparse
+import os
 
 import common
 import printouts
@@ -36,7 +33,8 @@ common.clear_results()
 common.test_requirements(args.model)
 
 print(
-    "Doing some one time setup. This takes 5 minutes or so, depending on the model."
+    "Doing some one time setup. This takes 5 minutes or so, depending on the"
+    " model."
 )
 print("Get a cup of coffee and we'll see you in a minute!")
 print()

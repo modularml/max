@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from collections import Optional
+from collections import List, Optional
 from pathlib import Path
 
 from max.graph import ops, Dim, Module, MOTensor, Symbol, SymbolTuple, TypeTuple
@@ -20,7 +20,7 @@ from weights.loadable_model import LoadableModel, LlamaHParams
 
 
 @value
-struct Attention:
+struct Attention[float_dtype: DType = DType.float32]:
     var n_heads: Int
     var n_kv_heads: Int
     var head_dim: Int
@@ -53,23 +53,14 @@ struct Attention:
 
         return ops.reshape_like(rope, x)
 
-    def attention_mask(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
+    def attention_mask(
+        self, start_pos: Symbol, owned seq_len: Symbol
+    ) -> Symbol:
         var g = start_pos.graph()
-        var neginf = math.limit.min_or_neginf[DType.float32]()
-        var mask_val = g.op(
-            "mo.broadcast_to",
-            (g.scalar(neginf), ops.concat((seq_len, seq_len))),
-            MOTensor(DType.float32, Dim.dynamic(), Dim.dynamic()),
-        )
-        return g.op(
-            "mo.linalg.band_part",
-            (
-                mask_val,
-                g.scalar[DType.int64](-1),
-                start_pos.reshape(),
-                g.scalar[DType.bool](True),
-            ),
-            MOTensor(DType.float32, Dim.dynamic(), Dim.dynamic()),
+        seq_len = seq_len.reshape()
+        var mask_val = g.full(Scalar[float_dtype].MIN, (seq_len, seq_len))
+        return ops.band_part(
+            mask_val, g.scalar[DType.int64](-1), start_pos, exclude=True
         )
 
     def __call__(
@@ -98,20 +89,20 @@ struct Attention:
         xq = self.rope(xq, freqs_cis)
         xk = self.rope(xk, freqs_cis)
 
-        var keys = ops.concat((k_cache, xk.swap_axes(0, 1))).swap_axes(0, 1)
-        var values = ops.concat((v_cache, xv.swap_axes(0, 1))).swap_axes(0, 1)
+        var keys = ops.concat((k_cache, xk.swapaxes(0, 1))).swapaxes(0, 1)
+        var values = ops.concat((v_cache, xv.swapaxes(0, 1))).swapaxes(0, 1)
 
         keys = self.repeat_kv(keys, self.n_rep)
         values = self.repeat_kv(values, self.n_rep)
 
-        xq = xq.swap_axes(1, 2)
-        keys = keys.swap_axes(1, 2)
-        values = values.swap_axes(1, 2)
+        xq = xq.swapaxes(1, 2)
+        keys = keys.swapaxes(1, 2)
+        values = values.swapaxes(1, 2)
 
-        var scores = (xq @ keys.swap_axes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + self.attention_mask(start_pos, seq_len.reshape(1))
+        var scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
+        scores = scores + self.attention_mask(start_pos, seq_len)
         var output = ops.softmax(scores) @ values
-        output = output.swap_axes(1, 2).reshape(batch_size, seq_len, -1)
+        output = output.swapaxes(1, 2).reshape(batch_size, seq_len, -1)
         return output @ self.wo, xk, xv
 
 
@@ -127,17 +118,19 @@ struct FeedForward:
 
 @value
 struct RMSNorm:
-    var eps: FloatLiteral
+    var eps: Float64
     var weight: Symbol
 
     def __call__(self, input: Symbol) -> Symbol:
         var scale = ops.rsqrt(ops.mean(input**2.0, axis=-1) + self.eps)
-        return input * scale * self.weight
+        # Since norm weights are float32, cast to input dtype to avoid
+        # promoting the result to float32 when the input is float16.
+        return input * scale * ops.cast(self.weight, input.tensor_type().dtype)
 
 
 @value
-struct TransformerBlock(CollectionElement):
-    var attention: Attention
+struct TransformerBlock[float_dtype: DType = DType.float32](CollectionElement):
+    var attention: Attention[float_dtype]
     var feed_forward: FeedForward
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
@@ -171,7 +164,7 @@ struct Embedding:
 
 
 @value
-struct Transformer:
+struct Transformer[float_dtype: DType = DType.float32]:
     alias max_seq_len = 2048
     alias theta = 10000.0
 
@@ -179,7 +172,7 @@ struct Transformer:
     var n_heads: Int
 
     var embedding: Embedding
-    var layers: DynamicVector[TransformerBlock]
+    var layers: List[TransformerBlock[float_dtype]]
     var norm: RMSNorm
     var output: Symbol
 
@@ -188,11 +181,11 @@ struct Transformer:
         var n = self.dim // self.n_heads
         var iota = g.range[DType.float32](0, n - 1, 2)
         var freqs = 1.0 / (Self.theta ** (iota / n))
-        var t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
+        var t = g.range[float_dtype](0, Self.max_seq_len * 2.0, 1)
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 
         var retval = ops.stack((ops.cos(freqs), ops.sin(freqs)), axis=-1)
-        return retval[start_pos : start_pos + seq_len]
+        return ops.cast(retval[start_pos : start_pos + seq_len], float_dtype)
 
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
@@ -202,8 +195,8 @@ struct Transformer:
         var h = self.embedding(tokens)
         var freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
 
-        var k_cache_updates = DynamicVector[Symbol]()
-        var v_cache_updates = DynamicVector[Symbol]()
+        var k_cache_updates = List[Symbol]()
+        var v_cache_updates = List[Symbol]()
         for i in range(len(self.layers)):
             var layer_out = self.layers[i](
                 h, start_pos, freqs_cis, k_cache[i, axis=1], v_cache[i, axis=1]
@@ -211,8 +204,8 @@ struct Transformer:
             h = layer_out[0]
             var k_cache_layer_update = layer_out[1]
             var v_cache_layer_update = layer_out[2]
-            k_cache_updates.append(k_cache_layer_update.swap_axes(0, 1))
-            v_cache_updates.append(v_cache_layer_update.swap_axes(0, 1))
+            k_cache_updates.append(k_cache_layer_update.swapaxes(0, 1))
+            v_cache_updates.append(v_cache_layer_update.swapaxes(0, 1))
 
         return (
             self.norm(h) @ self.output,
@@ -221,19 +214,23 @@ struct Transformer:
         )
 
 
-struct Llama2[ModelT: LoadableModel]:
+struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
     alias batch_size = 1
 
     var params: ModelT
     var hyperparams: LlamaHParams
 
     fn __init__(inout self, model_path: Path) raises:
+        constrained[
+            float_dtype.is_floating_point(), "expected float model dtype"
+        ]()
+
         self.params = ModelT(model_path)
         self.hyperparams = self.params.hyperparams()
 
     fn build_graph(inout self, name: String) raises -> Module:
         var cache_type = MOTensor(
-            DType.float32,
+            float_dtype,
             Dim.dynamic(),
             self.hyperparams.n_layers,
             Self.batch_size,
@@ -241,7 +238,7 @@ struct Llama2[ModelT: LoadableModel]:
             self.hyperparams.head_dim,
         )
         var cache_out_type = MOTensor(  # We can improve our shape inference here!
-            DType.float32,
+            float_dtype,
             Dim.dynamic(),
             self.hyperparams.n_layers,
             Dim.dynamic(),
@@ -257,33 +254,39 @@ struct Llama2[ModelT: LoadableModel]:
         )
 
         @parameter
-        fn weight(name: String, i: Optional[Int] = None) raises -> Symbol:
-            return g.constant(self.params.get[DType.float32](name, i))
+        fn weight[
+            dtype: DType = float_dtype
+        ](name: String, i: Optional[Int] = None) raises -> Symbol:
+            return g.constant(self.params.get[dtype](name, i))
 
-        var layers = DynamicVector[TransformerBlock]()
+        var layers = List[TransformerBlock[float_dtype]]()
         for i in range(self.hyperparams.n_layers):
             var layer = TransformerBlock(
-                attention=Attention(
+                attention=Attention[float_dtype](
                     n_heads=self.hyperparams.n_heads,
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
                     dim=self.hyperparams.dims,
                     n_rep=self.hyperparams.n_rep,
-                    wq=weight("attn_q", i).swap_axes(-1, -2),
-                    wk=weight("attn_k", i).swap_axes(-1, -2),
-                    wv=weight("attn_v", i).swap_axes(-1, -2),
-                    wo=weight("attn_output", i).swap_axes(-1, -2),
+                    wq=weight("attn_q", i).swapaxes(-1, -2),
+                    wk=weight("attn_k", i).swapaxes(-1, -2),
+                    wv=weight("attn_v", i).swapaxes(-1, -2),
+                    wo=weight("attn_output", i).swapaxes(-1, -2),
                 ),
                 feed_forward=FeedForward(
-                    w1=weight("ffn_gate", i).swap_axes(-1, -2),
-                    w2=weight("ffn_down", i).swap_axes(-1, -2),
-                    w3=weight("ffn_up", i).swap_axes(-1, -2),
+                    w1=weight("ffn_gate", i).swapaxes(-1, -2),
+                    w2=weight("ffn_down", i).swapaxes(-1, -2),
+                    w3=weight("ffn_up", i).swapaxes(-1, -2),
                 ),
                 attention_norm=RMSNorm(
-                    self.hyperparams.norm_eps, weight("attn_norm", i)
+                    # Use float32 norm weights rather than float_dtype: they
+                    # are vectors and small, so GGUF stores these as float32.
+                    self.hyperparams.norm_eps,
+                    weight[DType.float32]("attn_norm", i),
                 ),
                 ffn_norm=RMSNorm(
-                    self.hyperparams.norm_eps, weight("ffn_norm", i)
+                    self.hyperparams.norm_eps,
+                    weight[DType.float32]("ffn_norm", i),
                 ),
             )
             layers.append(layer)
@@ -292,13 +295,15 @@ struct Llama2[ModelT: LoadableModel]:
         var k_cache = g[1]
         var v_cache = g[2]
         # TODO(27660): in-memory unpacking
-        var _model_out = Transformer(
+        var _model_out = Transformer[float_dtype](
             dim=self.hyperparams.dims,
             n_heads=self.hyperparams.n_heads,
             embedding=Embedding(weight("token_embd")),
             layers=layers,
-            norm=RMSNorm(self.hyperparams.norm_eps, weight("output_norm")),
-            output=weight("output").swap_axes(-1, -2),
+            norm=RMSNorm(
+                self.hyperparams.norm_eps, weight[DType.float32]("output_norm")
+            ),
+            output=weight("output").swapaxes(-1, -2),
         )(tokens=g[0], k_cache=k_cache, v_cache=v_cache)
         logits = _model_out[0]
         k_cache = _model_out[1]

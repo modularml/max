@@ -15,6 +15,7 @@ from max import engine
 
 from argparse import ArgumentParser
 
+import signal
 import torch
 from transformers import BertTokenizer
 
@@ -81,6 +82,9 @@ def main():
     )
     args = parser.parse_args()
 
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    torch.set_default_device("cpu")
     input_dict = {
         "input_ids": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),
         "attention_mask": torch.zeros((BATCH, SEQLEN), dtype=torch.int64),

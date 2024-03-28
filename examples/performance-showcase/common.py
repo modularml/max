@@ -11,18 +11,17 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from pathlib import Path
 
 import sys
 import warnings
+
 warnings.simplefilter("ignore")
 
-import signal
+import os
 import random
-from itertools import cycle
+import signal
 import subprocess
 import time
-import os
 
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "9"
@@ -30,9 +29,11 @@ os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 
 try:
     import absl.logging
+
     absl.logging.set_verbosity(absl.logging.ERROR)
 
     import transformers
+
     transformers.utils.logging.disable_progress_bar()
     transformers.utils.logging.set_verbosity_error()
 except ModuleNotFoundError:
@@ -40,43 +41,59 @@ except ModuleNotFoundError:
 
 NUM_ITERS = 90
 
+
 def test_requirements(selected_model):
     if selected_model == "clip":
         try:
             import torch
         except ModuleNotFoundError:
-            print("\nError: PyTorch not found but is required for clip. Please python3 -m pip install torch")
+            print(
+                "\nError: PyTorch not found but is required for clip. Please"
+                " python3 -m pip install torch"
+            )
             print()
             exit(1)
 
     try:
-        import PIL 
+        import PIL
     except ModuleNotFoundError:
-        print("\nError: Pillow not found but is required. Please python3 -m pip install -r requirements.txt")
+        print(
+            "\nError: Pillow not found but is required. Please python3 -m pip"
+            " install -r requirements.txt"
+        )
         print()
         exit(1)
 
     try:
         import tensorflow
     except ModuleNotFoundError:
-        print("\nError: TensorFlow not found but is required. Please python3 -m pip install -r requirements.txt")
+        print(
+            "\nError: TensorFlow not found but is required. Please python3 -m"
+            " pip install -r requirements.txt"
+        )
         print()
         exit(1)
 
     try:
         import transformers
     except ModuleNotFoundError:
-        print("\nError: HuggingFace Transformers library not found but is required. Please python3 -m pip install -r requirements.txt")
+        print(
+            "\nError: HuggingFace Transformers library not found but is"
+            " required. Please python3 -m pip install -r requirements.txt"
+        )
         print()
         exit(1)
 
     try:
         from max import engine
     except ModuleNotFoundError:
-        print("\nError: Max Engine not found but is required. Please follow the README instructions in the repository root to install the Max Engine python wheel")
+        print(
+            "\nError: Max Engine not found but is required. Please follow the"
+            " README instructions in the repository root to install the Max"
+            " Engine python wheel"
+        )
         print()
         exit(1)
-
 
 
 def clear_results():
@@ -110,7 +127,7 @@ def shell(commands, stdout=subprocess.PIPE, print_progress=False, env={}):
         "Executing advanced Mojo functions...",
         "Enhancing AI understanding of sarcasm...",
         "Deploying Mojo scripts for emotional support...",
-        "Loading epic adventure maps..." "Compiling first lines of AI logic...",
+        "Loading epic adventure maps...Compiling first lines of AI logic...",
         "Calibrating AI response timing...",
         "Testing AI with real-world scenarios...",
         "Uploading final Mojo modules...",
@@ -119,9 +136,11 @@ def shell(commands, stdout=subprocess.PIPE, print_progress=False, env={}):
         "Polishing AI's user interaction experience...",
         "Launching AI for beta testing...",
         "Implementing improvements and fixes...",
-        "Reticulating pixelated landscapes..."
-        "Compiling first quest objectives..."
-        "Training noobs for battle readiness...",
+        (
+            "Reticulating pixelated landscapes..."
+            "Compiling first quest objectives..."
+            "Training noobs for battle readiness..."
+        ),
         "Debugging the latest patch glitches...",
         "Optimizing frame rates for smooth gameplay...",
         "Executing legendary loot drops...",
@@ -160,7 +179,12 @@ def shell(commands, stdout=subprocess.PIPE, print_progress=False, env={}):
     while task is not None:
         if task.poll() is not None:
             try:
-                task = subprocess.Popen(next(tasks), stdout=stdout, stderr=subprocess.STDOUT, env=my_env)
+                task = subprocess.Popen(
+                    next(tasks),
+                    stdout=stdout,
+                    stderr=subprocess.STDOUT,
+                    env=my_env,
+                )
                 tasks_completed += 1
             except:
                 task = None
@@ -169,7 +193,7 @@ def shell(commands, stdout=subprocess.PIPE, print_progress=False, env={}):
             tick += random.randint(5, 20)
             if print_progress:
                 _wait_string_line(
-                    wait_strings[random.randint(0, len(wait_strings)-1)],
+                    wait_strings[random.randint(0, len(wait_strings) - 1)],
                     clear_len,
                     100 * tasks_completed * 1.0 / total_tasks,
                 )
@@ -192,6 +216,7 @@ def _wait_string_line(line, clear_len, progress):
         end="",
         flush=True,
     )
+
 
 def run(execute_cb):
     # Warm-up sample

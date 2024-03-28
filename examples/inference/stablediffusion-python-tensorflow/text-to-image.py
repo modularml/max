@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
@@ -11,9 +12,8 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-#!/usr/bin/env python3
-
 import os
+import signal
 
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -70,7 +70,8 @@ def get_timestep_embeddings(t_step: int, num_channels: int) -> np.ndarray:
 
 
 def execute(model: Model, **kwargs) -> np.ndarray:
-    """Execute the given model with the given args and return the first output tensor."""
+    """Execute the given model with the given args and return the first output tensor.
+    """
     # The modular engine uses named args for both input and output tensors, but the output
     # names coming from tensorflow can be rather pedantic. Rather than dealing with them,
     # we take advantage of the fact that all models in this pipeline are single-output and
@@ -126,6 +127,8 @@ def main():
         help="Output filename.",
     )
     args = parser.parse_args()
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Set seed if requested
     if args.seed:

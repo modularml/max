@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
@@ -20,7 +19,6 @@ import os
 import sys
 import tempfile
 import traceback
-import urllib.request
 
 
 INSTALL_PROSE = """Is it installed?
@@ -110,6 +108,8 @@ def main():
             file=sys.stderr,
         )
         sys.exit(1)
+
+    torch.set_default_device("cpu")
 
     print("Getting pre-trained model...", flush=True)
     model = RobertaForSequenceClassification.from_pretrained(

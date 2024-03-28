@@ -16,6 +16,7 @@
 from max import engine
 
 import os
+import signal
 
 # suppress extraneous logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -65,6 +66,8 @@ def main():
     )
     args = parser.parse_args()
 
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
     # Preprocess input image
     print("Processing input...")
     image = Image.open(args.input)
@@ -82,7 +85,8 @@ def main():
     predicted_class = model.config.id2label[predicted_label]
 
     print(
-        f"\nThe input image is likely one of the following classes: \n{predicted_class}"
+        "\nThe input image is likely one of the following classes:"
+        f" \n{predicted_class}"
     )
 
 

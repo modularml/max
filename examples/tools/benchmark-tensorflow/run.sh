@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
@@ -11,7 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 
 # If anything goes wrong, stop running the script.
 set -e

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
@@ -10,7 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ===----------------------------------------------------------------------=== #
+##===----------------------------------------------------------------------===##
 
 set -e
 
@@ -22,7 +22,7 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 source "$SCRIPT_DIR/setup.sh"
 
 mojo \
-    -D LLAMA_MODEL_PATH="${1:-$MODELS/stories15M.bin}" \
-    -D TOKENIZER_PATH="$MODELS/tokenizer.bin" \
     -I "$SCRIPT_DIR/tokenizer" \
-    "$SCRIPT_DIR/run.🔥"
+    "$SCRIPT_DIR/run.🔥" \
+    --model-path "${1:-$MODELS/stories15M.bin}" \
+    --tokenizer-path "$MODELS/tokenizer.bin"

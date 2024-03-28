@@ -17,7 +17,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
-import torch
+from transformers import BertTokenizer
+
+HF_MODEL_NAME = "bert-base-uncased"
 
 
 def main():
@@ -34,13 +36,9 @@ def main():
 
     print("Generating input tensors...")
     print(f'Input sentence: "{args.text}".')
-    batch = 1
-    seqlen = 128
-    encoded_inputs = {
-        "input_ids": torch.zeros((batch, seqlen), dtype=torch.int64),
-        "attention_mask": torch.zeros((batch, seqlen), dtype=torch.int64),
-        "token_type_ids": torch.zeros((batch, seqlen), dtype=torch.int64),
-    }
+
+    tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
+    encoded_inputs = tokenizer(args.text, return_tensors="pt")
 
     print("Saving inputs to disk...")
     input_dir = Path("inputs")

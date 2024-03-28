@@ -34,15 +34,18 @@ def main():
 
     print("Downloading model ...")
     args = parser.parse_args()
-    model_path = Path(args.output_dir)
+
+    tf.config.set_visible_devices([], "GPU")
+
+    model_path = Path(args.output_dir).resolve()
     if os.path.exists(model_path):
-        print(f"Model has already been saved to {args.output_dir}/.\n")
+        print(f"Model has already been saved to {model_path}/.\n")
         return
 
     model = TFBertForMaskedLM.from_pretrained(HF_MODEL_NAME)
     print("Converting Transformers Model to Tensorflow SavedModel...")
-    tf.saved_model.save(model, args.output_dir)
-    print(f"Model saved to {args.output_dir}.\n")
+    tf.saved_model.save(model, model_path)
+    print(f"Model saved to {model_path}.\n")
 
 
 if __name__ == "__main__":

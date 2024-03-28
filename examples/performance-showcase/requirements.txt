@@ -1,5 +1,7 @@
-pillow
-tensorflow
-transformers
+setuptools>=69.1.0
+pillow==10.2.0
 py-cpuinfo
-torch
+tensorflow-cpu==2.13.1; python_version >= '3.9'
+tensorflow==2.13.1; python_version < '3.9'
+torch>=2.1.2
+transformers>=4.0.0

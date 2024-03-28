@@ -16,6 +16,7 @@ from pathlib import Path
 
 import torch
 from transformers import (
+    AutoModelForSequenceClassification,
     BertForMaskedLM,
     logging,
 )
@@ -33,6 +34,11 @@ DEFAULT_MODEL_PATH = "../../models/bert-mlm.torchscript"
 def main():
     parser = ArgumentParser(description="Download model for inference.")
     parser.add_argument(
+        "--mlm",
+        action="store_true",
+        help="Whether to use the Bert's Masked Language Model variant",
+    )
+    parser.add_argument(
         "--output-path",
         "-o",
         type=str,
@@ -42,11 +48,19 @@ def main():
 
     args = parser.parse_args()
 
+    torch.set_default_device("cpu")
+
     model_path = Path(args.output_path)
 
     print("Downloading model...")
     logging.set_verbosity_error()  # Disable warning suggesting to train the model
-    model = BertForMaskedLM.from_pretrained(HF_MODEL_NAME)
+    if args.mlm:
+        model = BertForMaskedLM.from_pretrained(HF_MODEL_NAME)
+    else:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            HF_MODEL_NAME
+        )
+
     model.eval()
     # We set return_dict to False to return Tensors directly
     model.config.return_dict = False

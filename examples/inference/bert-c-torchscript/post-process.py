@@ -13,7 +13,6 @@
 
 import numpy as np
 import torch
-from transformers import BertForSequenceClassification, BertTokenizer
 
 
 def post_process():
@@ -26,4 +25,5 @@ def post_process():
 
 
 if __name__ == "__main__":
+    torch.set_default_device("cpu")
     post_process()
