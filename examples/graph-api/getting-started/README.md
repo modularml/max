@@ -1,9 +1,3 @@
-# Basic GraphAPI Model Demo 🔥
+# Getting Started Examples with the MAX GraphAPI 🔥
 
-This mojo example showcases how to create a very basic MAX Graph API model.
-
-## Usage
-
-```sh
-mojo basic.🔥
-```
+The examples in this directory showcase how to get started building MAX Graph API models.
