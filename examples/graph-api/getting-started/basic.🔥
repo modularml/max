@@ -15,6 +15,9 @@ from max.engine import InferenceSession, NamedTensor
 from max.graph import ops, Module, MOTensor
 from tensor import Tensor
 
+# This example highlights the very basic API structure around building a MAX
+# Graph model and executing it through the MAX engine APIS.
+# Simply run this mojo file to create, load, and execute this simple model.
 fn main() raises:
     var module = Module()
     var graph = module.graph(
