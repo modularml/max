@@ -1,0 +1,51 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+from max.engine import InferenceSession, NamedTensor
+from max.graph import ops, Module, MOTensor
+from tensor import Tensor, TensorShape
+
+
+# This example highlights the very basic API structure around building a MAX
+# Graph model and executing it through the MAX engine APIS.
+# Simply run this mojo file to create, load, and execute this simple model.
+fn main() raises:
+    var module = Module()
+    var graph = module.graph(
+        "BasicModel",
+        in_types=MOTensor(DType.float32, 2, 6),
+        out_types=MOTensor(DType.float32, 2, 1),
+    )
+
+    # Create a constant for usage in the matmul op below:
+    var matmul_constant_value = Tensor[DType.float32](TensorShape(6, 1), 0.15)
+    var matmul_constant = graph.constant(matmul_constant_value)
+
+    # Start adding a sequence of operator calls to build the graph:
+    # NOTE: The first accessor on graph is the first input.
+    var matmul = graph[0] @ matmul_constant
+    var relu = ops.relu(matmul)
+    var softmax = ops.softmax(relu)
+    var out = graph.output(softmax)
+
+    # Create an inference session with the MAX engine:
+    var session = InferenceSession()
+    var model = session.load_model(module)
+
+    # Create some sample input to run through the model:
+    var input = Tensor[DType.float32](TensorShape(2, 6), 0.5)
+
+    # Execute the model and extract the results from the resulting tensor map:
+    var results = model.execute(NamedTensor("input0", input^))
+    var output = results.get[DType.float32]("output0")
+    print(output)

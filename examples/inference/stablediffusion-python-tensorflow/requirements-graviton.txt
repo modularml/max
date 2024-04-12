@@ -1,4 +1,5 @@
 setuptools>=69.1.0
 keras_cv==0.6.4
 pillow==10.2.0
+h5py==3.10.0
 tensorflow==2.13.1
