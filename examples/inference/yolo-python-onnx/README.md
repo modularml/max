@@ -21,6 +21,18 @@ python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engi
 bash run.sh
 ```
 
+### Note: GUI Dependencies
+
+This example depends on `opencv-python` and its ability to render GUIs.
+The dependencies for this are not always installed on linux.
+
+Downloading these dependencies is distro dependent.
+On Ubuntu, it should be:
+
+```bash
+apt install -y libgl1
+```
+
 ## Performance Comparison
 
 To get an idea of the performance difference between the ONNX Runtime and MAX Engine,
