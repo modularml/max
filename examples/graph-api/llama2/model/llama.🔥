@@ -53,32 +53,6 @@ def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
     return ops.reshape_like(rope_complex, x)
 
 
-def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
-    """Applies rotary positional embeddings (RoPE) to `x`.
-
-    Args:
-        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
-        freqs_cis: Positional frequencies tensor with shape
-            (seq_len, head_dim // 2, 2).
-
-    Returns:
-        Input activation tensor with rotary positional embeddings applied and
-        the same shape as `x`.
-    """
-    # The kernel requires freqs_cis to be 2-D.
-    # Reshape freqs (seq_len, head_dim // 2, 2) => (seq_len, head_dim).
-    var f_shape = ops.shape_of(freqs_cis)
-    var new_f_shape = ops.stack(
-        List[Symbol](f_shape[0], x.graph().scalar(Int64(-1)))
-    )
-    var freqs_2d = ops.reshape(freqs_cis, new_f_shape)
-
-    return ops.custom["ggml_rope"](
-        List[Symbol](x, freqs_2d),
-        x.tensor_type(),
-    )
-
-
 @value
 struct Attention[float_dtype: DType = DType.float32]:
     var n_heads: Int
@@ -86,7 +60,6 @@ struct Attention[float_dtype: DType = DType.float32]:
     var head_dim: Int
     var dim: Int
     var n_rep: Int
-    var enable_custom_rope_kernel: Bool
 
     var wq: Symbol
     var wk: Symbol
@@ -145,12 +118,8 @@ struct Attention[float_dtype: DType = DType.float32]:
         xk = xk.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
         xv = xv.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
 
-        xq = rope_custom_kernel(
-            xq, freqs_cis
-        ) if self.enable_custom_rope_kernel else rope(xq, freqs_cis)
-        xk = rope_custom_kernel(
-            xk, freqs_cis
-        ) if self.enable_custom_rope_kernel else rope(xk, freqs_cis)
+        xq = rope(xq, freqs_cis)
+        xk = rope(xk, freqs_cis)
 
         var keys = ops.concat(
             List[Symbol](k_cache, xk.swapaxes(0, 1))
@@ -286,18 +255,14 @@ struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
 
     var params: ModelT
     var hyperparams: LlamaHParams
-    var enable_custom_rope_kernel: Bool
 
-    fn __init__(
-        inout self, model_path: Path, enable_custom_rope_kernel: Bool = False
-    ) raises:
+    fn __init__(inout self, model_path: Path) raises:
         constrained[
             float_dtype.is_floating_point(), "expected float model dtype"
         ]()
 
         self.params = ModelT(model_path)
         self.hyperparams = self.params.hyperparams()
-        self.enable_custom_rope_kernel = enable_custom_rope_kernel
 
     fn build_graph(inout self, name: String) raises -> Graph:
         var cache_type = TensorType(
@@ -328,7 +293,6 @@ struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
                     head_dim=self.hyperparams.head_dim,
                     dim=self.hyperparams.dims,
                     n_rep=self.hyperparams.n_rep,
-                    enable_custom_rope_kernel=self.enable_custom_rope_kernel,
                     wq=weight("attn_q", i).swapaxes(-1, -2),
                     wk=weight("attn_k", i).swapaxes(-1, -2),
                     wv=weight("attn_v", i).swapaxes(-1, -2),

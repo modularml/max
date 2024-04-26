@@ -27,4 +27,4 @@ cd "$(dirname "$0")"
 python3 ../common/stable-diffusion-onnx/download-model.py -o "$MODEL_DIR"
 
 # Execute model
-python3 text-to-image.py --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT" --model-dir "$MODEL_DIR"
+python3 text-to-image.py --seed=7 --num-steps=20 --prompt "$PPROMPT" --negative "$NPROMPT" --model-dir "$MODEL_DIR"
