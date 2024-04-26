@@ -15,7 +15,7 @@
 # If anything goes wrong, stop running the script.
 set -e
 
-MODEL_DIR="../../models/stable-diffusion-onnx"
+MODEL_DIR="../../models/yolo"
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
