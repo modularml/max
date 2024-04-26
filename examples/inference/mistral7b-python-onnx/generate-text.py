@@ -26,16 +26,9 @@ from argparse import ArgumentParser
 from transformers import AutoTokenizer
 from transformers.generation.logits_process import LogitsProcessorList
 
-
 DEFAULT_MODEL_PATH = "../../models/minstral7b-onnx/model.onnx"
 DESCRIPTION = "Generate text given a prompt."
 HF_MODEL_NAME = "mistralai/Mistral-7B-v0.1"
-HUGGINGFACE_ERROR = """\nYou need to log into HuggingFace:
-    huggingface-cli login
-
-Then accept the terms to use Mistral:
-    https://huggingface.co/mistralai/Mistral-7B-v0.1
-"""
 
 # Number of tokens to generate
 N_TOKENS = 8
@@ -129,12 +122,7 @@ def main():
 
     # Preprocess input statement
     print("Processing input...")
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
-    except OSError:
-        print(HUGGINGFACE_ERROR)
-        exit(1)
-
+    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
 
     input_ids = tokenizer(

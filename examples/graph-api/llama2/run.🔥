@@ -34,9 +34,8 @@ struct Config:
     var batch_size: Int
     var float_dtype: String
     var model_path: Path
-    var custom_ops_paths: List[Path]
+    var custom_ops_path: Path
     var tokenizer_path: Path
-    var enable_custom_rope_kernel: Bool
 
     fn __init__(
         inout self,
@@ -44,16 +43,14 @@ struct Config:
         batch_size: Int = 1,
         float_dtype: DType = DType.float16,
         model_path: Path = "",
-        custom_ops_paths: List[Path] = List[Path](),
+        custom_ops_path: Path = "",
         tokenizer_path: Path = "",
-        enable_custom_rope_kernel: Bool = False,
     ) raises:
         self.batch_size = batch_size
         self.float_dtype = float_dtype
         self.model_path = model_path
-        self.custom_ops_paths = custom_ops_paths
+        self.custom_ops_path = custom_ops_path
         self.tokenizer_path = tokenizer_path
-        self.enable_custom_rope_kernel = enable_custom_rope_kernel
 
         self.parse_args()
 
@@ -72,19 +69,13 @@ struct Config:
                 self.model_path = Path(args[i + 1])
                 i += 2
             elif args[i] == "--custom-ops-path":
-                self.custom_ops_paths.append(Path(args[i + 1]))
+                self.custom_ops_path = Path(args[i + 1])
                 i += 2
             elif args[i] == "--tokenizer-path":
                 self.tokenizer_path = Path(args[i + 1])
                 i += 2
-            elif args[i] == "--enable-custom-rope-kernel":
-                self.enable_custom_rope_kernel = True
-                i += 1
             else:
                 raise "unsupported CLI argument: " + String(args[i])
-
-        if self.enable_custom_rope_kernel and len(self.custom_ops_paths) == 0:
-            raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
 
 
 @value
@@ -170,17 +161,12 @@ fn run[
     var prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
-    var model = Llama2[ModelT, float_dtype](
-        config.model_path,
-        enable_custom_rope_kernel=config.enable_custom_rope_kernel,
-    )
+    var model = Llama2[ModelT, float_dtype](config.model_path)
     var module = model.build_graph("llama_model")
     var session = InferenceSession()
 
     print("Compiling...")
-    var compiled_model = session.load(
-        module, custom_ops_paths=config.custom_ops_paths
-    )
+    var compiled_model = session.load(module)
 
     print("Executing...")
     var max_tokens = 256

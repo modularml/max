@@ -15,7 +15,7 @@
 # If anything goes wrong, stop running the script.
 set -e
 
-MODEL_DIR="../../models/yolo"
+MODEL_DIR="../../models/stable-diffusion-onnx"
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
@@ -24,4 +24,4 @@ cd "$(dirname "$0")"
 python3 download-model.py -o "$MODEL_DIR"
 
 # Execute model
-python3 segment.py
+python3 segment-webcam.py

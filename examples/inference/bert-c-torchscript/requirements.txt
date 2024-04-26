@@ -1,4 +1,2 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-
-torch==2.2.2
-transformers==4.40.1
+transformers>=4.0.0
+torch>=2.1.1

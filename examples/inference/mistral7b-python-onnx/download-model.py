@@ -12,6 +12,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+
 from argparse import ArgumentParser
 import os
 
@@ -26,12 +27,6 @@ from pathlib import Path
 DEFAULT_MODEL_DIR = "../../models/minstral7b-onnx"
 DESCRIPTION = "Download Minstral-7B model."
 HF_MODEL_NAME = "mistralai/Mistral-7B-v0.1"
-HUGGINGFACE_ERROR = """\nYou need to log into HuggingFace:
-    huggingface-cli login
-
-Then accept the terms to use Mistral:
-    https://huggingface.co/mistralai/Mistral-7B-v0.1
-"""
 
 
 def main():
@@ -59,13 +54,7 @@ def main():
         print(f"'{args.output_dir}' already exists.\n")
     else:
         print("Converting the model to ONNX...")
-        try:
-            model = ORTModelForCausalLM.from_pretrained(
-                HF_MODEL_NAME, export=True
-            )
-        except OSError:
-            print(HUGGINGFACE_ERROR)
-            exit(1)
+        model = ORTModelForCausalLM.from_pretrained(HF_MODEL_NAME, export=True)
         model.save_pretrained(args.output_dir)
         print(f"Model saved to {args.output_dir}/.\n")
 
