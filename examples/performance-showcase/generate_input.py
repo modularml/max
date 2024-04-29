@@ -11,14 +11,13 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import common
 import argparse
 import pickle
-import sys
+
 import numpy as np
-from transformers import AutoProcessor
-from PIL import Image
 import requests
+from PIL import Image
+from transformers import AutoProcessor
 
 
 def main():

@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+import platform
 import random
 from itertools import cycle
 
@@ -40,6 +41,16 @@ def _get_arch():
         return cpu["arch"]
     except:
         return None
+
+
+def _get_platform():
+    return platform.system()
+
+
+def is_mac_silicon():
+    # _get_arch() returns None on Apple Silicon, so just check for non-x86 for
+    # better stability.
+    return _get_arch() != "X86_64" and _get_platform() == "Darwin"
 
 
 def print_sys_info():
@@ -86,21 +97,27 @@ def print_speedup_summary(results, model):
             # speedup <= 1.0
             addendum = f"Oh, darn that's only {speedup:.2f}x stock performance."
 
-        if speedup <= 1.2:
-            if _get_arch() in expected_speedups:
+        curr_arch = _get_arch()
+        if speedup <= 1.2 and not is_mac_silicon():
+            if curr_arch is not None and curr_arch in expected_speedups:
                 slower.append(
-                    f"{expected_speedups[_get_arch()][model][framework]:.2f}x"
+                    f"{expected_speedups[curr_arch][model][framework]:.2f}x"
                     f" on {framework_labels[framework]}"
                 )
 
         print(f"{modular_txt} {addendum}")
 
-    if len(slower) > 0:
-        slower_txt = " and ".join(slower) + " for " + model
-        print()
-        print(
-            "Hold on a tick... We normally see speedups of roughly"
-            f" {slower_txt} on {_get_arch()}. Honestly, we would love to hear"
-            " from you to learn more about the system you're running on!"
-            " (https://github.com/modularml/max/issues/new/choose)"
-        )
+    if speedup <= 1.2:
+        if is_mac_silicon():
+            print(
+                "We're working hard on improving performance on Apple silicon."
+            )
+        else:
+            slower_txt = " and ".join(slower) + " for " + model
+            print()
+            print(
+                "Hold on a tick... We normally see speedups of roughly"
+                f" {slower_txt} on {curr_arch}. Honestly, we would love to hear"
+                " from you to learn more about the system you're running on!"
+                " (https://github.com/modularml/max/issues/new/choose)"
+            )
