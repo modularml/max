@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import argparse
+
 import common
 
 try:
@@ -22,12 +23,11 @@ except ModuleNotFoundError:
     )
     exit(1)
 
-import torch
 import os
-from pathlib import Path
 import pickle
-import sys
-from transformers import RobertaForSequenceClassification, CLIPModel
+
+import torch
+from transformers import CLIPModel, RobertaForSequenceClassification
 
 
 def main():

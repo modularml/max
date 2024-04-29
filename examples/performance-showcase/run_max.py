@@ -11,13 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from max import engine
 import argparse
 import pickle
-import torch
+
 import common
 import numpy as np
-import sys
+from max import engine
 
 
 def main():
