@@ -12,13 +12,13 @@
 # ===----------------------------------------------------------------------=== #
 
 from max.engine import InferenceSession
-from max.graph import Graph, TensorType, Type, ops
+from max.graph import Graph, TensorType, ops
 from tensor import Tensor, TensorShape, randn
 from pathlib import Path
 
 
 def construct_graph[op_name: StringLiteral]() -> Graph:
-    graph = Graph(List[Type](TensorType(DType.float32, 2, 6)))
+    graph = Graph(TensorType(DType.float32, 2, 6))
 
     matmul_constant_value = Tensor[DType.float32](TensorShape(6, 1), 0.15)
     matmul_constant = graph.constant(matmul_constant_value)
@@ -38,6 +38,7 @@ def main():
         custom_ops_paths=Path("custom_ops.mojopkg"),
     )
 
+    # Create some sample input to run through the model:
     input = randn[DType.float32]((2, 6))
     results = model.execute("input0", input)
     output = results.get[DType.float32]("output0")
