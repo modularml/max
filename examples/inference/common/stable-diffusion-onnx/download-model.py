@@ -18,7 +18,7 @@ import subprocess
 from argparse import ArgumentParser
 
 
-DEFAULT_MODEL_DIR = "../../models/stable-diffusion"
+DEFAULT_MODEL_DIR = "../../models/stable-diffusion-onnx"
 DESCRIPTION = "Download a Stable Diffusion model."
 
 
