@@ -11,10 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
-# ===----------------------------------------------------------------------=== #
-
 from onnx import TensorProto, OperatorSetIdProto
 from onnx.helper import (
     make_model,

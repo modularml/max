@@ -11,9 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
-# ===----------------------------------------------------------------------=== #
 
 from max.extensibility import Tensor, empty_tensor
 from max import register
@@ -21,8 +18,7 @@ from math import erf, exp, sqrt, tanh
 from random import randn
 
 
-@register.op("my_gelu", 10)
-@export
+@register.op("my_gelu")
 fn gelu[type: DType, rank: Int](x: Tensor[type, rank]) -> Tensor[type, rank]:
     var output = empty_tensor[type](x.shape)
 
@@ -32,13 +28,12 @@ fn gelu[type: DType, rank: Int](x: Tensor[type, rank]) -> Tensor[type, rank]:
         var tmp = x.simd_load[width](i)
         return tmp / 2 * (1 + erf(tmp / sqrt(2)))
 
-    print("hi from my gelu!")
+    print("Hello, custom GELU!")
     output.for_each[func]()
     return output^
 
 
 @register.op("my_tanh_gelu")
-@export
 fn gelu_tanh_approx[
     type: DType, rank: Int
 ](x: Tensor[type, rank]) -> Tensor[type, rank]:
@@ -52,13 +47,12 @@ fn gelu_tanh_approx[
             0.5 * tmp * (1 + tanh(0.7978845608 * (tmp + 0.044715 * tmp**3)))
         )
 
-    print("hi from my tanh gelu!")
+    print("Hello, custom tanh GELU!")
     output.for_each[func]()
     return output^
 
 
 @register.op("my_sigmoid_gelu")
-@export
 fn gelu_sigmoid_approx[
     type: DType, rank: Int
 ](x: Tensor[type, rank]) -> Tensor[type, rank]:
@@ -70,6 +64,6 @@ fn gelu_sigmoid_approx[
         var tmp = x.simd_load[width](i)
         return tmp * (1 / (1 + exp(-1.702 * tmp)))
 
-    print("hi from my sigmoid gelu!")
+    print("Hello, custom sigmoid GELU!")
     output.for_each[func]()
     return output^

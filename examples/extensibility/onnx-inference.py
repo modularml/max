@@ -11,21 +11,18 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from max import engine
+import numpy as np
 
-from random import randn
-from python import Python
-from .python_utils import tensor_to_numpy, numpy_to_tensor
-from max import register
-from max.extensibility import Tensor, empty_tensor
+session = engine.InferenceSession()
+model = session.load("onnx_det.onnx", custom_ops_path="custom_ops.mojopkg")
 
+for tensor in model.input_metadata:
+    print(f"name: {tensor.name}, shape: {tensor.shape}, dtype: {tensor.dtype}")
 
-@register.op("monnx.det_v11")
-fn det[type: DType, rank: Int](x: Tensor[type, rank]) -> Tensor[type, rank - 2]:
-    try:
-        var np = Python.import_module("numpy")
-        var np_array = tensor_to_numpy(x, np)
-        var np_out = np.linalg.det(np_array)
-        return numpy_to_tensor[type, rank - 2](np_out)
-    except e:
-        print(e)
-    return empty_tensor[type, rank - 2](0)
+input_x = np.random.rand(3, 3, 5).astype(np.float32)
+input_a = np.random.rand(5, 3).astype(np.float32)
+input_b = np.random.rand(3).astype(np.float32)
+
+result = model.execute(X=input_x, A=input_a, B=input_b)
+print(result)

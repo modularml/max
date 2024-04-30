@@ -1,4 +1,4 @@
-p# Llama 2 text completion demo 🔥
+# Llama 2 text completion demo 🔥
 
 This is a minimal text completion demo compatible with the the official Llama 2
 [text completion demo](https://github.com/facebookresearch/llama/blob/ef351e9cd9496c579bf9f2bb036ef11bdc5ca3d2/example_text_completion.py),

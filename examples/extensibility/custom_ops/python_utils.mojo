@@ -11,9 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-# ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
-# ===----------------------------------------------------------------------=== #
 from extensibility import Tensor, empty_tensor
 import python
 
