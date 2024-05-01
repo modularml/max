@@ -21,15 +21,8 @@ from collections import List
 fn numpy_data_pointer[
     type: DType
 ](numpy_array: PythonObject) raises -> DTypePointer[type]:
-    return DTypePointer[type](
-        __mlir_op.`pop.index_to_pointer`[
-            _type = __mlir_type[`!kgen.pointer<scalar<`, type.value, `>>`]
-        ](
-            Scalar[DType.index](
-                numpy_array.__array_interface__["data"][0].__index__()
-            ).value
-        )
-    )
+    var data_ptr = numpy_array.__array_interface__["data"][0].__index__()
+    return DTypePointer[type](address=data_ptr)
 
 
 @always_inline
