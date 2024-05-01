@@ -21,7 +21,7 @@ from max import register
 
 from algorithm.functional import vectorize, sync_parallelize
 from buffer.list import Dim, DimList
-from math import min, div_ceil
+from math import div_ceil
 from runtime.llcl import Runtime
 
 
