@@ -39,7 +39,7 @@ either an ONNX model or a MAX Graph model.
 4. Now run the model with the custom op:
 
    ```sh
-   export MOJO_PYTHON_LIBRARY=$(modular config max-mojo.python_lib)
+   export MOJO_PYTHON_LIBRARY=$(modular config mojo-max.python_lib)
    ```
 
    ```sh
