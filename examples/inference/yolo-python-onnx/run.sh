@@ -23,5 +23,11 @@ cd "$(dirname "$0")"
 # Download model
 python3 download-model.py -o "$MODEL_DIR"
 
+# Download sample video file
+if [ ! -f input.mp4 ]; then
+  echo "Downloading sample video file..."
+  curl -L -o input.mp4 "https://drive.google.com/uc?export=download&id=1H9abV76VohmT-J2RmDrbDhF-FCHt1Sbh&confirm=yes"
+fi
+
 # Execute model
-python3 segment-webcam.py
+python3 segment.py
