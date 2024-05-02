@@ -35,7 +35,6 @@ DEFAULT_MODEL_DIR = "../../models/yolo"
 DEFAULT_INPUT_FILE = "input.mp4"
 DEFAULT_OUTPUT_FILE = "output.mp4"
 WINDOW_NAME = "YOLOv8 Segmentation"
-INPUT_FILE_URL = "https://drive.google.com/uc?export=download&id=1H9abV76VohmT-J2RmDrbDhF-FCHt1Sbh&confirm=yes"
 
 
 def resize_and_pad(image, shape):
@@ -217,30 +216,12 @@ def process_webcam(args):
     cv2.destroyAllWindows()
 
 
-def download_video(input: str):
-    if not os.path.exists(input):
-        try:
-            print("No input video found. Downloading sample video file...")
-            response = requests.get(INPUT_FILE_URL)
-            if response.status_code == 200:
-                with open(input, "wb") as f:
-                    f.write(response.content)
-            else:
-                print(
-                    "Failed to download video, status code:"
-                    f" {response.status_code}"
-                )
-                print("You can use your own video file with the --input flag")
-                return
-        except requests.exceptions.ConnectionError:
-            raise ConnectionError(
-                "You can use your own video file with the --input flag or edit"
-                " INPUT_FILE_URL in segment.py"
-            )
-
-
 def process_video(args):
-    download_video(args.input)
+    if not os.path.exists(args.input):
+        print(f"Input file not found: {args.input}")
+        print("You can use your own video file with the --input flag")
+        exit(1)
+
     # Compile & load models - this may take a few minutes.
     print("Loading and compiling model...")
     session = InferenceSession()
@@ -313,10 +294,10 @@ def process_video(args):
         if result.returncode == 0:
             subprocess.run(["mv", "encoded.mp4", output_name])
         else:
-            print("\nfailed to encode video, but video may still be playable.")
+            print("\nFailed to encode video, but video may still be playable.")
 
     # Open the video if running in vscode and `code` is on path
-    if os.environ["TERM_PROGRAM"] == "vscode":
+    if "TERM_PROGRAM" in os.environ and os.environ["TERM_PROGRAM"] == "vscode":
         if shutil.which("code"):
             result = subprocess.run(["code", output_name])
 
