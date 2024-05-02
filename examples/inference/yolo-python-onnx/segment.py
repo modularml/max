@@ -11,9 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
+import subprocess
 import time
 import signal
+import os
+import requests
 
 from max.engine import InferenceSession
 
@@ -32,6 +34,7 @@ DEFAULT_MODEL_DIR = "../../models/yolo"
 DEFAULT_INPUT_FILE = "input.mp4"
 DEFAULT_OUTPUT_FILE = "output.mp4"
 WINDOW_NAME = "YOLOv8 Segmentation"
+INPUT_FILE_URL = "https://drive.google.com/uc?export=download&id=1H9abV76VohmT-J2RmDrbDhF-FCHt1Sbh&confirm=yes"
 
 
 def resize_and_pad(image, shape):
@@ -213,7 +216,30 @@ def process_webcam(args):
     cv2.destroyAllWindows()
 
 
+def download_video(input: str):
+    if not os.path.exists(input):
+        try:
+            print("No input video found. Downloading sample video file...")
+            response = requests.get(INPUT_FILE_URL)
+            if response.status_code == 200:
+                with open(input, "wb") as f:
+                    f.write(response.content)
+            else:
+                print(
+                    "Failed to download video, status code:"
+                    f" {response.status_code}"
+                )
+                print("You can use your own video file with the --input flag")
+                return
+        except requests.exceptions.ConnectionError:
+            raise ConnectionError(
+                "You can use your own video file with the --input flag or edit"
+                " INPUT_FILE_URL in segment.py"
+            )
+
+
 def process_video(args):
+    download_video(args.input)
     # Compile & load models - this may take a few minutes.
     print("Loading and compiling model...")
     session = InferenceSession()
@@ -227,8 +253,6 @@ def process_video(args):
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     fps = cap.get(cv2.CAP_PROP_FPS)
     out = cv2.VideoWriter(args.output, fourcc, fps, (640, 480))
-
-    previous_elapsed_ms = []
 
     # Loop camera frames running yolo.
     while cap.isOpened():
@@ -264,7 +288,36 @@ def process_video(args):
     cap.release()
     out.release()
 
-    print(f"Saved output video to: {args.output}")
+    # Full path so users can find video easily
+    output_name = f"{os.getcwd()}/{args.output}"
+
+    # Workaround for linux python-opencv/ffmpeg not being able to encode h264
+    print("Changing video encoding for wider video player support.")
+    result = subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            output_name,
+            "-vcodec",
+            "libx264",
+            "encoded.mp4",
+        ]
+    )
+
+    # If succesfully encoded write over original file
+    if result.returncode == 0:
+        subprocess.run(["mv", "encoded.mp4", output_name])
+    else:
+        print("\nfailed to encode video, but video may still be playable.")
+
+    # Open the video if running in vscode
+    if os.environ["TERM_PROGRAM"] == "vscode":
+        result = subprocess.run(["code", output_name])
+
+    print("Video saved to:", output_name)
 
 
 def main():
