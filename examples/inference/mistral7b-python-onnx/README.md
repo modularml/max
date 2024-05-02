@@ -8,6 +8,17 @@ Engine Python API.
 First, install MAX as per the [MAX Engine get started
 guide](https://docs.modular.com/engine/get-started/).
 
+For this example, you also need a HuggingFace account and user access token
+saved as the `HF_TOKEN` environment variable. To generate the access token
+with READ permissions, follow the [instructions
+here](https://huggingface.co/docs/hub/en/security-tokens). Copy the access
+token and either set it as a permanent environment variable named `HF_TOKEN`
+or use it temporarily when you run the `run.sh` script, as shown below.
+
+Once you have your token properly set, you'll need to accept Mistral's terms and
+conditions on their HuggingFace page. Please visit [this link](https://huggingface.co/mistralai/Mistral-7B-v0.1)
+and accept the model's conditions.
+
 Then you can install the package requirements and run this example:
 
 ```sh
@@ -17,7 +28,7 @@ python3 -m pip install -r requirements.txt
 # Install the MAX Engine Python package
 python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
 # Run the MAX Engine example
-bash run.sh
+HF_TOKEN=<your-huggingface-user-token> ./run.sh
 ```
 
 ## Scripts included

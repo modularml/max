@@ -37,10 +37,10 @@ struct Ball[T: CollectionElement]:
     var id1 = list.append(0)
     var id2 = list.append(1)
     list[id2] == 1
-    list.next(id1).value() == id2
-    list.prev(id2).value() == id1
+    list.next(id1)._value_copy() == id2
+    list.prev(id2)._value_copy() == id1
     list.remove(id1)
-    list._head.value() == id2
+    list._head._value_copy() == id2
     (id1 in list) == False
     list[id2] = 3
     ```
@@ -65,13 +65,13 @@ struct Ball[T: CollectionElement]:
     fn append(inout self, owned value: T) -> Self.ID:
         """Adds a new element to the back of the list."""
         var id = len(self._arena)
-        var node = Node(value ^, self._tail, None)
+        var node = Node[T](value^, self._tail, None)
         if self._tail:
-            var tail = self._ref(self._tail.value())[]
+            var tail = self._ref(self._tail._value_copy())[]
             tail.next = id
-            self._arena[self._tail.value()] = tail
+            self._arena[self._tail._value_copy()] = tail
             # TODO: scary scary
-            # self._ref(self._tail.value())[].next = id
+            # self._ref(self._tail._value_copy())[].next = id
         else:
             self._head = id
         self._tail = id
@@ -80,15 +80,15 @@ struct Ball[T: CollectionElement]:
 
     fn remove(inout self, id: Self.ID):
         """Removes an element from the list."""
-        var node = self._arena[id].value()
+        var node = self._arena[id]._value_copy()
         self._arena[id] = None
         if node.prev:
-            self._ref(node.prev.value())[].next = node.next
+            self._ref(node.prev._value_copy())[].next = node.next
         if node.next:
-            self._ref(node.next.value())[].prev = node.prev
-        if self._head.value() == id:
+            self._ref(node.next._value_copy())[].prev = node.prev
+        if self._head._value_copy() == id:
             self._head = node.next
-        if self._tail.value() == id:
+        if self._tail._value_copy() == id:
             self._tail = node.prev
 
     fn next(self, id: Self.ID) -> Optional[Self.ID]:
@@ -103,33 +103,25 @@ struct Ball[T: CollectionElement]:
         mutability: __mlir_type.i1,
         lifetime: AnyLifetime[mutability].type,
     ](
-        self: Reference[Self, mutability, lifetime].mlir_ref_type, id: Self.ID
+        self: Reference[Self, mutability, lifetime]._mlir_type, id: Self.ID
     ) -> Reference[Node[T], mutability, lifetime]:
         var node_ref = Reference(self)[]._arena.__get_ref(id)
         return Reference(
             __mlir_op.`lit.ref.from_pointer`[
-                _type = Reference[Node[T], mutability, lifetime].mlir_ref_type
-            ](
-                AnyPointer[Node[T]]
-                .__from_index(int(node_ref.get_unsafe_pointer()))
-                .value
-            )
+                _type = Reference[Node[T], mutability, lifetime]._mlir_type
+            ](UnsafePointer(node_ref).bitcast[Node[T]]().address)
         )
 
     fn __refitem__[
         mutability: __mlir_type.i1,
         lifetime: AnyLifetime[mutability].type,
     ](
-        self: Reference[Self, mutability, lifetime].mlir_ref_type, id: Self.ID
+        self: Reference[Self, mutability, lifetime]._mlir_type, id: Self.ID
     ) -> Reference[T, mutability, lifetime]:
         """Gets a reference to a value in the list."""
         var node_ref = Reference(self)[]._arena.__get_ref(id)
         return Reference(
             __mlir_op.`lit.ref.from_pointer`[
-                _type = Reference[T, mutability, lifetime].mlir_ref_type
-            ](
-                AnyPointer[T]
-                .__from_index(int(node_ref.get_unsafe_pointer()))
-                .value
-            )
+                _type = Reference[T, mutability, lifetime]._mlir_type
+            ](UnsafePointer(node_ref).bitcast[T]().address)
         )

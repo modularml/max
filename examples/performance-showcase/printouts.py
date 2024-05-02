@@ -15,19 +15,19 @@ import random
 from itertools import cycle
 
 exclamation_msgs = ["ZAP!", "SHAZAM!", "KAPOW!", "BANG!", "WHAM!"]
-framework_labels = dict(tf="TensorFlow", pt="PyTorch", onnx="ONNX")
+framework_labels = dict(pt="PyTorch", onnx="ONNX")
 
 # Numbers taken from performance.modular.com
 # Caveat: arch is far too coarse a cpu descriptor
 #         to predict performance, so this is very rough guidance.
 expected_speedups = {
     "X86_64": dict(
-        roberta=dict(tf=2.5, pt=1.2),
-        clip=dict(tf=2.0, pt=1.4),
+        roberta=dict(pt=1.2),
+        clip=dict(pt=1.4),
     ),
     "ARM_8": dict(
-        roberta=dict(tf=2.0, pt=4.0),
-        clip=dict(tf=1.5, pt=3),
+        roberta=dict(pt=4.0),
+        clip=dict(pt=3),
     ),
 }
 
@@ -72,7 +72,7 @@ def print_speedup_summary(results, model):
     [next(exclamations) for i in range(random.randint(0, 4))]
 
     slower = []
-    for framework in filter(lambda x: x in results, ["tf", "pt"]):
+    for framework in filter(lambda x: x in results, ["pt"]):
         speedup = results["max"] / results[framework]
 
         modular_txt = f"MAX Engine vs {framework_labels[framework]}:"

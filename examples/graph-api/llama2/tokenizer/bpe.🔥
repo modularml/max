@@ -51,17 +51,17 @@ struct MergeOption(OrderableElement):
         )
 
 
-fn read[T: CollectionElement](inout ptr: AnyPointer[Int8]) -> T:
+fn read[T: CollectionElement](inout ptr: UnsafePointer[Int8]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     var value = ptr.bitcast[T]()[]
     ptr = ptr + sizeof[T]()
-    return value ^
+    return value^
 
 
-fn read_string(inout ptr: AnyPointer[Int8], length: Int) -> StringRef:
+fn read_string(inout ptr: UnsafePointer[Int8], length: Int) -> StringRef:
     """Read a string reference of known length and increment the pointer."""
     var value = StringRef(
-        Reference(ptr.__refitem__()).get_unsafe_pointer(), length
+        Reference(ptr.__refitem__()).get_legacy_pointer(), length
     )
     ptr = ptr + length
     return value
@@ -101,16 +101,16 @@ struct BPETokenizer:
         """
 
         var model = BPETokenizer()
-        var read_ptr = AnyPointer[Int8].__from_index(int(ptr))
+        var read_ptr = UnsafePointer[Int8](address=int(ptr))
 
         var max_token_len = read[Int32](read_ptr)
         while int(read_ptr) != int(end):
             var score = read[Float32](read_ptr)
             var token_len = read[Int32](read_ptr)
-            var token = read_string(read_ptr, token_len.to_int())
+            var token = read_string(read_ptr, int(token_len))
             model.add_token(token, score)
 
-        return model ^
+        return model^
 
     @staticmethod
     def from_file(path: Path) -> Self:
@@ -120,8 +120,8 @@ struct BPETokenizer:
         """
         var file = Tensor[DType.int8](path.read_bytes())
         var t = Self.from_bytes(file.data(), file.data() + file.num_elements())
-        _ = file ^
-        return t ^
+        _ = file^
+        return t^
 
     fn __init__(inout self):
         """Create an empty tokenizer."""
@@ -129,8 +129,8 @@ struct BPETokenizer:
         self.token_ids = Dict[String, Int]()
 
     fn __moveinit__(inout self, owned existing: Self):
-        self.vocab = existing.vocab ^
-        self.token_ids = existing.token_ids ^
+        self.vocab = existing.vocab^
+        self.token_ids = existing.token_ids^
 
     fn add_token(inout self, token: String, score: Float32) raises:
         """Add a token to the vocabulary."""
@@ -160,8 +160,12 @@ struct BPETokenizer:
         in length, so we can always safely recognize an outdated merge.
         """
         var output = List[TokenWithID]()
-        if bos and bos.value() in self.token_ids:
-            output.append(TokenWithID(bos.value(), self.token_ids[bos.value()]))
+        if bos and bos._value_copy() in self.token_ids:
+            output.append(
+                TokenWithID(
+                    bos._value_copy(), self.token_ids[bos._value_copy()]
+                )
+            )
 
         var merge_options = MaxHeap[MergeOption]()
         var tokens = Ball[String]()
@@ -178,7 +182,7 @@ struct BPETokenizer:
         for i in range(len(str)):
             var id = tokens.append(str[i])
             if prev:
-                maybe_add_merge(prev.value(), id)
+                maybe_add_merge(prev._value_copy(), id)
             prev = id
 
         while merge_options:
@@ -196,20 +200,24 @@ struct BPETokenizer:
             tokens[merge.left] = merged
             tokens.remove(merge.right)
             if right:
-                maybe_add_merge(merge.left, right.value())
+                maybe_add_merge(merge.left, right._value_copy())
             if left:
-                maybe_add_merge(left.value(), merge.left)
+                maybe_add_merge(left._value_copy(), merge.left)
 
         # Loop through the final list and construct the token sequence.
         var node_id = tokens._head
         while node_id:
-            var id = node_id.value()
+            var id = node_id._value_copy()
             var token = tokens[id]
             output.append(TokenWithID(token, self._encode_token(token)))
             node_id = tokens.next(id)
 
-        if eos and eos.value() in self.token_ids:
-            output.append(TokenWithID(eos.value(), self.token_ids[eos.value()]))
+        if eos and eos._value_copy() in self.token_ids:
+            output.append(
+                TokenWithID(
+                    eos._value_copy(), self.token_ids[eos._value_copy()]
+                )
+            )
 
         return output
 

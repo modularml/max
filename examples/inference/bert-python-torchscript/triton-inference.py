@@ -14,16 +14,17 @@
 #!/usr/bin/env python3
 
 import os
-import numpy as np
 
-from argparse import ArgumentParser
-import tritonclient.http as httpclient
-from transformers import BertTokenizer
-import torch
-
-
+# suppress extraneous logging
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+from argparse import ArgumentParser
+
+import numpy as np
+import torch
+import tritonclient.http as httpclient
+from transformers import BertTokenizer
 
 BATCH = 1
 SEQLEN = 128
@@ -62,11 +63,11 @@ def main():
     # Parse args
     parser = ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--text",
+        "--input",
         type=str,
-        metavar="<text>",
+        metavar="str",
         required=True,
-        help="Masked language model.",
+        help="Text with a masked token.",
     )
     parser.add_argument(
         "--model-name",
@@ -82,7 +83,6 @@ def main():
         help="Inference server URL. Default is localhost:8000.",
     )
     args = parser.parse_args()
-
     torch.set_default_device("cpu")
     # Create a triton client
     triton_client = httpclient.InferenceServerClient(url=args.url)
@@ -91,7 +91,7 @@ def main():
     print("Processing input...")
     tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
     inputs = tokenizer(
-        args.text,
+        args.input,
         return_tensors="np",
         return_token_type_ids=True,
         padding="max_length",
@@ -113,8 +113,8 @@ def main():
     ]
     filled_mask = "".join(predicted_tokens)
     # Get the predictions for the masked token
-    print(f"input text: {args.text}")
-    print(f"filled mask: {args.text.replace('[MASK]', filled_mask)}")
+    print(f"input text: {args.input}")
+    print(f"filled mask: {args.input.replace('[MASK]', filled_mask)}")
 
 
 if __name__ == "__main__":

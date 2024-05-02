@@ -24,7 +24,6 @@ import subprocess
 import time
 
 # suppress extraneous logging
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "9"
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 
 try:
@@ -60,16 +59,6 @@ def test_requirements(selected_model):
         print(
             "\nError: Pillow not found but is required. Please python3 -m pip"
             " install -r requirements.txt"
-        )
-        print()
-        exit(1)
-
-    try:
-        import tensorflow
-    except ModuleNotFoundError:
-        print(
-            "\nError: TensorFlow not found but is required. Please python3 -m"
-            " pip install -r requirements.txt"
         )
         print()
         exit(1)
@@ -136,11 +125,9 @@ def shell(commands, stdout=subprocess.PIPE, print_progress=False, env={}):
         "Polishing AI's user interaction experience...",
         "Launching AI for beta testing...",
         "Implementing improvements and fixes...",
-        (
-            "Reticulating pixelated landscapes..."
-            "Compiling first quest objectives..."
-            "Training noobs for battle readiness..."
-        ),
+        "Reticulating pixelated landscapes...",
+        "Compiling first quest objectives...",
+        "Training noobs for battle readiness...",
         "Debugging the latest patch glitches...",
         "Optimizing frame rates for smooth gameplay...",
         "Executing legendary loot drops...",

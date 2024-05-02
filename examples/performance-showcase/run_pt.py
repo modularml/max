@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+import argparse
 import common
 
 try:
@@ -28,40 +29,60 @@ import pickle
 import sys
 from transformers import RobertaForSequenceClassification, CLIPModel
 
-model_name = sys.argv[1]
-model_dir = f"./.cache/{model_name}_pt"
-script_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = Path(script_dir, model_dir)
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-m",
+        "--model",
+        choices=["roberta", "clip"],
+        help="Choose from one of these models",
+        required=True,
+    )
+    args = parser.parse_args()
+    model_script = f"./.cache/{args.model}.torchscript"
 
-if model_name == "roberta":
-    if not os.path.exists(model_path):
+    if args.model == "roberta":
+        with open(".cache/roberta.pkl", "rb") as f:
+            inputs = pickle.load(f)
+            inputs = {
+                "input_ids": torch.from_numpy(inputs["input_ids"]),
+                "attention_mask": torch.from_numpy(inputs["attention_mask"]),
+                "token_type_ids": torch.from_numpy(inputs["token_type_ids"]),
+            }
+
         model = RobertaForSequenceClassification.from_pretrained(
             "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
         )
-        torch.save(model, model_dir)
+        if not os.path.exists(model_script):
+            with torch.no_grad():
+                traced_model = torch.jit.trace(
+                    model, example_kwarg_inputs=dict(inputs), strict=False
+                )
+            torch.jit.save(traced_model, model_script)
 
-    loaded = torch.load(model_dir)
-    with open(".cache/roberta.pkl", "rb") as f:
-        inputs = pickle.load(f)
-        inputs = [
-            torch.from_numpy(inputs["input_ids"]),
-            torch.from_numpy(inputs["attention_mask"]),
-            torch.from_numpy(inputs["token_type_ids"]),
-        ]
+        with torch.inference_mode():
+            qps = common.run(lambda: model.forward(**inputs))
+        common.save_result("pt", qps)
+    elif args.model == "clip":
+        with open(".cache/clip.pkl", "rb") as f:
+            inputs = pickle.load(f)
 
-    with torch.inference_mode():
-        qps = common.run(lambda: loaded.forward(*inputs))
-    common.save_result("pt", qps)
-elif model_name == "clip":
-    if not os.path.exists(model_path):
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        torch.save(model, model_dir)
+        model = CLIPModel.from_pretrained(
+            "openai/clip-vit-base-patch32", torchscript=True
+        )
+        if not os.path.exists(model_script):
+            with torch.no_grad():
+                traced_model = torch.jit.trace(
+                    model, example_kwarg_inputs=dict(inputs), strict=False
+                )
 
-    loaded = torch.load(model_dir)
-    with open(".cache/clip.pkl", "rb") as f:
-        inputs = pickle.load(f)
+            torch.jit.save(traced_model, model_script)
 
-    with torch.inference_mode():
-        qps = common.run(lambda: loaded.forward(**inputs))
-    common.save_result("pt", qps)
+        with torch.inference_mode():
+            qps = common.run(lambda: model.forward(**inputs))
+        common.save_result("pt", qps)
+
+
+if __name__ == "__main__":
+    main()

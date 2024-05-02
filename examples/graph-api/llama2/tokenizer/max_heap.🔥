@@ -61,7 +61,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
 
     fn push(inout self, owned elem: ElementType):
         """Adds a value to the heap."""
-        self.heap.append(elem ^)
+        self.heap.append(elem^)
         self._bubble_up(len(self.heap) - 1)
 
     fn pop(inout self) -> ElementType:
