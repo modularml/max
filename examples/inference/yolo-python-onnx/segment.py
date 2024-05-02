@@ -16,6 +16,7 @@ import time
 import signal
 import os
 import requests
+import shutil
 
 from max.engine import InferenceSession
 
@@ -292,30 +293,32 @@ def process_video(args):
     output_name = f"{os.getcwd()}/{args.output}"
 
     # Workaround for linux python-opencv/ffmpeg not being able to encode h264
-    print("Changing video encoding for wider video player support.")
-    result = subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-loglevel",
-            "error",
-            "-i",
-            output_name,
-            "-vcodec",
-            "libx264",
-            "encoded.mp4",
-        ]
-    )
+    if shutil.which("ffmpeg"):
+        print("Changing video encoding for wider video player support.")
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                output_name,
+                "-vcodec",
+                "libx264",
+                "encoded.mp4",
+            ]
+        )
 
-    # If succesfully encoded write over original file
-    if result.returncode == 0:
-        subprocess.run(["mv", "encoded.mp4", output_name])
-    else:
-        print("\nfailed to encode video, but video may still be playable.")
+        # If succesfully encoded write over original file
+        if result.returncode == 0:
+            subprocess.run(["mv", "encoded.mp4", output_name])
+        else:
+            print("\nfailed to encode video, but video may still be playable.")
 
-    # Open the video if running in vscode
+    # Open the video if running in vscode and `code` is on path
     if os.environ["TERM_PROGRAM"] == "vscode":
-        result = subprocess.run(["code", output_name])
+        if shutil.which("code"):
+            result = subprocess.run(["code", output_name])
 
     print("Video saved to:", output_name)
 
