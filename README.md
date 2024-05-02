@@ -28,7 +28,8 @@ with benchmarking and visualization tooling.
 
 ## Getting Started
 
-1. Install the [MAX SDK](https://docs.modular.com/engine/get-started).
+1. Install the [MAX SDK](https://modul.ar/get-started) (also see for the
+   system requirements).
 
 2. Git clone the repository of MAX samples using the command below:
 
@@ -66,7 +67,6 @@ Check out the [notebooks examples](./examples/notebooks/) for using MAX Engine
 
 - [Mistral-7B](./examples/notebooks/mistral7b-python-onnx.ipynb)
 - [Roberta-pytorch](./examples/notebooks/roberta-python-pytorch.ipynb)
-- [Roberta-tensorflow](./examples/notebooks/roberta-python-tensorflow.ipynb)
 
 ### FAQ
 
@@ -83,9 +83,9 @@ in your local python environment. Note that `max` can also be available in your 
 ### MAX Serving Docker Container
 
 For MAX Serving, you can pull our Docker Container from the the public ECR here:
-[https://gallery.ecr.aws/modular/max-serving-de](https://gallery.ecr.aws/modular/max-serving-de)
+[https://gallery.ecr.aws/modular/max-serving](https://gallery.ecr.aws/modular/max-serving)
 
-```public.ecr.aws/modular/max-serving-de```
+```public.ecr.aws/modular/max-serving```
 
 ## Contributing
 

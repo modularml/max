@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import common
+import argparse
 import pickle
 import sys
 import numpy as np
@@ -20,27 +21,42 @@ from PIL import Image
 import requests
 
 
-model_name = sys.argv[1]
-if model_name == "roberta":
-    rng = np.random.default_rng()
-    inputs = {
-        "input_ids": rng.integers(
-            low=0, high=50264, size=(1, 128), dtype=np.int64
-        ),
-        "token_type_ids": np.zeros((1, 128), dtype=np.int64),
-        "attention_mask": np.ones((1, 128), dtype=np.int64),
-    }
-    with open(".cache/roberta.pkl", "wb") as f:
-        pickle.dump(dict(**inputs), f)
-elif model_name == "clip":
-    processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-    image = Image.open(requests.get(url, stream=True).raw)
-    inputs = processor(
-        text=["a photo of a cat", "a photo of a dog"],
-        images=image,
-        return_tensors="pt",
-        padding=True,
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-m",
+        "--model",
+        choices=["roberta", "clip"],
+        help="Choose from one of these models",
+        required=True,
     )
-    with open(".cache/clip.pkl", "wb") as f:
-        pickle.dump(dict(**inputs), f)
+    args = parser.parse_args()
+    if args.model == "roberta":
+        rng = np.random.default_rng()
+        inputs = {
+            "input_ids": rng.integers(
+                low=0, high=50264, size=(1, 128), dtype=np.int64
+            ),
+            "token_type_ids": np.zeros((1, 128), dtype=np.int64),
+            "attention_mask": np.ones((1, 128), dtype=np.int64),
+        }
+        with open(".cache/roberta.pkl", "wb") as f:
+            pickle.dump(dict(**inputs), f)
+    elif args.model == "clip":
+        processor = AutoProcessor.from_pretrained(
+            "openai/clip-vit-base-patch32"
+        )
+        url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+        image = Image.open(requests.get(url, stream=True).raw)
+        inputs = processor(
+            text=["a photo of a cat", "a photo of a dog"],
+            images=image,
+            return_tensors="pt",
+            padding=True,
+        )
+        with open(".cache/clip.pkl", "wb") as f:
+            pickle.dump(dict(**inputs), f)
+
+
+if __name__ == "__main__":
+    main()

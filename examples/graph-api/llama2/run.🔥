@@ -15,11 +15,10 @@ import sys
 from collections import List
 from pathlib import Path
 from sys.param_env import env_get_string
-from tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape, TensorSpec
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
-from max.graph import Module
 
 from tokenizer.bpe import BPETokenizer
 from model.llama import Llama2
@@ -35,8 +34,9 @@ struct Config:
     var batch_size: Int
     var float_dtype: String
     var model_path: Path
-    var custom_ops_path: Path
+    var custom_ops_paths: List[Path]
     var tokenizer_path: Path
+    var enable_custom_rope_kernel: Bool
 
     fn __init__(
         inout self,
@@ -44,14 +44,16 @@ struct Config:
         batch_size: Int = 1,
         float_dtype: DType = DType.float16,
         model_path: Path = "",
-        custom_ops_path: Path = "",
+        custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
+        enable_custom_rope_kernel: Bool = False,
     ) raises:
         self.batch_size = batch_size
         self.float_dtype = float_dtype
         self.model_path = model_path
-        self.custom_ops_path = custom_ops_path
+        self.custom_ops_paths = custom_ops_paths
         self.tokenizer_path = tokenizer_path
+        self.enable_custom_rope_kernel = enable_custom_rope_kernel
 
         self.parse_args()
 
@@ -70,13 +72,27 @@ struct Config:
                 self.model_path = Path(args[i + 1])
                 i += 2
             elif args[i] == "--custom-ops-path":
-                self.custom_ops_path = Path(args[i + 1])
+                self.custom_ops_paths.append(Path(args[i + 1]))
                 i += 2
             elif args[i] == "--tokenizer-path":
                 self.tokenizer_path = Path(args[i + 1])
                 i += 2
+            elif args[i] == "--enable-custom-rope-kernel":
+                self.enable_custom_rope_kernel = True
+                i += 1
             else:
                 raise "unsupported CLI argument: " + String(args[i])
+
+        if self.enable_custom_rope_kernel and len(self.custom_ops_paths) == 0:
+            raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
+
+
+@value
+struct KVCacheView[float_dtype: DType]:
+    """Non-owning view into the KV cache backing `Tensor`."""
+
+    var spec: TensorSpec
+    var ptr: DTypePointer[float_dtype]
 
 
 fn cache_init[
@@ -97,10 +113,11 @@ fn cache_init[
 
 fn cache_view[
     float_dtype: DType
-](size: Int, buff: Tensor[float_dtype]) -> Tensor[float_dtype]:
+](size: Int, buff: Tensor[float_dtype]) -> KVCacheView[float_dtype]:
     var shape = buff.shape()
-    return Tensor[float_dtype](
-        buff.data(), TensorShape(size, shape[1], shape[2], shape[3], shape[4])
+    return KVCacheView[float_dtype](
+        TensorSpec(float_dtype, size, shape[1], shape[2], shape[3], shape[4]),
+        buff.data(),
     )
 
 
@@ -110,7 +127,7 @@ fn cache_update[
     results: TensorMap,
     name: String,
     buff: Tensor[float_dtype],
-    owned current: Tensor[float_dtype],
+    current: KVCacheView[float_dtype],
     n: Int,
 ) raises:
     constrained[float_dtype.is_floating_point(), "expected float dtype"]()
@@ -118,9 +135,8 @@ fn cache_update[
     var update = results.buffer[float_dtype](name)
     var shape = buff.shape()
     var stride = shape[1] * shape[2] * shape[3] * shape[4]
-    var pos = current.shape()[0]
+    var pos = current.spec[0]
     memcpy(buff.data() + pos * stride, update.data, n * stride)
-    _ = current._steal_ptr()
 
 
 fn execute[
@@ -129,8 +145,8 @@ fn execute[
     model: Model,
     session: InferenceSession,
     tokens: Tensor[DType.int64],
-    k_cache_buff: Tensor[float_dtype],
-    v_cache_buff: Tensor[float_dtype],
+    k_cache_buff: KVCacheView[float_dtype],
+    v_cache_buff: KVCacheView[float_dtype],
 ) raises -> TensorMap:
     constrained[
         float_dtype.is_floating_point(), "expected float inputs and outputs"
@@ -138,10 +154,10 @@ fn execute[
 
     var input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
-    input_map.borrow("input1", k_cache_buff)
-    input_map.borrow("input2", v_cache_buff)
+    input_map.borrow("input1", k_cache_buff.spec, k_cache_buff.ptr)
+    input_map.borrow("input2", v_cache_buff.spec, v_cache_buff.ptr)
     var result_map = model.execute(input_map)
-    return result_map ^
+    return result_map^
 
 
 fn run[
@@ -154,12 +170,17 @@ fn run[
     var prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
-    var model = Llama2[ModelT, float_dtype](config.model_path)
+    var model = Llama2[ModelT, float_dtype](
+        config.model_path,
+        enable_custom_rope_kernel=config.enable_custom_rope_kernel,
+    )
     var module = model.build_graph("llama_model")
     var session = InferenceSession()
 
     print("Compiling...")
-    var compiled_model = session.load_model(module)
+    var compiled_model = session.load(
+        module, custom_ops_paths=config.custom_ops_paths
+    )
 
     print("Executing...")
     var max_tokens = 256
@@ -178,6 +199,7 @@ fn run[
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, max_tokens + 1):
+        # Take a view of the backing KV cache buffer to avoid copying it.
         var k_cache_view = cache_view(cache_size, k_cache_buff)
         var v_cache_view = cache_view(cache_size, v_cache_buff)
         var n_inputs = tokens.shape()[1]
@@ -191,8 +213,8 @@ fn run[
             v_cache_buff=v_cache_view,
         )
 
-        cache_update(results, "output1", k_cache_buff, k_cache_view ^, n_inputs)
-        cache_update(results, "output2", v_cache_buff, v_cache_view ^, n_inputs)
+        cache_update(results, "output1", k_cache_buff, k_cache_view, n_inputs)
+        cache_update(results, "output2", v_cache_buff, v_cache_view, n_inputs)
 
         tokens = results.get[DType.int64]("output0")
         print(tokenizer.vocab[int(tokens[0, 0])].token, end="")

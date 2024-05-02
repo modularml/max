@@ -11,6 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+import os
+
+# suppress extraneous logging
+os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -20,12 +26,6 @@ from transformers import (
     BertForMaskedLM,
     logging,
 )
-
-# suppress extraneous logging
-import os
-
-os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 HF_MODEL_NAME = "bert-base-uncased"
 DEFAULT_MODEL_PATH = "../../models/bert-mlm.torchscript"

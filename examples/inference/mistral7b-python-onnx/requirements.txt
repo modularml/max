@@ -1,6 +1,8 @@
-onnx>=1.15.0
-onnxruntime==1.16.3
-optimum>=1.17.1
-setuptools>=69.1.0
-torch>=2.1.2
-transformers>=4.0.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch==2.2.2
+transformers==4.40.1
+onnx==1.16.0
+onnxruntime==1.17.3
+optimum==1.19.1
+setuptools==69.5.1

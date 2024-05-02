@@ -68,7 +68,7 @@ struct LlamaCFile(LoadableModel):
                     f.read_bytes(sizeof[Int32]())
                 )
                 var result = bytes_tensor.data().bitcast[DType.int32]().load()
-                _ = bytes_tensor ^
+                _ = bytes_tensor^
                 return result
 
             var dim = read_int32()
@@ -231,10 +231,10 @@ struct LlamaCFile(LoadableModel):
             raise "key not found"
 
         var ptr = DTypePointer[type].alloc(tensor_ref.nelems())
-        var layer_offset = layer_idx.value() * tensor_ref.nelems() if layer_idx else 0
+        var layer_offset = layer_idx._value_copy() * tensor_ref.nelems() if layer_idx else 0
         memcpy(ptr, tensor_ref.offset + layer_offset, tensor_ref.nelems())
 
-        return Tensor(ptr, tensor_ref.shape)
+        return Tensor(tensor_ref.shape, ptr)
 
     fn hyperparams(self) -> LlamaHParams:
         return LlamaHParams(

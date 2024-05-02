@@ -14,15 +14,16 @@
 
 # If anything goes wrong, stop running the script.
 set -e
-
 MODEL_PATH="../../models/bert-mlm.torchscript"
 MODEL_DIR="bert-mlm"
+INPUT_EXAMPLE="Paris is the [MASK] of France."
+
 
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
 
 # Download model from HuggingFace
-python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH"
+python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH" --mlm
 
 echo "Preparing model repository"
 # Triton expects models to reside in the specific layout, i.e.
@@ -42,7 +43,7 @@ echo "Starting container"
 CONTAINER_ID=$(\
   docker run --rm -d --net=host \
     -v $(pwd)/model-repository:/model-repository \
-    public.ecr.aws/modular/max-serving-de \
+    public.ecr.aws/modular/max-serving \
     tritonserver --model-repository=/model-repository \
     --load-model=${MODEL_DIR} \
 )
@@ -54,11 +55,9 @@ until curl --output /dev/null --silent --fail localhost:8000/v2/health/ready; do
 done
 printf "\nMAX Serving container started\n\n"
 
-# Example input for the model
-INPUT_EXAMPLE="Paris is the [MASK] of France."
 
 # Execute the model with example input
-python3 triton-inference.py --text "$INPUT_EXAMPLE"
+python3 triton-inference.py --input "$INPUT_EXAMPLE"
 
 printf "\nStopping container..."
 docker stop $CONTAINER_ID > /dev/null

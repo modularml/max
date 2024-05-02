@@ -241,9 +241,7 @@ struct GGUFString(Stringable):
 
     @always_inline
     fn __str__(self) -> String:
-        return String(
-            StringRef(self.data.bitcast[DType.int8](), self.n.to_int())
-        )
+        return String(StringRef(self.data.bitcast[DType.int8](), int(self.n)))
 
 
 @value
@@ -813,9 +811,7 @@ struct GGUFTensorInfo:
         var num_elements = ne[0] * ne[1] * ne[2] * ne[3]
 
         var type_trait = self.type.type_trait()
-        return (
-            num_elements * type_trait.type_size // type_trait.blck_size
-        ).to_int()
+        return int(num_elements * type_trait.type_size // type_trait.blck_size)
 
     fn tensor_dims(self) -> List[Int]:
         """Converts from GGML `ne` to dims compatible with stdlib `Tensor`.
@@ -868,7 +864,7 @@ struct GGUFReader:
 
     fn __init__(inout self, owned f: FileHandle):
         self.offset = 0
-        self.f = f ^
+        self.f = f^
 
     @always_inline
     fn align_to(inout self, alignment: Int) raises -> None:
@@ -894,13 +890,13 @@ struct GGUFReader:
             sizeof[Scalar[type]]()
         )
         var result = bytes_tensor.data().bitcast[type]().load()
-        _ = bytes_tensor ^
+        _ = bytes_tensor^
 
         return result
 
     @always_inline
     fn gguf_string(inout self) raises -> GGUFString:
-        var n = self.dtype_element[DType.uint64]().to_int()
+        var n = int(self.dtype_element[DType.uint64]())
         var key_data: Tensor[DType.int8] = self.read_bytes(n)
         return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
 
@@ -912,13 +908,13 @@ struct GGUFReader:
                 sizeof[Scalar[type]]()
             )
             var result = bytes_tensor.data().bitcast[type]().load()
-            _ = bytes_tensor ^
+            _ = bytes_tensor^
 
             return GGUFValue.from_dtype[type](result)
 
         var key = self.gguf_string()
         if (
-            StringRef(key.data.bitcast[DType.int8](), key.n.to_int())
+            StringRef(key.data.bitcast[DType.int8](), int(key.n))
             == "general.alignment"
         ):
             raise "don't support specifying alignment"
@@ -932,13 +928,16 @@ struct GGUFReader:
             if array_type.is_array():
                 raise "don't support array of arrays"
 
-            var array_n = self.dtype_element[DType.uint64]().to_int()
+            var array_n = int(self.dtype_element[DType.uint64]())
             if array_type.is_string():
                 var ptr = Pointer[GGUFString].alloc(array_n)
                 for i in range(array_n):
                     ptr[i] = self.gguf_string()
 
-                return GGUFKV(key, GGUFValue(ptr.bitcast[Int8]()))
+                return GGUFKV(
+                    key,
+                    GGUFValue(DTypePointer[DType.int8](ptr.bitcast[Int8]())),
+                )
 
             # Read array of dtypes.
             var array_data: Tensor[DType.int8] = self.read_bytes(
@@ -957,7 +956,7 @@ struct GGUFReader:
         for i in range(GGUFTensorInfo.GGML_MAX_DIMS):
             ne[i] = 1
 
-        for i in range(n_dims.to_int()):
+        for i in range(int(n_dims)):
             ne[i] = self.dtype_element[DType.uint64]()
 
         var type = GGMLType(self.dtype_element[DType.int32]())
@@ -1019,8 +1018,8 @@ struct GGUFFile(LoadableModel):
         if version == 1:
             raise "GGUFv1 is not supported"
 
-        var n_tensors = reader.dtype_element[DType.uint64]().to_int()
-        var n_kv = reader.dtype_element[DType.uint64]().to_int()
+        var n_tensors = int(reader.dtype_element[DType.uint64]())
+        var n_kv = int(reader.dtype_element[DType.uint64]())
 
         self.header = GGUFHeader(
             StaticTuple[Int8, 4](magic[0], magic[1], magic[2], magic[3]),
@@ -1074,10 +1073,10 @@ struct GGUFFile(LoadableModel):
         self.offset = other.offset
         self.size = other.size
 
-        self.fp = other.fp ^
+        self.fp = other.fp^
 
     fn __del__(owned self):
-        for i in range(self.header.n_kv.to_int()):
+        for i in range(int(self.header.n_kv)):
             self.kv[i].destroy()
         self.kv.free()
 
@@ -1092,7 +1091,7 @@ struct GGUFFile(LoadableModel):
     ) raises -> Tensor[type]:
         var full_key = key + ".weight"
         if layer_idx:
-            full_key = "blk." + String(layer_idx.value()) + "." + full_key
+            full_key = "blk." + String(layer_idx._value_copy()) + "." + full_key
 
         for i in range(self.n_tensors()):
             var info = self.infos[i]
@@ -1114,8 +1113,8 @@ struct GGUFFile(LoadableModel):
             )
 
             return Tensor(
-                bytes_tensor._steal_ptr().bitcast[type](),
                 info.storage_tensor_shape(),
+                bytes_tensor._steal_ptr().bitcast[type](),
             )
 
         raise "key not found"
@@ -1135,4 +1134,4 @@ struct GGUFFile(LoadableModel):
 
     @always_inline
     fn n_tensors(self) -> Int:
-        return self.header.n_tensors.to_int()
+        return int(self.header.n_tensors)

@@ -38,8 +38,7 @@ def execute(model_path, text, input_dict):
         engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
         for tensor in input_dict.values()
     ]
-    options = engine.TorchLoadOptions(input_spec_list)
-    model = session.load(model_path, options)
+    model = session.load(model_path, input_specs=input_spec_list)
     tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
     print("Processing input...")
     inputs = tokenizer(

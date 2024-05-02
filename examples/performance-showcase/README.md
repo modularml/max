@@ -2,7 +2,7 @@
 
 This directory contains a simple benchmark program along with model download
 helpers to showcase inference performance using the Max Engine compared to
-stock PyTorch and Tensorflow.
+stock PyTorch.
 
 Note that the goal here is to provide a quick, qualitatively accurate showcase
 of the performance differences you can expect in common scenarios (rather than
