@@ -453,96 +453,70 @@ struct GGUFValue:
 
         raise "unsupported dtype"
 
-    fn __init__(value: UInt8) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.UInt8.value
-            ](value)
-        }
+    fn __init__(inout self, value: UInt8):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.UInt8.value
+        ](value)
 
-    fn __init__(value: Int8) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Int8.value
-            ](value)
-        }
+    fn __init__(inout self, value: Int8):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Int8.value
+        ](value)
 
-    fn __init__(value: UInt16) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.UInt16.value
-            ](value)
-        }
+    fn __init__(inout self, value: UInt16):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.UInt16.value
+        ](value)
 
-    fn __init__(value: Int16) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Int16.value
-            ](value)
-        }
+    fn __init__(inout self, value: Int16):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Int16.value
+        ](value)
 
-    fn __init__(value: UInt32) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.UInt32.value
-            ](value)
-        }
+    fn __init__(inout self, value: UInt32):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.UInt32.value
+        ](value)
 
-    fn __init__(value: Int32) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Int32.value
-            ](value)
-        }
+    fn __init__(inout self, value: Int32):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Int32.value
+        ](value)
 
-    fn __init__(value: UInt64) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.UInt64.value
-            ](value)
-        }
+    fn __init__(inout self, value: UInt64):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.UInt64.value
+        ](value)
 
-    fn __init__(value: Int64) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Int64.value
-            ](value)
-        }
+    fn __init__(inout self, value: Int64):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Int64.value
+        ](value)
 
-    fn __init__(value: Float32) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Float32.value
-            ](value)
-        }
+    fn __init__(inout self, value: Float32):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Float32.value
+        ](value)
 
-    fn __init__(value: Float64) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Float64.value
-            ](value)
-        }
+    fn __init__(inout self, value: Float64):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Float64.value
+        ](value)
 
-    fn __init__(value: Bool) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Bool.value
-            ](value)
-        }
+    fn __init__(inout self, value: Bool):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Bool.value
+        ](value)
 
-    fn __init__(value: GGUFString) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.GGUFString.value
-            ](value)
-        }
+    fn __init__(inout self, value: GGUFString):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.GGUFString.value
+        ](value)
 
-    fn __init__(value: DTypePointer[DType.int8]) -> Self:
-        return Self {
-            _value: __mlir_op.`kgen.variant.create`[
-                _type = Self._type, index = Self.Array.value
-            ](value)
-        }
+    fn __init__(inout self, value: DTypePointer[DType.int8]):
+        self._value = __mlir_op.`kgen.variant.create`[
+            _type = Self._type, index = Self.Array.value
+        ](value)
 
     @always_inline
     fn destroy(owned self):
@@ -752,13 +726,13 @@ struct GGUFHeader:
     # The number of metadata key-value pairs.
     var n_kv: UInt64
 
-    fn __init__() -> Self:
-        return Self {
-            magic: StaticTuple[Int8, 4](ord("N"), ord("U"), ord("L"), ord("L")),
-            version: 0,
-            n_tensors: 0,
-            n_kv: 0,
-        }
+    fn __init__(inout self):
+        self.magic = StaticTuple[Int8, 4](
+            ord("N"), ord("U"), ord("L"), ord("L")
+        )
+        self.version = 0
+        self.n_tensors = 0
+        self.n_kv = 0
 
     fn __str__(self) -> String:
         return (
