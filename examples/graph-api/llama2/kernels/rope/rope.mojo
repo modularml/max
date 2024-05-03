@@ -20,8 +20,7 @@ from max.extensibility import Tensor, empty_tensor
 from max import register
 
 from algorithm.functional import vectorize, sync_parallelize
-from buffer.list import Dim, DimList
-from math import div_ceil
+from math import ceildiv
 from runtime.llcl import Runtime
 
 
@@ -62,9 +61,9 @@ fn ggml_rope[
     var MIN_TASK_SIZE = 32768
     var num_workers = min(
         Runtime().parallelism_level(),
-        div_ceil(outer_len * n_head_dim, MIN_TASK_SIZE),
+        ceildiv(outer_len * n_head_dim, MIN_TASK_SIZE),
     )
-    var chunk_size = div_ceil(outer_len, num_workers)
+    var chunk_size = ceildiv(outer_len, num_workers)
 
     @__copy_capture(n_tok, n_heads, n_head_dim, chunk_size)
     @parameter
