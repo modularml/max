@@ -54,16 +54,14 @@ struct MergeOption(OrderableElement):
 fn read[T: CollectionElement](inout ptr: UnsafePointer[Int8]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     var value = ptr.bitcast[T]()[]
-    ptr = ptr + sizeof[T]()
+    ptr += sizeof[T]()
     return value^
 
 
 fn read_string(inout ptr: UnsafePointer[Int8], length: Int) -> StringRef:
     """Read a string reference of known length and increment the pointer."""
-    var value = StringRef(
-        Reference(ptr.__refitem__()).get_legacy_pointer(), length
-    )
-    ptr = ptr + length
+    var value = StringRef(LegacyPointer.address_of(ptr[]), length)
+    ptr += length
     return value
 
 
