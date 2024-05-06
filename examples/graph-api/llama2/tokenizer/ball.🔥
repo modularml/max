@@ -99,29 +99,15 @@ struct Ball[T: CollectionElement]:
         """Gets the previous item in the list, if any."""
         return self._ref(id)[].prev
 
-    fn _ref[
-        mutability: __mlir_type.i1,
-        lifetime: AnyLifetime[mutability].type,
-    ](
-        self: Reference[Self, mutability, lifetime]._mlir_type, id: Self.ID
-    ) -> Reference[Node[T], mutability, lifetime]:
-        var node_ref = Reference(self)[]._arena.__get_ref(id)
-        return Reference(
-            __mlir_op.`lit.ref.from_pointer`[
-                _type = Reference[Node[T], mutability, lifetime]._mlir_type
-            ](UnsafePointer(node_ref).bitcast[Node[T]]().address)
-        )
+    fn _ref(
+        self: Reference[Self, _, _], id: Self.ID
+    ) -> Reference[Node[T], self.is_mutable, self.lifetime]:
+        var node_ref = self[]._arena.__get_ref(id)
+        return UnsafePointer(node_ref).bitcast[Node[T]]()[]
 
-    fn __refitem__[
-        mutability: __mlir_type.i1,
-        lifetime: AnyLifetime[mutability].type,
-    ](
-        self: Reference[Self, mutability, lifetime]._mlir_type, id: Self.ID
-    ) -> Reference[T, mutability, lifetime]:
+    fn __refitem__(
+        self: Reference[Self, _, _], id: Self.ID
+    ) -> Reference[T, self.is_mutable, self.lifetime]:
         """Gets a reference to a value in the list."""
-        var node_ref = Reference(self)[]._arena.__get_ref(id)
-        return Reference(
-            __mlir_op.`lit.ref.from_pointer`[
-                _type = Reference[T, mutability, lifetime]._mlir_type
-            ](UnsafePointer(node_ref).bitcast[T]().address)
-        )
+        var node_ref = self[]._arena.__get_ref(id)
+        return UnsafePointer(node_ref).bitcast[T]()[]
