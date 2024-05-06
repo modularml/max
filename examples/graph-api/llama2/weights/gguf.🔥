@@ -863,7 +863,7 @@ struct GGUFReader:
         var bytes_tensor: Tensor[DType.int8] = self.read_bytes(
             sizeof[Scalar[type]]()
         )
-        var result = bytes_tensor.data().bitcast[type]().load()
+        var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
         _ = bytes_tensor^
 
         return result
@@ -881,7 +881,7 @@ struct GGUFReader:
             var bytes_tensor: Tensor[DType.int8] = self.read_bytes(
                 sizeof[Scalar[type]]()
             )
-            var result = bytes_tensor.data().bitcast[type]().load()
+            var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
             _ = bytes_tensor^
 
             return GGUFValue.from_dtype[type](result)
@@ -985,7 +985,7 @@ struct GGUFFile(LoadableModel):
             sizeof[StaticTuple[Int8, 4]]()
         )
         for i in range(magic.num_elements()):
-            if magic[i] != GGUFFile.GGUF_MAGIC.data().load(i):
+            if magic[i] != GGUFFile.GGUF_MAGIC.unsafe_ptr().load(i):
                 raise "invalid magic character"
 
         var version = reader.dtype_element[DType.uint32]()

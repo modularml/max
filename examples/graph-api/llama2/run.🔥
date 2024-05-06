@@ -117,7 +117,7 @@ fn cache_view[
     var shape = buff.shape()
     return KVCacheView[float_dtype](
         TensorSpec(float_dtype, size, shape[1], shape[2], shape[3], shape[4]),
-        buff.data(),
+        buff.unsafe_ptr(),
     )
 
 
@@ -136,7 +136,7 @@ fn cache_update[
     var shape = buff.shape()
     var stride = shape[1] * shape[2] * shape[3] * shape[4]
     var pos = current.spec[0]
-    memcpy(buff.data() + pos * stride, update.data, n * stride)
+    memcpy(buff.unsafe_ptr() + pos * stride, update.data, n * stride)
 
 
 fn execute[
