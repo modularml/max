@@ -17,10 +17,10 @@ import random
 
 from collections import List
 from python import Python
-from max.engine import InferenceSession, Model, SessionOptions
-from tensor import randn, Tensor, TensorShape, TensorSpec
 from random import seed
-from math import sqrt
+
+from max.engine import InferenceSession
+from max.tensor import randn, Tensor, TensorShape, TensorSpec
 
 # Local Mojo imports
 import python_utils
