@@ -82,7 +82,7 @@ in your local python environment. Note that `max` can also be available in your 
 
 ### MAX Serving Docker Container
 
-For MAX Serving, you can pull our Docker Container from the the public ECR here:
+For MAX Serving, you can pull our Docker Container from the public ECR here:
 [https://gallery.ecr.aws/modular/max-serving](https://gallery.ecr.aws/modular/max-serving)
 
 ```public.ecr.aws/modular/max-serving```
