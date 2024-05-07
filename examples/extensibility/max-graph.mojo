@@ -11,10 +11,11 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from pathlib import Path
+
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType, ops
-from tensor import Tensor, TensorShape, randn
-from pathlib import Path
+from max.tensor import Tensor, TensorShape, randn
 
 
 def construct_graph[op_name: StringLiteral]() -> Graph:

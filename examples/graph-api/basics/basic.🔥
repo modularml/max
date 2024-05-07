@@ -13,7 +13,7 @@
 
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType, ops
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 
 # This example highlights the very basic API structure around building a MAX

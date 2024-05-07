@@ -13,8 +13,9 @@
 """A module containing generic weight loading traits and types."""
 
 from pathlib import Path
-from tensor import Tensor
 from collections import Optional
+
+from max.tensor import Tensor
 
 
 @value

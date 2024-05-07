@@ -14,11 +14,10 @@
 import sys
 from collections import List
 from pathlib import Path
-from sys.param_env import env_get_string
-from tensor import Tensor, TensorShape, TensorSpec
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
+from max.tensor import Tensor, TensorShape, TensorSpec
 
 from tokenizer.bpe import BPETokenizer
 from model.llama import Llama2

@@ -43,8 +43,9 @@ Other types expose a `.destroy()` method simply to facilitate this.
 
 from collections import List, Optional
 from memory.unsafe import DTypePointer
-from tensor import Tensor, TensorShape
 from pathlib import Path
+
+from max.tensor import Tensor, TensorShape
 
 from . import ggml_quants
 from .loadable_model import LlamaHParams, LoadableModel
