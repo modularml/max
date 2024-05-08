@@ -104,11 +104,17 @@ struct Attention[float_dtype: DType = DType.float32]:
         seq_len = seq_len.reshape()
         start_pos = start_pos.reshape()
 
+        # Mask out current sequence elements [i, j] where j > i with an
+        # upper-triangular matrix filled with -inf.
         var mask_val = g.full(
             Scalar[float_dtype].MIN, List[Symbol](seq_len, seq_len)
         )
         var mask = ops.band_part(
-            mask_val, g.scalar[DType.int64](-1), start_pos, exclude=True
+            mask_val,
+            g.scalar[DType.int64](-1),
+            num_upper=g.scalar[DType.int64](0),
+            # Invert the mask from lower to upper.
+            exclude=True,
         )
 
         # Compute attention scores only for the new sequence.
@@ -258,7 +264,6 @@ struct Transformer[float_dtype: DType = DType.float32]:
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
     ) -> Tuple[Symbol, Symbol, Symbol]:
-        var g = tokens.graph()
         var start_pos = ops.shape_of(k_cache)[0]
         var h = self.embedding(tokens)
         var freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
