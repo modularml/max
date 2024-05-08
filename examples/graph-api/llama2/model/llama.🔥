@@ -73,10 +73,7 @@ def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
     )
     var freqs_2d = ops.reshape(freqs_cis, new_f_shape)
 
-    return ops.custom["ggml_rope"](
-        List[Symbol](x, freqs_2d),
-        x.tensor_type(),
-    )
+    return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
 
 
 @value

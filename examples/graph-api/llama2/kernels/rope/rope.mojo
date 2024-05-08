@@ -24,8 +24,8 @@ from math import ceildiv
 from runtime.llcl import Runtime
 
 
-@register.op("ggml_rope")
-fn ggml_rope[
+@register.op("rope")
+fn rope[
     inType: DType, freqType: DType
 ](input: Tensor[inType, 4], freqs: Tensor[freqType, 2]) -> Tensor[inType, 4]:
     """
