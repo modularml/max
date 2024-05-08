@@ -44,6 +44,7 @@ Other types expose a `.destroy()` method simply to facilitate this.
 from collections import List, Optional
 from memory.unsafe import DTypePointer
 from pathlib import Path
+from utils import StaticTuple
 
 from max.tensor import Tensor, TensorShape
 

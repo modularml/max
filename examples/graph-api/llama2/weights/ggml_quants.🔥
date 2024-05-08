@@ -12,6 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 """GGML quantized type definitions."""
 
+from utils import StaticTuple
+
 
 @value
 @register_passable("trivial")
