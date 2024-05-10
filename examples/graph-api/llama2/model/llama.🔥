@@ -76,6 +76,39 @@ def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
     return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
 
 
+def attention_mask[
+    float_dtype: DType
+](start_pos: Symbol, seq_len: Symbol) -> Symbol:
+    var g = start_pos.graph()
+
+    seq_len = seq_len.reshape()
+    start_pos = start_pos.reshape()
+
+    # Mask out current sequence elements [i, j] where j > i with an
+    # upper-triangular matrix filled with -inf.
+    var mask_val = g.full(
+        Scalar[float_dtype].MIN, List[Symbol](seq_len, seq_len)
+    )
+    var mask = ops.band_part(
+        mask_val,
+        g.scalar[DType.int64](-1),
+        num_upper=g.scalar[DType.int64](0),
+        # Invert the mask from lower to upper.
+        exclude=True,
+    )
+
+    # Compute attention scores only for the new sequence.
+    # Hence for a matrix of scores of size (seqlen, cache_len + seqlen),
+    # the only masked entries are (i, j) for j > cache_len + i, since row i
+    # corresponds to token cache_len + i.
+    return ops.concat(
+        List[Symbol](
+            g.full[DType.float32](0, List[Symbol](seq_len, start_pos)), mask
+        ),
+        axis=1,
+    )
+
+
 @value
 struct Attention[float_dtype: DType = DType.float32]:
     var n_heads: Int
@@ -90,40 +123,10 @@ struct Attention[float_dtype: DType = DType.float32]:
     var wv: Symbol
     var wo: Symbol
 
-    def repeat_kv(self, v: Symbol, n_rep: Int) -> Symbol:
+    def repeat_kv(borrowed self, v: Symbol, _n_rep: Int) -> Symbol:
         if self.n_kv_heads < self.n_heads:
             raise "Not yet supported"
         return v
-
-    def attention_mask(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
-        var g = start_pos.graph()
-
-        seq_len = seq_len.reshape()
-        start_pos = start_pos.reshape()
-
-        # Mask out current sequence elements [i, j] where j > i with an
-        # upper-triangular matrix filled with -inf.
-        var mask_val = g.full(
-            Scalar[float_dtype].MIN, List[Symbol](seq_len, seq_len)
-        )
-        var mask = ops.band_part(
-            mask_val,
-            g.scalar[DType.int64](-1),
-            num_upper=g.scalar[DType.int64](0),
-            # Invert the mask from lower to upper.
-            exclude=True,
-        )
-
-        # Compute attention scores only for the new sequence.
-        # Hence for a matrix of scores of size (seqlen, cache_len + seqlen),
-        # the only masked entries are (i, j) for j > cache_len + i, since row i
-        # corresponds to token cache_len + i.
-        return ops.concat(
-            List[Symbol](
-                g.full[DType.float32](0, List[Symbol](seq_len, start_pos)), mask
-            ),
-            axis=1,
-        )
 
     def __call__(
         self,
@@ -170,7 +173,7 @@ struct Attention[float_dtype: DType = DType.float32]:
         values = values.swapaxes(1, 2)
 
         var scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + self.attention_mask(start_pos, seq_len)
+        scores = scores + attention_mask[float_dtype](start_pos, seq_len)
         var output = ops.softmax(scores) @ values
         output = output.swapaxes(1, 2).reshape(batch_size, seq_len, -1)
         return output @ self.wo, xk, xv
