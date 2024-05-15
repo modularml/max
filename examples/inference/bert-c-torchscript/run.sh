@@ -14,8 +14,9 @@
 
 set -e
 
-# set MAX path
-MAX_PKG_DIR="$(modular config max.path)"
+# Allow user to override MAX_PKG_DIR in environment to support nightly version
+# but default to standard release
+MAX_PKG_DIR="${MAX_PKG_DIR:-$(modular config max.path)}"
 export MAX_PKG_DIR
 
 CURRENT_DIR=$(dirname "$0")
