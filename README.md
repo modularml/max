@@ -28,13 +28,22 @@ with benchmarking and visualization tooling.
 
 ## Getting Started
 
-1. Install the [MAX SDK](https://modul.ar/get-started) (also see for the
-   system requirements).
+MAX is available in both stable and nightly builds. To install either version,
+follow the guide to [install the MAX SDK](https://modul.ar/get-started) (also
+see for the system requirements).
 
-2. Git clone the repository of MAX samples using the command below:
+Then clone this repository:
 
 ```bash
 git clone https://github.com/modularml/max.git
+```
+
+If you installed the nightly build, be sure you switch to the `nightly` branch,
+because the `main` branch is for stable releases and might not be compatible
+with nightly builds:
+
+```bash
+git checkout nightly
 ```
 
 ## Running
