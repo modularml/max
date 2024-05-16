@@ -44,7 +44,7 @@ Other types expose a `.destroy()` method simply to facilitate this.
 from collections import List, Optional
 from memory.unsafe import DTypePointer
 from pathlib import Path
-from utils import StaticTuple
+from utils import StaticTuple, Variant
 
 from max.tensor import Tensor, TensorShape
 
@@ -251,316 +251,61 @@ struct GGUFType:
 
 
 @value
-@register_passable("trivial")
 struct GGUFValue:
-    alias _type = __mlir_type[
-        `!kgen.variant<`,
+    alias _type = Variant[
         UInt8,
-        `, `,
         Int8,
-        `, `,
         UInt16,
-        `, `,
         Int16,
-        `, `,
         UInt32,
-        `, `,
         Int32,
-        `, `,
         UInt64,
-        `, `,
         Int64,
-        `, `,
         Float32,
-        `, `,
         Float64,
-        `, `,
         Bool,
-        `, `,
         GGUFString,
-        `, `,
         DTypePointer[DType.int8],
-        `>`,
     ]
     var _value: Self._type
-
-    alias UInt8: Int = 0
-    alias Int8: Int = 1
-    alias UInt16: Int = 2
-    alias Int16: Int = 3
-    alias UInt32: Int = 4
-    alias Int32: Int = 5
-    alias UInt64: Int = 6
-    alias Int64: Int = 7
-    alias Float32: Int = 8
-    alias Float64: Int = 9
-    alias Bool: Int = 10
-    alias GGUFString: Int = 11
-    alias Array: Int = 12
 
     @staticmethod
     fn from_dtype[type: DType](value: Scalar[type]) raises -> Self:
         @parameter
         if type.is_uint8():
-            return GGUFValue(value.cast[DType.uint8]())
+            return Self(UInt8(value))
         elif type.is_int8():
-            return GGUFValue(value.cast[DType.int8]())
+            return Self(Int8(value))
         elif type.is_uint16():
-            return GGUFValue(value.cast[DType.uint16]())
+            return Self(UInt16(value))
         elif type.is_int16():
-            return GGUFValue(value.cast[DType.int16]())
+            return Self(Int16(value))
         elif type.is_uint32():
-            return GGUFValue(value.cast[DType.uint32]())
+            return Self(UInt32(value))
         elif type.is_int32():
-            return GGUFValue(value.cast[DType.int32]())
+            return Self(Int32(value))
         elif type.is_uint64():
-            return GGUFValue(value.cast[DType.uint64]())
+            return Self(UInt64(value))
         elif type.is_int64():
-            return GGUFValue(value.cast[DType.int64]())
+            return Self(Int64(value))
         elif type.is_float32():
-            return GGUFValue(value.cast[DType.float32]())
+            return Self(Float32(value))
         elif type.is_float64():
-            return GGUFValue(value.cast[DType.float64]())
+            return Self(Float64(value))
         elif type.is_bool():
-            return GGUFValue(value.cast[DType.bool]())
+            return Self(Bool(value))
 
         raise "unsupported dtype"
 
-    fn __init__(inout self, value: UInt8):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.UInt8.value
-        ](value)
-
-    fn __init__(inout self, value: Int8):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Int8.value
-        ](value)
-
-    fn __init__(inout self, value: UInt16):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.UInt16.value
-        ](value)
-
-    fn __init__(inout self, value: Int16):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Int16.value
-        ](value)
-
-    fn __init__(inout self, value: UInt32):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.UInt32.value
-        ](value)
-
-    fn __init__(inout self, value: Int32):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Int32.value
-        ](value)
-
-    fn __init__(inout self, value: UInt64):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.UInt64.value
-        ](value)
-
-    fn __init__(inout self, value: Int64):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Int64.value
-        ](value)
-
-    fn __init__(inout self, value: Float32):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Float32.value
-        ](value)
-
-    fn __init__(inout self, value: Float64):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Float64.value
-        ](value)
-
-    fn __init__(inout self, value: Bool):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Bool.value
-        ](value)
-
-    fn __init__(inout self, value: GGUFString):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.GGUFString.value
-        ](value)
-
-    fn __init__(inout self, value: DTypePointer[DType.int8]):
-        self._value = __mlir_op.`kgen.variant.create`[
-            _type = Self._type, index = Self.Array.value
-        ](value)
-
     @always_inline
     fn destroy(owned self):
-        if self.is_string():
-            self.string().destroy()
-        elif self.is_array():
-            self.array().free()
-
-    # ===------------------------------------------------------------------=== #
-    # Value query
-    # ===------------------------------------------------------------------=== #
-
-    @always_inline
-    fn is_uint8(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.UInt8.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_int8(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Int8.value](self._value)
-
-    @always_inline
-    fn is_uint16(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.UInt16.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_int16(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Int16.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_uint32(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.UInt32.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_int32(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Int32.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_uint64(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.UInt64.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_int64(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Int64.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_float32(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Float32.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_float64(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Float64.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_bool(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Bool.value](self._value)
-
-    @always_inline
-    fn is_string(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.GGUFString.value](
-            self._value
-        )
-
-    @always_inline
-    fn is_array(self) -> Bool:
-        return __mlir_op.`kgen.variant.is`[index = Self.Array.value](
-            self._value
-        )
-
-    # ===------------------------------------------------------------------=== #
-    # Value get
-    # ===------------------------------------------------------------------=== #
-
-    @always_inline
-    fn uint8(self) -> UInt8:
-        return __mlir_op.`kgen.variant.take`[index = Self.UInt8.value](
-            self._value
-        )
-
-    @always_inline
-    fn int8(self) -> Int8:
-        return __mlir_op.`kgen.variant.take`[index = Self.Int8.value](
-            self._value
-        )
-
-    @always_inline
-    fn uint16(self) -> UInt16:
-        return __mlir_op.`kgen.variant.take`[index = Self.UInt16.value](
-            self._value
-        )
-
-    @always_inline
-    fn int16(self) -> Int16:
-        return __mlir_op.`kgen.variant.take`[index = Self.Int16.value](
-            self._value
-        )
-
-    @always_inline
-    fn uint32(self) -> UInt32:
-        return __mlir_op.`kgen.variant.take`[index = Self.UInt32.value](
-            self._value
-        )
-
-    @always_inline
-    fn int32(self) -> Int32:
-        return __mlir_op.`kgen.variant.take`[index = Self.Int32.value](
-            self._value
-        )
-
-    @always_inline
-    fn uint64(self) -> UInt64:
-        return __mlir_op.`kgen.variant.take`[index = Self.UInt64.value](
-            self._value
-        )
-
-    @always_inline
-    fn int64(self) -> Int64:
-        return __mlir_op.`kgen.variant.take`[index = Self.Int64.value](
-            self._value
-        )
-
-    @always_inline
-    fn float32(self) -> Float32:
-        return __mlir_op.`kgen.variant.take`[index = Self.Float32.value](
-            self._value
-        )
-
-    @always_inline
-    fn float64(self) -> Float64:
-        return __mlir_op.`kgen.variant.take`[index = Self.Float64.value](
-            self._value
-        )
-
-    @always_inline
-    fn bool(self) -> Bool:
-        return __mlir_op.`kgen.variant.take`[index = Self.Bool.value](
-            self._value
-        )
-
-    @always_inline
-    fn string(self) -> GGUFString:
-        return __mlir_op.`kgen.variant.take`[index = Self.GGUFString.value](
-            self._value
-        )
-
-    @always_inline
-    fn array(self) -> DTypePointer[DType.int8]:
-        return __mlir_op.`kgen.variant.take`[index = Self.Array.value](
-            self._value
-        )
+        if self._value.isa[GGUFString]():
+            self._value.unsafe_get[GGUFString]()[].destroy()
+        elif self._value.isa[DTypePointer[DType.int8]]():
+            self._value.unsafe_get[DTypePointer[DType.int8]]()[].free()
 
 
 @value
-@register_passable("trivial")
 struct GGUFKV:
     # The key of the metadata. It is a standard GGUF string, with the following caveats:
     # - It must be a valid ASCII string.
