@@ -66,159 +66,100 @@ struct GGMLTypeTrait:
 struct GGMLType:
     """Enum-like struct matching `ggml_type`, the dtype of a tensor."""
 
-    alias GGML_TYPE_F32 = 0
-    alias GGML_TYPE_F16 = 1
-    alias GGML_TYPE_Q4_0 = 2
-    alias GGML_TYPE_Q4_1 = 3
+    alias GGML_TYPE_F32: Int32 = 0
+    alias GGML_TYPE_F16: Int32 = 1
+    alias GGML_TYPE_Q4_0: Int32 = 2
+    alias GGML_TYPE_Q4_1: Int32 = 3
     # GGML_TYPE_Q4_2 = 4, support has been removed
     # GGML_TYPE_Q4_3 (5) support has been removed
-    alias GGML_TYPE_Q5_0 = 6
-    alias GGML_TYPE_Q5_1 = 7
-    alias GGML_TYPE_Q8_0 = 8
-    alias GGML_TYPE_Q8_1 = 9
+    alias GGML_TYPE_Q5_0: Int32 = 6
+    alias GGML_TYPE_Q5_1: Int32 = 7
+    alias GGML_TYPE_Q8_0: Int32 = 8
+    alias GGML_TYPE_Q8_1: Int32 = 9
     # k-quantizations
-    alias GGML_TYPE_Q2_K = 10
-    alias GGML_TYPE_Q3_K = 11
-    alias GGML_TYPE_Q4_K = 12
-    alias GGML_TYPE_Q5_K = 13
-    alias GGML_TYPE_Q6_K = 14
-    alias GGML_TYPE_Q8_K = 15
-    alias GGML_TYPE_I8 = 16
-    alias GGML_TYPE_I16 = 17
-    alias GGML_TYPE_I32 = 18
-    alias GGML_TYPE_COUNT = 19  # marks the end of the enum
+    alias GGML_TYPE_Q2_K: Int32 = 10
+    alias GGML_TYPE_Q3_K: Int32 = 11
+    alias GGML_TYPE_Q4_K: Int32 = 12
+    alias GGML_TYPE_Q5_K: Int32 = 13
+    alias GGML_TYPE_Q6_K: Int32 = 14
+    alias GGML_TYPE_Q8_K: Int32 = 15
+    alias GGML_TYPE_I8: Int32 = 16
+    alias GGML_TYPE_I16: Int32 = 17
+    alias GGML_TYPE_I32: Int32 = 18
+    alias GGML_TYPE_COUNT: Int32 = 19  # marks the end of the enum
 
-    var value: Int32
+    var _value: Int32
 
-    @always_inline
-    fn is_f32(self) -> Bool:
-        return self.value == Self.GGML_TYPE_F32
+    fn __is__(self, other: Self) -> Bool:
+        """Checks if this `GGMLType` is the same as `other`.
 
-    @always_inline
-    fn is_f16(self) -> Bool:
-        return self.value == Self.GGML_TYPE_F16
+        Args:
+            other: `GGMLType` to check equality against.
 
-    @always_inline
-    fn is_q4_0(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q4_0
-
-    @always_inline
-    fn is_q4_1(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q4_1
-
-    @always_inline
-    fn is_q5_0(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q5_0
-
-    @always_inline
-    fn is_q5_1(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q5_1
-
-    @always_inline
-    fn is_q8_0(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q8_0
-
-    @always_inline
-    fn is_q8_1(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q8_1
-
-    @always_inline
-    fn is_q2_k(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q2_K
-
-    @always_inline
-    fn is_q3_k(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q3_K
-
-    @always_inline
-    fn is_q4_k(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q4_K
-
-    @always_inline
-    fn is_q5_k(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q5_K
-
-    @always_inline
-    fn is_q6_k(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q6_K
-
-    @always_inline
-    fn is_q8_k(self) -> Bool:
-        return self.value == Self.GGML_TYPE_Q8_K
-
-    @always_inline
-    fn is_i8(self) -> Bool:
-        return self.value == Self.GGML_TYPE_I8
-
-    @always_inline
-    fn is_i16(self) -> Bool:
-        return self.value == Self.GGML_TYPE_I16
-
-    @always_inline
-    fn is_i32(self) -> Bool:
-        return self.value == Self.GGML_TYPE_I32
+        Returns `True` if the `GGMLType`s are the same and `False` otherwise.
+        """
+        return self._value == other._value
 
     @always_inline
     fn dtype(self) raises -> DType:
         # Return uint8 for quantized types.
-        if self.is_q4_0():
+        if (
+            self is Self.GGML_TYPE_Q4_0
+            or self is Self.GGML_TYPE_Q4_K
+            or self is Self.GGML_TYPE_Q6_K
+            or self is Self.GGML_TYPE_Q8_0
+        ):
             return DType.uint8
-        if self.is_q4_k():
-            return DType.uint8
-        if self.is_q6_k():
-            return DType.uint8
-        if self.is_q8_0():
-            return DType.uint8
-        if self.is_f16():
+        if self is Self.GGML_TYPE_F16:
             return DType.float16
-        if self.is_f32():
+        if self is Self.GGML_TYPE_F32:
             return DType.float32
-        if self.is_i8():
+        if self is Self.GGML_TYPE_I8:
             return DType.int8
-        if self.is_i16():
+        if self is Self.GGML_TYPE_I16:
             return DType.int16
-        if self.is_i32():
+        if self is Self.GGML_TYPE_I32:
             return DType.int32
 
         raise "GGML type lacks corresponding DType"
 
     fn type_trait(self) raises -> GGMLTypeTrait:
-        if self.is_q4_0():
+        if self is Self.GGML_TYPE_Q4_0:
             return GGMLTypeTrait(
                 "q4_0",
                 blck_size=ggml_quants.BlockQ40.QK4_0,
                 type_size=sizeof[ggml_quants.BlockQ40](),
                 is_quantized=True,
             )
-        if self.is_q4_k():
+        if self is Self.GGML_TYPE_Q4_K:
             return GGMLTypeTrait(
                 "q4_K",
                 blck_size=ggml_quants.QK_K,
                 type_size=sizeof[ggml_quants.BlockQ4K](),
                 is_quantized=True,
             )
-        if self.is_q6_k():
+        if self is Self.GGML_TYPE_Q6_K:
             return GGMLTypeTrait(
                 "q6_K",
                 blck_size=ggml_quants.QK_K,
                 type_size=sizeof[ggml_quants.BlockQ6K](),
                 is_quantized=True,
             )
-        if self.is_q8_0():
+        if self is Self.GGML_TYPE_Q8_0:
             return GGMLTypeTrait(
                 "q8_0",
                 blck_size=ggml_quants.BlockQ80.QK8_0,
                 type_size=sizeof[ggml_quants.BlockQ80](),
                 is_quantized=True,
             )
-        if self.is_f32():
+        if self is Self.GGML_TYPE_F32:
             return GGMLTypeTrait(
                 "f32",
                 blck_size=1,
                 type_size=sizeof[DType.float32](),
                 is_quantized=False,
             )
-        if self.is_f16():
+        if self is Self.GGML_TYPE_F16:
             return GGMLTypeTrait(
                 "f16",
                 blck_size=1,
@@ -226,7 +167,7 @@ struct GGMLType:
                 is_quantized=False,
             )
 
-        raise "type trait " + String(self.value) + " not implemented yet"
+        raise "type trait " + String(self._value) + " not implemented yet"
 
 
 @value
@@ -251,128 +192,58 @@ struct GGUFString(Stringable):
 struct GGUFType:
     """Enum-like struct matching `gguf_type`, a metadata value type."""
 
-    alias GGUF_TYPE_UINT8 = 0
-    alias GGUF_TYPE_INT8 = 1
-    alias GGUF_TYPE_UINT16 = 2
-    alias GGUF_TYPE_INT16 = 3
-    alias GGUF_TYPE_UINT32 = 4
-    alias GGUF_TYPE_INT32 = 5
-    alias GGUF_TYPE_FLOAT32 = 6
-    alias GGUF_TYPE_BOOL = 7
-    alias GGUF_TYPE_STRING = 8
-    alias GGUF_TYPE_ARRAY = 9
-    alias GGUF_TYPE_UINT64 = 10
-    alias GGUF_TYPE_INT64 = 11
-    alias GGUF_TYPE_FLOAT64 = 12
-    alias GGUF_TYPE_COUNT = 13  # marks the end of the enum
+    alias GGUF_TYPE_UINT8: Int32 = 0
+    alias GGUF_TYPE_INT8: Int32 = 1
+    alias GGUF_TYPE_UINT16: Int32 = 2
+    alias GGUF_TYPE_INT16: Int32 = 3
+    alias GGUF_TYPE_UINT32: Int32 = 4
+    alias GGUF_TYPE_INT32: Int32 = 5
+    alias GGUF_TYPE_FLOAT32: Int32 = 6
+    alias GGUF_TYPE_BOOL: Int32 = 7
+    alias GGUF_TYPE_STRING: Int32 = 8
+    alias GGUF_TYPE_ARRAY: Int32 = 9
+    alias GGUF_TYPE_UINT64: Int32 = 10
+    alias GGUF_TYPE_INT64: Int32 = 11
+    alias GGUF_TYPE_FLOAT64: Int32 = 12
+    alias GGUF_TYPE_COUNT: Int32 = 13  # Marks the end of the enum.
 
-    var value: Int32
+    var _value: Int32
 
-    @always_inline
-    fn is_uint8(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_UINT8
+    fn __is__(self, other: Self) -> Bool:
+        """Checks if this `GGUFType` is the same as `other`.
 
-    @always_inline
-    fn is_int8(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_INT8
+        Args:
+            other: `GGUFType` to check equality against.
 
-    @always_inline
-    fn is_uint16(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_UINT16
-
-    @always_inline
-    fn is_int16(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_INT16
-
-    @always_inline
-    fn is_uint32(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_UINT32
-
-    @always_inline
-    fn is_int32(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_INT32
-
-    @always_inline
-    fn is_uint64(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_UINT64
-
-    @always_inline
-    fn is_int64(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_INT64
-
-    @always_inline
-    fn is_float32(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_FLOAT32
-
-    @always_inline
-    fn is_float64(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_FLOAT64
-
-    @always_inline
-    fn is_bool(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_BOOL
-
-    @always_inline
-    fn is_string(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_STRING
-
-    @always_inline
-    fn is_array(self) -> Bool:
-        return self.value == Self.GGUF_TYPE_ARRAY
+        Returns `True` if the `GGUFType`s are the same and `False` otherwise.
+        """
+        return self._value == other._value
 
     @always_inline
     fn dispatch[
-        func: fn[type: DType] () raises capturing -> GGUFValue
-    ](self) raises -> GGUFValue:
-        if self.is_uint8():
+        T: AnyRegType, func: fn[type: DType] () raises capturing -> T
+    ](self) raises -> T:
+        if self is Self.GGUF_TYPE_UINT8:
             return func[DType.uint8]()
-        if self.is_int8():
+        if self is Self.GGUF_TYPE_INT8:
             return func[DType.int8]()
-        if self.is_uint16():
+        if self is Self.GGUF_TYPE_UINT16:
             return func[DType.uint16]()
-        if self.is_int16():
+        if self is Self.GGUF_TYPE_INT16:
             return func[DType.int16]()
-        if self.is_uint32():
+        if self is Self.GGUF_TYPE_UINT32:
             return func[DType.uint32]()
-        if self.is_int32():
+        if self is Self.GGUF_TYPE_INT32:
             return func[DType.int32]()
-        if self.is_uint64():
+        if self is Self.GGUF_TYPE_UINT64:
             return func[DType.uint64]()
-        if self.is_int64():
+        if self is Self.GGUF_TYPE_INT64:
             return func[DType.int64]()
-        if self.is_float32():
+        if self is Self.GGUF_TYPE_FLOAT32:
             return func[DType.float32]()
-        if self.is_float64():
+        if self is Self.GGUF_TYPE_FLOAT64:
             return func[DType.float64]()
-        if self.is_bool():
-            return func[DType.bool]()
-
-        # GGUF_TYPE_STRING and GGUF_TYPE_ARRAY must be handled separately.
-        raise "only GGUF types corresponding to dtypes are supported"
-
-    @always_inline
-    fn dispatch[func: fn[type: DType] () -> Int](self) raises -> Int:
-        if self.is_uint8():
-            return func[DType.uint8]()
-        if self.is_int8():
-            return func[DType.int8]()
-        if self.is_uint16():
-            return func[DType.uint16]()
-        if self.is_int16():
-            return func[DType.int16]()
-        if self.is_uint32():
-            return func[DType.uint32]()
-        if self.is_int32():
-            return func[DType.int32]()
-        if self.is_uint64():
-            return func[DType.uint64]()
-        if self.is_int64():
-            return func[DType.int64]()
-        if self.is_float32():
-            return func[DType.float32]()
-        if self.is_float64():
-            return func[DType.float64]()
-        if self.is_bool():
+        if self is Self.GGUF_TYPE_BOOL:
             return func[DType.bool]()
 
         # GGUF_TYPE_STRING and GGUF_TYPE_ARRAY must be handled separately.
@@ -829,11 +700,6 @@ struct GGUFTensorInfo:
         return TensorShape(dims)
 
 
-@always_inline
-fn _sizeof[type: DType]() -> Int:
-    return sizeof[type]()
-
-
 struct GGUFReader:
     var offset: Int
     var f: FileHandle
@@ -888,6 +754,11 @@ struct GGUFReader:
 
             return GGUFValue.from_dtype[type](result)
 
+        @always_inline
+        @parameter
+        fn _sizeof[type: DType]() raises -> Int:
+            return sizeof[type]()
+
         var key = self.gguf_string()
         if (
             StringRef(key.data.bitcast[DType.int8](), int(key.n))
@@ -896,16 +767,16 @@ struct GGUFReader:
             raise "don't support specifying alignment"
 
         var kv_type = GGUFType(self.dtype_element[DType.int32]())
-        if kv_type.is_string():
+        if kv_type is GGUFType.GGUF_TYPE_STRING:
             return GGUFKV(key, GGUFValue(self.gguf_string()))
 
-        if kv_type.is_array():
+        if kv_type is GGUFType.GGUF_TYPE_ARRAY:
             var array_type = GGUFType(self.dtype_element[DType.int32]())
-            if array_type.is_array():
+            if array_type is GGUFType.GGUF_TYPE_ARRAY:
                 raise "don't support array of arrays"
 
             var array_n = int(self.dtype_element[DType.uint64]())
-            if array_type.is_string():
+            if array_type is GGUFType.GGUF_TYPE_STRING:
                 var ptr = Pointer[GGUFString].alloc(array_n)
                 for i in range(array_n):
                     ptr[i] = self.gguf_string()
@@ -917,12 +788,12 @@ struct GGUFReader:
 
             # Read array of dtypes.
             var array_data: Tensor[DType.int8] = self.read_bytes(
-                array_n * array_type.dispatch[_sizeof]()
+                array_n * array_type.dispatch[Int, _sizeof]()
             )
             return GGUFKV(key, GGUFValue(array_data._steal_ptr()))
 
         # Dispatch on dtype.
-        return GGUFKV(key, kv_type.dispatch[_gguf_value]())
+        return GGUFKV(key, kv_type.dispatch[GGUFValue, _gguf_value]())
 
     fn gguf_tensor_info(inout self) raises -> GGUFTensorInfo:
         var name = self.gguf_string()
