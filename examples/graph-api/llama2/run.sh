@@ -23,6 +23,7 @@ source "$SCRIPT_DIR/setup.sh"
 
 mojo \
     -I "$SCRIPT_DIR/tokenizer" \
+    -I "$SCRIPT_DIR/.." \
     "$SCRIPT_DIR/run.🔥" \
     --model-path "${1:-$MODELS/stories15M.bin}" \
     --tokenizer-path "$MODELS/tokenizer.bin"
