@@ -603,7 +603,7 @@ struct GGUFFile(LoadableModel):
             sizeof[StaticTuple[Int8, 4]]()
         )
         for i in range(magic.num_elements()):
-            if magic[i] != GGUFFile.GGUF_MAGIC.unsafe_ptr().load(i):
+            if magic[i] != GGUFFile.GGUF_MAGIC.unsafe_ptr()[i]:
                 raise "invalid magic character"
 
         var version = reader.dtype_element[DType.uint32]()
