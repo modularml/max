@@ -1,0 +1,33 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""Functions for lazily downloading model weights on first execution."""
+
+from os import listdir, mkdir
+from pathlib import cwd, Path
+from sys.ffi import external_call
+
+
+def curl_download(url: String, destination: Path):
+    curl_command = "/usr/bin/curl " + url + " -L -J -o " + str(destination)
+    _ = external_call["system", Pointer[NoneType]](curl_command.unsafe_ptr())
+    _ = curl_command^
+
+
+def download_weights_to_cache(cache_path: Path, *urls: String):
+    if not cache_path.is_dir():
+        mkdir(cache_path)
+    for url in urls:
+        last_component = url[].split("/")[-1]
+        destination = cache_path.joinpath(last_component)
+        if not destination.is_file():
+            curl_download(url[], destination)

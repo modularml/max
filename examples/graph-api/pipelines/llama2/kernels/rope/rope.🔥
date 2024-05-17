@@ -14,7 +14,7 @@
 # ===----------------------------------------------------------------------=== #
 # Copyright (c) 2024, Modular Inc. All rights reserved.
 # ===----------------------------------------------------------------------=== #
-
+"""A custom RoPE kernel for use in the Llama 2 model."""
 
 from max.extensibility import Tensor, empty_tensor
 from max import register

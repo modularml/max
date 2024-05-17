@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+"""A parser for the Llama 2 weights as provided for karpathy/llama2.c."""
 
 from memory import memcpy
 from collections import Optional

@@ -13,17 +13,19 @@
 
 import sys
 from collections import List
-from pathlib import Path
+from pathlib import cwd, Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
 from max.tensor import Tensor, TensorShape, TensorSpec
 
-from tokenizer.bpe import BPETokenizer
-from model.llama import Llama2
-from weights.gguf import GGUFFile
-from weights.llama2checkpoint import LlamaCFile
-from weights.loadable_model import LoadableModel
+from .tokenizer.bpe import BPETokenizer
+from .model.kv_cache import KVCacheView, cache_init, cache_update, cache_view
+from .model.llama import Llama2
+from ..weights.download import download_weights_to_cache
+from ..weights.gguf import GGUFFile
+from ..weights.llama2checkpoint import LlamaCFile
+from ..weights.loadable_model import LoadableModel
 
 
 @value
@@ -32,53 +34,78 @@ struct Config:
 
     var batch_size: Int
     var float_dtype: String
+    var model_name: String
     var model_path: Path
     var custom_ops_paths: List[Path]
     var tokenizer_path: Path
     var enable_custom_rope_kernel: Bool
+    var prompt: String
 
-    fn __init__(
+    def __init__(
         inout self,
         /,
         batch_size: Int = 1,
-        float_dtype: DType = DType.float16,
+        float_dtype: DType = DType.float32,
+        model_name: String = "stories15M",
         model_path: Path = "",
         custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
         enable_custom_rope_kernel: Bool = False,
-    ) raises:
+        prompt: String = "I believe the meaning of life is",
+    ):
         self.batch_size = batch_size
         self.float_dtype = float_dtype
+        self.model_name = model_name
         self.model_path = model_path
         self.custom_ops_paths = custom_ops_paths
         self.tokenizer_path = tokenizer_path
         self.enable_custom_rope_kernel = enable_custom_rope_kernel
+        self.prompt = prompt
 
         self.parse_args()
 
-    fn parse_args(inout self) raises:
-        var args = sys.argv()
-        # Skip the run.mojo Mojo file arg.
-        var i = 1
+    def parse_args(inout self):
+        args = sys.argv()
+
+        @parameter
+        def read_value(index: Int) -> StringRef:
+            if index >= len(args):
+                raise "missing value for parameter `" + str(
+                    args[index - 1]
+                ) + "`"
+            return args[index]
+
+        # Skip the run_pipeline.mojo and llama2 arguments.
+        i = 2
         while i < len(args):
             if args[i] == "--batch-size":
-                self.batch_size = atol(args[i + 1])
+                self.batch_size = atol(read_value(i + 1))
                 i += 2
             elif args[i] == "--float-dtype":
-                self.float_dtype = args[i + 1]
+                self.float_dtype = read_value(i + 1)
+                i += 2
+            elif args[i] == "--model-name":
+                name = read_value(i + 1)
+                self.model_name = name
                 i += 2
             elif args[i] == "--model-path":
-                self.model_path = Path(args[i + 1])
+                # If a manual model path has been specified, don't use one of
+                # the downloadable pretrained models.
+                self.model_name = ""
+                self.model_path = Path(read_value(i + 1))
                 i += 2
             elif args[i] == "--custom-ops-path":
-                self.custom_ops_paths.append(Path(args[i + 1]))
+                self.custom_ops_paths.append(Path(read_value(i + 1)))
                 i += 2
             elif args[i] == "--tokenizer-path":
-                self.tokenizer_path = Path(args[i + 1])
+                self.tokenizer_path = Path(read_value(i + 1))
                 i += 2
             elif args[i] == "--enable-custom-rope-kernel":
                 self.enable_custom_rope_kernel = True
                 i += 1
+            elif args[i] == "--prompt":
+                self.prompt = read_value(i + 1)
+                i += 2
             else:
                 raise "unsupported CLI argument: " + String(args[i])
 
@@ -86,125 +113,73 @@ struct Config:
             raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
 
 
-@value
-struct KVCacheView[float_dtype: DType]:
-    """Non-owning view into the KV cache backing `Tensor`."""
-
-    var spec: TensorSpec
-    var ptr: DTypePointer[float_dtype]
-
-
-fn cache_init[
-    float_dtype: DType
-](model: Llama2, size: Int, config: Config) -> Tensor[float_dtype]:
-    constrained[float_dtype.is_floating_point(), "expected float dtype"]()
-
-    return Tensor[float_dtype](
-        TensorShape(
-            size,
-            model.hyperparams.n_layers,
-            config.batch_size,
-            model.hyperparams.n_kv_heads,
-            model.hyperparams.head_dim,
-        )
-    )
-
-
-fn cache_view[
-    float_dtype: DType
-](size: Int, buff: Tensor[float_dtype]) -> KVCacheView[float_dtype]:
-    var shape = buff.shape()
-    return KVCacheView[float_dtype](
-        TensorSpec(float_dtype, size, shape[1], shape[2], shape[3], shape[4]),
-        buff.unsafe_ptr(),
-    )
-
-
-fn cache_update[
+def execute[
     float_dtype: DType
 ](
-    results: TensorMap,
-    name: String,
-    buff: Tensor[float_dtype],
-    current: KVCacheView[float_dtype],
-    n: Int,
-) raises:
-    constrained[float_dtype.is_floating_point(), "expected float dtype"]()
-
-    var update = results.buffer[float_dtype](name)
-    var shape = buff.shape()
-    var stride = shape[1] * shape[2] * shape[3] * shape[4]
-    var pos = current.spec[0]
-    memcpy(buff.unsafe_ptr() + pos * stride, update.data, n * stride)
-
-
-fn execute[
-    float_dtype: DType
-](
-    model: Model,
-    session: InferenceSession,
-    tokens: Tensor[DType.int64],
-    k_cache_buff: KVCacheView[float_dtype],
-    v_cache_buff: KVCacheView[float_dtype],
-) raises -> TensorMap:
+    borrowed model: Model,
+    borrowed session: InferenceSession,
+    borrowed tokens: Tensor[DType.int64],
+    borrowed k_cache_buff: KVCacheView[float_dtype],
+    borrowed v_cache_buff: KVCacheView[float_dtype],
+) -> TensorMap:
     constrained[
         float_dtype.is_floating_point(), "expected float inputs and outputs"
     ]()
 
-    var input_map = session.new_tensor_map()
+    input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", k_cache_buff.spec, k_cache_buff.ptr)
     input_map.borrow("input2", v_cache_buff.spec, v_cache_buff.ptr)
-    var result_map = model.execute(input_map)
+    result_map = model.execute(input_map)
     return result_map^
 
 
-fn run[
+def run[
     ModelT: LoadableModel, float_dtype: DType = DType.float32
-](config: Config) raises:
+](borrowed config: Config):
     print("Initializing tokenizer...")
     var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
-    var initial_prompt = "<s> I believe the meaning of life is"
-    var prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
+    initial_prompt = "<s> " + config.prompt
+    prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
     var model = Llama2[ModelT, float_dtype](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
     )
-    var module = model.build_graph("llama_model")
-    var session = InferenceSession()
+    module = model.build_graph("llama_model")
+    session = InferenceSession()
 
     print("Compiling...")
-    var compiled_model = session.load(
+    compiled_model = session.load(
         module, custom_ops_paths=config.custom_ops_paths
     )
 
     print("Executing...")
-    var max_tokens = 256
+    max_tokens = 256
     print(initial_prompt, end="")
 
-    var k_cache_buff = cache_init[float_dtype](model, max_tokens, config)
-    var v_cache_buff = cache_init[float_dtype](model, max_tokens, config)
+    k_cache_buff = cache_init[float_dtype](model, max_tokens, config.batch_size)
+    v_cache_buff = cache_init[float_dtype](model, max_tokens, config.batch_size)
 
-    var tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
+    tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
     for i in range(prompt.size):
         # TODO(#29073): This should be `tokens[0, i] = prompt[i]`.
         tokens[Index(0, i)] = prompt[i].id
 
-    var cache_size = 0
+    cache_size = 0
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, max_tokens + 1):
         # Take a view of the backing KV cache buffer to avoid copying it.
-        var k_cache_view = cache_view(cache_size, k_cache_buff)
-        var v_cache_view = cache_view(cache_size, v_cache_buff)
-        var n_inputs = tokens.shape()[1]
+        k_cache_view = cache_view(cache_size, k_cache_buff)
+        v_cache_view = cache_view(cache_size, v_cache_buff)
+        n_inputs = tokens.shape()[1]
         cache_size += n_inputs
 
-        var results = execute[float_dtype](
+        results = execute[float_dtype](
             compiled_model,
             session,
             tokens=tokens,
@@ -221,8 +196,26 @@ fn run[
     print()
 
 
-fn main() raises:
-    var config = Config()
+def llama2_run():
+    config = Config()
+
+    cache_path = cwd().joinpath(".cache")
+    # If one of the downloadable models has been specified, download and cache
+    # the weights and tokenizer for that model.
+    if config.model_name == "stories15M":
+        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+        config.model_path = cache_path.joinpath("stories15M.bin")
+        download_weights_to_cache(
+            cache_path,
+            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
+        )
+    elif config.model_name == "stories110M":
+        download_weights_to_cache(
+            cache_path,
+            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
+        )
 
     if config.model_path.suffix() == ".gguf":
         if config.float_dtype == str(DType.float16):

@@ -1,0 +1,169 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""The attention mechanism used within the model."""
+
+from max.graph import ops, Symbol
+
+
+def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
+    """Applies rotary positional embeddings (RoPE) to `x`.
+
+    Args:
+        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
+        freqs_cis: Positional frequencies tensor with shape
+            (seq_len, head_dim // 2, 2).
+
+    Returns:
+        Input activation tensor with rotary positional embeddings applied and
+        the same shape as `x`.
+    """
+    x_complex = ops.as_interleaved_complex(x)
+    x_dims = x_complex.type().tensor().dims
+
+    freqs_cis_bcast = ops.unsqueeze(ops.unsqueeze(freqs_cis, 1), 0)
+
+    x_re = x_complex[0, axis= -1]
+    x_im = x_complex[1, axis= -1]
+
+    freqs_re = freqs_cis_bcast[0, axis= -1].rebind(1, x_dims[1], 1, x_dims[3])
+    freqs_im = freqs_cis_bcast[1, axis= -1].rebind(1, x_dims[1], 1, x_dims[3])
+
+    rope_re = (x_re * freqs_re) - (x_im * freqs_im)
+    rope_im = (x_re * freqs_im) + (x_im * freqs_re)
+    rope_complex = ops.as_complex(rope_re, rope_im)
+
+    return ops.reshape_like(rope_complex, x)
+
+
+def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
+    """Applies rotary positional embeddings (RoPE) to `x`.
+
+    Args:
+        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
+        freqs_cis: Positional frequencies tensor with shape
+            (seq_len, head_dim // 2, 2).
+
+    Returns:
+        Input activation tensor with rotary positional embeddings applied and
+        the same shape as `x`.
+    """
+    # The kernel requires freqs_cis to be 2-D.
+    # Reshape freqs (seq_len, head_dim // 2, 2) => (seq_len, head_dim).
+    f_shape = ops.shape_of(freqs_cis)
+    new_f_shape = ops.stack(
+        List[Symbol](f_shape[0], x.graph().scalar(Int64(-1)))
+    )
+    freqs_2d = ops.reshape(freqs_cis, new_f_shape)
+
+    return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
+
+
+def attention_mask[
+    float_dtype: DType
+](start_pos: Symbol, seq_len: Symbol) -> Symbol:
+    g = start_pos.graph()
+
+    seq_len = seq_len.reshape()
+    start_pos = start_pos.reshape()
+
+    # Mask out current sequence elements [i, j] where j > i with an
+    # upper-triangular matrix filled with -inf.
+    mask_val = g.full(Scalar[float_dtype].MIN, List[Symbol](seq_len, seq_len))
+    mask = ops.band_part(
+        mask_val,
+        g.scalar[DType.int64](-1),
+        num_upper=g.scalar[DType.int64](0),
+        # Invert the mask from lower to upper.
+        exclude=True,
+    )
+
+    # Compute attention scores only for the new sequence.
+    # Hence for a matrix of scores of size (seqlen, cache_len + seqlen),
+    # the only masked entries are (i, j) for j > cache_len + i, since row i
+    # corresponds to token cache_len + i.
+    return ops.concat(
+        List[Symbol](
+            g.full[DType.float32](0, List[Symbol](seq_len, start_pos)), mask
+        ),
+        axis=1,
+    )
+
+
+@value
+struct Attention[float_dtype: DType = DType.float32]:
+    var n_heads: Int
+    var n_kv_heads: Int
+    var head_dim: Int
+    var dim: Int
+    var n_rep: Int
+    var enable_custom_rope_kernel: Bool
+
+    var wq: Symbol
+    var wk: Symbol
+    var wv: Symbol
+    var wo: Symbol
+
+    def repeat_kv(borrowed self, v: Symbol, _n_rep: Int) -> Symbol:
+        if self.n_kv_heads < self.n_heads:
+            raise "Not yet supported"
+        return v
+
+    def __call__(
+        borrowed self,
+        input: Symbol,
+        start_pos: Symbol,
+        freqs_cis: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> (Symbol, Symbol, Symbol):
+        g = input.graph()
+        input_shape = ops.shape_of(input)
+
+        batch_size = input_shape[0]
+        seq_len = input_shape[1]
+        head_dim = g.scalar[float_dtype](self.head_dim)
+
+        xq = input @ self.wq
+        xk = input @ self.wk
+        xv = input @ self.wv
+
+        xq = xq.reshape(batch_size, seq_len, self.n_heads, self.head_dim)
+        xk = xk.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+        xv = xv.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+
+        xq = rope_custom_kernel(
+            xq, freqs_cis
+        ) if self.enable_custom_rope_kernel else rope(xq, freqs_cis)
+        xk = rope_custom_kernel(
+            xk, freqs_cis
+        ) if self.enable_custom_rope_kernel else rope(xk, freqs_cis)
+
+        keys = ops.concat(List[Symbol](k_cache, xk.swapaxes(0, 1))).swapaxes(
+            0, 1
+        )
+        values = ops.concat(List[Symbol](v_cache, xv.swapaxes(0, 1))).swapaxes(
+            0, 1
+        )
+
+        keys = self.repeat_kv(keys, self.n_rep)
+        values = self.repeat_kv(values, self.n_rep)
+
+        xq = xq.swapaxes(1, 2)
+        keys = keys.swapaxes(1, 2)
+        values = values.swapaxes(1, 2)
+
+        scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
+        scores = scores + attention_mask[float_dtype](start_pos, seq_len)
+        output = ops.softmax(scores) @ values
+        output = output.swapaxes(1, 2).reshape(batch_size, seq_len, -1)
+        return output @ self.wo, xk, xv

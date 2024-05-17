@@ -1,0 +1,117 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""The body of the Llama 2 model definition."""
+
+from collections import List, Optional
+from pathlib import Path
+
+from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
+from .attention import Attention
+from .layers import Embedding, RMSNorm
+from .transformer import FeedForward, Transformer, TransformerBlock
+from ...weights.loadable_model import LoadableModel, LlamaHParams
+
+
+struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
+    alias batch_size = 1
+
+    var params: ModelT
+    var hyperparams: LlamaHParams
+    var enable_custom_rope_kernel: Bool
+
+    def __init__(
+        inout self, model_path: Path, enable_custom_rope_kernel: Bool = False
+    ):
+        constrained[
+            float_dtype.is_floating_point(), "expected float model dtype"
+        ]()
+
+        self.params = ModelT(model_path)
+        self.hyperparams = self.params.hyperparams()
+        self.enable_custom_rope_kernel = enable_custom_rope_kernel
+
+    def build_graph(inout self, name: String) -> Graph:
+        cache_type = TensorType(
+            float_dtype,
+            Dim.dynamic(),
+            self.hyperparams.n_layers,
+            Self.batch_size,
+            self.hyperparams.n_kv_heads,
+            self.hyperparams.head_dim,
+        )
+        tokens_type = TensorType(DType.int64, self.batch_size, Dim.dynamic())
+        g = Graph(name, List[Type](tokens_type, cache_type, cache_type))
+
+        @parameter
+        fn weight[
+            dtype: DType = float_dtype
+        ](name: String, i: Optional[Int] = None) raises -> Symbol:
+            return g.constant(self.params.get[dtype](name, i))
+
+        var layers = List[TransformerBlock[float_dtype]]()
+        for i in range(self.hyperparams.n_layers):
+            layer = TransformerBlock(
+                attention=Attention[float_dtype](
+                    n_heads=self.hyperparams.n_heads,
+                    n_kv_heads=self.hyperparams.n_kv_heads,
+                    head_dim=self.hyperparams.head_dim,
+                    dim=self.hyperparams.dims,
+                    n_rep=self.hyperparams.n_rep,
+                    enable_custom_rope_kernel=self.enable_custom_rope_kernel,
+                    wq=weight("attn_q", i).swapaxes(-1, -2),
+                    wk=weight("attn_k", i).swapaxes(-1, -2),
+                    wv=weight("attn_v", i).swapaxes(-1, -2),
+                    wo=weight("attn_output", i).swapaxes(-1, -2),
+                ),
+                feed_forward=FeedForward(
+                    w1=weight("ffn_gate", i).swapaxes(-1, -2),
+                    w2=weight("ffn_down", i).swapaxes(-1, -2),
+                    w3=weight("ffn_up", i).swapaxes(-1, -2),
+                ),
+                attention_norm=RMSNorm(
+                    # Use float32 norm weights rather than float_dtype: they
+                    # are vectors and small, so GGUF stores these as float32.
+                    self.hyperparams.norm_eps,
+                    weight[DType.float32]("attn_norm", i),
+                ),
+                ffn_norm=RMSNorm(
+                    self.hyperparams.norm_eps,
+                    weight[DType.float32]("ffn_norm", i),
+                ),
+            )
+            layers.append(layer)
+
+        var logits: Symbol
+        k_cache = g[1]
+        v_cache = g[2]
+        logits, k_cache, v_cache = Transformer[float_dtype](
+            dim=self.hyperparams.dims,
+            n_heads=self.hyperparams.n_heads,
+            embedding=Embedding(weight("token_embd")),
+            layers=layers,
+            norm=RMSNorm(
+                self.hyperparams.norm_eps, weight[DType.float32]("output_norm")
+            ),
+            output=weight("output").swapaxes(-1, -2),
+        )(tokens=g[0], k_cache=k_cache, v_cache=v_cache)
+
+        logits = ops.gather(logits, g.scalar[DType.int64](-1, rank=1), axis=1)
+        next_token = ops.arg_max(
+            logits.reshape(-1, self.hyperparams.vocab_size), axis=-1
+        )
+        g.output(
+            List[Symbol](
+                next_token.reshape(self.batch_size, -1), k_cache, v_cache
+            )
+        )
+        return g
