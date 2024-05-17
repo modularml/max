@@ -58,7 +58,7 @@ struct LlamaCFile(LoadableModel):
     """
 
     var config: Config
-    var weights_ptr: DTypePointer[DType.int8]
+    var weights_ptr: DTypePointer[DType.uint8]
 
     fn __init__(inout self, model_path: Path) raises:
         with open(model_path, "r") as f:
@@ -66,7 +66,7 @@ struct LlamaCFile(LoadableModel):
             @parameter
             @always_inline
             fn read_int32() raises -> Int32:
-                var bytes_tensor = Tensor[DType.int8](
+                var bytes_tensor = Tensor[DType.uint8](
                     f.read_bytes(sizeof[Int32]())
                 )
                 var result = bytes_tensor.unsafe_ptr().bitcast[
@@ -96,7 +96,7 @@ struct LlamaCFile(LoadableModel):
                 head_size=int(dim // n_heads),
             )
 
-            var bytes_tensor = Tensor[DType.int8](f.read_bytes())
+            var bytes_tensor = Tensor[DType.uint8](f.read_bytes())
             self.weights_ptr = bytes_tensor._steal_ptr()
 
     fn __moveinit__(inout self, owned existing: Self):

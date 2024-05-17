@@ -52,14 +52,14 @@ struct MergeOption(OrderableElement):
         )
 
 
-fn read[T: CollectionElement](inout ptr: UnsafePointer[Int8]) -> T:
+fn read[T: CollectionElement](inout ptr: UnsafePointer[UInt8]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     var value = ptr.bitcast[T]()[]
     ptr += sizeof[T]()
     return value^
 
 
-fn read_string(inout ptr: UnsafePointer[Int8], length: Int) -> StringRef:
+fn read_string(inout ptr: UnsafePointer[UInt8], length: Int) -> StringRef:
     """Read a string reference of known length and increment the pointer."""
     var value = StringRef(LegacyPointer.address_of(ptr[]), length)
     ptr += length
@@ -82,7 +82,7 @@ struct BPETokenizer:
 
     @staticmethod
     fn from_bytes(
-        ptr: DTypePointer[DType.int8], end: DTypePointer[DType.int8]
+        ptr: DTypePointer[DType.uint8], end: DTypePointer[DType.uint8]
     ) raises -> BPETokenizer:
         """Construct a BPETokenizer instance given binary token scores.
 
@@ -91,16 +91,16 @@ struct BPETokenizer:
         [max_token_len:Int32]
         [score_0:Float32]
         [token_len_0:Int32]
-        [token_0:(Int8*token_len_0)]
+        [token_0:(UInt8*token_len_0)]
         [score_1:Float32]
         [token_len_1:Int32]
-        [token_1:(Int8*token_len_0)]
+        [token_1:(UInt8*token_len_0)]
         ...
         ```
         """
 
         var model = BPETokenizer()
-        var read_ptr = UnsafePointer[Int8](address=int(ptr))
+        var read_ptr = UnsafePointer[UInt8](address=int(ptr))
 
         var max_token_len = read[Int32](read_ptr)
         while int(read_ptr) != int(end):
@@ -117,7 +117,7 @@ struct BPETokenizer:
 
         See `BPETokenizer.from_bytes()` for the expected file format.
         """
-        var file = Tensor[DType.int8](path.read_bytes())
+        var file = Tensor[DType.uint8](path.read_bytes())
         var t = Self.from_bytes(
             file.unsafe_ptr(), file.unsafe_ptr() + file.num_elements()
         )

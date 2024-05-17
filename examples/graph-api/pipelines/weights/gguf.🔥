@@ -184,7 +184,7 @@ struct GGUFString(Stringable):
 
     @always_inline
     fn __str__(self) -> String:
-        return String(StringRef(self.data.bitcast[DType.int8](), int(self.n)))
+        return String(StringRef(self.data, int(self.n)))
 
 
 @value
@@ -266,6 +266,7 @@ struct GGUFValue:
         Bool,
         GGUFString,
         DTypePointer[DType.int8],
+        DTypePointer[DType.uint8],
     ]
     var _value: Self._type
 
@@ -311,7 +312,7 @@ struct GGUFHeader:
     # Your executor might do little-endian byte order, so it might be
     # checking for 0x46554747 and letting the endianness cancel out.
     # Consider being *very* explicit about the byte order here.
-    var magic: StaticTuple[Int8, 4]
+    var magic: StaticTuple[UInt8, 4]
     # The version of the format implemented.
     # Must be `3` for version described in this spec, which introduces big-endian support.
     #
@@ -326,7 +327,7 @@ struct GGUFHeader:
     var n_kv: UInt64
 
     fn __init__(inout self):
-        self.magic = StaticTuple[Int8, 4](
+        self.magic = StaticTuple[UInt8, 4](
             ord("N"), ord("U"), ord("L"), ord("L")
         )
         self.version = 0
@@ -443,7 +444,7 @@ struct GGUFReader:
         self.seek(alignment - overshoot)
 
     @always_inline
-    fn read_bytes(inout self, num_bytes: Int) raises -> Tensor[DType.int8]:
+    fn read_bytes(inout self, num_bytes: Int) raises -> Tensor[DType.uint8]:
         self.offset += num_bytes
         return self.f.read_bytes(num_bytes)
 
@@ -454,7 +455,7 @@ struct GGUFReader:
 
     @always_inline
     fn dtype_element[type: DType](inout self) raises -> Scalar[type]:
-        var bytes_tensor: Tensor[DType.int8] = self.read_bytes(
+        var bytes_tensor: Tensor[DType.uint8] = self.read_bytes(
             sizeof[Scalar[type]]()
         )
         var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
@@ -465,14 +466,14 @@ struct GGUFReader:
     @always_inline
     fn gguf_string(inout self) raises -> GGUFString:
         var n = int(self.dtype_element[DType.uint64]())
-        var key_data: Tensor[DType.int8] = self.read_bytes(n)
+        var key_data: Tensor[DType.uint8] = self.read_bytes(n)
         return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
 
     fn gguf_kv(inout self) raises -> GGUFKV:
         @always_inline
         @parameter
         fn _gguf_value[type: DType]() raises -> GGUFValue:
-            var bytes_tensor: Tensor[DType.int8] = self.read_bytes(
+            var bytes_tensor: Tensor[DType.uint8] = self.read_bytes(
                 sizeof[Scalar[type]]()
             )
             var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
@@ -487,7 +488,7 @@ struct GGUFReader:
 
         var key = self.gguf_string()
         if (
-            StringRef(key.data.bitcast[DType.int8](), int(key.n))
+            StringRef(key.data.bitcast[DType.uint8](), int(key.n))
             == "general.alignment"
         ):
             raise "don't support specifying alignment"
@@ -513,7 +514,7 @@ struct GGUFReader:
                 )
 
             # Read array of dtypes.
-            var array_data: Tensor[DType.int8] = self.read_bytes(
+            var array_data: Tensor[DType.uint8] = self.read_bytes(
                 array_n * array_type.dispatch[Int, _sizeof]()
             )
             return GGUFKV(key, GGUFValue(array_data._steal_ptr()))
@@ -580,11 +581,11 @@ struct GGUFFile(LoadableModel):
         var reader = GGUFReader(open(model_path, "r"))
 
         # Read the header.
-        var magic: Tensor[DType.int8] = reader.read_bytes(
+        var magic: Tensor[DType.uint8] = reader.read_bytes(
             sizeof[StaticTuple[Int8, 4]]()
         )
         for i in range(magic.num_elements()):
-            if magic[i] != GGUFFile.GGUF_MAGIC.unsafe_ptr()[i]:
+            if magic[i] != GGUFFile.GGUF_MAGIC.as_uint8_ptr().load(i):
                 raise "invalid magic character"
 
         var version = reader.dtype_element[DType.uint32]()
@@ -595,7 +596,7 @@ struct GGUFFile(LoadableModel):
         var n_kv = int(reader.dtype_element[DType.uint64]())
 
         self.header = GGUFHeader(
-            StaticTuple[Int8, 4](magic[0], magic[1], magic[2], magic[3]),
+            StaticTuple[UInt8, 4](magic[0], magic[1], magic[2], magic[3]),
             version,
             n_tensors,
             n_kv,
@@ -681,7 +682,7 @@ struct GGUFFile(LoadableModel):
             # Add tensor data offset since `info.offset` is from the start of
             # the tensor data.
             _ = self.fp.seek(self.offset + int(info.offset))
-            var bytes_tensor = Tensor[DType.int8](
+            var bytes_tensor = Tensor[DType.uint8](
                 self.fp.read_bytes(info.num_bytes())
             )
 
