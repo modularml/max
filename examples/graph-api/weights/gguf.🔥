@@ -272,30 +272,11 @@ struct GGUFValue:
     @staticmethod
     fn from_dtype[type: DType](value: Scalar[type]) raises -> Self:
         @parameter
-        if type.is_uint8():
-            return Self(UInt8(value))
-        elif type.is_int8():
-            return Self(Int8(value))
-        elif type.is_uint16():
-            return Self(UInt16(value))
-        elif type.is_int16():
-            return Self(Int16(value))
-        elif type.is_uint32():
-            return Self(UInt32(value))
-        elif type.is_int32():
-            return Self(Int32(value))
-        elif type.is_uint64():
-            return Self(UInt64(value))
-        elif type.is_int64():
-            return Self(Int64(value))
-        elif type.is_float32():
-            return Self(Float32(value))
-        elif type.is_float64():
-            return Self(Float64(value))
-        elif type.is_bool():
+        if type.is_bool():
+            # Treat `Bool` as an exception since it isn't `Scalar[DType.bool]`.
             return Self(Bool(value))
-
-        raise "unsupported dtype"
+        else:
+            return Self(value)
 
     @always_inline
     fn destroy(owned self):
