@@ -89,13 +89,16 @@ def print_speedup_summary(results, model):
         modular_txt = f"MAX Engine vs {framework_labels[framework]}:"
 
         if speedup > 1.5:
-            addendum = f"{next(exclamations)} We're {speedup:.2f}x faster!"
+            addendum = f"{next(exclamations)} MAX is {speedup:.2f}x faster!"
         elif speedup > 1:
             # 1.5 > speedup > 1
-            addendum = f"That's about {speedup:.2f}x faster."
+            addendum = f"MAX is about {speedup:.2f}x faster."
         else:
             # speedup <= 1.0
-            addendum = f"Oh, darn that's only {speedup:.2f}x stock performance."
+            addendum = (
+                f"Oh darn, MAX is only {speedup:.2f}x compared to stock"
+                " performance."
+            )
 
         curr_arch = _get_arch()
         if speedup <= 1.2 and not is_mac_silicon():
