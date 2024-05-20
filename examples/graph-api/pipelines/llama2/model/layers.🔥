@@ -20,7 +20,7 @@ struct RMSNorm:
     var eps: Float64
     var weight: Symbol
 
-    def __call__(borrowed self, input: Symbol) -> Symbol:
+    def __call__(self, input: Symbol) -> Symbol:
         scale = ops.rsqrt(ops.mean(input**2.0, axis=-1) + self.eps)
         # Since norm weights are float32, cast to input dtype to avoid
         # promoting the result to float32 when the input is float16.

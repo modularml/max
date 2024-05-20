@@ -62,7 +62,8 @@ The text completion demo is compatible with the the official Llama 2
 
    ```shell
    source setup-custom-rope.sh && \
-   mojo run.🔥 \
+   mojo ../../run_pipeline.🔥 llama2 \
+    --prompt "I believe the meaning of life is" \
     --custom-ops-path "$CUSTOM_KERNELS/rope.mojopkg" \
     --enable-custom-rope-kernel \
     --prompt "I believe the meaning of life is"

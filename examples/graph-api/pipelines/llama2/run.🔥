@@ -116,11 +116,11 @@ struct Config:
 def execute[
     float_dtype: DType
 ](
-    borrowed model: Model,
-    borrowed session: InferenceSession,
-    borrowed tokens: Tensor[DType.int64],
-    borrowed k_cache_buff: KVCacheView[float_dtype],
-    borrowed v_cache_buff: KVCacheView[float_dtype],
+    model: Model,
+    session: InferenceSession,
+    tokens: Tensor[DType.int64],
+    k_cache_buff: KVCacheView[float_dtype],
+    v_cache_buff: KVCacheView[float_dtype],
 ) -> TensorMap:
     constrained[
         float_dtype.is_floating_point(), "expected float inputs and outputs"
@@ -136,7 +136,7 @@ def execute[
 
 def run[
     ModelT: LoadableModel, float_dtype: DType = DType.float32
-](borrowed config: Config):
+](config: Config):
     print("Initializing tokenizer...")
     var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
