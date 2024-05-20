@@ -23,7 +23,7 @@ struct FeedForward:
     var w2: Symbol
     var w3: Symbol
 
-    def __call__(borrowed self, input: Symbol) -> Symbol:
+    def __call__(self, input: Symbol) -> Symbol:
         return (ops.silu(input @ self.w1) * (input @ self.w3)) @ self.w2
 
 
@@ -35,7 +35,7 @@ struct TransformerBlock[float_dtype: DType = DType.float32](CollectionElement):
     var ffn_norm: RMSNorm
 
     def __call__(
-        borrowed self,
+        self,
         input: Symbol,
         start_pos: Symbol,
         freqs_cis: Symbol,
@@ -80,7 +80,7 @@ struct Transformer[float_dtype: DType = DType.float32]:
         return ops.cast(retval[start_pos : start_pos + seq_len], float_dtype)
 
     def __call__(
-        borrowed self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
+        self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
     ) -> (Symbol, Symbol, Symbol):
         start_pos = ops.shape_of(k_cache)[0]
         h = self.embedding(tokens)

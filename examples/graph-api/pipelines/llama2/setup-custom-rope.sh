@@ -11,6 +11,8 @@
 # limitations under the License.
 ##===----------------------------------------------------------------------===##
 
+export SCRIPT_PATH="$(readlink -f "${BASH_SOURCE:-$0}")"
+export SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 export CUSTOM_KERNELS="$(pwd)/custom_kernels"
 mkdir -p "$CUSTOM_KERNELS"
 

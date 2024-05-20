@@ -113,13 +113,13 @@ struct Attention[float_dtype: DType = DType.float32]:
     var wv: Symbol
     var wo: Symbol
 
-    def repeat_kv(borrowed self, v: Symbol, _n_rep: Int) -> Symbol:
+    def repeat_kv(self, v: Symbol, _n_rep: Int) -> Symbol:
         if self.n_kv_heads < self.n_heads:
             raise "Not yet supported"
         return v
 
     def __call__(
-        borrowed self,
+        self,
         input: Symbol,
         start_pos: Symbol,
         freqs_cis: Symbol,
