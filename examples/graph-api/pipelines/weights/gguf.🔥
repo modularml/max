@@ -46,7 +46,7 @@ from memory.unsafe import DTypePointer
 from pathlib import Path
 from utils import StaticTuple, Variant
 
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 from . import ggml_quants
 from .loadable_model import LlamaHParams, LoadableModel

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType, ops
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 
 def construct_graph[op_name: StringLiteral]() -> Graph:

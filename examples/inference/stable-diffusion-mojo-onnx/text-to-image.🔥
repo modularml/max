@@ -20,7 +20,7 @@ from python import Python
 from random import seed
 
 from max.engine import InferenceSession
-from max.tensor import Tensor, TensorShape, TensorSpec
+from tensor import Tensor, TensorShape, TensorSpec
 
 # Local Mojo imports
 import python_utils

@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from max.graph import ops, TensorType, Symbol
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 from ..weights.hyperparams import HyperParams
 
