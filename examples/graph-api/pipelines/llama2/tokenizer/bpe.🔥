@@ -17,8 +17,8 @@ from pathlib import Path
 
 from max.tensor import Tensor
 
-from .ball import Ball
-from .max_heap import MaxHeap, OrderableElement
+from .arena_linked_list import ArenaLinkedList
+from .max_heap import MaxHeap, OrderedElement
 
 
 @value
@@ -38,11 +38,11 @@ struct TokenWithID(CollectionElement):
 
 
 @value
-struct MergeOption(OrderableElement):
+struct MergeOption(OrderedElement):
     """Metadata for tracking possible BPE merges in a priority queue."""
 
-    var left: Ball[String].ID
-    var right: Ball[String].ID
+    var left: ArenaLinkedList[String].ID
+    var right: ArenaLinkedList[String].ID
     var score: Float32
     var checksum: Int
 
@@ -52,20 +52,14 @@ struct MergeOption(OrderableElement):
         )
 
 
-fn read[T: CollectionElement](inout ptr: UnsafePointer[UInt8]) -> T:
+def read[T: CollectionElement](inout span: Span[UInt8, _, _]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
-    var value = ptr.bitcast[T]()[]
-    ptr += sizeof[T]()
+    value = span.unsafe_ptr().bitcast[T]()[]
+    span = span[sizeof[T]() :]
     return value^
 
 
-fn read_string(inout ptr: UnsafePointer[UInt8], length: Int) -> StringRef:
-    """Read a string reference of known length and increment the pointer."""
-    var value = StringRef(LegacyPointer.address_of(ptr[]), length)
-    ptr += length
-    return value
-
-
+@value
 struct BPETokenizer:
     """A Byte Pair Encoding string tokenizer.
 
@@ -80,10 +74,12 @@ struct BPETokenizer:
     var vocab: List[Token]
     var token_ids: Dict[String, Int]
 
+    def __init__(inout self):
+        self.vocab = List[Token]()
+        self.token_ids = Dict[String, Int]()
+
     @staticmethod
-    fn from_bytes(
-        ptr: DTypePointer[DType.uint8], end: DTypePointer[DType.uint8]
-    ) raises -> BPETokenizer:
+    def from_bytes(data: String) -> BPETokenizer:
         """Construct a BPETokenizer instance given binary token scores.
 
         The file must have the following binary format:
@@ -100,13 +96,14 @@ struct BPETokenizer:
         """
 
         var model = BPETokenizer()
-        var read_ptr = UnsafePointer[UInt8](address=int(ptr))
+        span = data.as_bytes_slice()
 
-        var max_token_len = read[Int32](read_ptr)
-        while int(read_ptr) != int(end):
-            var score = read[Float32](read_ptr)
-            var token_len = read[Int32](read_ptr)
-            var token = read_string(read_ptr, int(token_len))
+        _max_token_len = read[Int32](span)
+        while len(span):
+            score = read[Float32](span)
+            token_len = int(read[Int32](span))
+            token = String(span[: token_len + 1])
+            span = span[token_len:]
             model.add_token(token, score)
 
         return model^
@@ -117,34 +114,21 @@ struct BPETokenizer:
 
         See `BPETokenizer.from_bytes()` for the expected file format.
         """
-        var file = Tensor[DType.uint8](path.read_bytes())
-        var t = Self.from_bytes(
-            file.unsafe_ptr(), file.unsafe_ptr() + file.num_elements()
-        )
-        _ = file^
-        return t^
+        with open(path, "r") as file:
+            return Self.from_bytes(file.read())
 
-    fn __init__(inout self):
-        """Create an empty tokenizer."""
-        self.vocab = List[Token]()
-        self.token_ids = Dict[String, Int]()
-
-    fn __moveinit__(inout self, owned existing: Self):
-        self.vocab = existing.vocab^
-        self.token_ids = existing.token_ids^
-
-    fn add_token(inout self, token: String, score: Float32) raises:
+    def add_token(inout self, token: String, score: Float32):
         """Add a token to the vocabulary."""
         if token not in self.token_ids:
             self.token_ids[token] = len(self.vocab)
         self.vocab.append(Token(token, score))
 
-    fn encode(
+    def encode(
         self,
         str: String,
         bos: Optional[String] = None,
         eos: Optional[String] = None,
-    ) raises -> List[TokenWithID]:
+    ) -> List[TokenWithID]:
         """Encode a string according to the BPE algorithm.
 
         The BPE vocabulary is a set of scored strings. BPE starts by
@@ -160,67 +144,63 @@ struct BPETokenizer:
         they're expecting. Linked list elements only stop existing or grow
         in length, so we can always safely recognize an outdated merge.
         """
-        var output = List[TokenWithID]()
-        if bos and bos._value_copy() in self.token_ids:
+        output = List[TokenWithID]()
+        if bos and bos.value()[] in self.token_ids:
             output.append(
-                TokenWithID(
-                    bos._value_copy(), self.token_ids[bos._value_copy()]
-                )
+                TokenWithID(bos.value()[], self.token_ids[bos.value()[]])
             )
 
-        var merge_options = MaxHeap[MergeOption]()
-        var tokens = Ball[String]()
+        merge_options = MaxHeap[MergeOption]()
+        tokens = ArenaLinkedList[String]()
 
         @parameter
-        fn maybe_add_merge(left: tokens.ID, right: tokens.ID) raises:
-            var merged = tokens[left] + tokens[right]
+        def maybe_add_merge(left: tokens.ID, right: tokens.ID):
+            merged = tokens[left] + tokens[right]
             if merged in self.token_ids:
-                var score = self.vocab[self.token_ids[merged]].score
+                score = self.vocab[self.token_ids[merged]].score
                 merge_options.push(MergeOption(left, right, score, len(merged)))
 
         # Initialize the tokens linked-list and initial merges.
-        var prev: Optional[Ball[String].ID] = None
+        var prev: Optional[ArenaLinkedList[String].ID] = None
         for i in range(len(str)):
-            var id = tokens.append(str[i])
+            id = tokens.append(str[i])
             if prev:
-                maybe_add_merge(prev._value_copy(), id)
+                maybe_add_merge(prev.value()[], id)
             prev = id
 
         while merge_options:
-            var merge = merge_options.pop()
+            merge = merge_options.pop()
             # Check whether the best merge is still valid
             if merge.left not in tokens or merge.right not in tokens:
                 continue  # outdated merge option
-            var merged = tokens[merge.left] + tokens[merge.right]
+            merged = tokens[merge.left] + tokens[merge.right]
             if len(merged) != merge.checksum:
                 continue  # outdated merge option
             # Merge the right token into the left token, then
             # add any new valid merge options to the priority queue.
-            var left = tokens.prev(merge.left)
-            var right = tokens.next(merge.right)
+            left = tokens.prev(merge.left)
+            right = tokens.next(merge.right)
             tokens[merge.left] = merged
             tokens.remove(merge.right)
             if right:
-                maybe_add_merge(merge.left, right._value_copy())
+                maybe_add_merge(merge.left, right.value()[])
             if left:
-                maybe_add_merge(left._value_copy(), merge.left)
+                maybe_add_merge(left.value()[], merge.left)
 
         # Loop through the final list and construct the token sequence.
-        var node_id = tokens._head
+        node_id = tokens._head
         while node_id:
-            var id = node_id._value_copy()
-            var token = tokens[id]
+            id = node_id.value()[]
+            token = tokens[id]
             output.append(TokenWithID(token, self._encode_token(token)))
             node_id = tokens.next(id)
 
-        if eos and eos._value_copy() in self.token_ids:
+        if eos and eos.value()[] in self.token_ids:
             output.append(
-                TokenWithID(
-                    eos._value_copy(), self.token_ids[eos._value_copy()]
-                )
+                TokenWithID(eos.value()[], self.token_ids[eos.value()[]])
             )
 
         return output
 
-    fn _encode_token(self, token: String) raises -> Int:
+    def _encode_token(self, token: String) -> Int:
         return self.token_ids.find(token).or_else(0)

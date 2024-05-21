@@ -15,20 +15,20 @@
 from collections import List
 
 
-trait Orderable:
+trait Ordered:
     """Types which have a total order defined on them."""
 
     fn __lt__(self, other: Self) -> Bool:
         pass
 
 
-trait OrderableElement(Orderable, CollectionElement):
+trait OrderedElement(Ordered, CollectionElement):
     """Orderable types which are also CollectionElements."""
 
     pass
 
 
-struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
+struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
     """A max-heap of an Orderable collection type.
 
     A MaxHeap is a convenient data structure for implementing a priority queue.
@@ -38,7 +38,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
     pq = MaxHeap[...]()
     pq.push(initial)
     while pq:
-        var top = pq.pop()
+        top = pq.pop()
         if something: pq.push(another)
     ```
     """
@@ -73,12 +73,6 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         self.begin_idx += 1
         return top
 
-    fn _swap(inout self, i1: Int, i2: Int):
-        # TODO: Swap syntax doesn't support non-register-passable types
-        var tmp = self.heap[i1]
-        self.heap[i1] = self.heap[i2]
-        self.heap[i2] = tmp
-
     fn _bubble_up(inout self, idx: Int):
         if idx == self.begin_idx:
             return
@@ -87,7 +81,11 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         var parent = self.heap[parent_idx]
         var current = self.heap[idx]
         if parent < current:
-            self._swap(parent_idx, idx)
+            # TODO(untracked): Add List.swap_indices and switch to that.
+            self.heap[parent_idx], self.heap[idx] = (
+                self.heap[idx],
+                self.heap[parent_idx],
+            )
             self._bubble_up(parent_idx)
 
     fn _sink_down(inout self, idx: Int):
@@ -101,7 +99,11 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
             target_idx = ri
 
         if target_idx != idx:
-            self._swap(idx, target_idx)
+            # TODO(untracked): Add List.swap_indices and switch to that.
+            self.heap[idx], self.heap[target_idx] = (
+                self.heap[target_idx],
+                self.heap[idx],
+            )
             self._sink_down(target_idx)
 
     fn _real_idx(self, idx: Int) -> Int:
