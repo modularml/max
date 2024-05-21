@@ -15,7 +15,7 @@
 from collections import Dict, List, Optional
 from pathlib import Path
 
-from max.tensor import Tensor
+from tensor import Tensor
 
 from .arena_linked_list import ArenaLinkedList
 from .max_heap import MaxHeap, OrderedElement

@@ -15,7 +15,7 @@ from utils.numerics import min_finite
 from collections import Optional, List
 
 from max.graph import ops, Dim, TensorType, Symbol, Graph, Type
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 from ..layers.embedding import SharedEmbedding
 from ..layers.block import MPTBlock

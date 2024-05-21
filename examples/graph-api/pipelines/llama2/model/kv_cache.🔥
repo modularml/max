@@ -14,7 +14,7 @@
 
 
 from max.engine import TensorMap
-from max.tensor import Tensor, TensorShape, TensorSpec
+from tensor import Tensor, TensorShape, TensorSpec
 from .llama import Llama2
 
 

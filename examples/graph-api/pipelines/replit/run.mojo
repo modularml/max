@@ -14,7 +14,7 @@ from pathlib import cwd, Path
 import sys
 
 from max.engine import InferenceSession, Model, TensorMap
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint

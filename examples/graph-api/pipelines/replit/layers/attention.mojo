@@ -17,7 +17,7 @@ from utils.numerics import min_finite
 
 from max.graph import ops, Dim, TensorType, Symbol
 from max.graph.error import error
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 from ..weights.hyperparams import HyperParams
 from ..layers.linear import Linear

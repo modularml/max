@@ -16,7 +16,7 @@ from python import Python
 from random import randint
 from math import ceildiv
 
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 
 trait Tokenizer:

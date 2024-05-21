@@ -17,7 +17,7 @@ from pathlib import cwd, Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
-from max.tensor import Tensor, TensorShape, TensorSpec
+from tensor import Tensor, TensorShape, TensorSpec
 
 from .tokenizer.bpe import BPETokenizer
 from .model.kv_cache import KVCacheView, cache_init, cache_update, cache_view

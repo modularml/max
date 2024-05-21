@@ -16,7 +16,7 @@ from memory import memcpy
 from collections import Optional
 from pathlib import Path
 
-from max.tensor import Tensor, TensorShape
+from tensor import Tensor, TensorShape
 
 from .loadable_model import LlamaHParams, LoadableModel
 
