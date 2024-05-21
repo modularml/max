@@ -20,7 +20,7 @@ from python import Python
 from random import seed
 
 from max.engine import InferenceSession
-from max.tensor import randn, Tensor, TensorShape, TensorSpec
+from max.tensor import Tensor, TensorShape, TensorSpec
 
 # Local Mojo imports
 import python_utils
@@ -168,7 +168,7 @@ def main():
 
     # Note: For onnx, shapes are given in NCHW format.
     latent = (
-        randn[DType.float32](
+        Tensor[DType.float32].randn(
             TensorShape(1, LATENT_CHANNELS, LATENT_HEIGHT, LATENT_WIDTH)
         )
         * Scheduler.init_noise_sigma

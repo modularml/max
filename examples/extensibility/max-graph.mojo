@@ -15,7 +15,7 @@ from pathlib import Path
 
 from max.engine import InferenceSession
 from max.graph import Graph, TensorType, ops
-from max.tensor import Tensor, TensorShape, randn
+from max.tensor import Tensor, TensorShape
 
 
 def construct_graph[op_name: StringLiteral]() -> Graph:
@@ -40,7 +40,7 @@ def main():
     )
 
     # Create some sample input to run through the model:
-    input = randn[DType.float32]((2, 6))
+    input = Tensor[DType.float32].randn(TensorShape(2, 6))
     results = model.execute("input0", input)
     output = results.get[DType.float32]("output0")
     print(output)
