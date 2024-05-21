@@ -1,6 +1,6 @@
 # Llama 2
 
-**Language:** Mojo
+**Language:** Mojo 🔥
 
 **API**: MAX Graph
 

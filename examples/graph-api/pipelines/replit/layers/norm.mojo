@@ -10,23 +10,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""A central driver for all MAX pipeline examples."""
 
-import sys
-from pipelines.llama2.run import llama2_run
-from pipelines.replit.run import replit_run
+from max.graph import ops, TensorType, Symbol
+from max.tensor import Tensor, TensorShape
+
+from ..weights.hyperparams import HyperParams
 
 
-def main():
-    args = sys.argv()
-    if len(args) < 2:
-        print("Please specify the pipeline to run. Choices include:")
-        print("- llama2")
-        print("- replit")
-    pipeline_name = args[1]
-    if pipeline_name == "llama2":
-        llama2_run()
-    if pipeline_name == "replit":
-        replit_run()
-    else:
-        print("Unrecognized pipeline: " + str(pipeline_name))
+@value
+struct LPLayerNorm:
+    """Low Precision Layer Normalization."""
+
+    alias eps: Float32 = 1e-05
+    var weight: Symbol
+    var hyperparams: HyperParams
+
+    def __call__(self, input: Symbol) -> Symbol:
+        g = input.graph()
+        beta = g.constant(
+            Tensor[DType.float32](TensorShape(self.hyperparams.d_model), 0)
+        )
+        out = ops.layer_norm(input, self.weight, beta, self.eps)
+        return out

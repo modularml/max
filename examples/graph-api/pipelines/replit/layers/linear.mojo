@@ -10,23 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""A central driver for all MAX pipeline examples."""
-
-import sys
-from pipelines.llama2.run import llama2_run
-from pipelines.replit.run import replit_run
+from max.graph import ops, Symbol
 
 
-def main():
-    args = sys.argv()
-    if len(args) < 2:
-        print("Please specify the pipeline to run. Choices include:")
-        print("- llama2")
-        print("- replit")
-    pipeline_name = args[1]
-    if pipeline_name == "llama2":
-        llama2_run()
-    if pipeline_name == "replit":
-        replit_run()
-    else:
-        print("Unrecognized pipeline: " + str(pipeline_name))
+@value
+struct Linear:
+    """A fully connected layer."""
+
+    var weight: Symbol
+
+    def __call__(self, input: Symbol) -> Symbol:
+        return input @ ops.transpose_matrix(self.weight)
