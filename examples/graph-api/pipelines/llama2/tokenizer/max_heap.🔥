@@ -44,16 +44,14 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
     """
 
     var heap: List[ElementType]
-    var begin_idx: Int
 
     fn __init__(inout self):
         """Constructs an empty heap."""
         self.heap = List[ElementType]()
-        self.begin_idx = 0
 
     fn __len__(self) -> Int:
         """Checks how many elements are in the heap.."""
-        return len(self.heap) - self.begin_idx
+        return len(self.heap)
 
     fn __bool__(self) -> Bool:
         """Checks whether the heap has any elements in it."""
@@ -67,17 +65,17 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
     fn pop(inout self) -> ElementType:
         """Removes the top element from the heap and return it."""
         debug_assert(self, "heap is empty")
-        self._sink_down(self.begin_idx)
 
-        var top = self.heap[self.begin_idx]
-        self.begin_idx += 1
-        return top
+        self.heap[-1], self.heap[0] = self.heap[0], self.heap[-1]
+        var top = self.heap.pop()
+        self._sink_down(0)
+        return top^
 
     fn _bubble_up(inout self, idx: Int):
-        if idx == self.begin_idx:
+        if idx == 0:
             return
 
-        var parent_idx = self._parent_idx(idx)
+        var parent_idx = _parent_idx(idx)
         var parent = self.heap[parent_idx]
         var current = self.heap[idx]
         if parent < current:
@@ -89,8 +87,8 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
             self._bubble_up(parent_idx)
 
     fn _sink_down(inout self, idx: Int):
-        var li = self._left_child_idx(idx)
-        var ri = self._right_child_idx(idx)
+        var li = _left_child_idx(idx)
+        var ri = _right_child_idx(idx)
 
         var target_idx = idx  # smaller of the two children, if we should sink down
         if li < len(self.heap) - 1 and self.heap[target_idx] < self.heap[li]:
@@ -106,14 +104,17 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
             )
             self._sink_down(target_idx)
 
-    fn _real_idx(self, idx: Int) -> Int:
-        return idx + self.begin_idx
 
-    fn _parent_idx(self, idx: Int) -> Int:
-        return (self._real_idx(idx) - 1) // 2
+@always_inline
+fn _parent_idx(idx: Int) -> Int:
+    return (idx - 1) // 2
 
-    fn _left_child_idx(self, idx: Int) -> Int:
-        return self._real_idx(idx) * 2 + 1
 
-    fn _right_child_idx(self, idx: Int) -> Int:
-        return (self._real_idx(idx) * 2) + 2
+@always_inline
+fn _left_child_idx(idx: Int) -> Int:
+    return idx * 2 + 1
+
+
+@always_inline
+fn _right_child_idx(idx: Int) -> Int:
+    return idx * 2 + 2
