@@ -75,10 +75,6 @@ The following command-line options are available to customize operation of the
 pipeline:
 
 - `--batch-size`: The batch size. (Default value: `1`)
-- `--float-dtype`: The floating-point data type used for operations and
-   weights when a GGUF weight file is provided. Options are `float16` and
-   `float32`, but currently only `float32` is fully supported. (Default value:
-   `float32`)
 - `--model-name`: Options are `stories15M` and `stories110M`, and if not
    overridden by setting the model path, will cause weights for one of these
    pretrained models to be downloaded and used for the pipeline.

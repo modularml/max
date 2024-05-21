@@ -33,7 +33,6 @@ struct Config:
     """Configuration for token generation runtime options."""
 
     var batch_size: Int
-    var float_dtype: String
     var model_name: String
     var model_path: Path
     var custom_ops_paths: List[Path]
@@ -45,7 +44,6 @@ struct Config:
         inout self,
         /,
         batch_size: Int = 1,
-        float_dtype: DType = DType.float32,
         model_name: String = "stories15M",
         model_path: Path = "",
         custom_ops_paths: List[Path] = List[Path](),
@@ -54,7 +52,6 @@ struct Config:
         prompt: String = "I believe the meaning of life is",
     ):
         self.batch_size = batch_size
-        self.float_dtype = float_dtype
         self.model_name = model_name
         self.model_path = model_path
         self.custom_ops_paths = custom_ops_paths
@@ -80,9 +77,6 @@ struct Config:
         while i < len(args):
             if args[i] == "--batch-size":
                 self.batch_size = atol(read_value(i + 1))
-                i += 2
-            elif args[i] == "--float-dtype":
-                self.float_dtype = read_value(i + 1)
                 i += 2
             elif args[i] == "--model-name":
                 name = read_value(i + 1)
@@ -113,19 +107,13 @@ struct Config:
             raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
 
 
-def execute[
-    float_dtype: DType
-](
+def execute(
     model: Model,
     session: InferenceSession,
     tokens: Tensor[DType.int64],
-    k_cache_buff: KVCacheView[float_dtype],
-    v_cache_buff: KVCacheView[float_dtype],
+    k_cache_buff: KVCacheView,
+    v_cache_buff: KVCacheView,
 ) -> TensorMap:
-    constrained[
-        float_dtype.is_floating_point(), "expected float inputs and outputs"
-    ]()
-
     input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", k_cache_buff.spec, k_cache_buff.ptr)
@@ -134,9 +122,7 @@ def execute[
     return result_map^
 
 
-def run[
-    ModelT: LoadableModel, float_dtype: DType = DType.float32
-](config: Config):
+def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
     print("Initializing tokenizer...")
     var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
@@ -144,7 +130,7 @@ def run[
     prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
-    var model = Llama2[ModelT, float_dtype](
+    var model = Llama2[ModelT, WeightsT](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
     )
@@ -160,8 +146,8 @@ def run[
     max_tokens = 256
     print(initial_prompt, end="")
 
-    k_cache_buff = cache_init[float_dtype](model, max_tokens, config.batch_size)
-    v_cache_buff = cache_init[float_dtype](model, max_tokens, config.batch_size)
+    k_cache_buff = cache_init(model, max_tokens, config.batch_size)
+    v_cache_buff = cache_init(model, max_tokens, config.batch_size)
 
     tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
     for i in range(prompt.size):
@@ -179,7 +165,7 @@ def run[
         n_inputs = tokens.shape()[1]
         cache_size += n_inputs
 
-        results = execute[float_dtype](
+        results = execute(
             compiled_model,
             session,
             tokens=tokens,
@@ -218,12 +204,7 @@ def llama2_run():
         )
 
     if config.model_path.suffix() == ".gguf":
-        if config.float_dtype == str(DType.float16):
-            run[GGUFFile, DType.float16](config)
-        elif config.float_dtype == str(DType.float32):
-            run[GGUFFile, DType.float32](config)
-        else:
-            raise "invalid float dtype"
+        run[GGUFFile](config)
     elif config.model_path.suffix() == ".bin":
         run[LlamaCFile](config)
     else:

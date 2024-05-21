@@ -19,19 +19,17 @@ from .llama import Llama2
 
 
 @value
-struct KVCacheView[float_dtype: DType]:
+struct KVCacheView:
     """Non-owning view into the KV cache backing `Tensor`."""
 
     var spec: TensorSpec
-    var ptr: DTypePointer[float_dtype]
+    var ptr: DTypePointer[DType.float32]
 
 
-fn cache_init[
-    float_dtype: DType
-](model: Llama2, size: Int, batch_size: Int) -> Tensor[float_dtype]:
-    constrained[float_dtype.is_floating_point(), "expected float dtype"]()
-
-    return Tensor[float_dtype](
+fn cache_init(
+    model: Llama2, size: Int, batch_size: Int
+) -> Tensor[DType.float32]:
+    return Tensor[DType.float32](
         TensorShape(
             size,
             model.hyperparams.n_layers,
@@ -42,28 +40,22 @@ fn cache_init[
     )
 
 
-fn cache_view[
-    float_dtype: DType
-](size: Int, buff: Tensor[float_dtype]) -> KVCacheView[float_dtype]:
+fn cache_view(size: Int, buff: Tensor[DType.float32]) -> KVCacheView:
     var shape = buff.shape()
-    return KVCacheView[float_dtype](
-        TensorSpec(float_dtype, size, shape[1], shape[2], shape[3], shape[4]),
+    return KVCacheView(
+        TensorSpec(DType.float32, size, shape[1], shape[2], shape[3], shape[4]),
         buff.unsafe_ptr(),
     )
 
 
-fn cache_update[
-    float_dtype: DType
-](
+fn cache_update(
     results: TensorMap,
     name: String,
-    buff: Tensor[float_dtype],
-    current: KVCacheView[float_dtype],
+    buff: Tensor[DType.float32],
+    current: KVCacheView,
     n: Int,
 ) raises:
-    constrained[float_dtype.is_floating_point(), "expected float dtype"]()
-
-    var update = results.buffer[float_dtype](name)
+    var update = results.buffer[DType.float32](name)
     var shape = buff.shape()
     var stride = shape[1] * shape[2] * shape[3] * shape[4]
     var pos = current.spec[0]
