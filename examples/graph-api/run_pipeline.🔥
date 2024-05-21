@@ -26,7 +26,7 @@ def main():
     pipeline_name = args[1]
     if pipeline_name == "llama2":
         llama2_run()
-    if pipeline_name == "replit":
+    elif pipeline_name == "replit":
         replit_run()
     else:
         print("Unrecognized pipeline: " + str(pipeline_name))

@@ -22,7 +22,7 @@ from .transformer import FeedForward, Transformer, TransformerBlock
 from ...weights.loadable_model import LoadableModel, LlamaHParams
 
 
-struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
+struct Llama2[ModelT: LoadableModel, WeightsT: DType = DType.float32]:
     alias batch_size = 1
 
     var params: ModelT
@@ -32,17 +32,13 @@ struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
     def __init__(
         inout self, model_path: Path, enable_custom_rope_kernel: Bool = False
     ):
-        constrained[
-            float_dtype.is_floating_point(), "expected float model dtype"
-        ]()
-
         self.params = ModelT(model_path)
         self.hyperparams = self.params.hyperparams()
         self.enable_custom_rope_kernel = enable_custom_rope_kernel
 
     def build_graph(inout self, name: String) -> Graph:
         cache_type = TensorType(
-            float_dtype,
+            WeightsT,
             Dim.dynamic(),
             self.hyperparams.n_layers,
             Self.batch_size,
@@ -54,14 +50,14 @@ struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
 
         @parameter
         fn weight[
-            dtype: DType = float_dtype
+            dtype: DType = WeightsT
         ](name: String, i: Optional[Int] = None) raises -> Symbol:
             return g.constant(self.params.get[dtype](name, i))
 
-        var layers = List[TransformerBlock[float_dtype]]()
+        var layers = List[TransformerBlock]()
         for i in range(self.hyperparams.n_layers):
             layer = TransformerBlock(
-                attention=Attention[float_dtype](
+                attention=Attention(
                     n_heads=self.hyperparams.n_heads,
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
@@ -79,7 +75,7 @@ struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
                     w3=weight("ffn_up", i).swapaxes(-1, -2),
                 ),
                 attention_norm=RMSNorm(
-                    # Use float32 norm weights rather than float_dtype: they
+                    # Use float32 norm weights rather than WeightsT: they
                     # are vectors and small, so GGUF stores these as float32.
                     self.hyperparams.norm_eps,
                     weight[DType.float32]("attn_norm", i),
@@ -94,7 +90,7 @@ struct Llama2[ModelT: LoadableModel, float_dtype: DType = DType.float32]:
         var logits: Symbol
         k_cache = g[1]
         v_cache = g[2]
-        logits, k_cache, v_cache = Transformer[float_dtype](
+        logits, k_cache, v_cache = Transformer(
             dim=self.hyperparams.dims,
             n_heads=self.hyperparams.n_heads,
             embedding=Embedding(weight("token_embd")),

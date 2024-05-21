@@ -68,9 +68,7 @@ def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
     return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
 
 
-def attention_mask[
-    float_dtype: DType
-](start_pos: Symbol, seq_len: Symbol) -> Symbol:
+def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
     g = start_pos.graph()
 
     seq_len = seq_len.reshape()
@@ -78,7 +76,7 @@ def attention_mask[
 
     # Mask out current sequence elements [i, j] where j > i with an
     # upper-triangular matrix filled with -inf.
-    mask_val = g.full(Scalar[float_dtype].MIN, List[Symbol](seq_len, seq_len))
+    mask_val = g.full(Scalar[DType.float32].MIN, List[Symbol](seq_len, seq_len))
     mask = ops.band_part(
         mask_val,
         g.scalar[DType.int64](-1),
@@ -100,7 +98,7 @@ def attention_mask[
 
 
 @value
-struct Attention[float_dtype: DType = DType.float32]:
+struct Attention:
     var n_heads: Int
     var n_kv_heads: Int
     var head_dim: Int
@@ -131,7 +129,7 @@ struct Attention[float_dtype: DType = DType.float32]:
 
         batch_size = input_shape[0]
         seq_len = input_shape[1]
-        head_dim = g.scalar[float_dtype](self.head_dim)
+        head_dim = g.scalar[DType.float32](self.head_dim)
 
         xq = input @ self.wq
         xk = input @ self.wk
@@ -163,7 +161,7 @@ struct Attention[float_dtype: DType = DType.float32]:
         values = values.swapaxes(1, 2)
 
         scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + attention_mask[float_dtype](start_pos, seq_len)
+        scores = scores + attention_mask(start_pos, seq_len)
         output = ops.softmax(scores) @ values
         output = output.swapaxes(1, 2).reshape(batch_size, seq_len, -1)
         return output @ self.wo, xk, xv

@@ -28,8 +28,8 @@ struct FeedForward:
 
 
 @value
-struct TransformerBlock[float_dtype: DType = DType.float32](CollectionElement):
-    var attention: Attention[float_dtype]
+struct TransformerBlock(CollectionElement):
+    var attention: Attention
     var feed_forward: FeedForward
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
@@ -54,7 +54,7 @@ struct TransformerBlock[float_dtype: DType = DType.float32](CollectionElement):
 
 
 @value
-struct Transformer[float_dtype: DType = DType.float32]:
+struct Transformer:
     alias max_seq_len = 2048
     alias theta = 10000.0
 
@@ -62,7 +62,7 @@ struct Transformer[float_dtype: DType = DType.float32]:
     var n_heads: Int
 
     var embedding: Embedding
-    var layers: List[TransformerBlock[float_dtype]]
+    var layers: List[TransformerBlock]
     var norm: RMSNorm
     var output: Symbol
 
@@ -71,13 +71,13 @@ struct Transformer[float_dtype: DType = DType.float32]:
         var n = self.dim // self.n_heads
         var iota = g.range[DType.float32](0, n - 1, 2)
         var freqs = 1.0 / (Self.theta ** (iota / n))
-        var t = g.range[float_dtype](0, Self.max_seq_len * 2.0, 1)
+        var t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 
         var retval = ops.stack(
             List[Symbol](ops.cos(freqs), ops.sin(freqs)), axis=-1
         )
-        return ops.cast(retval[start_pos : start_pos + seq_len], float_dtype)
+        return ops.cast(retval[start_pos : start_pos + seq_len], DType.float32)
 
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
