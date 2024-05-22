@@ -12,11 +12,10 @@
 # ===----------------------------------------------------------------------=== #
 """GGML quantized type definitions."""
 
-from utils import StaticTuple
+from utils import InlineArray
 
 
 @value
-@register_passable("trivial")
 struct BlockQ40:
     """4-bit quantization.
 
@@ -29,20 +28,21 @@ struct BlockQ40:
 
     var d: Float16
     """Delta."""
-    var qs: StaticTuple[UInt8, Self.QK4_0 // 2]
+    var qs: InlineArray[UInt8, Self.QK4_0 // 2]
     """Nibbles / quants."""
 
     fn __init__(
+        inout self,
         d: Float16,
-        qs: StaticTuple[UInt8, Self.QK4_0 // 2],
-    ) -> Self:
+        qs: InlineArray[UInt8, Self.QK4_0 // 2],
+    ):
         constrained[sizeof[Self]() == sizeof[Float16]() + (Self.QK4_0 // 2)]()
 
-        return Self {d: d, qs: qs}
+        self.d = d
+        self.qs = qs
 
 
 @value
-@register_passable("trivial")
 struct BlockQ80:
     """8-bit quantization.
 
@@ -56,16 +56,18 @@ struct BlockQ80:
     var d: Float16
     """Delta."""
 
-    var qs: StaticTuple[Int8, Self.QK8_0]
+    var qs: InlineArray[Int8, Self.QK8_0]
     """Quants."""
 
     fn __init__(
+        inout self,
         d: Float16,
-        qs: StaticTuple[Int8, Self.QK8_0],
-    ) -> Self:
+        qs: InlineArray[Int8, Self.QK8_0],
+    ):
         constrained[sizeof[Self]() == sizeof[Float16]() + Self.QK8_0]()
 
-        return Self {d: d, qs: qs}
+        self.d = d
+        self.qs = qs
 
 
 # Note that there is a compile definition in ggml-quants.h that allows setting
@@ -78,7 +80,6 @@ alias K_SCALE_SIZE: Int = 12
 
 
 @value
-@register_passable("trivial")
 struct BlockQ4K:
     """4-bit quantization.
 
@@ -96,27 +97,30 @@ struct BlockQ4K:
     var dmin: Float16
     """Super-block scale for quantized mins."""
 
-    var scales: StaticTuple[UInt8, K_SCALE_SIZE]
+    var scales: InlineArray[UInt8, K_SCALE_SIZE]
     """Scales and mins, quantized with 6 bits."""
 
-    var qs: StaticTuple[UInt8, QK_K // 2]
+    var qs: InlineArray[UInt8, QK_K // 2]
     """4-bit quants."""
 
     fn __init__(
+        inout self,
         d: Float16,
         dmin: Float16,
-        scales: StaticTuple[UInt8, K_SCALE_SIZE],
-        qs: StaticTuple[UInt8, QK_K // 2],
-    ) -> Self:
+        scales: InlineArray[UInt8, K_SCALE_SIZE],
+        qs: InlineArray[UInt8, QK_K // 2],
+    ):
         constrained[
             sizeof[Self]() == 2 * sizeof[Float16]() + K_SCALE_SIZE + QK_K // 2
         ]()
 
-        return Self {d: d, dmin: dmin, scales: scales, qs: qs}
+        self.d = d
+        self.dmin = dmin
+        self.scales = scales
+        self.qs = qs
 
 
 @value
-@register_passable("trivial")
 struct BlockQ6K:
     """6-bit quantization.
 
@@ -128,26 +132,30 @@ struct BlockQ6K:
         The data layout must exactly match `block_q6_K` from ggml-quants.h.
     """
 
-    var ql: StaticTuple[UInt8, QK_K // 2]
+    var ql: InlineArray[UInt8, QK_K // 2]
     """Quants: lower 4 bits."""
 
-    var qh: StaticTuple[UInt8, QK_K // 2]
+    var qh: InlineArray[UInt8, QK_K // 2]
     """Quants: upper 2 bits."""
-    var scales: StaticTuple[Int8, QK_K // 16]
+    var scales: InlineArray[Int8, QK_K // 16]
     """Scales: quantized with 8 bits."""
 
     var d: Float16
     """Super-block scale."""
 
     fn __init__(
-        ql: StaticTuple[UInt8, QK_K // 2],
-        qh: StaticTuple[UInt8, QK_K // 2],
-        scales: StaticTuple[Int8, QK_K // 16],
+        inout self,
+        ql: InlineArray[UInt8, QK_K // 2],
+        qh: InlineArray[UInt8, QK_K // 2],
+        scales: InlineArray[Int8, QK_K // 16],
         d: Float16,
-    ) -> Self:
+    ):
         constrained[
             sizeof[Self]()
             == (2 * (QK_K // 2)) + (QK_K // 16) + sizeof[Float16]()
         ]()
 
-        return Self {ql: ql, qh: qh, scales: scales, d: d}
+        self.ql = ql
+        self.qh = qh
+        self.scales = scales
+        self.d = d
