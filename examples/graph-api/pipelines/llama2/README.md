@@ -65,8 +65,16 @@ The text completion demo is compatible with the the official Llama 2
    mojo ../../run_pipeline.🔥 llama2 \
     --prompt "I believe the meaning of life is" \
     --custom-ops-path "$CUSTOM_KERNELS/rope.mojopkg" \
-    --enable-custom-rope-kernel \
-    --prompt "I believe the meaning of life is"
+    --enable-custom-rope-kernel
+   ```
+
+4. (Optional) Run Llama 2 with GGUF weights in `q4_0` quantized encoding:
+
+   ```shell
+   mojo ../../run_pipeline.🔥 llama2 \
+    --prompt "I believe the meaning of life is" \
+    --custom-ops-path $MODULAR_DERIVED_PATH/build/ModularFramework/examples/kernels/ggml_q4_0_matmul/ggml_q4_0_matmul.mojopkg \
+    --quantization-encoding q4_0
    ```
 
 ## Options
@@ -87,3 +95,7 @@ pipeline:
 - `--enable-custom-rope-kernel`: Enables the use of the custom RoPE kernel
    within the compute graph.
 - `--prompt`: The text prompt to use for further generation.
+- `--quantization-encoding`: The encoding to use for a datatype that can be
+  quantized to a low bits per weight format.
+  Valid values: `q4_0`.
+  (Default value: float32 if not set).
