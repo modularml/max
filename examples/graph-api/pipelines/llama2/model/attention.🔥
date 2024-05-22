@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """The attention mechanism used within the model."""
 
+from .layers import Linear
 from max.graph import ops, Symbol
 
 
@@ -98,7 +99,7 @@ def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
 
 
 @value
-struct Attention:
+struct Attention[WeightsT: DType = DType.float32]:
     var n_heads: Int
     var n_kv_heads: Int
     var head_dim: Int
@@ -106,10 +107,10 @@ struct Attention:
     var n_rep: Int
     var enable_custom_rope_kernel: Bool
 
-    var wq: Symbol
-    var wk: Symbol
-    var wv: Symbol
-    var wo: Symbol
+    var wq: Linear[WeightsT]
+    var wk: Linear[WeightsT]
+    var wv: Linear[WeightsT]
+    var wo: Linear[WeightsT]
 
     def repeat_kv(self, v: Symbol, _n_rep: Int) -> Symbol:
         if self.n_kv_heads < self.n_heads:

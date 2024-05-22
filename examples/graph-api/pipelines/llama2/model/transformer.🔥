@@ -14,23 +14,23 @@
 
 from max.graph import ops, Symbol
 from .attention import Attention
-from .layers import Embedding, RMSNorm
+from .layers import Embedding, Linear, RMSNorm
 
 
 @value
-struct FeedForward:
-    var w1: Symbol
-    var w2: Symbol
-    var w3: Symbol
+struct FeedForward[WeightsT: DType = DType.float32]:
+    var w1: Linear[WeightsT]
+    var w2: Linear[WeightsT]
+    var w3: Linear[WeightsT]
 
     def __call__(self, input: Symbol) -> Symbol:
         return (ops.silu(input @ self.w1) * (input @ self.w3)) @ self.w2
 
 
 @value
-struct TransformerBlock(CollectionElement):
-    var attention: Attention
-    var feed_forward: FeedForward
+struct TransformerBlock[WeightsT: DType = DType.float32](CollectionElement):
+    var attention: Attention[WeightsT]
+    var feed_forward: FeedForward[WeightsT]
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
 
@@ -54,17 +54,17 @@ struct TransformerBlock(CollectionElement):
 
 
 @value
-struct Transformer:
+struct Transformer[WeightsT: DType = DType.float32]:
     alias max_seq_len = 2048
     alias theta = 10000.0
 
     var dim: Int
     var n_heads: Int
 
-    var embedding: Embedding
-    var layers: List[TransformerBlock]
+    var embedding: Embedding[WeightsT]
+    var layers: List[TransformerBlock[WeightsT]]
     var norm: RMSNorm
-    var output: Symbol
+    var output: Linear[WeightsT]
 
     def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
         var g = start_pos.graph()

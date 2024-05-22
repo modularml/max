@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import sys
-from collections import List
+from collections import List, Optional
 from pathlib import cwd, Path
 from utils.index import Index
 
@@ -39,6 +39,7 @@ struct Config:
     var tokenizer_path: Path
     var enable_custom_rope_kernel: Bool
     var prompt: String
+    var quantization_encoding: Optional[String]
 
     def __init__(
         inout self,
@@ -50,6 +51,7 @@ struct Config:
         tokenizer_path: Path = "",
         enable_custom_rope_kernel: Bool = False,
         prompt: String = "I believe the meaning of life is",
+        quantization_encoding: Optional[String] = Optional[String](),
     ):
         self.batch_size = batch_size
         self.model_name = model_name
@@ -58,6 +60,8 @@ struct Config:
         self.tokenizer_path = tokenizer_path
         self.enable_custom_rope_kernel = enable_custom_rope_kernel
         self.prompt = prompt
+        self.quantization_encoding = quantization_encoding
+        """Encoding for quantized model weights, such as Q4_0."""
 
         self.parse_args()
 
@@ -100,6 +104,9 @@ struct Config:
             elif args[i] == "--prompt":
                 self.prompt = read_value(i + 1)
                 i += 2
+            elif args[i] == "--quantization-encoding":
+                self.quantization_encoding = String(read_value(i + 1))
+                i += 2
             else:
                 raise "unsupported CLI argument: " + String(args[i])
 
@@ -133,13 +140,14 @@ def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
     var model = Llama2[ModelT, WeightsT](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
+        quantization_encoding=config.quantization_encoding,
     )
-    module = model.build_graph("llama_model")
+    graph = model.build_graph("llama_model")
     session = InferenceSession()
 
     print("Compiling...")
     compiled_model = session.load(
-        module, custom_ops_paths=config.custom_ops_paths
+        graph, custom_ops_paths=config.custom_ops_paths
     )
 
     print("Executing...")
@@ -197,14 +205,27 @@ def llama2_run():
             "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
         )
     elif config.model_name == "stories110M":
+        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+        config.model_path = cache_path.joinpath("stories110M.bin")
         download_weights_to_cache(
             cache_path,
             "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
             "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
         )
 
-    if config.model_path.suffix() == ".gguf":
-        run[GGUFFile](config)
+    if config.quantization_encoding:
+        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+        config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
+        download_weights_to_cache(
+            cache_path,
+            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+            "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
+        )
+
+        # Quantization encodings are represented with uint8 dtype.
+        run[GGUFFile, DType.uint8](config)
+    elif config.model_path.suffix() == ".gguf":
+        run[GGUFFile, DType.float32](config)
     elif config.model_path.suffix() == ".bin":
         run[LlamaCFile](config)
     else:
