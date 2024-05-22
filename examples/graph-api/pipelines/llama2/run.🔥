@@ -133,7 +133,7 @@ def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
     print("Initializing tokenizer...")
     var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
-    initial_prompt = "<s> " + config.prompt
+    initial_prompt = config.prompt
     prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
