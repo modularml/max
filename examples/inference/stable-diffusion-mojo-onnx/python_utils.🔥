@@ -22,8 +22,9 @@ from tensor import Tensor, TensorShape
 fn numpy_data_pointer[
     type: DType
 ](numpy_array: PythonObject) raises -> DTypePointer[type]:
-    var data_ptr = numpy_array.__array_interface__["data"][0].__index__()
-    return DTypePointer[type](address=data_ptr)
+    return DTypePointer[type](
+        address=numpy_array.__array_interface__["data"][0]
+    )
 
 
 @always_inline
@@ -85,7 +86,7 @@ fn numpy_to_tensor[type: DType](array: PythonObject) raises -> Tensor[type]:
     var shape = List[Int]()
     var array_shape = array.shape
     for dim in array_shape:
-        shape.append(dim.__index__())
+        shape.append(dim)
     var out = Tensor[type](shape)
     memcpy_from_numpy(array, out)
     return out^
