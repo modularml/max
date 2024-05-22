@@ -72,9 +72,8 @@ The text completion demo is compatible with the the official Llama 2
 
    ```shell
    mojo ../../run_pipeline.🔥 llama2 \
-    --prompt "I believe the meaning of life is" \
-    --custom-ops-path $MODULAR_DERIVED_PATH/build/ModularFramework/examples/kernels/ggml_q4_0_matmul/ggml_q4_0_matmul.mojopkg \
-    --quantization-encoding q4_0
+    --quantization-encoding q4_0 \
+    --prompt "I believe the meaning of life is"
    ```
 
 ## Options
