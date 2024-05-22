@@ -665,7 +665,7 @@ struct GGUFFile(LoadableModel):
     ) raises -> Tensor[type]:
         var full_key = key + ".weight"
         if layer_idx:
-            full_key = "blk." + String(layer_idx._value_copy()) + "." + full_key
+            full_key = "blk." + String(layer_idx.value()[]) + "." + full_key
 
         for i in range(self.n_tensors()):
             var info = self.infos[i]
