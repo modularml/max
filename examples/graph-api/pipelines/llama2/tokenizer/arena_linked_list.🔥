@@ -37,10 +37,10 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
     id1 = list.append(0)
     id2 = list.append(1)
     list[id2] == 1
-    list.next(id1)._value_copy() == id2
-    list.prev(id2)._value_copy() == id1
+    list.next(id1).value()[] == id2
+    list.prev(id2).value()[] == id1
     list.remove(id1)
-    list._head._value_copy() == id2
+    list._head.value()[] == id2
     (id1 in list) == False
     list[id2] = 3
     ```
