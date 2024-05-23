@@ -67,48 +67,45 @@ struct Config:
 
     def parse_args(inout self):
         args = sys.argv()
+        arguments_without_prompt = len(args) - 1
 
-        @parameter
-        def read_value(index: Int) -> StringRef:
-            if index >= len(args):
+        def parse_argument_value(inout index: Int) -> StringRef:
+            index += 1
+            if index >= arguments_without_prompt:
                 raise "missing value for parameter `" + str(
                     args[index - 1]
                 ) + "`"
+            index += 1
             return args[index]
 
         # Skip the run_pipeline.mojo and llama2 arguments.
         i = 2
-        while i < len(args):
+        if arguments_without_prompt < 2:
+            raise "prompt is required as the last argument"
+        while i < arguments_without_prompt:
             if args[i] == "--batch-size":
-                self.batch_size = atol(read_value(i + 1))
-                i += 2
+                self.batch_size = atol(parse_argument_value(i))
             elif args[i] == "--model-name":
-                name = read_value(i + 1)
+                name = parse_argument_value(i)
                 self.model_name = name
-                i += 2
             elif args[i] == "--model-path":
                 # If a manual model path has been specified, don't use one of
                 # the downloadable pretrained models.
                 self.model_name = ""
-                self.model_path = Path(read_value(i + 1))
-                i += 2
+                self.model_path = Path(parse_argument_value(i))
             elif args[i] == "--custom-ops-path":
-                self.custom_ops_paths.append(Path(read_value(i + 1)))
-                i += 2
+                self.custom_ops_paths.append(Path(parse_argument_value(i)))
             elif args[i] == "--tokenizer-path":
-                self.tokenizer_path = Path(read_value(i + 1))
-                i += 2
+                self.tokenizer_path = Path(parse_argument_value(i))
             elif args[i] == "--enable-custom-rope-kernel":
                 self.enable_custom_rope_kernel = True
                 i += 1
-            elif args[i] == "--prompt":
-                self.prompt = read_value(i + 1)
-                i += 2
             elif args[i] == "--quantization-encoding":
-                self.quantization_encoding = String(read_value(i + 1))
-                i += 2
+                self.quantization_encoding = String(parse_argument_value(i))
             else:
                 raise "unsupported CLI argument: " + String(args[i])
+
+        self.prompt = args[arguments_without_prompt]
 
         if self.enable_custom_rope_kernel and len(self.custom_ops_paths) == 0:
             raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
