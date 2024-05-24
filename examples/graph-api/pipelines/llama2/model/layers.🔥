@@ -81,9 +81,6 @@ struct Embedding[WeightsT: DType = DType.float32]:
         num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ40]()
         alias quants_per_block = BlockQ40.QK4_0
         out_dim = int(BlockQ40.QK4_0 * num_blocks)
-        # All embeddings in Llama 2 are 4096-vectors, so check this.
-        if out_dim != 4096:
-            raise "unexpected quantized weights dim " + str(out_dim)
 
         # Compute shapes to reshape embeddings to matrix input expected by
         # `ggml_q4_0_dequantize`.

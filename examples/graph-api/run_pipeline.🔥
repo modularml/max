@@ -14,6 +14,7 @@
 
 import sys
 from pipelines.llama2.run import llama2_run
+from pipelines.quantize_tinystories.run import quantize_tinystories_run
 from pipelines.replit.run import replit_run
 
 
@@ -23,10 +24,13 @@ def main():
         print("Please specify the pipeline to run. Choices include:")
         print("- llama2")
         print("- replit")
+        print("- quantize-tinystories")
     pipeline_name = args[1]
     if pipeline_name == "llama2":
         llama2_run()
     elif pipeline_name == "replit":
         replit_run()
+    elif pipeline_name == "quantize-tinystories":
+        quantize_tinystories_run()
     else:
         print("Unrecognized pipeline: " + str(pipeline_name))
