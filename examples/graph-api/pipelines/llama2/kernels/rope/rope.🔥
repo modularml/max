@@ -19,9 +19,7 @@
 from max.extensibility import Tensor, empty_tensor
 from max import register
 
-from algorithm.functional import vectorize, sync_parallelize
-from math import ceildiv
-from runtime.llcl import Runtime
+from algorithm.functional import vectorize, parallelize_over_rows
 
 
 @register.op("rope")
@@ -49,27 +47,12 @@ fn rope[
 
     var output = empty_tensor[input.type](input.shape)
 
-    var n_batch = input.shape[0]
     var n_tok = input.shape[1]
     var n_heads = input.shape[2]
     var n_head_dim = input.shape[3]
-    var static_n_head_dim = input.shape[3]
 
-    # Parallelize on outer dimensions.
-    var outer_len = n_batch * n_tok * n_heads
-    # TODO: find a heuristic to replace this number.
-    var MIN_TASK_SIZE = 32768
-    var num_workers = min(
-        Runtime().parallelism_level(),
-        ceildiv(outer_len * n_head_dim, MIN_TASK_SIZE),
-    )
-    var chunk_size = ceildiv(outer_len, num_workers)
-
-    @__copy_capture(n_tok, n_heads, n_head_dim, chunk_size)
     @parameter
-    fn task_func(thread_id: Int):
-        var start_idx = thread_id * chunk_size
-        var end_idx = min((thread_id + 1) * chunk_size, outer_len)
+    fn process_rows(start_idx: Int, end_idx: Int):
         for i in range(start_idx, end_idx):
             var i0 = i // (n_tok * n_heads)
             var i1 = (i // n_heads) % n_tok
@@ -105,5 +88,10 @@ fn rope[
 
     # Manually parallelize / vectorize the loop since output.for_each
     # isn't adapted to complex numbers.
-    sync_parallelize[task_func](num_workers)
+    # Parallelize on the outer dimensions.
+    # TODO: find a heuristic to replace this number.
+    var parallelism_grain_size = 32768
+    parallelize_over_rows[process_rows](
+        input.shape, axis=3, grain_size=parallelism_grain_size
+    )
     return output^
