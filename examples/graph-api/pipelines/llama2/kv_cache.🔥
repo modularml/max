@@ -1,0 +1,73 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""KV cache for the Transformer."""
+
+from buffer import Buffer
+from tensor import Tensor, TensorSpec, TensorShape
+
+from max.engine import EngineTensorView
+
+from ..weights.loadable_model import LlamaHParams
+
+
+@value
+struct KVCache:
+    """View into the KV cache backing `Tensor`."""
+
+    var keys: Tensor[DType.float32]
+    var values: Tensor[DType.float32]
+    var sequence_length: Int
+
+    def __init__(
+        inout self, hp: LlamaHParams, max_length: Int, batch_size: Int
+    ):
+        shape = TensorShape(
+            max_length, hp.n_layers, batch_size, hp.n_kv_heads, hp.head_dim
+        )
+        self.keys = Tensor[DType.float32](shape)
+        self.values = Tensor[DType.float32](shape)
+        self.sequence_length = 0
+
+    def update(
+        inout self, keys: Buffer[DType.float32], values: Buffer[DType.float32]
+    ):
+        """Updates the KVCache with data from new tokens."""
+        seqlen = keys.dynamic_size // self._offset(1)
+        # This is doing the equivalent of
+        #   self.keys[self.sequence_length:self.sequence_length + seqlen, ...] = keys
+        #   self.values[self.sequence_length:self.sequence_length + seqlen, ...] = values
+        start_pos = self._offset(self.sequence_length)
+        update_size = self._offset(seqlen)
+        memcpy(self.keys.unsafe_ptr() + start_pos, keys.data, update_size)
+        memcpy(self.values.unsafe_ptr() + start_pos, values.data, update_size)
+        self.sequence_length += seqlen
+
+    def keys_view(self) -> EngineTensorView:
+        """Gets a non-owning view into the keys cache for inference."""
+        return self._view(self.keys)
+
+    def values_view(self) -> EngineTensorView:
+        """Gets a non-owning view into the values cache for inference."""
+        return self._view(self.values)
+
+    def _view(self, tensor: Tensor[DType.float32]) -> EngineTensorView:
+        spec = self._spec(self.sequence_length)
+        data = tensor.unsafe_ptr().bitcast[DType.invalid]()
+        return EngineTensorView(spec, data, DType.float32)
+
+    def _spec(self, size: Int) -> TensorSpec:
+        s = self.keys.spec()
+        return TensorSpec(DType.float32, size, s[1], s[2], s[3], s[4])
+
+    def _offset(self, size: Int) -> Int:
+        return self._spec(size).num_elements()
