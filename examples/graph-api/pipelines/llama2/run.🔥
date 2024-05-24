@@ -19,9 +19,9 @@ from utils.index import Index
 from max.engine import InferenceSession, Model, TensorMap
 from tensor import Tensor, TensorShape, TensorSpec
 
-from .tokenizer.bpe import BPETokenizer
-from .model.kv_cache import KVCacheView, cache_init, cache_update, cache_view
+from .kv_cache import KVCache
 from .model.llama import Llama2
+from .tokenizer.bpe import BPETokenizer
 from ..weights.download import download_weights_to_cache
 from ..weights.gguf import GGUFFile
 from ..weights.llama2checkpoint import LlamaCFile
@@ -118,30 +118,35 @@ def execute(
     model: Model,
     session: InferenceSession,
     tokens: Tensor[DType.int64],
-    k_cache_buff: KVCacheView,
-    v_cache_buff: KVCacheView,
-) -> TensorMap:
+    inout kv_cache: KVCache,
+) -> Tensor[DType.int64]:
+    """Execute the model predicting one new token."""
     input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
-    input_map.borrow("input1", k_cache_buff.spec, k_cache_buff.ptr)
-    input_map.borrow("input2", v_cache_buff.spec, v_cache_buff.ptr)
-    result_map = model.execute(input_map)
-    return result_map^
+    input_map.borrow("input1", kv_cache.keys_view())
+    input_map.borrow("input2", kv_cache.values_view())
+    results = model.execute(input_map)
+    kv_cache.update(
+        results.buffer[DType.float32]("output1"),
+        results.buffer[DType.float32]("output2"),
+    )
+    return results.get[DType.int64]("output0")
 
 
 def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
     print("Initializing tokenizer...")
-    var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
+    tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
     initial_prompt = config.prompt
     prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
-    var model = Llama2[ModelT, WeightsT](
+    model = Llama2[ModelT, WeightsT](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
         quantization_encoding=config.quantization_encoding,
     )
+    params = model.model.hyperparams()
     graph = model.build_graph("llama_model")
     session = InferenceSession()
 
@@ -154,37 +159,18 @@ def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
     max_tokens = 256
     print(initial_prompt, end="")
 
-    k_cache_buff = cache_init(model, max_tokens, config.batch_size)
-    v_cache_buff = cache_init(model, max_tokens, config.batch_size)
+    kv_cache = KVCache(params, max_tokens, config.batch_size)
 
     tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
     for i in range(prompt.size):
         # TODO(#29073): This should be `tokens[0, i] = prompt[i]`.
         tokens[Index(0, i)] = prompt[i].id
 
-    cache_size = 0
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, max_tokens + 1):
-        # Take a view of the backing KV cache buffer to avoid copying it.
-        k_cache_view = cache_view(cache_size, k_cache_buff)
-        v_cache_view = cache_view(cache_size, v_cache_buff)
-        n_inputs = tokens.shape()[1]
-        cache_size += n_inputs
-
-        results = execute(
-            compiled_model,
-            session,
-            tokens=tokens,
-            k_cache_buff=k_cache_view,
-            v_cache_buff=v_cache_view,
-        )
-
-        cache_update(results, "output1", k_cache_buff, k_cache_view, n_inputs)
-        cache_update(results, "output2", v_cache_buff, v_cache_view, n_inputs)
-
-        tokens = results.get[DType.int64]("output0")
+        tokens = execute(compiled_model, session, tokens, kv_cache)
         print(tokenizer.vocab[int(tokens[0, 0])].token, end="")
 
     print()

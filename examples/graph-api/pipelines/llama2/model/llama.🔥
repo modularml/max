@@ -22,11 +22,10 @@ from .transformer import FeedForward, Transformer, TransformerBlock
 from ...weights.loadable_model import LoadableModel, LlamaHParams
 
 
-struct Llama2[ModelT: LoadableModel, WeightsT: DType = DType.float32]:
+struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
     alias batch_size = 1
 
-    var params: ModelT
-    var hyperparams: LlamaHParams
+    var model: Model
     var enable_custom_rope_kernel: Bool
     var quantization_encoding: Optional[String]
     """Encoding for quantized model weights, such as Q4_0."""
@@ -37,93 +36,85 @@ struct Llama2[ModelT: LoadableModel, WeightsT: DType = DType.float32]:
         enable_custom_rope_kernel: Bool = False,
         quantization_encoding: Optional[String] = Optional[String](),
     ):
-        self.params = ModelT(model_path)
-        self.hyperparams = self.params.hyperparams()
+        self.model = Model(model_path)
         self.enable_custom_rope_kernel = enable_custom_rope_kernel
         self.quantization_encoding = quantization_encoding
 
     def build_graph(inout self, name: String) -> Graph:
+        params = self.model.hyperparams()
         cache_type = TensorType(
             DType.float32,
             Dim.dynamic(),
-            self.hyperparams.n_layers,
+            params.n_layers,
             Self.batch_size,
-            self.hyperparams.n_kv_heads,
-            self.hyperparams.head_dim,
+            params.n_kv_heads,
+            params.head_dim,
         )
         tokens_type = TensorType(DType.int64, self.batch_size, Dim.dynamic())
         g = Graph(name, List[Type](tokens_type, cache_type, cache_type))
 
         @parameter
-        fn weight[
-            dtype: DType = WeightsT,
+        def weight[
+            dtype: DType = type
+        ](
+            name: String,
+            layer: Optional[Int] = None,
+            # Torch models store weights in a transposed format, and transpose again at use.
             # The q4_0 format transposes the weights compared with the fp32 formats.
-            transpose: Bool = (dtype == DType.uint8),
-        ](name: String, i: Optional[Int] = None) raises -> Symbol:
-            @parameter
+            transpose: Bool = (dtype != DType.uint8),
+        ) -> Symbol:
+            weight = g.constant(self.model.get[dtype](name, layer))
             if transpose:
-                return g.constant(self.params.get[dtype](name, i)).swapaxes(
-                    -1, -2
+                weight = weight.swapaxes(-1, -2)
+            return weight
+
+        def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
+            # GGUF always stores these as float32
+            w = weight[DType.float32](name, layer, transpose=False)
+            return RMSNorm(params.norm_eps, w)
+
+        layers = List[TransformerBlock[type]]()
+        for layer in range(params.n_layers):
+            attention = Attention[type](
+                n_heads=params.n_heads,
+                n_kv_heads=params.n_kv_heads,
+                head_dim=params.head_dim,
+                dim=params.dims,
+                n_rep=params.n_rep,
+                wq=weight("attn_q", layer),
+                wk=weight("attn_k", layer),
+                wv=weight("attn_v", layer),
+                wo=weight("attn_output", layer),
+                enable_custom_rope_kernel=self.enable_custom_rope_kernel,
+            )
+            feed_forward = FeedForward[type](
+                w1=weight("ffn_gate", layer),
+                w2=weight("ffn_down", layer),
+                w3=weight("ffn_up", layer),
+            )
+
+            layers.append(
+                TransformerBlock[type](
+                    attention=attention,
+                    feed_forward=feed_forward,
+                    attention_norm=norm("attn_norm", layer),
+                    ffn_norm=norm("ffn_norm", layer),
                 )
-
-            return g.constant(self.params.get[dtype](name, i))
-
-        var layers = List[TransformerBlock[WeightsT]]()
-        for i in range(self.hyperparams.n_layers):
-            layer = TransformerBlock[WeightsT](
-                attention=Attention[WeightsT](
-                    n_heads=self.hyperparams.n_heads,
-                    n_kv_heads=self.hyperparams.n_kv_heads,
-                    head_dim=self.hyperparams.head_dim,
-                    dim=self.hyperparams.dims,
-                    n_rep=self.hyperparams.n_rep,
-                    enable_custom_rope_kernel=self.enable_custom_rope_kernel,
-                    wq=weight("attn_q", i).swapaxes(-1, -2),
-                    wk=weight("attn_k", i).swapaxes(-1, -2),
-                    wv=weight("attn_v", i).swapaxes(-1, -2),
-                    wo=weight("attn_output", i).swapaxes(-1, -2),
-                ),
-                feed_forward=FeedForward[WeightsT](
-                    w1=weight("ffn_gate", i).swapaxes(-1, -2),
-                    w2=weight("ffn_down", i).swapaxes(-1, -2),
-                    w3=weight("ffn_up", i).swapaxes(-1, -2),
-                ),
-                attention_norm=RMSNorm(
-                    # Use float32 norm weights rather than WeightsT: they
-                    # are vectors and small, so GGUF stores these as float32.
-                    self.hyperparams.norm_eps,
-                    weight[DType.float32]("attn_norm", i),
-                ),
-                ffn_norm=RMSNorm(
-                    self.hyperparams.norm_eps,
-                    weight[DType.float32]("ffn_norm", i),
-                ),
             )
-            layers.append(layer)
 
-        var logits: Symbol
-        k_cache = g[1]
-        v_cache = g[2]
-        logits, k_cache, v_cache = Transformer[WeightsT](
-            dim=self.hyperparams.dims,
-            n_heads=self.hyperparams.n_heads,
-            embedding=Embedding[WeightsT](
-                weight[transpose=False]("token_embd")
-            ),
+        embedding = Embedding[type](weight("token_embd", transpose=False))
+        model = Transformer[type](
+            dim=params.dims,
+            n_heads=params.n_heads,
+            embedding=embedding,
             layers=layers,
-            norm=RMSNorm(
-                self.hyperparams.norm_eps, weight[DType.float32]("output_norm")
-            ),
-            output=weight("output").swapaxes(-1, -2),
-        )(tokens=g[0], k_cache=k_cache, v_cache=v_cache)
+            norm=norm("output_norm"),
+            output=weight("output"),
+        )
 
-        logits = ops.gather(logits, g.scalar[DType.int64](-1, rank=1), axis=1)
-        next_token = ops.arg_max(
-            logits.reshape(-1, self.hyperparams.vocab_size), axis=-1
-        )
-        g.output(
-            List[Symbol](
-                next_token.reshape(self.batch_size, -1), k_cache, v_cache
-            )
-        )
+        # outputs (logits, k_cache, v_cache)
+        outputs = model(tokens=g[0], k_cache=g[1], v_cache=g[2])
+        logits = outputs[0]
+        next_token = ops.arg_max(logits[-1, axis=1], axis=-1)
+        g.output(List[Symbol](next_token, outputs[1], outputs[2]))
         return g
