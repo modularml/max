@@ -1,0 +1,119 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""A simple arena linked-list implementation."""
+
+from collections import List, Optional
+
+
+@value
+struct Node[ElementType: CollectionElement](CollectionElement):
+    """A node in the linked list."""
+
+    var value: ElementType
+    var prev: Optional[ArenaLinkedList[ElementType].ID]
+    var next: Optional[ArenaLinkedList[ElementType].ID]
+
+
+struct ArenaLinkedList[ElementType: CollectionElement]:
+    """A doubly-linked-list with nodes in a memory arena.
+
+    - Elements in the list have an ID which can be used to reference them again.
+    - IDs will never change or be re-used. If an item is removed its ID is invalid.
+    - Linked-list ops are done on the arena directly
+
+    ```mojo
+    from tokenizer.arena_linked_list import ArenaLinkedList
+    list = ArenaLinkedList[Int]()
+    id1 = list.append(0)
+    id2 = list.append(1)
+    list[id2] == 1
+    list.next(id1)._value_copy() == id2
+    list.prev(id2)._value_copy() == id1
+    list.remove(id1)
+    list._head._value_copy() == id2
+    (id1 in list) == False
+    list[id2] = 3
+    ```
+    """
+
+    alias ID = Int
+
+    var _arena: List[Optional[Node[ElementType]]]
+    var _head: Optional[Self.ID]
+    var _tail: Optional[Self.ID]
+
+    def __init__(inout self):
+        """Constructs a new empty linked list."""
+        self._arena = List[Optional[Node[ElementType]]]()
+        self._head = None
+        self._tail = None
+
+    def __contains__(self, id: Self.ID) -> Bool:
+        """Checks whether the node is still in the list."""
+        return 0 <= id < len(self._arena) and self.node(id)[]
+
+    def append(inout self, owned value: ElementType) -> Self.ID:
+        """Adds a new element to the back of the list."""
+        id = len(self._arena)
+        node = Node[ElementType](value^, self._tail, None)
+        if self._tail:
+            tail = self.node(self._tail.value()[])
+            tail[].value()[].next = id
+        else:
+            self._head = id
+        self._tail = id
+        self._arena.append(node)
+        return id
+
+    def remove(inout self, id: Self.ID):
+        """Removes an element from the list."""
+        debug_assert(self.node(id)[], "removing item not in list")
+        debug_assert(self._head, "removing from empty list")
+        debug_assert(self._tail, "removing from empty list")
+
+        node = self.node(id)[].value()[]
+        self.node(id)[] = None
+        if node.prev:
+            prev = self.node(node.prev.value()[])
+            prev[].value()[].next = node.next
+        if node.next:
+            next = self.node(node.next.value()[])
+            next[].value()[].prev = node.prev
+        if self._head.value()[] == id:
+            self._head = node.next
+        if self._tail.value()[] == id:
+            self._tail = node.prev
+
+    def next(self, id: Self.ID) -> Optional[Self.ID]:
+        """Gets the next item in the list, if any."""
+        debug_assert(self.node(id)[], "next on item not in list")
+        return self.node(id)[].value()[].next
+
+    def prev(self, id: Self.ID) -> Optional[Self.ID]:
+        """Gets the previous item in the list, if any."""
+        debug_assert(self.node(id)[], "prev on item not in list")
+        return self.node(id)[].value()[].prev
+
+    def node(
+        self: Reference[Self, _, _], id: Self.ID
+    ) -> Reference[Optional[Node[ElementType]], self.is_mutable, self.lifetime]:
+        """Gets a reference to a value in the list."""
+        return self[]._arena.__get_ref(id)
+
+    def __refitem__(
+        self: Reference[Self, _, _], id: Self.ID
+    ) -> Reference[ElementType, self.is_mutable, self.lifetime]:
+        """Gets a reference to a value in the list."""
+        node_ref = self[].node(id)
+        debug_assert(node_ref[], "retrieved removed value")
+        return Reference(node_ref[].value()[].value)
