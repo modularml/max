@@ -43,30 +43,26 @@ struct Config:
 
     def parse_args(inout self):
         args = sys.argv()
-        arguments_without_prompt = len(args) - 1
 
-        def parse_argument_value(inout index: Int) -> StringRef:
-            index += 1
-            if index >= arguments_without_prompt:
+        @parameter
+        def read_value(index: Int) -> StringRef:
+            if index >= len(args):
                 raise "missing value for parameter `" + str(
                     args[index - 1]
                 ) + "`"
-            index += 1
             return args[index]
 
         # Skip the run_pipeline.mojo and replit arguments.
         i = 2
-        if arguments_without_prompt < 2:
-            raise "prompt is required as the last argument"
-        while i < arguments_without_prompt:
+        while i < len(args):
             if args[i] == "--converted_weights_path":
-                self.converted_weights_path = Path(parse_argument_value(i))
+                self.converted_weights_path = Path(read_value(i + 1))
+                i += 2
             elif args[i] == "--prompt":
-                self.prompt = parse_argument_value(i)
+                self.prompt = read_value(i + 1)
+                i += 2
             else:
                 raise "unsupported CLI argument: " + String(args[i])
-
-        self.prompt = args[arguments_without_prompt]
 
         if len(str(self.converted_weights_path)) == 0:
             self.converted_weights_path = cwd().joinpath(

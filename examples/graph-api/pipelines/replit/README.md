@@ -55,10 +55,8 @@ implementation, and weights are
    at the path of this README, the command invocation will look like:
 
    ```shell
-   mojo ../../run_pipeline.🔥 replit 'def hello():\n  print("hello world")'
+   mojo ../../run_pipeline.🔥 replit --prompt 'def hello():\n  print("hello world")'
    ```
-
-   The prompt is mandatory, and is always the last argument to the pipeline.
 
 ## Options
 
@@ -67,16 +65,4 @@ pipeline:
 
 - `--converted-weights-path`: Specifies the path to the converted model
    weights. (Default value: `.cache/replit/converted`)
-
-## Ideas for future extension
-
-This isn't an exhaustive list, but here are some ideas for ways in which this
-pipeline may be extended or improved:
-
-- Replace the SentencePiece tokenizer with one written in Mojo. Currently,
-the tokenizer is loaded from the `transformers` library via Python
-interoperability and it might be useful to have this all in Mojo.
-- Incorporate 4-bit quantization.
-- Improve the quality of the code generation.
-- Identify performance bottlenecks and further tune time-to-first-token and
-throughput.
+- `--prompt`: The text prompt to use for further code generation.
