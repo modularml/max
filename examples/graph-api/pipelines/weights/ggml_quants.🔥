@@ -23,7 +23,7 @@ struct BlockQ40:
         The data layout must exactly match `block_q4_0` from ggml-quants.h.
     """
 
-    alias QK4_0: Int = 32
+    alias QK4_0 = 32
     """Number of elements per Q4_0 block."""
 
     var d: Float16
@@ -31,7 +31,7 @@ struct BlockQ40:
     var qs: InlineArray[UInt8, Self.QK4_0 // 2]
     """Nibbles / quants."""
 
-    fn __init__(
+    def __init__(
         inout self,
         d: Float16,
         qs: InlineArray[UInt8, Self.QK4_0 // 2],
@@ -40,6 +40,11 @@ struct BlockQ40:
 
         self.d = d
         self.qs = qs
+
+    @staticmethod
+    fn elements_per_block() -> Int:
+        """Returns the number of elements per Q4_0 block."""
+        return Self.QK4_0
 
 
 @value
@@ -50,7 +55,7 @@ struct BlockQ80:
         The data layout must exactly match `block_q8_0` from ggml-quants.h.
     """
 
-    alias QK8_0: Int = 32
+    alias QK8_0 = 32
     """Number of elements per Q8_0 block."""
 
     var d: Float16
@@ -59,7 +64,7 @@ struct BlockQ80:
     var qs: InlineArray[Int8, Self.QK8_0]
     """Quants."""
 
-    fn __init__(
+    def __init__(
         inout self,
         d: Float16,
         qs: InlineArray[Int8, Self.QK8_0],
@@ -69,13 +74,18 @@ struct BlockQ80:
         self.d = d
         self.qs = qs
 
+    @staticmethod
+    fn elements_per_block() -> Int:
+        """Returns the number of elements per Q8_0 block."""
+        return Self.QK8_0
+
 
 # Note that there is a compile definition in ggml-quants.h that allows setting
 # `QK_K=64`, which is useful for models with rows unaligned to 256 bits.
-alias QK_K: Int = 256
+alias QK_K = 256
 """Size of superblock quantized elements, in bytes."""
 
-alias K_SCALE_SIZE: Int = 12
+alias K_SCALE_SIZE = 12
 """Size of superblock scales and mins, in bytes."""
 
 
@@ -103,7 +113,7 @@ struct BlockQ4K:
     var qs: InlineArray[UInt8, QK_K // 2]
     """4-bit quants."""
 
-    fn __init__(
+    def __init__(
         inout self,
         d: Float16,
         dmin: Float16,
@@ -143,7 +153,7 @@ struct BlockQ6K:
     var d: Float16
     """Super-block scale."""
 
-    fn __init__(
+    def __init__(
         inout self,
         ql: InlineArray[UInt8, QK_K // 2],
         qh: InlineArray[UInt8, QK_K // 2],
