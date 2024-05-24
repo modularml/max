@@ -1,0 +1,209 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+import sys
+from collections import List, Optional
+from pathlib import cwd, Path
+from utils.index import Index
+
+from max.engine import InferenceSession, Model, TensorMap
+from tensor import Tensor, TensorShape, TensorSpec
+
+from .kv_cache import KVCache
+from .model.llama import Llama3
+from .tokenizer.bpe import BPETokenizer
+from ..weights.download import download_weights_to_cache
+from ..weights.gguf import GGUFFile
+from ..weights.llama2checkpoint import LlamaCFile
+from ..weights.loadable_model import LoadableModel
+
+
+@value
+struct Config:
+    """Configuration for token generation runtime options."""
+
+    var batch_size: Int
+    var model_name: String
+    var model_path: Path
+    var custom_ops_paths: List[Path]
+    var tokenizer_path: Path
+    var prompt: String
+    var quantization_encoding: Optional[String]
+
+    def __init__(
+        inout self,
+        /,
+        batch_size: Int = 1,
+        model_name: String = "stories15M",
+        model_path: Path = "",
+        custom_ops_paths: List[Path] = List[Path](),
+        tokenizer_path: Path = "",
+        prompt: String = "I believe the meaning of life is",
+        quantization_encoding: Optional[String] = Optional[String](),
+    ):
+        self.batch_size = batch_size
+        self.model_name = model_name
+        self.model_path = model_path
+        self.custom_ops_paths = custom_ops_paths
+        self.tokenizer_path = tokenizer_path
+        self.prompt = prompt
+        self.quantization_encoding = quantization_encoding
+        """Encoding for quantized model weights, such as Q4_0."""
+
+        self.parse_args()
+
+    def parse_args(inout self):
+        args = sys.argv()
+
+        @parameter
+        def read_value(index: Int) -> StringRef:
+            if index >= len(args):
+                raise "missing value for parameter `" + str(
+                    args[index - 1]
+                ) + "`"
+            return args[index]
+
+        # Skip the run_pipeline.mojo and llama2 arguments.
+        i = 2
+        while i < len(args):
+            if args[i] == "--batch-size":
+                self.batch_size = atol(read_value(i + 1))
+                i += 2
+            elif args[i] == "--model-name":
+                name = read_value(i + 1)
+                self.model_name = name
+                i += 2
+            elif args[i] == "--model-path":
+                # If a manual model path has been specified, don't use one of
+                # the downloadable pretrained models.
+                self.model_name = ""
+                self.model_path = Path(read_value(i + 1))
+                i += 2
+            elif args[i] == "--custom-ops-path":
+                self.custom_ops_paths.append(Path(read_value(i + 1)))
+                i += 2
+            elif args[i] == "--tokenizer-path":
+                self.tokenizer_path = Path(read_value(i + 1))
+                i += 2
+            elif args[i] == "--prompt":
+                self.prompt = read_value(i + 1)
+                i += 2
+            elif args[i] == "--quantization-encoding":
+                self.quantization_encoding = String(read_value(i + 1))
+                i += 2
+            else:
+                raise "unsupported CLI argument: " + String(args[i])
+
+
+def execute(
+    model: Model,
+    session: InferenceSession,
+    tokens: Tensor[DType.int64],
+    inout kv_cache: KVCache,
+) -> Tensor[DType.int64]:
+    """Execute the model predicting one new token."""
+    view = kv_cache.view()
+    input_map = session.new_tensor_map()
+    input_map.borrow("input0", tokens)
+    input_map.borrow("input1", view[0])
+    input_map.borrow("input2", view[1])
+    results = model.execute(input_map)
+    kv_cache.update(
+        results.buffer[DType.float32]("output1"),
+        results.buffer[DType.float32]("output2"),
+    )
+    return results.get[DType.int64]("output0")
+
+
+def run[ModelT: LoadableModel, type: DType = DType.float32](config: Config):
+    print("Initializing tokenizer...")
+    var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
+
+    initial_prompt = config.prompt
+    prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
+
+    print("Building model...")
+    var model = Llama3[ModelT, type](
+        config.model_path,
+        quantization_encoding=config.quantization_encoding,
+    )
+    params = model.model.hyperparams()
+    graph = model.build_graph("llama_model")
+    session = InferenceSession()
+
+    print("Compiling...")
+    compiled_model = session.load(
+        graph, custom_ops_paths=config.custom_ops_paths
+    )
+
+    print("Executing...")
+    max_tokens = 256
+    print(initial_prompt, end="")
+
+    var kv_cache = KVCache(params, max_tokens, config.batch_size)
+
+    tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
+    for i in range(prompt.size):
+        # TODO(#29073): This should be `tokens[0, i] = prompt[i]`.
+        tokens[Index(0, i)] = prompt[i].id
+
+    # The first iteration caches the entire prompt and all subsequent
+    # iterations generate one token.
+    # Avoid overrunning the cache by setting the trip count accordingly.
+    for _ in range(prompt.size, max_tokens + 1):
+        tokens = execute(compiled_model, session, tokens, kv_cache)
+        print(tokenizer.vocab[int(tokens[0, 0])].token, end="")
+
+    print()
+
+
+def run():
+    config = Config()
+
+    cache_path = cwd().joinpath(".cache")
+    # If one of the downloadable models has been specified, download and cache
+    # the weights and tokenizer for that model.
+    if config.model_name == "stories15M":
+        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+        config.model_path = cache_path.joinpath("stories15M.bin")
+        download_weights_to_cache(
+            cache_path,
+            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
+        )
+    elif config.model_name == "stories110M":
+        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+        config.model_path = cache_path.joinpath("stories110M.bin")
+        download_weights_to_cache(
+            cache_path,
+            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
+        )
+
+    if config.quantization_encoding:
+        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+        config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
+        download_weights_to_cache(
+            cache_path,
+            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+            "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
+        )
+
+        # Quantization encodings are represented with uint8 dtype.
+        run[GGUFFile, DType.uint8](config)
+    elif config.model_path.suffix() == ".gguf":
+        run[GGUFFile, DType.float32](config)
+    elif config.model_path.suffix() == ".bin":
+        run[LlamaCFile](config)
+    else:
+        raise "invalid model path"

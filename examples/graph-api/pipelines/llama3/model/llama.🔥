@@ -1,0 +1,115 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""The body of the Llama 2 model definition."""
+
+from collections import List, Optional
+from pathlib import Path
+
+from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
+from .attention import Attention
+from .layers import Embedding, RMSNorm
+from .transformer import FeedForward, Transformer, TransformerBlock
+from ...weights.loadable_model import LoadableModel, LlamaHParams
+
+
+struct Llama3[Model: LoadableModel, type: DType = DType.float32]:
+    alias batch_size = 1
+
+    var model: Model
+    var quantization_encoding: Optional[String]
+    """Encoding for quantized model weights, such as Q4_0."""
+
+    def __init__(
+        inout self,
+        model_path: Path,
+        quantization_encoding: Optional[String] = Optional[String](),
+    ):
+        self.model = Model(model_path)
+        self.quantization_encoding = quantization_encoding
+
+    def build_graph(inout self, name: String) -> Graph:
+        params = self.model.hyperparams()
+        cache_type = TensorType(
+            DType.float32,
+            Dim.dynamic(),
+            params.n_layers,
+            Self.batch_size,
+            params.n_kv_heads,
+            params.head_dim,
+        )
+        tokens_type = TensorType(DType.int64, self.batch_size, Dim.dynamic())
+        g = Graph(name, List[Type](tokens_type, cache_type, cache_type))
+
+        @parameter
+        def weight[
+            dtype: DType = type
+        ](
+            name: String,
+            layer: Optional[Int] = None,
+            # Torch models store weights in a transposed format, and transpose again at use.
+            # The q4_0 format transposes the weights compared with the fp32 formats.
+            transpose: Bool = (dtype != DType.uint8),
+        ) -> Symbol:
+            var weight = g.constant(self.model.get[dtype](name, layer))
+            if transpose:
+                weight = weight.swapaxes(-1, -2)
+            return weight
+
+        def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
+            # GGUF always stores these as float32
+            w = weight[DType.float32](name, layer, transpose=False)
+            return RMSNorm(params.norm_eps, w)
+
+        var layers = List[TransformerBlock[type]]()
+        for layer in range(params.n_layers):
+            var attention = Attention[type](
+                n_heads=params.n_heads,
+                n_kv_heads=params.n_kv_heads,
+                head_dim=params.head_dim,
+                dim=params.dims,
+                wq=weight("attn_q", layer),
+                wk=weight("attn_k", layer),
+                wv=weight("attn_v", layer),
+                wo=weight("attn_output", layer),
+            )
+            var feed_forward = FeedForward[type](
+                w1=weight("ffn_gate", layer),
+                w2=weight("ffn_down", layer),
+                w3=weight("ffn_up", layer),
+            )
+
+            layers.append(
+                TransformerBlock[type](
+                    attention=attention,
+                    feed_forward=feed_forward,
+                    attention_norm=norm("attn_norm", layer),
+                    ffn_norm=norm("ffn_norm", layer),
+                )
+            )
+
+        embedding = Embedding[type](weight("token_embd", transpose=False))
+        var model = Transformer[type](
+            dim=params.dims,
+            n_heads=params.n_heads,
+            embedding=embedding,
+            layers=layers,
+            norm=norm("output_norm"),
+            output=weight("output"),
+        )
+
+        # outputs (logits, k_cache, v_cache)
+        outputs = model(tokens=g[0], k_cache=g[1], v_cache=g[2])
+        logits = outputs[0]
+        next_token = ops.arg_max(logits[-1, axis=1], axis=-1)
+        g.output(List[Symbol](next_token, outputs[1], outputs[2]))
+        return g
