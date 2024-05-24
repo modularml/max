@@ -8,7 +8,7 @@ This pipeline demonstrates code completion from an initial prompt using
 Replit's Code V1.5 3B large language model. The model itself has been
 constructed from end to end in
 [the Mojo language](https://docs.modular.com/mojo/) using the
-[MAX Graph API](https://docs.modular.com/engine/graph).
+[MAX Graph API](https://docs.modular.com/max/graph).
 
 The MAX Graph API provides an accessible Mojo interface to the contruction of
 flexible accelerated compute graphs, which are then optimized by the MAX
@@ -29,7 +29,7 @@ implementation, and weights are
 1. Install MAX:
 
    If MAX is not already installed, follow
-   [the installation instructions](https://docs.modular.com/engine/get-started)
+   [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
 2. Download and convert the model weights:
@@ -66,3 +66,16 @@ pipeline:
 - `--converted-weights-path`: Specifies the path to the converted model
    weights. (Default value: `.cache/replit/converted`)
 - `--prompt`: The text prompt to use for further code generation.
+
+## Ideas for future extension
+
+This isn't an exhaustive list, but here are some ideas for ways in which this
+pipeline may be extended or improved:
+
+- Replace the SentencePiece tokenizer with one written in Mojo. Currently,
+the tokenizer is loaded from the `transformers` library via Python
+interoperability and it might be useful to have this all in Mojo.
+- Incorporate 4-bit quantization.
+- Improve the quality of the code generation.
+- Identify performance bottlenecks and further tune time-to-first-token and
+throughput.
