@@ -7,7 +7,7 @@
 This pipeline demonstrates text completion from an initial prompt using the
 Llama 2 large language model. The model itself has been constructed from
 end to end in [the Mojo language](https://docs.modular.com/mojo/) using the
-[MAX Graph API](https://docs.modular.com/engine/graph).
+[MAX Graph API](https://docs.modular.com/max/graph).
 
 The MAX Graph API provides an accessible Mojo interface to the contruction of
 flexible accelerated compute graphs, which are then optimized by the MAX
@@ -16,7 +16,7 @@ model can be fully defined using Mojo and MAX Graphs and then compiled for
 optimal inference performance via the MAX Engine.
 
 The flexibility provided by MAX Graphs even includes
-[the ability to define custom compute kernels](https://docs.modular.com/engine/extensibility/graph-custom-op).
+[the ability to define custom compute kernels](https://docs.modular.com/max/extensibility/graph-custom-op).
 An example of such a custom operation is present in this pipeline as an
 optional RoPE kernel that can be loaded into the Llama 2 compute graph.
 
@@ -35,7 +35,7 @@ The text completion demo is compatible with the the official Llama 2
 1. Install MAX:
 
    If MAX is not already installed, follow
-   [the installation instructions](https://docs.modular.com/engine/get-started)
+   [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
 2. Run the text completion demo:
@@ -98,3 +98,16 @@ pipeline:
   quantized to a low bits per weight format.
   Valid values: `q4_0`.
   (Default value: float32 if not set).
+
+## Ideas for future extension
+
+There are many ways that this pipeline can be built upon or extended, and
+this is a short list of suggestions for future work:
+
+- Enhance the tokenizer so that it can stand alone as a general-purpose
+tokenizer for multiple text generation pipelines.
+- Expand the customizable options for text generation.
+- Incorporate and use weights from other models.
+- Improve the quality of the text generation.
+- Identify performance bottlenecks and further tune time-to-first-token and
+throughput.
