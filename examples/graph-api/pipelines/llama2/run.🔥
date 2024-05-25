@@ -50,7 +50,7 @@ struct Config:
         custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
         enable_custom_rope_kernel: Bool = False,
-        prompt: String = "I believe the meaning of life is",
+        prompt: String = "",
         quantization_encoding: Optional[String] = Optional[String](),
     ):
         self.batch_size = batch_size
@@ -68,48 +68,41 @@ struct Config:
     def parse_args(inout self):
         args = sys.argv()
 
-        @parameter
-        def read_value(index: Int) -> StringRef:
-            if index >= len(args):
-                raise "missing value for parameter `" + str(
-                    args[index - 1]
-                ) + "`"
-            return args[index]
+        def parse_argument_value(inout index: Int) -> StringRef:
+            if index + 1 >= len(args):
+                raise "missing value for parameter `" + str(args[index]) + "`"
+            result = args[index + 1]
+            index += 2
+            return result
 
         # Skip the run_pipeline.mojo and llama2 arguments.
         i = 2
         while i < len(args):
             if args[i] == "--batch-size":
-                self.batch_size = atol(read_value(i + 1))
-                i += 2
+                self.batch_size = atol(parse_argument_value(i))
             elif args[i] == "--model-name":
-                name = read_value(i + 1)
-                self.model_name = name
-                i += 2
+                self.model_name = parse_argument_value(i)
             elif args[i] == "--model-path":
                 # If a manual model path has been specified, don't use one of
                 # the downloadable pretrained models.
                 self.model_name = ""
-                self.model_path = Path(read_value(i + 1))
-                i += 2
+                self.model_path = Path(parse_argument_value(i))
             elif args[i] == "--custom-ops-path":
-                self.custom_ops_paths.append(Path(read_value(i + 1)))
-                i += 2
+                self.custom_ops_paths.append(Path(parse_argument_value(i)))
             elif args[i] == "--tokenizer-path":
-                self.tokenizer_path = Path(read_value(i + 1))
-                i += 2
+                self.tokenizer_path = Path(parse_argument_value(i))
             elif args[i] == "--enable-custom-rope-kernel":
                 self.enable_custom_rope_kernel = True
                 i += 1
             elif args[i] == "--prompt":
-                self.prompt = read_value(i + 1)
-                i += 2
+                self.prompt = parse_argument_value(i)
             elif args[i] == "--quantization-encoding":
-                self.quantization_encoding = String(read_value(i + 1))
-                i += 2
+                self.quantization_encoding = String(parse_argument_value(i))
             else:
                 raise "unsupported CLI argument: " + String(args[i])
 
+        if self.prompt == "":
+            raise "--prompt is a required argument"
         if self.enable_custom_rope_kernel and len(self.custom_ops_paths) == 0:
             raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
 
@@ -199,15 +192,18 @@ def llama2_run():
             "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
         )
 
-    if config.quantization_encoding:
-        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-        config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
-        download_weights_to_cache(
-            cache_path,
-            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-            "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
-        )
-
+    elif config.quantization_encoding:
+        encoding = config.quantization_encoding.value()
+        if encoding[].lower() == "q4_0":
+            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+            config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
+            download_weights_to_cache(
+                cache_path,
+                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+                "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
+            )
+        else:
+            raise 'Encoding "' + encoding[] + '" not yet supported'
         # Quantization encodings are represented with uint8 dtype.
         run[GGUFFile, DType.uint8](config)
     elif config.model_path.suffix() == ".gguf":
