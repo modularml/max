@@ -18,9 +18,9 @@ from .layers import Embedding, FeedForward, Linear, RMSNorm
 
 
 @value
-struct TransformerBlock[type: DType = DType.float32](CollectionElement):
-    var attention: Attention[type]
-    var feed_forward: FeedForward[type]
+struct TransformerBlock[WeightsT: DType = DType.float32](CollectionElement):
+    var attention: Attention[WeightsT]
+    var feed_forward: FeedForward[WeightsT]
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
 
@@ -44,17 +44,17 @@ struct TransformerBlock[type: DType = DType.float32](CollectionElement):
 
 
 @value
-struct Transformer[type: DType = DType.float32]:
+struct Transformer[WeightsT: DType = DType.float32]:
     alias max_seq_len = 2048
     alias theta = 500000.0
 
     var dim: Int
     var n_heads: Int
 
-    var embedding: Embedding[type]
-    var layers: List[TransformerBlock[type]]
+    var embedding: Embedding[WeightsT]
+    var layers: List[TransformerBlock[WeightsT]]
     var norm: RMSNorm
-    var output: Linear[type]
+    var output: Linear[WeightsT]
 
     def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
         var g = start_pos.graph()

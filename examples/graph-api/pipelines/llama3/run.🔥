@@ -107,11 +107,10 @@ def execute(
     inout kv_cache: KVCache,
 ) -> Tensor[DType.int64]:
     """Execute the model predicting one new token."""
-    view = kv_cache.view()
     input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
-    input_map.borrow("input1", view[0])
-    input_map.borrow("input2", view[1])
+    input_map.borrow("input1", kv_cache.keys_view())
+    input_map.borrow("input2", kv_cache.values_view())
     results = model.execute(input_map)
     kv_cache.update(
         results.buffer[DType.float32]("output1"),
@@ -120,15 +119,15 @@ def execute(
     return results.get[DType.int64]("output0")
 
 
-def run[ModelT: LoadableModel, type: DType = DType.float32](config: Config):
+def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
     print("Initializing tokenizer...")
-    var tokenizer = BPETokenizer.from_file(config.tokenizer_path)
+    tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
     initial_prompt = config.prompt
     prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
     print("Building model...")
-    var model = Llama3[ModelT, type](
+    var model = Llama3[ModelT, WeightsT](
         config.model_path,
         quantization_encoding=config.quantization_encoding,
     )
@@ -145,7 +144,7 @@ def run[ModelT: LoadableModel, type: DType = DType.float32](config: Config):
     max_tokens = 256
     print(initial_prompt, end="")
 
-    var kv_cache = KVCache(params, max_tokens, config.batch_size)
+    kv_cache = KVCache(params, max_tokens, config.batch_size)
 
     tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
     for i in range(prompt.size):
@@ -162,7 +161,7 @@ def run[ModelT: LoadableModel, type: DType = DType.float32](config: Config):
     print()
 
 
-def run():
+def llama3_run():
     config = Config()
 
     cache_path = cwd().joinpath(".cache")
@@ -196,11 +195,13 @@ def run():
             )
         else:
             raise 'Encoding "' + encoding[] + '" not yet supported'
-        # Quantization encodings are represented with uint8 dtype.
-        run[GGUFFile, DType.uint8](config)
-    elif config.model_path.suffix() == ".gguf":
-        run[GGUFFile, DType.float32](config)
+
+    if config.model_path.suffix() == ".gguf":
+        if config.quantization_encoding:
+            run[GGUFFile, DType.uint8](config)
+        else:
+            run[GGUFFile, DType.float32](config)
     elif config.model_path.suffix() == ".bin":
-        run[LlamaCFile](config)
+        run[LlamaCFile, DType.float32](config)
     else:
         raise "invalid model path"

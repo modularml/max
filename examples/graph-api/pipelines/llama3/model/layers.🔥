@@ -21,14 +21,14 @@ from pipelines.weights.ggml_quants import BlockQ40
 
 
 @value
-struct Linear[type: DType = DType.float32]:
+struct Linear[WeightsT: DType = DType.float32]:
     """A fully-connected layer without activations."""
 
     var w: Symbol
 
     def __call__(self, x: Symbol) -> Symbol:
         @parameter
-        if type == DType.uint8:
+        if WeightsT == DType.uint8:
             return ops.qmatmul[Q4_0Encoding](x, self.w)
 
         return x @ self.w
@@ -60,7 +60,7 @@ struct RMSNorm:
 
 
 @value
-struct Embedding[type: DType = DType.float32]:
+struct Embedding[WeightsT: DType = DType.float32]:
     """Quantized embedding (can be in GGML Q4_0 packed format)."""
 
     var weights: Symbol
@@ -78,7 +78,7 @@ struct Embedding[type: DType = DType.float32]:
 
         # If there is no quantization, then just gather and return early.
         @parameter
-        if type == DType.float32:
+        if WeightsT == DType.float32:
             return ops.gather(self.weights, indices, axis=0)
 
         g = self.weights.graph()
@@ -91,9 +91,6 @@ struct Embedding[type: DType = DType.float32]:
         num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ40]()
         alias quants_per_block = BlockQ40.QK4_0
         out_dim = int(BlockQ40.QK4_0 * num_blocks)
-        # All embeddings in Llama 2 are 4096-vectors, so check this.
-        if out_dim != 4096:
-            raise "unexpected quantized weights dim " + str(out_dim)
 
         # Compute shapes to reshape embeddings to matrix input expected by
         # `ggml_q4_0_dequantize`.

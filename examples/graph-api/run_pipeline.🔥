@@ -14,8 +14,8 @@
 
 import sys
 from pipelines.llama2.run import llama2_run
+from pipelines.llama3.run import llama3_run
 from pipelines.quantize_tinystories.run import quantize_tinystories_run
-from pipelines.llama3.run import run as llama3_run
 from pipelines.replit.run import replit_run
 
 
