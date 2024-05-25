@@ -60,7 +60,7 @@ struct Llama3[Model: LoadableModel, type: DType = DType.float32]:
             # The q4_0 format transposes the weights compared with the fp32 formats.
             transpose: Bool = (dtype != DType.uint8),
         ) -> Symbol:
-            var weight = g.constant(self.model.get[dtype](name, layer))
+            weight = g.constant(self.model.get[dtype](name, layer))
             if transpose:
                 weight = weight.swapaxes(-1, -2)
             return weight
@@ -70,9 +70,9 @@ struct Llama3[Model: LoadableModel, type: DType = DType.float32]:
             w = weight[DType.float32](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
-        var layers = List[TransformerBlock[type]]()
+        layers = List[TransformerBlock[type]]()
         for layer in range(params.n_layers):
-            var attention = Attention[type](
+            attention = Attention[type](
                 n_heads=params.n_heads,
                 n_kv_heads=params.n_kv_heads,
                 head_dim=params.head_dim,
@@ -98,7 +98,7 @@ struct Llama3[Model: LoadableModel, type: DType = DType.float32]:
             )
 
         embedding = Embedding[type](weight("token_embd", transpose=False))
-        var model = Transformer[type](
+        model = Transformer[type](
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,

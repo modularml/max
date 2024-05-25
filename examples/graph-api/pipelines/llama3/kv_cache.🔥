@@ -22,7 +22,7 @@ from ..weights.loadable_model import LlamaHParams
 
 @value
 struct KVCache:
-    """Non-owning view into the KV cache backing `Tensor`."""
+    """View into the KV cache backing `Tensor`."""
 
     var keys: Tensor[DType.float32]
     var values: Tensor[DType.float32]
@@ -52,9 +52,13 @@ struct KVCache:
         memcpy(self.values.unsafe_ptr() + start_pos, values.data, update_size)
         self.sequence_length += seqlen
 
-    def view(self) -> (EngineTensorView, EngineTensorView):
-        """Gets a non-owning view into the KV cache for inference."""
-        return self._view(self.keys), self._view(self.values)
+    def keys_view(self) -> EngineTensorView:
+        """Gets a non-owning view into the keys cache for inference."""
+        return self._view(self.keys)
+
+    def values_view(self) -> EngineTensorView:
+        """Gets a non-owning view into the values cache for inference."""
+        return self._view(self.values)
 
     def _view(self, tensor: Tensor[DType.float32]) -> EngineTensorView:
         spec = self._spec(self.sequence_length)

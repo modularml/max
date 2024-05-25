@@ -91,9 +91,7 @@ def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
     # the only masked entries are (i, j) for j > cache_len + i, since row i
     # corresponds to token cache_len + i.
     return ops.concat(
-        List[Symbol](
-            g.full[DType.float32](0, List[Symbol](seq_len, start_pos)), mask
-        ),
+        List[Symbol](g.full[DType.float32](0, List(seq_len, start_pos)), mask),
         axis=1,
     )
 
@@ -128,8 +126,7 @@ struct Attention[WeightsT: DType = DType.float32]:
         g = input.graph()
         input_shape = ops.shape_of(input)
 
-        batch_size = input_shape[0]
-        seq_len = input_shape[1]
+        batch_size, seq_len = input_shape[0], input_shape[1]
         head_dim = g.scalar[DType.float32](self.head_dim)
 
         xq = input @ self.wq

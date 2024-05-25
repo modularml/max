@@ -74,9 +74,7 @@ struct Transformer[WeightsT: DType = DType.float32]:
         var t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 
-        var retval = ops.stack(
-            List[Symbol](ops.cos(freqs), ops.sin(freqs)), axis=-1
-        )
+        var retval = ops.stack(List(ops.cos(freqs), ops.sin(freqs)), axis=-1)
         return ops.cast(retval[start_pos : start_pos + seq_len], DType.float32)
 
     def __call__(

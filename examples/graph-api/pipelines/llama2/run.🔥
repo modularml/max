@@ -97,6 +97,7 @@ struct Config:
             elif args[i] == "--prompt":
                 self.prompt = parse_argument_value(i)
             elif args[i] == "--quantization-encoding":
+                self.model_name = ""
                 self.quantization_encoding = String(parse_argument_value(i))
             else:
                 raise "unsupported CLI argument: " + String(args[i])
@@ -126,7 +127,7 @@ def execute(
     return results.get[DType.int64]("output0")
 
 
-def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
+def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
     print("Initializing tokenizer...")
     tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
@@ -204,11 +205,13 @@ def llama2_run():
             )
         else:
             raise 'Encoding "' + encoding[] + '" not yet supported'
-        # Quantization encodings are represented with uint8 dtype.
-        run[GGUFFile, DType.uint8](config)
-    elif config.model_path.suffix() == ".gguf":
-        run[GGUFFile, DType.float32](config)
+
+    if config.model_path.suffix() == ".gguf":
+        if config.quantization_encoding:
+            run[GGUFFile, DType.uint8](config)
+        else:
+            run[GGUFFile, DType.float32](config)
     elif config.model_path.suffix() == ".bin":
-        run[LlamaCFile](config)
+        run[LlamaCFile, DType.float32](config)
     else:
         raise "invalid model path"
