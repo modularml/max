@@ -1,0 +1,28 @@
+from pipelines.weights.gguf import GGUFFile
+from pathlib import Path
+from python import Python
+from sys import argv
+
+
+def main():
+    var folder = Path(".cache")
+    var args = argv()
+    if len(args) > 1:
+        folder = args[1]
+
+    print("Searching for GGUF models in:", folder)
+    print("(Change directory by passing in an argument)\n")
+    var ggufs = List[Path]()
+    for p in Path.listdir(folder):
+        var p_str = String(p[])
+        if p_str.endswith("gguf"):
+            ggufs.append(p[])
+            print(len(ggufs), ": ", p_str, sep="")
+
+    var py = Python.import_module("builtins")
+    var inp = py.input("\nSelect GGUF to inspect: ")
+
+    var inp_res = String(inp).__int__()
+    var file = folder.joinpath(ggufs[inp_res - 1])
+    print("inspecting:", file, end="\n\n")
+    print(GGUFFile(file))

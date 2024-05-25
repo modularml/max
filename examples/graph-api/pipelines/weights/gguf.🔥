@@ -100,6 +100,45 @@ struct GGMLType:
         """
         return self._value == other._value
 
+    fn __str__(self) -> String:
+        if self._value == self.GGML_TYPE_F16:
+            return "F16"
+        if self._value == self.GGML_TYPE_F32:
+            return "F32"
+        if self._value == self.GGML_TYPE_COUNT:
+            return "COUNT"
+        if self._value == self.GGML_TYPE_I16:
+            return "I16"
+        if self._value == self.GGML_TYPE_I32:
+            return "I32"
+        if self._value == self.GGML_TYPE_I8:
+            return "I8"
+        if self._value == self.GGML_TYPE_Q2_K:
+            return "Q2_K"
+        if self._value == self.GGML_TYPE_Q3_K:
+            return "Q3_K"
+        if self._value == self.GGML_TYPE_Q4_0:
+            return "Q4_0"
+        if self._value == self.GGML_TYPE_Q4_1:
+            return "Q4_1"
+        if self._value == self.GGML_TYPE_Q4_K:
+            return "Q4_K"
+        if self._value == self.GGML_TYPE_Q5_0:
+            return "Q5_0"
+        if self._value == self.GGML_TYPE_Q5_1:
+            return "Q5_1"
+        if self._value == self.GGML_TYPE_Q5_K:
+            return "Q5_K"
+        if self._value == self.GGML_TYPE_Q6_K:
+            return "Q6_K"
+        if self._value == self.GGML_TYPE_Q8_0:
+            return "Q8_0"
+        if self._value == self.GGML_TYPE_Q8_1:
+            return "Q8_1"
+        if self._value == self.GGML_TYPE_Q8_K:
+            return "Q8_K"
+        return "<unknown>"
+
     @always_inline
     fn dtype(self) raises -> DType:
         # Return uint8 for quantized types.
@@ -189,6 +228,35 @@ struct GGUFString(Stringable):
 
 @value
 @register_passable("trivial")
+struct GGUFArray:
+    # The length of the array
+    var n: UInt64
+
+    var data: Pointer[GGUFValue]
+
+    # Max amount of items to print for an array
+    alias max_print_size = 5
+
+    fn __init__(inout self, size: Int):
+        self.n = size
+        self.data = Pointer[GGUFValue].alloc(size)
+
+    @always_inline
+    fn destroy(owned self):
+        self.data.free()
+
+    @always_inline
+    fn __str__(self) -> String:
+        var res = String("[ ")
+        for i in range(self.n.min(self.max_print_size)):
+            res += self.data[i]
+            res += " "
+        res += "]"
+        return res
+
+
+@value
+@register_passable("trivial")
 struct GGUFType:
     """Enum-like struct matching `gguf_type`, a metadata value type."""
 
@@ -265,8 +333,7 @@ struct GGUFValue:
         Float64,
         Bool,
         GGUFString,
-        DTypePointer[DType.int8],
-        DTypePointer[DType.uint8],
+        GGUFArray,
     ]
     var _value: Self._type
 
@@ -283,8 +350,33 @@ struct GGUFValue:
     fn destroy(owned self):
         if self._value.isa[GGUFString]():
             self._value.unsafe_get[GGUFString]()[].destroy()
-        elif self._value.isa[DTypePointer[DType.int8]]():
-            self._value.unsafe_get[DTypePointer[DType.int8]]()[].free()
+        elif self._value.isa[GGUFArray]():
+            self._value.unsafe_get[GGUFArray]()[].destroy()
+
+    fn __str__(self) -> String:
+        if self._value.isa[Int8]():
+            return self._value.unsafe_get[Int8]()[]
+        if self._value.isa[UInt8]():
+            return self._value.unsafe_get[UInt8]()[]
+        if self._value.isa[UInt16]():
+            return self._value.unsafe_get[UInt16]()[]
+        if self._value.isa[Int16]():
+            return self._value.unsafe_get[Int16]()[]
+        if self._value.isa[UInt32]():
+            return self._value.unsafe_get[UInt32]()[]
+        if self._value.isa[Int32]():
+            return self._value.unsafe_get[Int32]()[]
+        if self._value.isa[Int64]():
+            return self._value.unsafe_get[Int64]()[]
+        if self._value.isa[Float32]():
+            return self._value.unsafe_get[Float32]()[]
+        if self._value.isa[Bool]():
+            return self._value.unsafe_get[Bool]()[]
+        if self._value.isa[GGUFString]():
+            return self._value.unsafe_get[GGUFString]()[]
+        if self._value.isa[GGUFArray]():
+            return self._value.unsafe_get[GGUFArray]()[]
+        return "<unknown>"
 
 
 @value
@@ -302,6 +394,9 @@ struct GGUFKV:
     fn destroy(owned self):
         self.key.destroy()
         self.value.destroy()
+
+    fn __str__(self) -> String:
+        return String(self.key) + ": " + self.value
 
 
 @value
@@ -373,6 +468,35 @@ struct GGUFTensorInfo:
     # For writing API.
     var data: DTypePointer[DType.invalid]
     var size: Int
+
+    # Padding for aligning columns when printing tensor info
+    alias name_padding = 32
+    alias type_padding = 8
+
+    fn __str__(self) -> String:
+        # Create padding for to line up tensor name, type, and dims
+        var res = String(self.name)
+        var sep = self.name_padding - len(res)
+        if sep < 1:
+            sep = 1
+        var spaces = String()
+        for _ in range(sep):
+            spaces += " "
+
+        var type_str = String(self.type)
+        var type_sep = self.type_padding - len(type_str)
+        if type_sep < 1:
+            type_sep = 1
+        var type_spaces = String()
+        for _ in range(type_sep):
+            type_spaces += " "
+
+        res += spaces + self.type + type_spaces + "[ "
+        for i in range(self.n_dims):
+            res += self.ne[i]
+            res += " "
+        res += "]"
+        return res
 
     @always_inline
     fn destroy(owned self):
@@ -500,24 +624,22 @@ struct GGUFReader:
         if kv_type is GGUFType.GGUF_TYPE_ARRAY:
             var array_type = GGUFType(self.dtype_element[DType.int32]())
             if array_type is GGUFType.GGUF_TYPE_ARRAY:
-                raise "don't support array of arrays"
-
-            var array_n = int(self.dtype_element[DType.uint64]())
-            if array_type is GGUFType.GGUF_TYPE_STRING:
-                var ptr = Pointer[GGUFString].alloc(array_n)
-                for i in range(array_n):
-                    ptr[i] = self.gguf_string()
-
-                return GGUFKV(
-                    key,
-                    GGUFValue(DTypePointer[DType.int8](ptr.bitcast[Int8]())),
+                raise (
+                    "Array of arrays not supported yet. Please raise an issue"
                 )
 
-            # Read array of dtypes.
-            var array_data: Tensor[DType.uint8] = self.read_bytes(
-                array_n * array_type.dispatch[Int, _sizeof]()
-            )
-            return GGUFKV(key, GGUFValue(array_data._steal_ptr()))
+            var array_n = int(self.dtype_element[DType.uint64]())
+            var array = GGUFArray(array_n)
+            if array_type is GGUFType.GGUF_TYPE_STRING:
+                for i in range(array_n):
+                    array.data[i] = self.gguf_string()
+
+                return GGUFKV(key, GGUFValue(array))
+
+            for i in range(array_n):
+                array.data[i] = array_type.dispatch[GGUFValue, _gguf_value]()
+
+            return GGUFKV(key, GGUFValue(array))
 
         # Dispatch on dtype.
         return GGUFKV(key, kv_type.dispatch[GGUFValue, _gguf_value]())
@@ -657,6 +779,16 @@ struct GGUFFile(LoadableModel):
         for i in range(self.n_tensors()):
             self.infos[i].destroy()
         self.infos.free()
+
+    fn __str__(self) -> String:
+        var res = String(self.header) + "\n"
+        for i in range(self.header.n_kv):
+            res += self.kv[i]
+            res += "\n"
+        for i in range(self.header.n_tensors):
+            res += self.infos[i]
+            res += "\n"
+        return res
 
     fn get[
         type: DType
