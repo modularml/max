@@ -17,6 +17,7 @@ from pathlib import cwd, Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
+from max.graph import Graph
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
@@ -25,7 +26,7 @@ from .tokenizer.bpe import BPETokenizer
 from ..weights.download import download_weights_to_cache
 from ..weights.gguf import GGUFFile
 from ..weights.llama2checkpoint import LlamaCFile
-from ..weights.loadable_model import LoadableModel
+from ..weights.loadable_model import LlamaHParams, LoadableModel
 
 
 @value
@@ -109,13 +110,10 @@ struct Config:
 
 
 def execute(
-    model: Model,
-    session: InferenceSession,
-    tokens: Tensor[DType.int64],
-    inout kv_cache: KVCache,
+    model: Model, tokens: Tensor[DType.int64], inout kv_cache: KVCache
 ) -> Tensor[DType.int64]:
     """Execute the model predicting one new token."""
-    input_map = session.new_tensor_map()
+    input_map = model._session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", kv_cache.keys_view())
     input_map.borrow("input2", kv_cache.values_view())
@@ -127,30 +125,27 @@ def execute(
     return results.get[DType.int64]("output0")
 
 
-def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
+def compile_graph(
+    graph: Graph, custom_ops_paths: List[Path] = List[Path]()
+) -> Model:
+    """Compiles a staged graph using the graph compiler."""
+    session = InferenceSession()
+
+    print("Compiling...")
+    return session.load(graph, custom_ops_paths=custom_ops_paths)
+
+
+def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
+    """Generates text by applying the compiled model to the provided prompt."""
     print("Initializing tokenizer...")
     tokenizer = BPETokenizer.from_file(config.tokenizer_path)
 
     initial_prompt = config.prompt
     prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
 
-    print("Building model...")
-    model = Llama2[ModelT, WeightsT](
-        config.model_path,
-        enable_custom_rope_kernel=config.enable_custom_rope_kernel,
-        quantization_encoding=config.quantization_encoding,
-    )
-    params = model.model.hyperparams()
-    graph = model.build_graph("llama_model")
-    session = InferenceSession()
-
-    print("Compiling...")
-    compiled_model = session.load(
-        graph, custom_ops_paths=config.custom_ops_paths
-    )
-
     print("Executing...")
     max_tokens = 256
+
     print(initial_prompt, end="")
 
     kv_cache = KVCache(params, max_tokens, config.batch_size)
@@ -164,10 +159,25 @@ def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, max_tokens + 1):
-        tokens = execute(compiled_model, session, tokens, kv_cache)
+        tokens = execute(compiled_model, tokens, kv_cache)
         print(tokenizer.vocab[int(tokens[0, 0])].token, end="")
 
     print()
+
+
+def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
+    print("Building model...")
+    model = Llama2[ModelT, WeightsT](
+        config.model_path,
+        enable_custom_rope_kernel=config.enable_custom_rope_kernel,
+        quantization_encoding=config.quantization_encoding,
+    )
+    params = model.model.hyperparams()
+    graph = model.build_graph("llama_model")
+
+    compiled_model = compile_graph(graph, config.custom_ops_paths)
+
+    generate_text(compiled_model, params, config)
 
 
 def llama2_run():
@@ -192,7 +202,6 @@ def llama2_run():
             "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
             "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
         )
-
     elif config.quantization_encoding:
         encoding = config.quantization_encoding.value()
         if encoding[].lower() == "q4_0":

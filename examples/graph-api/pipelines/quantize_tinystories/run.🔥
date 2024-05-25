@@ -15,7 +15,7 @@
 from pathlib import cwd, Path
 
 from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
-from max.graph.checkpoint import load, save, TensorDict
+from max.graph.checkpoint import save, TensorDict
 from max.graph.quantization import Q4_0Encoding
 
 from ..llama2.model.attention import Attention
@@ -25,6 +25,7 @@ from ..llama2.model.transformer import (
     Transformer,
     TransformerBlock,
 )
+from ..llama2.run import compile_graph, generate_text, Config
 from ..weights.download import download_weights_to_cache
 from ..weights.llama2checkpoint import LlamaCFile
 from ..weights.loadable_model import LlamaHParams
@@ -84,9 +85,9 @@ struct TeenyTinyLlama:
 
             1. Quantizes the float32 parameter using the Q4_0 quantization
                encoding.
-            2. Saves the resulting quantizes parameter to this builder's
+            2. Saves the resulting quantized parameter to this builder's
                parameter dictionary `self.quantized_params`.
-               This is meant for writing out the checkpoint later on.
+               This is used to write out the checkpoint after graph building.
             3. Stages the quantized parameter as a constant op in the graph.
             """
             # 1. Quantize the parameter.
@@ -204,10 +205,17 @@ def quantize_tinystories_run():
 
     # Stage the Llama model graph.
     llama_builder = TeenyTinyLlama(cache_path.joinpath("stories15M.bin"))
-    _ = llama_builder.build()
+    llama = llama_builder.build()
 
     # Save the weights as a MAX graph checkpoint.
     save(
         llama_builder.quantized_params,
         cache_path.joinpath("stories15M_quantized.maxckpt"),
+    )
+
+    # Generate text using the quantized Llama model and the provided prompt.
+    generate_text(
+        compile_graph(llama),
+        llama_builder.hyperparams,
+        Config(tokenizer_path=cache_path.joinpath("tokenizer.bin")),
     )
