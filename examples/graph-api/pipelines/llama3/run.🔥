@@ -99,6 +99,7 @@ struct Config:
                 self.prompt = read_value(i + 1)
                 i += 2
             elif args[i] == "--quantization-encoding":
+                self.model_name = ""
                 self.quantization_encoding = String(read_value(i + 1))
                 i += 2
             else:
@@ -189,16 +190,21 @@ def run():
             "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
             "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
         )
-
-    if config.quantization_encoding:
-        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-        config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
-        download_weights_to_cache(
-            cache_path,
-            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-            "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
-        )
-
+    elif config.quantization_encoding:
+        encoding = config.quantization_encoding.value()
+        if encoding[].lower() == "q4_0":
+            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+            config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
+            download_weights_to_cache(
+                cache_path,
+                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+                "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
+            )
+        else:
+            error = String('Encoding "')
+            error += encoding[]
+            error += '" not yet supported.'
+            raise Error(error)
         # Quantization encodings are represented with uint8 dtype.
         run[GGUFFile, DType.uint8](config)
     elif config.model_path.suffix() == ".gguf":
