@@ -67,11 +67,7 @@ struct Ball[T: CollectionElement]:
         var id = len(self._arena)
         var node = Node[T](value^, self._tail, None)
         if self._tail:
-            var tail = self._ref(self._tail.value()[])[]
-            tail.next = id
-            self._arena[self._tail.value()[]] = tail
-            # TODO: scary scary
-            # self._ref(self._tail.value())[].next = id
+            self._get_node(self._tail.value()[]).next = id
         else:
             self._head = id
         self._tail = id
@@ -83,9 +79,9 @@ struct Ball[T: CollectionElement]:
         var node = self._arena[id]._value_copy()
         self._arena[id] = None
         if node.prev:
-            self._ref(node.prev.value()[])[].next = node.next
+            self._get_node(node.prev.value()[]).next = node.next
         if node.next:
-            self._ref(node.next.value()[])[].prev = node.prev
+            self._get_node(node.next.value()[]).prev = node.prev
         if self._head.value()[] == id:
             self._head = node.next
         if self._tail.value()[] == id:
@@ -93,39 +89,25 @@ struct Ball[T: CollectionElement]:
 
     fn next(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the next item in the list, if any."""
-        return self._ref(id)[].next
+        return self._get_node(id).next
 
     fn prev(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the previous item in the list, if any."""
-        return self._ref(id)[].prev
+        return self._get_node(id).prev
 
-    fn _ref[
+    fn _get_node[
         mutability: Bool,
         lifetime: AnyLifetime[mutability].type,
-    ](
-        self: Reference[Self, mutability, lifetime]._mlir_type, id: Self.ID
-    ) -> Reference[Node[T], mutability, lifetime]:
-        var node_ref = Reference(self)[]._arena.__get_ref(id)
-        # FIXME: Use UnsafePointer and Reference methods, this shouldn't be
-        # touching such low-level functionality.
-        return Reference(
-            __mlir_op.`lit.ref.from_pointer`[
-                _type = Reference[Node[T], mutability, lifetime]._mlir_type
-            ](UnsafePointer(node_ref).bitcast[Node[T]]().address)
-        )
+    ](self: Reference[Self, mutability, lifetime], id: Self.ID) -> ref [
+        lifetime
+    ] Node[T]:
+        return self[]._arena.__get_ref(id)[].value()[]
 
-    fn __refitem__[
+    fn __getitem__[
         mutability: Bool,
         lifetime: AnyLifetime[mutability].type,
-    ](
-        self: Reference[Self, mutability, lifetime]._mlir_type, id: Self.ID
-    ) -> Reference[T, mutability, lifetime]:
+    ](self: Reference[Self, mutability, lifetime], id: Self.ID) -> ref [
+        lifetime
+    ] T:
         """Gets a reference to a value in the list."""
-        var node_ref = Reference(self)[]._arena.__get_ref(id)
-        # FIXME: Use UnsafePointer and Reference methods, this shouldn't be
-        # touching such low-level functionality.
-        return Reference(
-            __mlir_op.`lit.ref.from_pointer`[
-                _type = Reference[T, mutability, lifetime]._mlir_type
-            ](UnsafePointer(node_ref).bitcast[T]().address)
-        )
+        return self[]._get_node(id).value
