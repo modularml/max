@@ -110,10 +110,10 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         """Gets a reference to a value in the list."""
         return self[]._arena.__get_ref(id)
 
-    def __refitem__(
+    def __getitem__(
         self: Reference[Self, _, _], id: Self.ID
-    ) -> Reference[ElementType, self.is_mutable, self.lifetime]:
+    ) -> ref [self.lifetime] ElementType:
         """Gets a reference to a value in the list."""
         node_ref = self[].node(id)
         debug_assert(node_ref[], "retrieved removed value")
-        return Reference(node_ref[].value()[].value)
+        return Reference(node_ref[].value()[].value)[]
