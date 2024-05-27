@@ -38,7 +38,17 @@ The text completion demo is compatible with the the official Llama 2
    [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
-2. Run the text completion demo:
+2. (Optional) Install Python dependencies.
+
+   This enables using the HuggingFace
+   [transformers](https://github.com/huggingface/transformers) AutoTokenizer.
+   If `transformers` isn't found, a Mojo tokenizer implementation is used.
+
+   ```shell
+   pip install -r ./requirements.txt
+   ```
+
+3. Run the text completion demo:
 
    On first execution, the tokenizer library and model weights will be
    downloaded and placed in a local `.cache/` directory in your current path.
@@ -53,7 +63,7 @@ The text completion demo is compatible with the the official Llama 2
    mojo ../../run_pipeline.🔥 llama2 --prompt "I believe the meaning of life is"
    ```
 
-3. (Optional) Run with the custom RoPE kernel:
+4. (Optional) Run with the custom RoPE kernel:
 
    A custom RoPE kernel has been defined in the `kernels/` directory to
    demonstrate the extensibility of the MAX graph compiler. To use that within
@@ -68,7 +78,7 @@ The text completion demo is compatible with the the official Llama 2
     --enable-custom-rope-kernel
    ```
 
-4. (Optional) Run Llama 2 with GGUF weights in `q4_0` quantized encoding:
+5. (Optional) Run Llama 2 with GGUF weights in `q4_0` quantized encoding:
 
    ```shell
    mojo ../../run_pipeline.🔥 llama2 \

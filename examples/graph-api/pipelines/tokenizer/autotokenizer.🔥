@@ -12,11 +12,11 @@
 # ===----------------------------------------------------------------------=== #
 """A tokenizer that leverages the Hugging Face transformers library."""
 
+from math import ceildiv
 from python import Python
 from random import randint
-from math import ceildiv
-
 from tensor import Tensor, TensorShape
+from utils import Index
 
 from . import Tokenizer
 
@@ -33,6 +33,7 @@ struct AutoTokenizer(Tokenizer):
     var _numpy_module: PythonObject
     var _tokenizer_handle: PythonObject
     var _py_builtins_handle: PythonObject
+    var _prev_token: Optional[Int64]
 
     def __init__(inout self, hf_tokenizer_name: String):
         self._transformers_module = Python.import_module("transformers")
@@ -43,12 +44,23 @@ struct AutoTokenizer(Tokenizer):
             )
         )
         self._py_builtins_handle = Python.import_module("builtins")
+        self._prev_token = None
+
+    @staticmethod
+    def is_available() -> Bool:
+        """Returns True if AutoTokenizer is available and False otherwise."""
+        try:
+            Python.import_module("transformers")
+        except:
+            return False
+        else:
+            return True
 
     @always_inline
     @staticmethod
-    fn _numpy_data_pointer[
+    def _numpy_data_pointer[
         type: DType
-    ](numpy_array: PythonObject) raises -> DTypePointer[type]:
+    ](numpy_array: PythonObject) -> DTypePointer[type]:
         return DTypePointer[type](
             __mlir_op.`pop.index_to_pointer`[
                 _type = __mlir_type[`!kgen.pointer<scalar<`, type.value, `>>`]
@@ -61,52 +73,48 @@ struct AutoTokenizer(Tokenizer):
 
     @always_inline
     @staticmethod
-    fn _memcpy_to_numpy(array: PythonObject, tensor: Tensor) raises:
-        var dst = AutoTokenizer._numpy_data_pointer[tensor.type](array)
-        var src = tensor._ptr
-        var length = tensor.num_elements()
-        memcpy(dst, src, length)
+    def _memcpy_to_numpy(array: PythonObject, tokens: List[Int64]):
+        dst = AutoTokenizer._numpy_data_pointer[DType.int64](array)
+        memcpy(dst, tokens.unsafe_ptr(), len(tokens))
 
     @always_inline
     @staticmethod
-    fn _memcpy_from_numpy(array: PythonObject, tensor: Tensor) raises:
-        var src = AutoTokenizer._numpy_data_pointer[tensor.type](array)
-        var dst = tensor._ptr
-        var length = tensor.num_elements()
+    def _memcpy_from_numpy(array: PythonObject, tensor: Tensor):
+        src = AutoTokenizer._numpy_data_pointer[tensor.type](array)
+        dst = tensor._ptr
+        length = tensor.num_elements()
         memcpy(dst, src, length)
 
     @staticmethod
     @always_inline
-    fn _numpy_to_tensor[
-        type: DType
-    ](array: PythonObject) raises -> Tensor[type]:
-        var shape = List[Int]()
-        var array_shape = array.shape
+    def _numpy_to_tensor[type: DType](array: PythonObject) -> Tensor[type]:
+        shape = List[Int]()
+        array_shape = array.shape
         for dim in array_shape:
             shape.append(dim.__index__())
-        var out = Tensor[type](shape)
+        out = Tensor[type](shape)
         AutoTokenizer._memcpy_from_numpy(array, out)
         return out^
 
     @always_inline
-    fn _list_of_string_to_py_list(
+    def _list_of_string_to_py_list(
         self, string_list: List[String]
-    ) raises -> PythonObject:
-        var input_string_py = self._py_builtins_handle.list()
+    ) -> PythonObject:
+        input_string_py = self._py_builtins_handle.list()
         for i in range(len(string_list)):
             input_string_py.append(string_list[i])
 
         return input_string_py
 
     @always_inline
-    fn _shape_to_python_list(self, shape: TensorShape) raises -> PythonObject:
-        var python_list = self._py_builtins_handle.list()
+    def _shape_to_python_list(self, shape: TensorShape) -> PythonObject:
+        python_list = self._py_builtins_handle.list()
         for i in range(shape.rank()):
             python_list.append(shape[i])
         return python_list^
 
     @always_inline
-    fn _get_np_dtype[type: DType](self) raises -> PythonObject:
+    def _get_np_dtype[type: DType](self) -> PythonObject:
         @parameter
         if type.is_float32():
             return self._numpy_module.float32
@@ -120,32 +128,75 @@ struct AutoTokenizer(Tokenizer):
         raise Error("Unknown datatype")
 
     @always_inline
-    fn _tensor_to_numpy[
-        type: DType
-    ](self, tensor: Tensor[type]) raises -> PythonObject:
-        var shape = self._shape_to_python_list(tensor.shape())
-        var tensor_as_numpy = self._numpy_module.zeros(
-            shape, self._get_np_dtype[type]()
+    def _tokens_to_numpy(self, tokens: List[Int64]) -> PythonObject:
+        shape = self._shape_to_python_list(len(tokens))
+        tokens_as_numpy = self._numpy_module.zeros(
+            shape, self._get_np_dtype[DType.int64]()
         )
-        _ = shape^
-        self._memcpy_to_numpy(tensor_as_numpy, tensor)
-        return tensor_as_numpy^
+        self._memcpy_to_numpy(tokens_as_numpy, tokens)
+        return tokens_as_numpy
 
-    fn is_end_of_text(self, val: Int64) raises -> Bool:
+    def is_end_of_text(self, val: Int64) -> Bool:
         return val == int(self._tokenizer_handle.eos_token_id)
 
-    fn encode(self, input_string: List[String]) raises -> Tensor[DType.int64]:
-        var input_string_py = self._list_of_string_to_py_list(input_string)
-        var tokenized_py = self._tokenizer_handle(input_string_py)
-        var token_ids = AutoTokenizer._numpy_to_tensor[DType.int64](
+    def encode(
+        self,
+        input_string: List[String],
+        bos: Optional[String] = None,
+        eos: Optional[String] = None,
+    ) -> List[Int64]:
+        input_string_py = self._list_of_string_to_py_list(input_string)
+        tokenized_py = self._tokenizer_handle(input_string_py)
+        token_ids = AutoTokenizer._numpy_to_tensor[DType.int64](
             self._numpy_module.array(tokenized_py["input_ids"])
         )
-        return token_ids^
+        result = List[Int64]()
+        for i in range(token_ids.num_elements()):
+            result.append(token_ids._to_buffer()[i])
+        _ = token_ids^
 
-    fn decode(self, output_tokens: Tensor[DType.int64]) raises -> List[String]:
-        var input_np = self._tensor_to_numpy(output_tokens)
-        var result_py = self._tokenizer_handle.batch_decode(input_np)
-        var str_list = List[String]()
-        for i in range(len(result_py)):
-            str_list.append(result_py[i])
-        return str_list
+        return result
+
+    def decode(inout self, output_tokens: List[Int64]) -> String:
+        """Decodes tokens using the autotokenizer and accounts for spaces."""
+        if not output_tokens:
+            return ""
+
+        # Keep track of the previous token.
+        # This is needed because common tokenizers such as the Llama 2
+        # sentencepiece tokenizer have different output depending on
+        # neighbouring text.
+        prev_token = self._prev_token
+        self._prev_token = output_tokens[-1]
+
+        decoded = self._tokenizer_handle.decode(
+            self._tokens_to_numpy(output_tokens)
+        )
+        if not prev_token:
+            return decoded
+
+        # Attempt to produce correct output in a streaming setting.
+        # The sentencepiece BPE tokenizer removes prefix space by default, so
+        # keep the previous token around to correctly decode spaces.
+        # Otherwise, when streaming one token at a time, no spaces are decoded.
+        #
+        # Note that even this approach still breaks when there are multiple
+        # spaces in a row, for which we need a more general prefix length.
+        #
+        # See for example:
+        # https://github.com/huggingface/transformers/issues/22710).
+        prefixed_tokens = List[Int64]()
+        prefixed_tokens.append(prev_token.value()[])
+        for token in output_tokens:
+            prefixed_tokens.append(token[])
+
+        prefix_decoded = String(
+            self._tokenizer_handle.decode(
+                self._tokens_to_numpy(prefixed_tokens)
+            )
+        )
+        if len(prefix_decoded) == len(decoded):
+            # Also handle the case where the previous token is itself a space.
+            return decoded
+
+        return prefix_decoded[1:]
