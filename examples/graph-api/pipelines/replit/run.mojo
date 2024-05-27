@@ -19,7 +19,7 @@ from tensor import Tensor, TensorShape
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
-from .autotokenizer import AutoTokenizer
+from ..tokenizer import AutoTokenizer
 
 alias MAX_SEQ_LEN = 512
 
