@@ -18,16 +18,7 @@ from math import ceildiv
 
 from tensor import Tensor, TensorShape
 
-
-trait Tokenizer:
-    fn is_end_of_text(self, val: Int64) raises -> Bool:
-        ...
-
-    fn encode(self, input_string: List[String]) raises -> Tensor[DType.int64]:
-        ...
-
-    fn decode(self, output_tokens: Tensor[DType.int64]) raises -> List[String]:
-        ...
+from . import Tokenizer
 
 
 struct AutoTokenizer(Tokenizer):

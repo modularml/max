@@ -1,0 +1,26 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""Module containing a trait for generic tokenizers."""
+
+from tensor import Tensor
+
+
+trait Tokenizer:
+    fn is_end_of_text(self, val: Int64) raises -> Bool:
+        ...
+
+    fn encode(self, input_string: List[String]) raises -> Tensor[DType.int64]:
+        ...
+
+    fn decode(self, output_tokens: Tensor[DType.int64]) raises -> List[String]:
+        ...
