@@ -97,8 +97,8 @@ def replit_run():
     var bpe_tokenizer = AutoTokenizer(hf_model_name)
     prompt = List[String]()
     prompt.append(input_string)
-    tokens = bpe_tokenizer.encode(prompt)
-    prompt_length = tokens.shape()[1]
+    encoded_prompt = bpe_tokenizer.encode(prompt)
+    tokens = Tensor(TensorShape(1, len(encoded_prompt)), encoded_prompt)
 
     var k_cache: Tensor[DType.float32]
     var v_cache: Tensor[DType.float32]
@@ -107,7 +107,7 @@ def replit_run():
     # Greedily generate tokens one at a time until the end token is reached or
     # the token length has reached the max.
     print("Output:")
-    for n in range(prompt_length, MAX_SEQ_LEN + 1):
+    for n in range(len(encoded_prompt), MAX_SEQ_LEN + 1):
         attention_mask = Tensor[DType.bool](TensorShape(1, n), True)
         results = execute(
             compiled_model, session, tokens, attention_mask, k_cache, v_cache
@@ -121,9 +121,8 @@ def replit_run():
         next_token = argmax[0, argmax_length - 1]
         if bpe_tokenizer.is_end_of_text(next_token):
             break
-        next_token_tensor = Tensor[DType.int64](TensorShape(1, 1), next_token)
-        tokens = next_token_tensor
-        tokens_str = bpe_tokenizer.decode(next_token_tensor)
+        tokens = Tensor[DType.int64](TensorShape(1, 1), next_token)
+        tokens_str = bpe_tokenizer.decode(next_token)
         print(tokens_str[0], end="")
     print()
 

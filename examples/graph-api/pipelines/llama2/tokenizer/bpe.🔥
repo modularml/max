@@ -15,8 +15,7 @@
 from collections import Dict, List, Optional
 from pathlib import Path
 
-from tensor import Tensor
-
+from ...tokenizer import Tokenizer
 from .arena_linked_list import ArenaLinkedList
 from .max_heap import MaxHeap, OrderedElement
 
@@ -27,14 +26,6 @@ struct Token(CollectionElement):
 
     var token: String
     var score: Float32
-
-
-@value
-struct TokenWithID(CollectionElement):
-    """A string token, along with its ID in the vocabulary (or 0 for unk)."""
-
-    var token: String
-    var id: Int
 
 
 @value
@@ -60,7 +51,7 @@ def read[T: CollectionElement](inout span: Span[UInt8, _, _]) -> T:
 
 
 @value
-struct BPETokenizer:
+struct BPETokenizer(Tokenizer):
     """A Byte Pair Encoding string tokenizer.
 
     [Byte pair encoding](https://en.wikipedia.org/wiki/Byte_pair_encoding)
@@ -123,12 +114,19 @@ struct BPETokenizer:
             self.token_ids[token] = len(self.vocab)
         self.vocab.append(Token(token, score))
 
+    def decode(inout self, output_tokens: List[Int64]) -> String:
+        """Decodes a string by indexing the vocabulary."""
+        decoded = String()
+        for token_id in output_tokens:
+            decoded += self.vocab[int(token_id[])].token
+        return decoded
+
     def encode(
         self,
-        str: String,
+        input_string: List[String],
         bos: Optional[String] = None,
         eos: Optional[String] = None,
-    ) -> List[TokenWithID]:
+    ) -> List[Int64]:
         """Encode a string according to the BPE algorithm.
 
         The BPE vocabulary is a set of scored strings. BPE starts by
@@ -144,11 +142,13 @@ struct BPETokenizer:
         they're expecting. Linked list elements only stop existing or grow
         in length, so we can always safely recognize an outdated merge.
         """
-        output = List[TokenWithID]()
+        if len(input_string) != 1:
+            raise "batched encoding not yet supported. Please file an issue"
+        str = input_string[0]
+
+        output = List[Int64]()
         if bos and bos.value()[] in self.token_ids:
-            output.append(
-                TokenWithID(bos.value()[], self.token_ids[bos.value()[]])
-            )
+            output.append(self.token_ids[bos.value()[]])
 
         merge_options = MaxHeap[MergeOption]()
         tokens = ArenaLinkedList[String]()
@@ -192,15 +192,16 @@ struct BPETokenizer:
         while node_id:
             id = node_id.value()[]
             token = tokens[id]
-            output.append(TokenWithID(token, self._encode_token(token)))
+            output.append(self._encode_token(token))
             node_id = tokens.next(id)
 
         if eos and eos.value()[] in self.token_ids:
-            output.append(
-                TokenWithID(eos.value()[], self.token_ids[eos.value()[]])
-            )
+            output.append(self.token_ids[eos.value()[]])
 
         return output
 
     def _encode_token(self, token: String) -> Int:
         return self.token_ids.find(token).or_else(0)
+
+    def is_end_of_text(self, val: Int64) -> Bool:
+        return False

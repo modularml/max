@@ -23,6 +23,7 @@ from tensor import Tensor, TensorShape, TensorSpec
 from .kv_cache import KVCache
 from .model.llama import Llama2
 from .tokenizer.bpe import BPETokenizer
+from ..tokenizer import AutoTokenizer, Tokenizer
 from ..weights.download import download_weights_to_cache
 from ..weights.gguf import GGUFFile
 from ..weights.llama2checkpoint import LlamaCFile
@@ -34,6 +35,7 @@ struct Config:
     """Configuration for token generation runtime options."""
 
     var batch_size: Int
+    var max_tokens: Int
     var model_name: String
     var model_path: Path
     var custom_ops_paths: List[Path]
@@ -46,6 +48,7 @@ struct Config:
         inout self,
         /,
         batch_size: Int = 1,
+        max_tokens: Int = 512,
         model_name: String = "stories15M",
         model_path: Path = "",
         custom_ops_paths: List[Path] = List[Path](),
@@ -55,6 +58,7 @@ struct Config:
         quantization_encoding: Optional[String] = Optional[String](),
     ):
         self.batch_size = batch_size
+        self.max_tokens = max_tokens
         self.model_name = model_name
         self.model_path = model_path
         self.custom_ops_paths = custom_ops_paths
@@ -81,6 +85,8 @@ struct Config:
         while i < len(args):
             if args[i] == "--batch-size":
                 self.batch_size = atol(parse_argument_value(i))
+            elif args[i] == "--max-tokens":
+                self.max_tokens = atol(parse_argument_value(i))
             elif args[i] == "--model-name":
                 self.model_name = parse_argument_value(i)
             elif args[i] == "--model-path":
@@ -135,34 +141,55 @@ def compile_graph(
     return session.load(graph, custom_ops_paths=custom_ops_paths)
 
 
-def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
-    """Generates text by applying the compiled model to the provided prompt."""
-    print("Initializing tokenizer...")
-    tokenizer = BPETokenizer.from_file(config.tokenizer_path)
+def _generate_text_with_tokenizer[
+    tokenizer_type: Tokenizer
+](
+    inout tokenizer: tokenizer_type,
+    compiled_model: Model,
+    params: LlamaHParams,
+    config: Config,
+):
+    prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
 
-    initial_prompt = config.prompt
-    prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
+    tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+    for i in range(len(prompt)):
+        tokens[Index(0, i)] = prompt[i]
 
     print("Executing...")
-    max_tokens = 256
+    print(config.prompt, end="")
 
-    print(initial_prompt, end="")
-
-    kv_cache = KVCache(params, max_tokens, config.batch_size)
-
-    tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
-    for i in range(prompt.size):
-        # TODO(#29073): This should be `tokens[0, i] = prompt[i]`.
-        tokens[Index(0, i)] = prompt[i].id
+    kv_cache = KVCache(params, config.max_tokens, config.batch_size)
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
-    for _ in range(prompt.size, max_tokens + 1):
+    for _ in range(prompt.size, config.max_tokens + 1):
         tokens = execute(compiled_model, tokens, kv_cache)
-        print(tokenizer.vocab[int(tokens[0, 0])].token, end="")
-
+        print(tokenizer.decode(tokens[0, 0]), end="")
     print()
+
+
+def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
+    """Generates text by applying the compiled model to the provided prompt."""
+
+    if AutoTokenizer.is_available():
+        # Prefer the AutoTokenizer if it is available, for correctness.
+        auto_tokenizer = AutoTokenizer("meta-llama/Llama-2-7b-hf")
+        _generate_text_with_tokenizer[AutoTokenizer](
+            auto_tokenizer,
+            compiled_model,
+            params,
+            config,
+        )
+    else:
+        # Otherwise, fall back to the Mojo tokenizer.
+        mojo_tokenizer = BPETokenizer.from_file(config.tokenizer_path)
+        _generate_text_with_tokenizer[BPETokenizer](
+            mojo_tokenizer,
+            compiled_model,
+            params,
+            config,
+        )
 
 
 def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):

@@ -12,15 +12,18 @@
 # ===----------------------------------------------------------------------=== #
 """Module containing a trait for generic tokenizers."""
 
-from tensor import Tensor
-
 
 trait Tokenizer:
-    fn is_end_of_text(self, val: Int64) raises -> Bool:
+    def is_end_of_text(self, val: Int64) -> Bool:
         ...
 
-    fn encode(self, input_string: List[String]) raises -> Tensor[DType.int64]:
+    def encode(
+        self,
+        input_string: List[String],
+        bos: Optional[String] = None,
+        eos: Optional[String] = None,
+    ) -> List[Int64]:
         ...
 
-    fn decode(self, output_tokens: Tensor[DType.int64]) raises -> List[String]:
+    def decode(inout self, output_tokens: List[Int64]) -> String:
         ...
