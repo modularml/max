@@ -27,13 +27,13 @@ from ..weights.hyperparams import HyperParams
 def gen_slopes(g: Graph, n_heads: Int32, alibi_bias_max: Int32 = 8) -> Symbol:
     ceil = math.ceil(math.log2(n_heads.cast[DType.float32]()))
     two_simd = Float32(2)
-    _n_heads = math.pow(two_simd, ceil).cast[DType.int32]()
+    _n_heads = pow(two_simd, ceil).cast[DType.int32]()
     m = ops.cast(g.range[DType.int32](1, _n_heads + 1, 1), DType.float32)
     m = m * g.scalar(
         alibi_bias_max.cast[DType.float32]() / _n_heads.cast[DType.float32]()
     )
-    pow = ops.pow(g.scalar(Float32(2)), m)
-    slopes = ops.div(g.scalar(Float32(1)), pow)
+    pow_ = ops.pow(g.scalar(Float32(2)), m)
+    slopes = ops.div(g.scalar(Float32(1)), pow_)
     if _n_heads != n_heads:
         # TODO: Update to slopes[1::2] and slopes[::2] when slicing is fixed.
         slopes = ops.concat(
