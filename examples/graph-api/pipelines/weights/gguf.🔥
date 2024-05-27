@@ -53,9 +53,8 @@ from .loadable_model import LlamaHParams, LoadableModel
 
 
 @value
-@register_passable("trivial")
 struct GGMLTypeTrait:
-    var type_name: StringLiteral
+    var type_name: String
     var blck_size: Int
     var type_size: Int
     var is_quantized: Bool
