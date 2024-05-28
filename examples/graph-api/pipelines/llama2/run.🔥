@@ -172,17 +172,8 @@ def _generate_text_with_tokenizer[
 def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
     """Generates text by applying the compiled model to the provided prompt."""
 
-    if AutoTokenizer.is_available():
-        # Prefer the AutoTokenizer if it is available, for correctness.
-        auto_tokenizer = AutoTokenizer("meta-llama/Llama-2-7b-hf")
-        _generate_text_with_tokenizer[AutoTokenizer](
-            auto_tokenizer,
-            compiled_model,
-            params,
-            config,
-        )
-    else:
-        # Otherwise, fall back to the Mojo tokenizer.
+    @parameter
+    def generate_with_mojo_tokenizer():
         mojo_tokenizer = BPETokenizer.from_file(config.tokenizer_path)
         _generate_text_with_tokenizer[BPETokenizer](
             mojo_tokenizer,
@@ -190,6 +181,32 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
             params,
             config,
         )
+
+    if AutoTokenizer.is_available():
+        # Prefer the AutoTokenizer if it is available, for correctness.
+        try:
+            auto_tokenizer = AutoTokenizer("meta-llama/Llama-2-7b-hf")
+            _generate_text_with_tokenizer[AutoTokenizer](
+                auto_tokenizer,
+                compiled_model,
+                params,
+                config,
+            )
+        except:
+            print(
+                "Unable to initialize AutoTokenizer, using Mojo tokenizer"
+                " instead."
+            )
+            # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
+            # fails, for example due to lack of authentication.
+            generate_with_mojo_tokenizer()
+    else:
+        print(
+            "Hugging Face `transformers` not installed, using Mojo tokenizer"
+            " instead."
+        )
+        # Fall back to the Mojo tokenizer if `transformers` is not installed.
+        generate_with_mojo_tokenizer()
 
 
 def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
