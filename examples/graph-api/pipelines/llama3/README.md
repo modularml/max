@@ -1,11 +1,11 @@
-# Llama 2
+# Llama 3
 
 **Language:** Mojo 🔥
 
 **API**: MAX Graph
 
 This pipeline demonstrates text completion from an initial prompt using the
-Llama 2 large language model. The model itself has been constructed from
+Llama 3 large language model. The model itself has been constructed from
 end to end in [the Mojo language](https://docs.modular.com/mojo/) using the
 [MAX Graph API](https://docs.modular.com/engine/graph).
 
@@ -18,17 +18,19 @@ optimal inference performance via the MAX Engine.
 The flexibility provided by MAX Graphs even includes
 [the ability to define custom compute kernels](https://docs.modular.com/engine/extensibility/graph-custom-op).
 An example of such a custom operation is present in this pipeline as an
-optional RoPE kernel that can be loaded into the Llama 2 compute graph.
+optional RoPE kernel that can be loaded into the Llama 3 compute graph.
 
 ## Model
 
-[Llama 2](https://llama.meta.com/llama2/) is an open source large language
+[Llama 3](https://llama.meta.com/llama3/) is an open source large language
 model released by Meta. The structure of this implementation of the model was
 inspired by Andrej Karpathy's [llama.c](https://github.com/karpathy/llama2.c),
-and [originally written in Mojo by Aydyn Tairov](https://github.com/tairov/llama2.mojo).
+and [originally written in Mojo by Aydyn
+Tairov](https://github.com/tairov/llama2.mojo), which were originally written
+to run Llama 2.
 
-The text completion demo is compatible with the the official Llama 2
-[text completion demo](https://github.com/facebookresearch/llama/blob/ef351e9cd9496c579bf9f2bb036ef11bdc5ca3d2/example_text_completion.py).
+The text completion demo is compatible with the the official Llama 3
+[text completion demo](https://github.com/meta-llama/llama3/blob/14aab0428d3ec3a9596f1dea06d9c564f9c0e35f/example_text_completion.py).
 
 ## Usage
 
@@ -50,30 +52,29 @@ The text completion demo is compatible with the the official Llama 2
    at the path of this README, the command invocation will look like:
 
    ```shell
-   mojo ../../run_pipeline.🔥 llama2 --prompt "I believe the meaning of life is"
+   mojo ../../run_pipeline.🔥 llama3 --prompt "I believe the meaning of life is"
    ```
 
 3. (Optional) Run with the custom RoPE kernel:
 
    A custom RoPE kernel has been defined in the `kernels/` directory to
    demonstrate the extensibility of the MAX graph compiler. To use that within
-   this Llama 2 model, compile the Mojo package for the operation and set the
+   this Llama 3 model, compile the Mojo package for the operation and set the
    appropriate pipeline flags using the following:
 
    ```shell
    source setup-custom-rope.sh && \
-   mojo ../../run_pipeline.🔥 llama2 \
+   mojo ../../run_pipeline.🔥 llama3 \
     --prompt "I believe the meaning of life is" \
     --custom-ops-path "$CUSTOM_KERNELS/rope.mojopkg" \
     --enable-custom-rope-kernel
    ```
 
-4. (Optional) Run Llama 2 with GGUF weights in `q4_0` quantized encoding:
+4. (Optional) Run Llama 3 with GGUF weights in `q4_0` quantized encoding:
 
    ```shell
-   mojo ../../run_pipeline.🔥 llama2 \
+   mojo ../../run_pipeline.🔥 llama3 \
     --prompt "I believe the meaning of life is" \
-    --custom-ops-path $MODULAR_DERIVED_PATH/build/ModularFramework/examples/kernels/ggml_q4_0_matmul/ggml_q4_0_matmul.mojopkg \
     --quantization-encoding q4_0
    ```
 
@@ -83,11 +84,8 @@ The following command-line options are available to customize operation of the
 pipeline:
 
 - `--batch-size`: The batch size. (Default value: `1`)
-- `--model-name`: Options are `stories15M` and `stories110M`, and if not
-   overridden by setting the model path, will cause weights for one of these
-   pretrained models to be downloaded and used for the pipeline.
-- `--model-path`: Overrides the model name, and allows for an
-   already-downloaded pretrained weight file to be used with the model.
+- `--model-path`: Overrides the default URL, and allows for an
+  already-downloaded pretrained weight file to be used with the model.
 - `--custom-ops-path`: The path to a compiled Mojo package containing a custom
    graph operation to use within the pipeline.
 - `--tokenizer-path`: The path to the tokenizer library to be used by the
