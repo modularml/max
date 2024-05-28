@@ -72,7 +72,7 @@ struct Config:
             index += 2
             return result
 
-        # Skip the run_pipeline.mojo and llama2 arguments.
+        # Skip the run_pipeline.mojo and llama3 arguments.
         i = 2
         while i < len(args):
             if args[i] == "--batch-size":
