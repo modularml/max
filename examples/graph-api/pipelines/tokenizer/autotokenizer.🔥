@@ -33,7 +33,8 @@ struct AutoTokenizer(Tokenizer):
     var _numpy_module: PythonObject
     var _tokenizer_handle: PythonObject
     var _py_builtins_handle: PythonObject
-    var _prev_token: Optional[Int64]
+    var _prev_tokens: List[Int64]
+    var _prev_decoded: String
 
     def __init__(inout self, hf_tokenizer_name: String):
         self._transformers_module = Python.import_module("transformers")
@@ -44,7 +45,8 @@ struct AutoTokenizer(Tokenizer):
             )
         )
         self._py_builtins_handle = Python.import_module("builtins")
-        self._prev_token = None
+        self._prev_tokens = List[Int64]()
+        self._prev_decoded = ""
 
     @staticmethod
     def is_available() -> Bool:
@@ -159,44 +161,27 @@ struct AutoTokenizer(Tokenizer):
 
     def decode(inout self, output_tokens: List[Int64]) -> String:
         """Decodes tokens using the autotokenizer and accounts for spaces."""
-        if not output_tokens:
-            return ""
-
-        # Keep track of the previous token.
-        # This is needed because common tokenizers such as the Llama 2
-        # sentencepiece tokenizer have different output depending on
-        # neighbouring text.
-        prev_token = self._prev_token
-        self._prev_token = output_tokens[-1]
-
-        decoded = self._tokenizer_handle.decode(
-            self._tokens_to_numpy(output_tokens)
-        )
-        if not prev_token:
-            return decoded
 
         # Attempt to produce correct output in a streaming setting.
-        # The sentencepiece BPE tokenizer removes prefix space by default, so
-        # keep the previous token around to correctly decode spaces.
+        # Tokenizers decode differently depending on neighbouring tokens.
+        # In particular, the sentencepiece BPE tokenizer removes prefix space
+        # by default, so keep the previous decoded string and all previous
+        # tokens around to correctly decode spaces.
         # Otherwise, when streaming one token at a time, no spaces are decoded.
-        #
-        # Note that even this approach still breaks when there are multiple
-        # spaces in a row, for which we need a more general prefix length.
         #
         # See for example:
         # https://github.com/huggingface/transformers/issues/22710).
-        prefixed_tokens = List[Int64]()
-        prefixed_tokens.append(prev_token.value()[])
-        for token in output_tokens:
-            prefixed_tokens.append(token[])
 
-        prefix_decoded = String(
-            self._tokenizer_handle.decode(
-                self._tokens_to_numpy(prefixed_tokens)
-            )
+        # Decode the full sequence.
+        self._prev_tokens += output_tokens
+        decoded = self._tokenizer_handle.decode(
+            self._tokens_to_numpy(self._prev_tokens)
         )
-        if len(prefix_decoded) == len(decoded):
-            # Also handle the case where the previous token is itself a space.
-            return decoded
 
-        return prefix_decoded[1:]
+        # Return the newly generated text.
+        result = String(decoded)[len(self._prev_decoded) :]
+
+        # Cache the full sequence for subsequent iterations.
+        self._prev_decoded = decoded^
+
+        return result

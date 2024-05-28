@@ -156,7 +156,7 @@ def _generate_text_with_tokenizer[
         tokens[Index(0, i)] = prompt[i]
 
     print("Executing...")
-    print(config.prompt, end="")
+    print(tokenizer.decode(prompt), end="")
 
     kv_cache = KVCache(params, config.max_tokens, config.batch_size)
 
