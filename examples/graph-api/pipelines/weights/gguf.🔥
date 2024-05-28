@@ -231,14 +231,14 @@ struct GGUFArray:
     # The length of the array
     var n: UInt64
 
-    var data: Pointer[GGUFValue]
+    var data: UnsafePointer[GGUFValue]
 
     # Max amount of items to print for an array
     alias max_print_size = 5
 
     fn __init__(inout self, size: Int):
         self.n = size
-        self.data = Pointer[GGUFValue].alloc(size)
+        self.data = UnsafePointer[GGUFValue].alloc(size)
 
     @always_inline
     fn destroy(owned self):
@@ -288,7 +288,7 @@ struct GGUFType:
 
     @always_inline
     fn dispatch[
-        T: AnyRegType, func: fn[type: DType] () raises capturing -> T
+        T: AnyType, func: fn[type: DType] () raises capturing -> T
     ](self) raises -> T:
         if self is Self.GGUF_TYPE_UINT8:
             return func[DType.uint8]()
@@ -684,8 +684,8 @@ struct GGUFFile(LoadableModel):
 
     var header: GGUFHeader
 
-    var kv: Pointer[GGUFKV]
-    var infos: Pointer[GGUFTensorInfo]
+    var kv: UnsafePointer[GGUFKV]
+    var infos: UnsafePointer[GGUFTensorInfo]
 
     var alignment: Int
 
@@ -724,12 +724,12 @@ struct GGUFFile(LoadableModel):
         )
 
         # Read the kv pairs.
-        self.kv = Pointer[GGUFKV].alloc(n_kv)
+        self.kv = UnsafePointer[GGUFKV].alloc(n_kv)
         for i in range(n_kv):
             self.kv[i] = reader.gguf_kv()
 
         # Read the tensor infos.
-        self.infos = Pointer[GGUFTensorInfo].alloc(n_tensors)
+        self.infos = UnsafePointer[GGUFTensorInfo].alloc(n_tensors)
         for i in range(n_tensors):
             self.infos[i] = reader.gguf_tensor_info()
 
@@ -761,8 +761,8 @@ struct GGUFFile(LoadableModel):
 
         self.header = other.header
 
-        self.kv = exchange(other.kv, Pointer[GGUFKV]())
-        self.infos = exchange(other.infos, Pointer[GGUFTensorInfo]())
+        self.kv = exchange(other.kv, UnsafePointer[GGUFKV]())
+        self.infos = exchange(other.infos, UnsafePointer[GGUFTensorInfo]())
 
         self.alignment = other.alignment
         self.offset = other.offset
