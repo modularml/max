@@ -17,15 +17,15 @@ from pathlib import cwd, Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
+from max.graph import Graph
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
 from .model.llama import Llama3
-from .tokenizer.bpe import BPETokenizer
+from ..tokenizer import AutoTokenizer
 from ..weights.download import download_weights_to_cache
 from ..weights.gguf import GGUFFile
-from ..weights.llama2checkpoint import LlamaCFile
-from ..weights.loadable_model import LoadableModel
+from ..weights.loadable_model import LlamaHParams, LoadableModel
 
 
 @value
@@ -33,7 +33,7 @@ struct Config:
     """Configuration for token generation runtime options."""
 
     var batch_size: Int
-    var model_name: String
+    var max_tokens: Int
     var model_path: Path
     var custom_ops_paths: List[Path]
     var tokenizer_path: Path
@@ -44,7 +44,7 @@ struct Config:
         inout self,
         /,
         batch_size: Int = 1,
-        model_name: String = "stories15M",
+        max_tokens: Int = 512,
         model_path: Path = "",
         custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
@@ -52,7 +52,7 @@ struct Config:
         quantization_encoding: Optional[String] = Optional[String](),
     ):
         self.batch_size = batch_size
-        self.model_name = model_name
+        self.max_tokens = max_tokens
         self.model_path = model_path
         self.custom_ops_paths = custom_ops_paths
         self.tokenizer_path = tokenizer_path
@@ -77,12 +77,11 @@ struct Config:
         while i < len(args):
             if args[i] == "--batch-size":
                 self.batch_size = atol(parse_argument_value(i))
-            elif args[i] == "--model-name":
-                self.model_name = parse_argument_value(i)
+            elif args[i] == "--max-tokens":
+                self.max_tokens = atol(parse_argument_value(i))
             elif args[i] == "--model-path":
                 # If a manual model path has been specified, don't use one of
                 # the downloadable pretrained models.
-                self.model_name = ""
                 self.model_path = Path(parse_argument_value(i))
             elif args[i] == "--custom-ops-path":
                 self.custom_ops_paths.append(Path(parse_argument_value(i)))
@@ -91,7 +90,6 @@ struct Config:
             elif args[i] == "--prompt":
                 self.prompt = parse_argument_value(i)
             elif args[i] == "--quantization-encoding":
-                self.model_name = ""
                 self.quantization_encoding = String(parse_argument_value(i))
             else:
                 raise "unsupported CLI argument: " + String(args[i])
@@ -101,13 +99,10 @@ struct Config:
 
 
 def execute(
-    model: Model,
-    session: InferenceSession,
-    tokens: Tensor[DType.int64],
-    inout kv_cache: KVCache,
+    model: Model, tokens: Tensor[DType.int64], inout kv_cache: KVCache
 ) -> Tensor[DType.int64]:
     """Execute the model predicting one new token."""
-    input_map = session.new_tensor_map()
+    input_map = model._session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", kv_cache.keys_view())
     input_map.borrow("input2", kv_cache.values_view())
@@ -119,13 +114,41 @@ def execute(
     return results.get[DType.int64]("output0")
 
 
+def compile_graph(
+    graph: Graph, custom_ops_paths: List[Path] = List[Path]()
+) -> Model:
+    """Compiles a staged graph using the graph compiler."""
+    session = InferenceSession()
+
+    print("Compiling...")
+    return session.load(graph, custom_ops_paths=custom_ops_paths)
+
+
+def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
+    """Generates text by applying the compiled model to the provided prompt."""
+    tokenizer = AutoTokenizer("meta-llama/Meta-Llama-3-8B")
+
+    prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
+
+    tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+    for i in range(len(prompt)):
+        tokens[Index(0, i)] = prompt[i]
+
+    print("Executing...")
+    print(config.prompt, end="")
+
+    kv_cache = KVCache(params, config.max_tokens, config.batch_size)
+
+    # The first iteration caches the entire prompt and all subsequent
+    # iterations generate one token.
+    # Avoid overrunning the cache by setting the trip count accordingly.
+    for _ in range(prompt.size, config.max_tokens + 1):
+        tokens = execute(compiled_model, tokens, kv_cache)
+        print(tokenizer.decode(tokens[0, 0]), end="")
+    print()
+
+
 def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
-    print("Initializing tokenizer...")
-    tokenizer = BPETokenizer.from_file(config.tokenizer_path)
-
-    initial_prompt = config.prompt
-    prompt = tokenizer.encode(initial_prompt, bos=String("\n<s>\n"))
-
     print("Building model...")
     var model = Llama3[ModelT, WeightsT](
         config.model_path,
@@ -133,30 +156,10 @@ def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
     )
     params = model.model.hyperparams()
     graph = model.build_graph("llama_model")
-    session = InferenceSession()
 
-    print("Compiling...")
-    compiled_model = session.load(
-        graph, custom_ops_paths=config.custom_ops_paths
-    )
+    compiled_model = compile_graph(graph, config.custom_ops_paths)
 
-    print("Executing...")
-    max_tokens = 256
-    print(initial_prompt, end="")
-
-    kv_cache = KVCache(params, max_tokens, config.batch_size)
-
-    tokens = Tensor[DType.int64](TensorShape(1, prompt.size))
-    for i in range(prompt.size):
-        # TODO(#29073): This should be `tokens[0, i] = prompt[i]`.
-        tokens[Index(0, i)] = prompt[i].id
-
-    # The first iteration caches the entire prompt and all subsequent
-    # iterations generate one token.
-    # Avoid overrunning the cache by setting the trip count accordingly.
-    for _ in range(prompt.size, max_tokens + 1):
-        tokens = execute(compiled_model, session, tokens, kv_cache)
-        print(tokenizer.vocab[int(tokens[0, 0])].token, end="")
+    generate_text(compiled_model, params, config)
 
     print()
 
@@ -165,43 +168,22 @@ def llama3_run():
     config = Config()
 
     cache_path = cwd().joinpath(".cache")
-    # If one of the downloadable models has been specified, download and cache
-    # the weights and tokenizer for that model.
-    if config.model_name == "stories15M":
-        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-        config.model_path = cache_path.joinpath("stories15M.bin")
-        download_weights_to_cache(
-            cache_path,
-            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin",
-        )
-    elif config.model_name == "stories110M":
-        config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-        config.model_path = cache_path.joinpath("stories110M.bin")
-        download_weights_to_cache(
-            cache_path,
-            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-            "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories110M.bin",
-        )
-    elif config.quantization_encoding:
+    if config.quantization_encoding:
         encoding = config.quantization_encoding.value()
         if encoding[].lower() == "q4_0":
-            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-            config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
+            config.model_path = cache_path.joinpath("llama3-8b-q4_0-pure.gguf")
             download_weights_to_cache(
                 cache_path,
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-                "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
+                "https://huggingface.co/brendanduke/Llama-3-8B-q4_0-pure.gguf/resolve/main/llama3-8b-q4_0-pure.gguf",
             )
         else:
             raise 'Encoding "' + encoding[] + '" not yet supported'
 
-    if config.model_path.suffix() == ".gguf":
-        if config.quantization_encoding:
-            run[GGUFFile, DType.uint8](config)
-        else:
-            run[GGUFFile, DType.float32](config)
-    elif config.model_path.suffix() == ".bin":
-        run[LlamaCFile, DType.float32](config)
+        run[GGUFFile, DType.uint8](config)
     else:
-        raise "invalid model path"
+        download_weights_to_cache(
+            cache_path,
+            "https://huggingface.co/brendanduke/Llama-3-8B-f32.gguf/resolve/main/llama3-8b-f32.gguf",
+        )
+
+        run[GGUFFile, DType.float32](config)
