@@ -38,7 +38,7 @@ struct Config:
     var custom_ops_paths: List[Path]
     var tokenizer_path: Path
     var prompt: String
-    var quantization_encoding: Optional[String]
+    var quantization_encoding: String
 
     def __init__(
         inout self,
@@ -49,7 +49,7 @@ struct Config:
         custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
         prompt: String = "",
-        quantization_encoding: Optional[String] = Optional[String](),
+        quantization_encoding: String = "q4_0",
     ):
         self.batch_size = batch_size
         self.max_tokens = max_tokens
@@ -168,23 +168,20 @@ def llama3_run():
     config = Config()
 
     cache_path = cwd().joinpath(".cache")
-    if config.quantization_encoding:
-        encoding = config.quantization_encoding.value()
-        if encoding[].lower() == "q4_0":
-            config.model_path = cache_path.joinpath("llama3-8b-q4_0-pure.gguf")
-            download_weights_to_cache(
-                cache_path,
-                "https://huggingface.co/brendanduke/Llama-3-8B-q4_0-pure.gguf/resolve/main/llama3-8b-q4_0-pure.gguf",
-            )
-        else:
-            raise 'Encoding "' + encoding[] + '" not yet supported'
-
+    encoding = config.quantization_encoding.lower()
+    if encoding == "q4_0":
+        config.model_path = cache_path.joinpath("llama3-8b-q4_0-pure.gguf")
+        download_weights_to_cache(
+            cache_path,
+            "https://huggingface.co/brendanduke/Llama-3-8B-q4_0-pure.gguf/resolve/main/llama3-8b-q4_0-pure.gguf",
+        )
         run[GGUFFile, DType.uint8](config)
-    else:
+    elif encoding == "float32":
         config.model_path = cache_path.joinpath("llama3-8b-f32.gguf")
         download_weights_to_cache(
             cache_path,
             "https://huggingface.co/brendanduke/Llama-3-8B-f32.gguf/resolve/main/llama3-8b-f32.gguf",
         )
-
         run[GGUFFile, DType.float32](config)
+    else:
+        raise 'Encoding "' + encoding + '" not yet supported'
