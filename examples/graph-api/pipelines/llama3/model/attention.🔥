@@ -99,6 +99,15 @@ struct Attention[WeightsT: DType = DType.float32]:
         batch_size, seq_len = input_shape[0], input_shape[1]
         head_dim = g.scalar[DType.float32](self.head_dim)
 
+        @parameter
+        def repeat_kv(kv: Symbol) -> Symbol:
+            """Repeats key/value tensors to match the number of query heads."""
+            kv = kv.reshape(batch_size, -1, self.n_kv_heads, 1, self.head_dim)
+            kv = ops.tile(
+                kv, List[Int64](1, 1, 1, self.n_heads // self.n_kv_heads, 1)
+            )
+            return kv.reshape(batch_size, -1, self.n_heads, self.head_dim)
+
         xq = input @ self.wq
         xk = input @ self.wk
         xv = input @ self.wv
@@ -112,6 +121,9 @@ struct Attention[WeightsT: DType = DType.float32]:
 
         keys = ops.concat(List(k_cache.swapaxes(0, 1), xk), axis=1)
         values = ops.concat(List(v_cache.swapaxes(0, 1), xv), axis=1)
+
+        keys = repeat_kv(keys)
+        values = repeat_kv(values)
 
         xq = xq.swapaxes(1, 2)
         keys = keys.swapaxes(1, 2)
