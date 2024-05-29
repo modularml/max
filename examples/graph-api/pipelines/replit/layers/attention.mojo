@@ -23,16 +23,6 @@ from ..weights.hyperparams import HyperParams
 from ..layers.linear import Linear
 
 
-def permute(input: Symbol, perm: Symbol, out_dims: List[Dim]) -> Symbol:
-    """Permutes the dimensions of an input Tensor."""
-    g = input.graph()
-    return g.op(
-        "mo.transpose",
-        List[Symbol](input, perm),
-        TensorType(input.tensor_type().dtype, out_dims),
-    )
-
-
 @always_inline
 def tril(input: Symbol, k: Int = 0) -> Symbol:
     """Gets the bottom triangle of the input.
@@ -135,18 +125,14 @@ struct GroupedQueryAttention:
 
         # Apply scaled dot product attention on the query, key and value.
         q = query.reshape(batch_size, -1, n_heads, head_dim)
-        perm = g.constant(Tensor[DType.int32](TensorShape(4), 0, 2, 1, 3))
-        q_out_dims = List[Dim](1, n_heads, Dim.dynamic(), head_dim)
-        q = permute(q, perm, q_out_dims)
+        q = ops.transpose(q, 1, 2)
 
         k = key.reshape(batch_size, -1, kv_n_heads, head_dim)
-        k_perm = g.constant(Tensor[DType.int32](TensorShape(4), 0, 2, 3, 1))
-        k_out_dims = List[Dim](batch_size, kv_n_heads, head_dim, Dim.dynamic())
-        k = permute(k, k_perm, k_out_dims)
+        k = ops.transpose(k, 1, 2)
+        k = ops.transpose(k, 2, 3)
 
         v = value.reshape(batch_size, -1, kv_n_heads, head_dim)
-        v_out_dims = List[Dim](batch_size, kv_n_heads, Dim.dynamic(), head_dim)
-        v = permute(v, perm, v_out_dims)
+        v = ops.transpose(v, 1, 2)
 
         if k_cache:
             k_cache_value = k_cache.value()[]
@@ -228,8 +214,6 @@ struct GroupedQueryAttention:
 
         attn_weight = ops.softmax(attn_weight)
         out = attn_weight @ v
-        out_perm = g.constant(Tensor[DType.int32](TensorShape(4), 0, 2, 1, 3))
-        out_dims = List[Dim](batch_size, Dim.dynamic(), n_heads, head_dim)
-        out = permute(out, out_perm, out_dims)
+        out = ops.transpose(out, 1, 2)
         out = out.reshape(batch_size, -1, self.hyperparams.d_model)
         return self.out_proj(out), k_cache_update, v_cache_update
