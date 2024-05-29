@@ -86,14 +86,19 @@ struct MergeOption(OrderableElement):
 struct Tokenizer:
     var vocab: Dict[String, Int]
     var merges: Dict[StringPair, MergeScore]
+    var json_str: String
 
     @staticmethod
     def from_file(path: Path) -> Self:
         return Self.from_string(path.read_text())
 
     @staticmethod
-    def from_string(owned s: String) -> Self:
-        var j = JsonStorage.from_string(s^)
+    fn from_string(owned s: String) raises -> Self:
+        # NOTE: JsonStorage takes unsafe StringRef's into S, and `merges`
+        # maintains those StringRefs for the duration of the Tokenizer object.
+        # We make sure to keep s alive as long as we need it to avoid dangling
+        # pointers.
+        var j = JsonStorage.from_string(StringRef(s.unsafe_uint8_ptr(), len(s)))
 
         # Just read the vocab and merges, assume the configuration
         # parameters are as expected (e.g. type=BPE, byte_fallback=False, etc).
@@ -124,7 +129,7 @@ struct Tokenizer:
             except:
                 raise "Could not find '" + str(merged) + "' in tokenizer vocab."
 
-        return Self(vocab, merges)
+        return Self(vocab, merges, s^)
 
     fn encode(
         self,
