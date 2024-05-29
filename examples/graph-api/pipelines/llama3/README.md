@@ -27,6 +27,9 @@ to run Llama 2.
 The text completion demo is compatible with the the official Llama 3
 [text completion demo](https://github.com/meta-llama/llama3/blob/14aab0428d3ec3a9596f1dea06d9c564f9c0e35f/example_text_completion.py).
 
+The default settings for this pipeline use the 8B set of pretrained weights in
+`q4_0` quantized encodings.
+
 ## Usage
 
 1. Install MAX:
@@ -50,14 +53,6 @@ The text completion demo is compatible with the the official Llama 3
    mojo ../../run_pipeline.🔥 llama3 --prompt "I believe the meaning of life is"
    ```
 
-3. (Optional) Run Llama 3 with GGUF weights in `q4_0` quantized encoding:
-
-   ```shell
-   mojo ../../run_pipeline.🔥 llama3 \
-    --prompt "I believe the meaning of life is" \
-    --quantization-encoding q4_0
-   ```
-
 ## Options
 
 The following command-line options are available to customize operation of the
@@ -73,4 +68,5 @@ pipeline:
 - `--prompt`: The text prompt to use for further generation.
 - `--quantization-encoding`: The encoding to use for a datatype that can be
   quantized to a low bits per weight format.
-  Valid values: `q4_0`.
+  Valid values: `q4_0`, `float32`.
+  (Default value: `q4_0`).

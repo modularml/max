@@ -30,6 +30,9 @@ and [originally written in Mojo by Aydyn Tairov](https://github.com/tairov/llama
 The text completion demo is compatible with the the official Llama 2
 [text completion demo](https://github.com/facebookresearch/llama/blob/ef351e9cd9496c579bf9f2bb036ef11bdc5ca3d2/example_text_completion.py).
 
+The default settings for this pipeline use the 7B set of pretrained weights in
+`q4_0` quantized encodings.
+
 ## Usage
 
 1. Install MAX:
@@ -78,25 +81,14 @@ The text completion demo is compatible with the the official Llama 2
     --enable-custom-rope-kernel
    ```
 
-5. (Optional) Run Llama 2 with GGUF weights in `q4_0` quantized encoding:
-
-   ```shell
-   mojo ../../run_pipeline.🔥 llama2 \
-    --quantization-encoding q4_0 \
-    --prompt "I believe the meaning of life is"
-   ```
-
 ## Options
 
 The following command-line options are available to customize operation of the
 pipeline:
 
 - `--batch-size`: The batch size. (Default value: `1`)
-- `--model-name`: Options are `stories15M` and `stories110M`, and if not
-   overridden by setting the model path, will cause weights for one of these
-   pretrained models to be downloaded and used for the pipeline.
-- `--model-path`: Overrides the model name, and allows for an
-   already-downloaded pretrained weight file to be used with the model.
+- `--model-path`: Overrides the default URL, and allows for an
+  already-downloaded pretrained weight file to be used with the model.
 - `--custom-ops-path`: The path to a compiled Mojo package containing a custom
    graph operation to use within the pipeline.
 - `--tokenizer-path`: The path to the tokenizer library to be used by the
@@ -106,8 +98,8 @@ pipeline:
 - `--prompt`: The text prompt to use for further generation.
 - `--quantization-encoding`: The encoding to use for a datatype that can be
   quantized to a low bits per weight format.
-  Valid values: `q4_0`.
-  (Default value: float32 if not set).
+  Valid values: `q4_0`, `float32`.
+  (Default value: `q4_0`).
 
 ## Ideas for future extension
 
