@@ -205,7 +205,7 @@ struct GGMLType:
                 is_quantized=False,
             )
 
-        raise "type trait " + String(self._value) + " not implemented yet"
+        raise "type trait " + str(self._value) + " not implemented yet"
 
 
 @value
@@ -222,7 +222,7 @@ struct GGUFString(Stringable):
 
     @always_inline
     fn __str__(self) -> String:
-        return String(StringRef(self.data, int(self.n)))
+        return str(StringRef(self.data, int(self.n)))
 
 
 @value
@@ -248,7 +248,7 @@ struct GGUFArray:
     fn __str__(self) -> String:
         var res = String("[ ")
         for i in range(self.n.min(self.max_print_size)):
-            res += self.data[i]
+            res += str(self.data[i])
             res += " "
         res += "]"
         return res
@@ -354,27 +354,27 @@ struct GGUFValue:
 
     fn __str__(self) -> String:
         if self._value.isa[Int8]():
-            return self._value.unsafe_get[Int8]()[]
+            return str(self._value.unsafe_get[Int8]()[])
         if self._value.isa[UInt8]():
-            return self._value.unsafe_get[UInt8]()[]
+            return str(self._value.unsafe_get[UInt8]()[])
         if self._value.isa[UInt16]():
-            return self._value.unsafe_get[UInt16]()[]
+            return str(self._value.unsafe_get[UInt16]()[])
         if self._value.isa[Int16]():
-            return self._value.unsafe_get[Int16]()[]
+            return str(self._value.unsafe_get[Int16]()[])
         if self._value.isa[UInt32]():
-            return self._value.unsafe_get[UInt32]()[]
+            return str(self._value.unsafe_get[UInt32]()[])
         if self._value.isa[Int32]():
-            return self._value.unsafe_get[Int32]()[]
+            return str(self._value.unsafe_get[Int32]()[])
         if self._value.isa[Int64]():
-            return self._value.unsafe_get[Int64]()[]
+            return str(self._value.unsafe_get[Int64]()[])
         if self._value.isa[Float32]():
-            return self._value.unsafe_get[Float32]()[]
+            return str(self._value.unsafe_get[Float32]()[])
         if self._value.isa[Bool]():
-            return self._value.unsafe_get[Bool]()[]
+            return str(self._value.unsafe_get[Bool]()[])
         if self._value.isa[GGUFString]():
-            return self._value.unsafe_get[GGUFString]()[]
+            return str(self._value.unsafe_get[GGUFString]()[])
         if self._value.isa[GGUFArray]():
-            return self._value.unsafe_get[GGUFArray]()[]
+            return str(self._value.unsafe_get[GGUFArray]()[])
         return "<unknown>"
 
 
@@ -395,7 +395,7 @@ struct GGUFKV:
         self.value.destroy()
 
     fn __str__(self) -> String:
-        return String(self.key) + ": " + self.value
+        return str(self.key) + ": " + str(self.value)
 
 
 @value
@@ -431,11 +431,11 @@ struct GGUFHeader:
     fn __str__(self) -> String:
         return (
             "version: "
-            + String(self.version)
+            + str(self.version)
             + "\nn_tensors: "
-            + String(self.n_tensors)
+            + str(self.n_tensors)
             + "\nn_kv: "
-            + String(self.n_kv)
+            + str(self.n_kv)
         )
 
 
@@ -474,7 +474,7 @@ struct GGUFTensorInfo:
 
     fn __str__(self) -> String:
         # Create padding for to line up tensor name, type, and dims
-        var res = String(self.name)
+        var res = str(self.name)
         var sep = self.name_padding - len(res)
         if sep < 1:
             sep = 1
@@ -482,7 +482,7 @@ struct GGUFTensorInfo:
         for _ in range(sep):
             spaces += " "
 
-        var type_str = String(self.type)
+        var type_str = str(self.type)
         var type_sep = self.type_padding - len(type_str)
         if type_sep < 1:
             type_sep = 1
@@ -490,9 +490,9 @@ struct GGUFTensorInfo:
         for _ in range(type_sep):
             type_spaces += " "
 
-        res += spaces + self.type + type_spaces + "[ "
+        res += spaces + str(self.type) + type_spaces + "[ "
         for i in range(self.n_dims):
-            res += self.ne[i]
+            res += str(self.ne[i])
             res += " "
         res += "]"
         return res
@@ -538,7 +538,7 @@ struct GGUFTensorInfo:
                 raise (
                     "GGML to stdlib tensor only supports quantized matrices"
                     " currently but got tensor of rank: "
-                    + String(len(dims))
+                    + str(len(dims))
                 )
 
             # TODO(#31206): Support more principled compatibility between:
@@ -782,12 +782,12 @@ struct GGUFFile(LoadableModel):
         self.infos.free()
 
     fn __str__(self) -> String:
-        var res = String(self.header) + "\n"
+        var res = str(self.header) + "\n"
         for i in range(self.header.n_kv):
-            res += self.kv[i]
+            res += str(self.kv[i])
             res += "\n"
         for i in range(self.header.n_tensors):
-            res += self.infos[i]
+            res += str(self.infos[i])
             res += "\n"
         return res
 
@@ -798,7 +798,7 @@ struct GGUFFile(LoadableModel):
     ) raises -> Tensor[type]:
         var full_key = key + ".weight"
         if layer_idx:
-            full_key = "blk." + String(layer_idx.value()[]) + "." + full_key
+            full_key = "blk." + str(layer_idx.value()[]) + "." + full_key
 
         for i in range(self.n_tensors()):
             var info = self.infos[i]
