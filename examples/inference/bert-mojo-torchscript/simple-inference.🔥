@@ -12,24 +12,20 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from max.engine import InputSpec, Model, InferenceSession, EngineTensorSpec
-from pathlib import Path
+from max.engine import InputSpec, InferenceSession, Model
 from python import Python
 from tensor import TensorSpec
-from utils.index import Index
 import sys
 
 
 def execute(model: Model, text: String, transformers: PythonObject) -> String:
     # The model was compiled with a maximum seqlen, so read that out from the model output metadata
-    var output_spec = model.get_model_output_metadata()[0]
-    var max_seqlen = output_spec[1].value()[]
+    output_spec = model.get_model_output_metadata()[0]
+    max_seqlen = output_spec[1].value()[]
 
-    var tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "bert-base-uncased"
-    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-uncased")
 
-    var inputs = tokenizer(
+    inputs = tokenizer(
         text=text,
         add_special_tokens=True,
         padding="max_length",
@@ -38,11 +34,11 @@ def execute(model: Model, text: String, transformers: PythonObject) -> String:
         return_tensors="np",
     )
 
-    var input_ids = inputs["input_ids"]
-    var token_type_ids = inputs["token_type_ids"]
-    var attention_mask = inputs["attention_mask"]
+    input_ids = inputs["input_ids"]
+    token_type_ids = inputs["token_type_ids"]
+    attention_mask = inputs["attention_mask"]
 
-    var outputs = model.execute(
+    outputs = model.execute(
         "input_ids",
         input_ids,
         "token_type_ids",
@@ -51,14 +47,14 @@ def execute(model: Model, text: String, transformers: PythonObject) -> String:
         attention_mask,
     )
 
-    var result = outputs.get[DType.float32]("result0")
+    logits = outputs.get[DType.float32]("result0")
 
-    var mask_idx = -1
+    mask_idx = -1
     for i in range(len(input_ids[0])):
         if input_ids[0][i] == tokenizer.mask_token_id:
             mask_idx = i
 
-    var predicted_token_id = result.argmax()[mask_idx]
+    predicted_token_id = logits.argmax()[mask_idx]
     return tokenizer.decode(
         predicted_token_id,
         skip_special_tokens=True,
@@ -67,20 +63,20 @@ def execute(model: Model, text: String, transformers: PythonObject) -> String:
 
 
 def load_model(session: InferenceSession) -> Model:
-    var batch = 1
-    var seqlen = 128
+    batch = 1
+    seqlen = 128
 
-    var input_ids_spec = TensorSpec(DType.int64, batch, seqlen)
-    var token_type_ids_spec = TensorSpec(DType.int64, batch, seqlen)
-    var attention_mask_spec = TensorSpec(DType.int64, batch, seqlen)
-    var options = List[InputSpec]()
+    input_ids_spec = TensorSpec(DType.int64, batch, seqlen)
+    token_type_ids_spec = TensorSpec(DType.int64, batch, seqlen)
+    attention_mask_spec = TensorSpec(DType.int64, batch, seqlen)
+    input_specs = List[InputSpec]()
 
-    options.append(input_ids_spec)
-    options.append(attention_mask_spec)
-    options.append(token_type_ids_spec)
+    input_specs.append(input_ids_spec)
+    input_specs.append(attention_mask_spec)
+    input_specs.append(token_type_ids_spec)
 
-    var model = session.load(
-        "../../models/bert-mlm.torchscript", input_specs=options
+    model = session.load(
+        "../../models/bert-mlm.torchscript", input_specs=input_specs
     )
 
     return model
@@ -99,17 +95,17 @@ def read_input() -> String:
     return sys.argv()[1]
 
 
-fn main() raises:
+def main():
     # Import HF Transformers dependency (for the tokenizer)
-    var transformers = Python.import_module("transformers")
+    transformers = Python.import_module("transformers")
 
     # Read user prompt, create an InferenceSession, and load the model
-    var prompt = read_input()
-    var session = InferenceSession()
-    var model = load_model(session)
+    text = read_input()
+    session = InferenceSession()
+    model = load_model(session)
 
     # Run inference
-    var result = execute(model, prompt, transformers)
+    decoded_result = execute(model, text, transformers)
 
-    print("input text: ", prompt)
-    print("filled mask: ", prompt.replace("[MASK]", result))
+    print("input text: ", text)
+    print("filled mask: ", text.replace("[MASK]", decoded_result))

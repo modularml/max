@@ -25,4 +25,4 @@ cd "$(dirname "$0")"
 # Download model from HuggingFace
 python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH" --mlm
 
-mojo run.🔥 "$INPUT_EXAMPLE"
+mojo simple-inference.🔥 "$INPUT_EXAMPLE"
