@@ -754,7 +754,9 @@ struct GGUFFile(LoadableModel):
 
     fn __moveinit__(inout self, owned other: GGUFFile):
         @always_inline
-        fn exchange[T: AnyRegType](inout old_var: T, owned new_value: T) -> T:
+        fn exchange[
+            T: AnyTrivialRegType
+        ](inout old_var: T, owned new_value: T) -> T:
             var old_value = old_var
             old_var = new_value
             return old_value
