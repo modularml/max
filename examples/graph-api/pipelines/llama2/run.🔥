@@ -20,8 +20,10 @@ from max.engine import InferenceSession, Model, TensorMap
 from max.graph import Graph
 from tensor import Tensor, TensorShape, TensorSpec
 
+from .helper import argmax, print_slice
 from .kv_cache import KVCache
 from .model.llama import Llama2
+from .token_sampler.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
 from ..tokenizer import AutoTokenizer, Tokenizer
 from ..weights.download import download_weights_to_cache
@@ -42,6 +44,8 @@ struct Config:
     var enable_custom_rope_kernel: Bool
     var prompt: String
     var quantization_encoding: String
+    var temperature: Float32
+    var min_p: Float32
 
     def __init__(
         inout self,
@@ -54,6 +58,8 @@ struct Config:
         enable_custom_rope_kernel: Bool = False,
         prompt: String = "",
         quantization_encoding: String = "q4_0",
+        temperature: Float32 = 0.5,
+        min_p: Float32 = 0.05,
     ):
         self.batch_size = batch_size
         self.max_tokens = max_tokens
@@ -64,6 +70,10 @@ struct Config:
         self.prompt = prompt
         self.quantization_encoding = quantization_encoding
         """Encoding for quantized model weights, such as Q4_0."""
+
+        """Token sampler parameters"""
+        self.temperature = temperature
+        self.min_p = min_p
 
         self.parse_args()
 
@@ -80,7 +90,11 @@ struct Config:
         # Skip the run_pipeline.mojo and llama2 arguments.
         i = 2
         while i < len(args):
-            if args[i] == "--batch-size":
+            if args[i] == "--temperature":
+                self.temperature = atof(parse_argument_value(i))
+            elif args[i] == "--min-p":
+                self.min_p = atof(parse_argument_value(i))
+            elif args[i] == "--batch-size":
                 self.batch_size = atol(parse_argument_value(i))
             elif args[i] == "--max-tokens":
                 self.max_tokens = atol(parse_argument_value(i))
@@ -108,7 +122,7 @@ struct Config:
 
 def execute(
     model: Model, tokens: Tensor[DType.int64], inout kv_cache: KVCache
-) -> Tensor[DType.int64]:
+) -> Tensor[DType.float32]:
     """Execute the model predicting one new token."""
     input_map = model._session.new_tensor_map()
     input_map.borrow("input0", tokens)
@@ -119,7 +133,7 @@ def execute(
         results.buffer[DType.float32]("output1"),
         results.buffer[DType.float32]("output2"),
     )
-    return results.get[DType.int64]("output0")
+    return results.get[DType.float32]("output0")
 
 
 def compile_graph(
@@ -141,6 +155,7 @@ def _generate_text_with_tokenizer[
     config: Config,
 ):
     prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
+    sampler = WeightedSampler(config.temperature, config.min_p)
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):
@@ -155,8 +170,10 @@ def _generate_text_with_tokenizer[
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, config.max_tokens + 1):
-        tokens = execute(compiled_model, tokens, kv_cache)
-        print(tokenizer.decode(tokens[0, 0]), end="")
+        logits = execute(compiled_model, tokens, kv_cache)
+        var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
+        tokens = Tensor(TensorShape(1, 1), token)
+        print(tokenizer.decode(token), end="")
     print()
 
 
@@ -188,6 +205,7 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
                 "Unable to initialize AutoTokenizer, using Mojo tokenizer"
                 " instead."
             )
+
             # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
             # fails, for example due to lack of authentication.
             generate_with_mojo_tokenizer()
