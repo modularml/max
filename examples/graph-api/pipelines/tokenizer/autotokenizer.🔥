@@ -179,9 +179,9 @@ struct AutoTokenizer(Tokenizer):
         )
 
         # Return the newly generated text.
-        result = String(decoded)[len(self._prev_decoded) :]
+        result = str(decoded)[len(self._prev_decoded) :]
 
         # Cache the full sequence for subsequent iterations.
-        self._prev_decoded = decoded^
+        self._prev_decoded = str(decoded^)
 
         return result
