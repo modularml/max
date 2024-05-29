@@ -135,7 +135,7 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
         tokens[Index(0, i)] = prompt[i]
 
     print("Executing...")
-    print(config.prompt, end="")
+    print(tokenizer.decode(prompt), end="")
 
     kv_cache = KVCache(params, config.max_tokens, config.batch_size)
 
@@ -154,7 +154,7 @@ def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
         config.model_path,
         quantization_encoding=config.quantization_encoding,
     )
-    params = model.model.hyperparams()
+    params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
     compiled_model = compile_graph(graph, config.custom_ops_paths)
@@ -181,6 +181,7 @@ def llama3_run():
 
         run[GGUFFile, DType.uint8](config)
     else:
+        config.model_path = cache_path.joinpath("llama3-8b-f32.gguf")
         download_weights_to_cache(
             cache_path,
             "https://huggingface.co/brendanduke/Llama-3-8B-f32.gguf/resolve/main/llama3-8b-f32.gguf",
