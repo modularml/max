@@ -175,19 +175,9 @@ struct TeenyTinyLlama:
             theta=10000.0,
         )(tokens=llama[0], k_cache=k_cache, v_cache=v_cache)
 
-        # Stage ops to compute the next token from the logits.
-        logits = ops.gather(
-            logits, llama.scalar[DType.int64](-1, rank=1), axis=1
-        )
-        next_token = ops.arg_max(
-            logits.reshape(-1, self.hyperparams.vocab_size), axis=-1
-        )
-
-        # Stage an output op for the next token and updated KV cache.
+        # Stage an output op for the computed logits and updated KV cache.
         llama.output(
-            List[Symbol](
-                next_token.reshape(Self.batch_size, -1), k_cache, v_cache
-            )
+            List[Symbol](logits.reshape(Self.batch_size, -1), k_cache, v_cache)
         )
 
         # Return the constructed quantized Llama 2.
