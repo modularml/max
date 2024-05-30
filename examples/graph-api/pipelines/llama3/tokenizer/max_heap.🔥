@@ -22,13 +22,18 @@ trait Ordered:
         pass
 
 
-trait OrderedElement(Ordered, CollectionElement):
+trait OrderedElement(Ordered, RepresentableCollectionElement):
     """Orderable types which are also CollectionElements."""
 
     pass
 
 
-struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
+alias MinHeap = MaxHeap[reverse=True]
+
+
+struct MaxHeap[ElementType: OrderedElement, reverse: Bool = False](
+    Sized, Boolable
+):
     """A max-heap of an Orderable collection type.
 
     A MaxHeap is a convenient data structure for implementing a priority queue.
@@ -76,9 +81,7 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
             return
 
         var parent_idx = _parent_idx(idx)
-        var parent = self.heap[parent_idx]
-        var current = self.heap[idx]
-        if parent < current:
+        if self._less_than(parent_idx, idx):
             # TODO(untracked): Add List.swap_indices and switch to that.
             self.heap[parent_idx], self.heap[idx] = (
                 self.heap[idx],
@@ -90,10 +93,10 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
         var li = _left_child_idx(idx)
         var ri = _right_child_idx(idx)
 
-        var target_idx = idx  # smaller of the two children, if we should sink down
-        if li < len(self.heap) - 1 and self.heap[target_idx] < self.heap[li]:
+        var target_idx = idx  # greater of the two children, if we should sink down
+        if li < len(self.heap) and self._less_than(target_idx, li):
             target_idx = li
-        elif ri < len(self.heap) - 1 and self.heap[target_idx] < self.heap[ri]:
+        if ri < len(self.heap) and self._less_than(target_idx, ri):
             target_idx = ri
 
         if target_idx != idx:
@@ -103,6 +106,16 @@ struct MaxHeap[ElementType: OrderedElement](Sized, Boolable):
                 self.heap[idx],
             )
             self._sink_down(target_idx)
+
+    @always_inline
+    fn _less_than(self, i1: Int, i2: Int) -> Bool:
+        var lt = self.heap[i1] < self.heap[i2]
+
+        @parameter
+        if Self.reverse:
+            return not lt
+        else:
+            return lt
 
 
 @always_inline
