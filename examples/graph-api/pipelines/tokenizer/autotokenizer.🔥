@@ -48,6 +48,14 @@ struct AutoTokenizer(Tokenizer):
         self._prev_tokens = List[Int64]()
         self._prev_decoded = ""
 
+    fn __moveinit__(inout self, owned existing: Self):
+        self._transformers_module = existing._transformers_module^
+        self._numpy_module = existing._numpy_module^
+        self._tokenizer_handle = existing._tokenizer_handle^
+        self._py_builtins_handle = existing._py_builtins_handle^
+        self._prev_tokens = existing._prev_tokens^
+        self._prev_decoded = existing._prev_decoded^
+
     @staticmethod
     def is_available() -> Bool:
         """Returns True if AutoTokenizer is available and False otherwise."""
