@@ -10,11 +10,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""The core Transformer block of the model."""
+
+"""Neural network layers core to transformers."""
 
 from max.graph import ops, Symbol
-from .attention import Attention
-from .layers import Embedding, FeedForward, Linear, RMSNorm
+
+from pipelines.nn import Attention, Embedding, Linear, RMSNorm
+
+
+@value
+struct FeedForward[WeightsT: DType = DType.float32]:
+    var w1: Linear[WeightsT]
+    var w2: Linear[WeightsT]
+    var w3: Linear[WeightsT]
+
+    def __call__(self, input: Symbol) -> Symbol:
+        return (ops.silu(input @ self.w1) * (input @ self.w3)) @ self.w2
 
 
 @value
@@ -46,7 +57,6 @@ struct TransformerBlock[WeightsT: DType = DType.float32](CollectionElement):
 @value
 struct Transformer[WeightsT: DType = DType.float32]:
     alias max_seq_len = 2048
-    alias theta = 500000.0
 
     var dim: Int
     var n_heads: Int
@@ -55,12 +65,13 @@ struct Transformer[WeightsT: DType = DType.float32]:
     var layers: List[TransformerBlock[WeightsT]]
     var norm: RMSNorm
     var output: Linear[WeightsT]
+    var theta: Float64
 
     def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
         var g = start_pos.graph()
         var n = self.dim // self.n_heads
         var iota = g.range[DType.float32](0, n - 1, 2)
-        var freqs = 1.0 / (Self.theta ** (iota / n))
+        var freqs = 1.0 / (self.theta ** (iota / n))
         var t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 

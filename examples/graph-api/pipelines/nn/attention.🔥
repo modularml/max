@@ -12,8 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 """The attention mechanism used within the model."""
 
-from .layers import Linear
 from max.graph import ops, Symbol
+
+from pipelines.nn import Linear
 
 
 def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
@@ -44,6 +45,29 @@ def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
     rope_complex = ops.as_complex(rope_re, rope_im)
 
     return ops.reshape_like(rope_complex, x)
+
+
+def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
+    """Applies rotary positional embeddings (RoPE) to `x`.
+
+    Args:
+        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
+        freqs_cis: Positional frequencies tensor with shape
+            (seq_len, head_dim // 2, 2).
+
+    Returns:
+        Input activation tensor with rotary positional embeddings applied and
+        the same shape as `x`.
+    """
+    # The kernel requires freqs_cis to be 2-D.
+    # Reshape freqs (seq_len, head_dim // 2, 2) => (seq_len, head_dim).
+    f_shape = ops.shape_of(freqs_cis)
+    new_f_shape = ops.stack(
+        List[Symbol](f_shape[0], x.graph().scalar(Int64(-1)))
+    )
+    freqs_2d = ops.reshape(freqs_cis, new_f_shape)
+
+    return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
 
 
 def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
@@ -79,6 +103,7 @@ struct Attention[WeightsT: DType = DType.float32]:
     var n_kv_heads: Int
     var head_dim: Int
     var dim: Int
+    var enable_custom_rope_kernel: Bool
 
     var wq: Linear[WeightsT]
     var wk: Linear[WeightsT]
@@ -116,11 +141,19 @@ struct Attention[WeightsT: DType = DType.float32]:
         xk = xk.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
         xv = xv.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
 
-        xq = rope(xq, freqs_cis)
-        xk = rope(xk, freqs_cis)
+        xq = rope_custom_kernel(
+            xq, freqs_cis
+        ) if self.enable_custom_rope_kernel else rope(xq, freqs_cis)
+        xk = rope_custom_kernel(
+            xk, freqs_cis
+        ) if self.enable_custom_rope_kernel else rope(xk, freqs_cis)
 
-        keys = ops.concat(List(k_cache.swapaxes(0, 1), xk), axis=1)
-        values = ops.concat(List(v_cache.swapaxes(0, 1), xv), axis=1)
+        keys = ops.concat(List[Symbol](k_cache, xk.swapaxes(0, 1))).swapaxes(
+            0, 1
+        )
+        values = ops.concat(List[Symbol](v_cache, xv.swapaxes(0, 1))).swapaxes(
+            0, 1
+        )
 
         keys = repeat_kv(keys)
         values = repeat_kv(values)

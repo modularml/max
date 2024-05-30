@@ -1,0 +1,28 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+"""Normalization layers."""
+
+from max.graph import ops, Symbol
+
+
+@value
+struct RMSNorm:
+    var eps: Float64
+    var weight: Symbol
+
+    def __call__(self, input: Symbol) -> Symbol:
+        scale = ops.rsqrt(ops.mean(input**2.0, axis=-1) + self.eps)
+        # Since norm weights are float32, cast to input dtype to avoid
+        # promoting the result to float32 when the input is float16.
+        return input * scale * ops.cast(self.weight, input.tensor_type().dtype)
