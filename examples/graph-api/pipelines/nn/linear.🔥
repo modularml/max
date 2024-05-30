@@ -14,21 +14,27 @@
 """Module containing layers related to linear transformations."""
 
 from max.graph import ops, Symbol
-from max.graph.quantization import Q4_0Encoding
+from max.graph.quantization import (
+    Float32Encoding,
+    QuantizationEncoding,
+    Q4_0Encoding,
+)
 
 
 @value
-struct Linear[WeightsT: DType = DType.float32]:
+struct Linear[encoding: QuantizationEncoding = Float32Encoding]:
     """A fully-connected layer without activations."""
 
     var w: Symbol
 
     def __call__(self, x: Symbol) -> Symbol:
         @parameter
-        if WeightsT == DType.uint8:
+        if encoding.id() == Q4_0Encoding.id():
             return ops.qmatmul[Q4_0Encoding](x, self.w)
+        elif encoding.id() == Float32Encoding.id():
+            return x @ self.w
 
-        return x @ self.w
+        raise "unsupported quantization encoding in Linear: " + encoding.id()
 
     def __rmatmul__(self, lhs: Symbol) -> Symbol:
         return self(lhs)

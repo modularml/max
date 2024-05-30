@@ -13,6 +13,7 @@
 """The attention mechanism used within the model."""
 
 from max.graph import ops, Symbol
+from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import Linear
 
@@ -98,17 +99,17 @@ def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
 
 
 @value
-struct Attention[WeightsT: DType = DType.float32]:
+struct Attention[encoding: QuantizationEncoding = Float32Encoding]:
     var n_heads: Int
     var n_kv_heads: Int
     var head_dim: Int
     var dim: Int
     var enable_custom_rope_kernel: Bool
 
-    var wq: Linear[WeightsT]
-    var wk: Linear[WeightsT]
-    var wv: Linear[WeightsT]
-    var wo: Linear[WeightsT]
+    var wq: Linear[encoding]
+    var wk: Linear[encoding]
+    var wv: Linear[encoding]
+    var wo: Linear[encoding]
 
     def __call__(
         self,
