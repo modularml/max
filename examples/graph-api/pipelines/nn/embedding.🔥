@@ -14,7 +14,11 @@
 """Neural network embedding layers."""
 
 from max.graph import ops, Dim, StaticDim, Symbol, TensorType
-from max.graph.quantization import Q4_0Encoding
+from max.graph.quantization import (
+    Float32Encoding,
+    QuantizationEncoding,
+    Q4_0Encoding,
+)
 from max.tensor import Tensor, TensorShape
 
 from pipelines.nn import Linear
@@ -22,7 +26,7 @@ from pipelines.weights.ggml_quants import BlockQ40
 
 
 @value
-struct Embedding[WeightsT: DType = DType.float32]:
+struct Embedding[encoding: QuantizationEncoding = Float32Encoding]:
     """Quantized embedding (can be in GGML Q4_0 packed format)."""
 
     var weights: Symbol
@@ -40,56 +44,60 @@ struct Embedding[WeightsT: DType = DType.float32]:
 
         # If there is no quantization, then just gather and return early.
         @parameter
-        if WeightsT == DType.float32:
+        if encoding.id() == Float32Encoding.id():
             return ops.gather(self.weights, indices, axis=0)
+        elif encoding.id() == Q4_0Encoding.id():
+            g = self.weights.graph()
+            quantized_tokens = ops.gather(self.weights, indices, axis=0)
+            tokens_type = quantized_tokens.tensor_type()
 
-        g = self.weights.graph()
-        quantized_tokens = ops.gather(self.weights, indices, axis=0)
-        tokens_type = quantized_tokens.tensor_type()
-
-        # Compute the dequantized output dim as the number of quantized blocks
-        # times the number of elements (quants) per block.
-        quantized_dim = self.weights.tensor_type().dims[-1]
-        num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ40]()
-        alias quants_per_block = BlockQ40.QK4_0
-        out_dim = int(BlockQ40.QK4_0 * num_blocks)
-
-        # Compute shapes to reshape embeddings to matrix input expected by
-        # `ggml_q4_0_dequantize`.
-        final_dims = List[Dim]()
-        for i in range(tokens_type.rank() - 1):
-            final_dims.append(tokens_type.dim(i))
-        final_dims.append(out_dim)
-
-        tokens_shape = ops.shape_of(quantized_tokens)
-        last_tokens_axis = tokens_type.rank() - 1
-        reshape_shape = ops.stack(
-            List(g.scalar(Int64(-1)), tokens_shape[last_tokens_axis])
-        )
-
-        dequantize_dims = List[Dim]()
-        dequantize_dims.append(Dim.dynamic())
-        dequantize_dims.append(tokens_type.dim(-1))
-
-        final_shape = ops.concat(
-            List(
-                tokens_shape[:last_tokens_axis],
-                g.constant[DType.int64](
-                    Tensor[DType.int64](TensorShape(1), out_dim)
-                ),
+            # Compute the dequantized output dim as the number of quantized blocks
+            # times the number of elements (quants) per block.
+            quantized_dim = self.weights.tensor_type().dims[-1]
+            num_blocks = (
+                quantized_dim.value[StaticDim].dim // sizeof[BlockQ40]()
             )
-        )
+            alias quants_per_block = BlockQ40.QK4_0
+            out_dim = int(BlockQ40.QK4_0 * num_blocks)
 
-        # Reshape gathered token embeddings to a matrix expected by dequantize.
-        reshaped_tokens = ops.reshape(
-            quantized_tokens, reshape_shape, dequantize_dims
-        )
+            # Compute shapes to reshape embeddings to matrix input expected by
+            # `ggml_q4_0_dequantize`.
+            final_dims = List[Dim]()
+            for i in range(tokens_type.rank() - 1):
+                final_dims.append(tokens_type.dim(i))
+            final_dims.append(out_dim)
 
-        # Dequantize to floating point.
-        dequantized_tokens = ops.custom["ggml_q4_0_dequantize"](
-            reshaped_tokens,
-            TensorType(DType.float32, Dim.dynamic(), Dim.dynamic()),
-        )
+            tokens_shape = ops.shape_of(quantized_tokens)
+            last_tokens_axis = tokens_type.rank() - 1
+            reshape_shape = ops.stack(
+                List(g.scalar(Int64(-1)), tokens_shape[last_tokens_axis])
+            )
 
-        # Restore original `rank(quantized_tokens) - 1` gather dimensions.
-        return ops.reshape(dequantized_tokens, final_shape, final_dims)
+            dequantize_dims = List[Dim]()
+            dequantize_dims.append(Dim.dynamic())
+            dequantize_dims.append(tokens_type.dim(-1))
+
+            final_shape = ops.concat(
+                List(
+                    tokens_shape[:last_tokens_axis],
+                    g.constant[DType.int64](
+                        Tensor[DType.int64](TensorShape(1), out_dim)
+                    ),
+                )
+            )
+
+            # Reshape gathered token embeddings to a matrix expected by dequantize.
+            reshaped_tokens = ops.reshape(
+                quantized_tokens, reshape_shape, dequantize_dims
+            )
+
+            # Dequantize to floating point.
+            dequantized_tokens = ops.custom["ggml_q4_0_dequantize"](
+                reshaped_tokens,
+                TensorType(DType.float32, Dim.dynamic(), Dim.dynamic()),
+            )
+
+            # Restore original `rank(quantized_tokens) - 1` gather dimensions.
+            return ops.reshape(dequantized_tokens, final_shape, final_dims)
+
+        raise "unsupported quantization encoding in Embedding: " + encoding.id()

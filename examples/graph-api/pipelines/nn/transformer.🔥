@@ -14,24 +14,27 @@
 """Neural network layers core to transformers."""
 
 from max.graph import ops, Symbol
+from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import Attention, Embedding, Linear, RMSNorm
 
 
 @value
-struct FeedForward[WeightsT: DType = DType.float32]:
-    var w1: Linear[WeightsT]
-    var w2: Linear[WeightsT]
-    var w3: Linear[WeightsT]
+struct FeedForward[encoding: QuantizationEncoding = Float32Encoding]:
+    var w1: Linear[encoding]
+    var w2: Linear[encoding]
+    var w3: Linear[encoding]
 
     def __call__(self, input: Symbol) -> Symbol:
         return (ops.silu(input @ self.w1) * (input @ self.w3)) @ self.w2
 
 
 @value
-struct TransformerBlock[WeightsT: DType = DType.float32](CollectionElement):
-    var attention: Attention[WeightsT]
-    var feed_forward: FeedForward[WeightsT]
+struct TransformerBlock[encoding: QuantizationEncoding = Float32Encoding](
+    CollectionElement
+):
+    var attention: Attention[encoding]
+    var feed_forward: FeedForward[encoding]
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
 
@@ -55,16 +58,16 @@ struct TransformerBlock[WeightsT: DType = DType.float32](CollectionElement):
 
 
 @value
-struct Transformer[WeightsT: DType = DType.float32]:
+struct Transformer[encoding: QuantizationEncoding = Float32Encoding]:
     alias max_seq_len = 2048
 
     var dim: Int
     var n_heads: Int
 
-    var embedding: Embedding[WeightsT]
-    var layers: List[TransformerBlock[WeightsT]]
+    var embedding: Embedding[encoding]
+    var layers: List[TransformerBlock[encoding]]
     var norm: RMSNorm
-    var output: Linear[WeightsT]
+    var output: Linear[encoding]
     var theta: Float64
 
     def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:

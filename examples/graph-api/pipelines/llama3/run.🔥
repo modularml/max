@@ -18,6 +18,11 @@ from utils.index import Index
 
 from max.engine import InferenceSession, Model, TensorMap
 from max.graph import Graph
+from max.graph.quantization import (
+    Float32Encoding,
+    QuantizationEncoding,
+    Q4_0Encoding,
+)
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
@@ -148,12 +153,11 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
     print()
 
 
-def run[ModelT: LoadableModel, WeightsT: DType](config: Config):
+def run[
+    model_type: LoadableModel, encoding: QuantizationEncoding
+](config: Config):
     print("Building model...")
-    var model = Llama3[ModelT, WeightsT](
-        config.model_path,
-        quantization_encoding=config.quantization_encoding,
-    )
+    model = Llama3[model_type, encoding](config.model_path)
     params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
@@ -175,13 +179,13 @@ def llama3_run():
             cache_path,
             "https://huggingface.co/brendanduke/Llama-3-8B-q4_0-pure.gguf/resolve/main/llama3-8b-q4_0-pure.gguf",
         )
-        run[GGUFFile, DType.uint8](config)
+        run[GGUFFile, Q4_0Encoding](config)
     elif encoding == "float32":
         config.model_path = cache_path.joinpath("llama3-8b-f32.gguf")
         download_weights_to_cache(
             cache_path,
             "https://huggingface.co/brendanduke/Llama-3-8B-f32.gguf/resolve/main/llama3-8b-f32.gguf",
         )
-        run[GGUFFile, DType.float32](config)
+        run[GGUFFile, Float32Encoding](config)
     else:
         raise 'Encoding "' + encoding + '" not yet supported'

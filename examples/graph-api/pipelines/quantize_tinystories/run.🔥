@@ -117,7 +117,7 @@ struct TeenyTinyLlama:
             return llama.constant(float32_param)
 
         # Stage all of the transformer blocks in the stories15M Llama.
-        transformer_blocks = List[TransformerBlock[DType.uint8]]()
+        transformer_blocks = List[TransformerBlock[Q4_0Encoding]]()
         for layer_idx in range(self.hyperparams.n_layers):
             # Stage a transformer block with quantized weights.
             # Read in float32 weights and quantize them before staging the op.
@@ -125,8 +125,8 @@ struct TeenyTinyLlama:
             # parameter dictionary.
             # Doing so enables saving the checkpoint after building the graph,
             # complete with quantized weights.
-            block = TransformerBlock[DType.uint8](
-                attention=Attention[DType.uint8](
+            block = TransformerBlock[Q4_0Encoding](
+                attention=Attention[Q4_0Encoding](
                     n_heads=self.hyperparams.n_heads,
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
@@ -139,7 +139,7 @@ struct TeenyTinyLlama:
                     wv=quantize("attn_v", layer_idx),
                     wo=quantize("attn_output", layer_idx),
                 ),
-                feed_forward=FeedForward[DType.uint8](
+                feed_forward=FeedForward[Q4_0Encoding](
                     # Also quantize the feedforward gate/down/up matrices.
                     w1=quantize("ffn_gate", layer_idx),
                     w2=quantize("ffn_down", layer_idx),
@@ -163,10 +163,10 @@ struct TeenyTinyLlama:
         var logits: Symbol
         k_cache = llama[1]
         v_cache = llama[2]
-        logits, k_cache, v_cache = Transformer[DType.uint8](
+        logits, k_cache, v_cache = Transformer[Q4_0Encoding](
             dim=self.hyperparams.dims,
             n_heads=self.hyperparams.n_heads,
-            embedding=Embedding[DType.uint8](quantize("token_embd")),
+            embedding=Embedding[Q4_0Encoding](quantize("token_embd")),
             layers=transformer_blocks,
             norm=RMSNorm(self.hyperparams.norm_eps, weight("output_norm")),
             # For stories15M, output and token embeddings are shared.

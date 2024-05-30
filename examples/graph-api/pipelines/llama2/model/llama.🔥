@@ -16,6 +16,7 @@ from collections import List, Optional
 from pathlib import Path
 
 from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
+from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import (
     Attention,
@@ -28,23 +29,19 @@ from pipelines.nn import (
 from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
 
 
-struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
+struct Llama2[
+    model_type: LoadableModel, encoding: QuantizationEncoding = Float32Encoding
+]:
     alias batch_size = 1
 
-    var model: Model
+    var model: model_type
     var enable_custom_rope_kernel: Bool
-    var quantization_encoding: Optional[String]
-    """Encoding for quantized model weights, such as Q4_0."""
 
     def __init__(
-        inout self,
-        model_path: Path,
-        enable_custom_rope_kernel: Bool = False,
-        quantization_encoding: Optional[String] = Optional[String](),
+        inout self, model_path: Path, enable_custom_rope_kernel: Bool = False
     ):
-        self.model = Model(model_path)
+        self.model = model_type(model_path)
         self.enable_custom_rope_kernel = enable_custom_rope_kernel
-        self.quantization_encoding = quantization_encoding
 
     def build_graph(inout self, name: String) -> Graph:
         params = self.model.hyperparams()
@@ -61,27 +58,34 @@ struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
 
         @parameter
         def weight[
-            dtype: DType = type
+            weight_type: QuantizationEncoding = encoding
         ](
             name: String,
             layer: Optional[Int] = None,
             # Torch models store weights in a transposed format, and transpose again at use.
             # The q4_0 format transposes the weights compared with the fp32 formats.
-            transpose: Bool = (dtype != DType.uint8),
+            transpose: Bool = (weight_type.id() == Float32Encoding.id()),
         ) -> Symbol:
+            """Stages a constant op according to the quantization encoding."""
+
+            # Set uint8 dtype if quantized and float32 otherwise, since all
+            # quantization encodings currently have uint8 dtype.
+            alias dtype = DType.float32 if weight_type.id() == Float32Encoding.id() else DType.uint8
+
             weight = g.constant(self.model.get[dtype](name, layer))
             if transpose:
                 weight = weight.swapaxes(-1, -2)
+
             return weight
 
         def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
             # GGUF always stores these as float32
-            w = weight[DType.float32](name, layer, transpose=False)
+            w = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
-        layers = List[TransformerBlock[type]]()
+        layers = List[TransformerBlock[encoding]]()
         for layer in range(params.n_layers):
-            attention = Attention[type](
+            attention = Attention[encoding](
                 n_heads=params.n_heads,
                 n_kv_heads=params.n_kv_heads,
                 head_dim=params.head_dim,
@@ -92,14 +96,14 @@ struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
                 wo=weight("attn_output", layer),
                 enable_custom_rope_kernel=self.enable_custom_rope_kernel,
             )
-            feed_forward = FeedForward[type](
+            feed_forward = FeedForward[encoding](
                 w1=weight("ffn_gate", layer),
                 w2=weight("ffn_down", layer),
                 w3=weight("ffn_up", layer),
             )
 
             layers.append(
-                TransformerBlock[type](
+                TransformerBlock[encoding](
                     attention=attention,
                     feed_forward=feed_forward,
                     attention_norm=norm("attn_norm", layer),
@@ -107,8 +111,8 @@ struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
                 )
             )
 
-        embedding = Embedding[type](weight("token_embd", transpose=False))
-        model = Transformer[type](
+        embedding = Embedding[encoding](weight("token_embd", transpose=False))
+        model = Transformer[encoding](
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,

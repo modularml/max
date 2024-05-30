@@ -12,15 +12,19 @@
 # ===----------------------------------------------------------------------=== #
 
 import sys
-from collections import List, Optional
+from collections import List
 from pathlib import cwd, Path
 from utils.index import Index
 
-from max.engine import InferenceSession, Model, TensorMap
+from max.engine import InferenceSession, Model
 from max.graph import Graph
-from tensor import Tensor, TensorShape, TensorSpec
+from max.graph.quantization import (
+    Float32Encoding,
+    QuantizationEncoding,
+    Q4_0Encoding,
+)
+from tensor import Tensor, TensorShape
 
-from .helper import argmax, print_slice
 from .kv_cache import KVCache
 from .model.llama import Llama2
 from .token_sampler.weighted_sampler import WeightedSampler
@@ -218,12 +222,13 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
         generate_with_mojo_tokenizer()
 
 
-def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
+def run[
+    model_type: LoadableModel, encoding: QuantizationEncoding
+](config: Config):
     print("Building model...")
-    model = Llama2[ModelT, WeightsT](
+    model = Llama2[model_type, encoding](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
-        quantization_encoding=config.quantization_encoding,
     )
     params = model.hyperparams()
     graph = model.build_graph("llama_model")
@@ -249,12 +254,12 @@ def llama2_run():
                 "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
                 "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
             )
-        run[GGUFFile, DType.uint8](config)
+        run[GGUFFile, Q4_0Encoding](config)
     elif encoding == "float32":
         if config.model_path.suffix() == ".gguf":
-            run[GGUFFile, DType.float32](config)
+            run[GGUFFile, Float32Encoding](config)
         elif config.model_path.suffix() == ".bin":
-            run[LlamaCFile, DType.float32](config)
+            run[LlamaCFile, Float32Encoding](config)
         else:
             raise "invalid model path"
     else:
