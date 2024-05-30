@@ -16,10 +16,16 @@ from collections import List, Optional
 from pathlib import Path
 
 from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
-from .attention import Attention
-from .layers import Embedding, RMSNorm
-from .transformer import FeedForward, Transformer, TransformerBlock
-from ...weights.loadable_model import LoadableModel, LlamaHParams
+
+from pipelines.nn import (
+    Attention,
+    Embedding,
+    FeedForward,
+    RMSNorm,
+    Transformer,
+    TransformerBlock,
+)
+from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
 
 
 struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
@@ -80,7 +86,6 @@ struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
                 n_kv_heads=params.n_kv_heads,
                 head_dim=params.head_dim,
                 dim=params.dims,
-                n_rep=params.n_rep,
                 wq=weight("attn_q", layer),
                 wk=weight("attn_k", layer),
                 wv=weight("attn_v", layer),
@@ -110,6 +115,7 @@ struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
             layers=layers,
             norm=norm("output_norm"),
             output=weight("output"),
+            theta=10000.0,
         )
 
         # outputs (logits, k_cache, v_cache)

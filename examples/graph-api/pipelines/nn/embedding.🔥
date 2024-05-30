@@ -10,43 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""Common neural network layers used within the model."""
 
-from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
+"""Neural network embedding layers."""
+
+from max.graph import ops, Dim, StaticDim, Symbol, TensorType
 from max.graph.quantization import Q4_0Encoding
-from max.graph.type import StaticDim
 from max.tensor import Tensor, TensorShape
 
+from pipelines.nn import Linear
 from pipelines.weights.ggml_quants import BlockQ40
-
-
-@value
-struct Linear[WeightsT: DType = DType.float32]:
-    """A fully-connected layer without activations."""
-
-    var w: Symbol
-
-    def __call__(self, x: Symbol) -> Symbol:
-        @parameter
-        if WeightsT == DType.uint8:
-            return ops.qmatmul[Q4_0Encoding](x, self.w)
-
-        return x @ self.w
-
-    def __rmatmul__(self, lhs: Symbol) -> Symbol:
-        return self(lhs)
-
-
-@value
-struct RMSNorm:
-    var eps: Float64
-    var weight: Symbol
-
-    def __call__(self, input: Symbol) -> Symbol:
-        scale = ops.rsqrt(ops.mean(input**2.0, axis=-1) + self.eps)
-        # Since norm weights are float32, cast to input dtype to avoid
-        # promoting the result to float32 when the input is float16.
-        return input * scale * ops.cast(self.weight, input.tensor_type().dtype)
 
 
 @value

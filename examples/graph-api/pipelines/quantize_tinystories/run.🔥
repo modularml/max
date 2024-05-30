@@ -18,17 +18,18 @@ from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import save, TensorDict
 from max.graph.quantization import Q4_0Encoding
 
-from ..llama2.model.attention import Attention
-from ..llama2.model.layers import Embedding, RMSNorm
-from ..llama2.model.transformer import (
+from pipelines.llama2.run import compile_graph, generate_text, Config
+from pipelines.nn import (
+    Attention,
+    Embedding,
     FeedForward,
+    RMSNorm,
     Transformer,
     TransformerBlock,
 )
-from ..llama2.run import compile_graph, generate_text, Config
-from ..weights.download import download_weights_to_cache
-from ..weights.llama2checkpoint import LlamaCFile
-from ..weights.loadable_model import LlamaHParams
+from pipelines.weights.download import download_weights_to_cache
+from pipelines.weights.llama2checkpoint import LlamaCFile
+from pipelines.weights.loadable_model import LlamaHParams
 
 
 @always_inline
@@ -130,7 +131,6 @@ struct TeenyTinyLlama:
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
                     dim=self.hyperparams.dims,
-                    n_rep=self.hyperparams.n_rep,
                     enable_custom_rope_kernel=False,
                     # Quantize all QKV and output projection matrices in the
                     # attention layer.
@@ -172,6 +172,7 @@ struct TeenyTinyLlama:
             # For stories15M, output and token embeddings are shared.
             # So reuse the token embeddings for the output layer.
             output=quantize("token_embd"),
+            theta=10000.0,
         )(tokens=llama[0], k_cache=k_cache, v_cache=v_cache)
 
         # Stage ops to compute the next token from the logits.
