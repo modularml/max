@@ -214,6 +214,8 @@ struct GGUFString(Stringable):
     # The length of the string in bytes.
     var n: UInt64
     # The string as a UTF-8 non-null-terminated string.
+    # Note: this matches GGUF spec but
+    # is unsafe to be used without proper initialization.
     var data: DTypePointer[DType.uint8]
 
     @always_inline
@@ -663,15 +665,21 @@ struct GGUFReader:
                 )
 
             var array_n = int(self.dtype_element[DType.uint64]())
+            # Note: the underlying `array.data` ptr is uninitialized
             var array = GGUFArray(array_n)
             if array_type is GGUFType.GGUF_TYPE_STRING:
                 for i in range(array_n):
-                    array.data[i] = self.gguf_string()
+                    initialize_pointee_copy(
+                        array.data + i, GGUFValue(self.gguf_string())
+                    )
 
                 return GGUFKV(key, GGUFValue(array))
 
             for i in range(array_n):
-                array.data[i] = array_type.dispatch[GGUFValue, _gguf_value]()
+                initialize_pointee_copy(
+                    array.data + i,
+                    array_type.dispatch[GGUFValue, _gguf_value](),
+                )
 
             return GGUFKV(key, GGUFValue(array))
 
