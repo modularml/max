@@ -125,10 +125,13 @@ struct Config:
 
 
 def execute(
-    model: Model, tokens: Tensor[DType.int64], inout kv_cache: KVCache
+    session: InferenceSession,
+    model: Model,
+    tokens: Tensor[DType.int64],
+    inout kv_cache: KVCache,
 ) -> Tensor[DType.float32]:
     """Execute the model predicting one new token."""
-    input_map = model._session.new_tensor_map()
+    input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", kv_cache.keys_view())
     input_map.borrow("input2", kv_cache.values_view())
@@ -174,7 +177,9 @@ def _generate_text_with_tokenizer[
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     for _ in range(prompt.size, config.max_tokens + 1):
-        logits = execute(compiled_model, tokens, kv_cache)
+        logits = execute(
+            compiled_model._session, compiled_model, tokens, kv_cache
+        )
         var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
         tokens = Tensor(TensorShape(1, 1), token)
         print(tokenizer.decode(token), end="")
@@ -238,7 +243,11 @@ def run[
     generate_text(compiled_model, params, config)
 
 
-def llama2_run():
+def run_outer[
+    run_fn: fn[model_type: LoadableModel, encoding: QuantizationEncoding] (
+        Config
+    ) raises -> object
+]():
     config = Config()
 
     cache_path = cwd().joinpath(".cache")
@@ -254,13 +263,17 @@ def llama2_run():
                 "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
                 "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
             )
-        run[GGUFFile, Q4_0Encoding](config)
+        run_fn[GGUFFile, Q4_0Encoding](config)
     elif encoding == "float32":
         if config.model_path.suffix() == ".gguf":
-            run[GGUFFile, Float32Encoding](config)
+            run_fn[GGUFFile, Float32Encoding](config)
         elif config.model_path.suffix() == ".bin":
-            run[LlamaCFile, Float32Encoding](config)
+            run_fn[LlamaCFile, Float32Encoding](config)
         else:
             raise "invalid model path"
     else:
         raise 'Encoding "' + encoding + '" not yet supported'
+
+
+def llama2_run():
+    run_outer[run]()
