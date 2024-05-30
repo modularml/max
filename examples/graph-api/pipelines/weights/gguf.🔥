@@ -352,6 +352,41 @@ struct GGUFValue:
         elif self._value.isa[GGUFArray]():
             self._value.unsafe_get[GGUFArray]()[].destroy()
 
+    @always_inline
+    fn float(self) raises -> Float64:
+        if self._value.isa[Float32]():
+            return self._value.unsafe_get[Float32]()[].cast[DType.float64]()
+        if self._value.isa[Float64]():
+            return self._value.unsafe_get[Float64]()[]
+
+        raise "GGUFValue is not a float32 or float64"
+
+    fn __int__(self) raises -> Int:
+        if self._value.isa[Int8]():
+            return int(self._value.unsafe_get[Int8]()[])
+        if self._value.isa[UInt8]():
+            return int(self._value.unsafe_get[UInt8]()[])
+        if self._value.isa[UInt16]():
+            return int(self._value.unsafe_get[UInt16]()[])
+        if self._value.isa[Int16]():
+            return int(self._value.unsafe_get[Int16]()[])
+        if self._value.isa[UInt32]():
+            return int(self._value.unsafe_get[UInt32]()[])
+        if self._value.isa[Int32]():
+            return int(self._value.unsafe_get[Int32]()[])
+        if self._value.isa[Int64]():
+            return int(self._value.unsafe_get[Int64]()[])
+        if self._value.isa[Float32]():
+            return int(self._value.unsafe_get[Float32]()[])
+        if self._value.isa[Bool]():
+            return int(self._value.unsafe_get[Bool]()[])
+        if self._value.isa[GGUFString]():
+            raise "can't convert GGUFString to int"
+        if self._value.isa[GGUFArray]():
+            raise "can't convert GGUFArray to int"
+
+        raise "unknown GGUFValue"
+
     fn __str__(self) -> String:
         if self._value.isa[Int8]():
             return str(self._value.unsafe_get[Int8]()[])
@@ -684,8 +719,8 @@ struct GGUFFile(LoadableModel):
 
     var header: GGUFHeader
 
-    var kv: UnsafePointer[GGUFKV]
-    var infos: UnsafePointer[GGUFTensorInfo]
+    var kv: List[GGUFKV]
+    var infos: List[GGUFTensorInfo]
 
     var alignment: Int
 
@@ -724,14 +759,14 @@ struct GGUFFile(LoadableModel):
         )
 
         # Read the kv pairs.
-        self.kv = UnsafePointer[GGUFKV].alloc(n_kv)
-        for i in range(n_kv):
-            self.kv[i] = reader.gguf_kv()
+        self.kv = List[GGUFKV](capacity=n_kv)
+        for _ in range(n_kv):
+            self.kv.append(reader.gguf_kv())
 
         # Read the tensor infos.
-        self.infos = UnsafePointer[GGUFTensorInfo].alloc(n_tensors)
-        for i in range(n_tensors):
-            self.infos[i] = reader.gguf_tensor_info()
+        self.infos = List[GGUFTensorInfo](capacity=n_tensors)
+        for _ in range(n_tensors):
+            self.infos.append(reader.gguf_tensor_info())
 
         self.alignment = GGUFFile.GGUF_DEFAULT_ALIGNMENT
         # TODO: Set alignment from general.alignment key.
@@ -754,17 +789,15 @@ struct GGUFFile(LoadableModel):
 
     fn __moveinit__(inout self, owned other: GGUFFile):
         @always_inline
-        fn exchange[
-            T: AnyTrivialRegType
-        ](inout old_var: T, owned new_value: T) -> T:
-            var old_value = old_var
-            old_var = new_value
-            return old_value
+        fn exchange[T: Movable](inout old_var: T, owned new_value: T) -> T:
+            var old_value = old_var^
+            old_var = new_value^
+            return old_value^
 
         self.header = other.header
 
-        self.kv = exchange(other.kv, UnsafePointer[GGUFKV]())
-        self.infos = exchange(other.infos, UnsafePointer[GGUFTensorInfo]())
+        self.kv = exchange(other.kv, List[GGUFKV]())
+        self.infos = exchange(other.infos, List[GGUFTensorInfo]())
 
         self.alignment = other.alignment
         self.offset = other.offset
@@ -775,11 +808,9 @@ struct GGUFFile(LoadableModel):
     fn __del__(owned self):
         for i in range(int(self.header.n_kv)):
             self.kv[i].destroy()
-        self.kv.free()
 
         for i in range(self.n_tensors()):
             self.infos[i].destroy()
-        self.infos.free()
 
     fn __str__(self) -> String:
         var res = str(self.header) + "\n"
@@ -790,6 +821,14 @@ struct GGUFFile(LoadableModel):
             res += str(self.infos[i])
             res += "\n"
         return res
+
+    fn __getitem__(self, key: String) raises -> GGUFValue:
+        """Returns the metadata value for key, raising if not found."""
+        for kv in self.kv:
+            if str(kv[].key) == key:
+                return kv[].value
+
+        raise "GGUF key: " + key + " not found"
 
     fn get[
         type: DType
@@ -826,17 +865,36 @@ struct GGUFFile(LoadableModel):
 
         raise "key not found"
 
-    fn hyperparams(self) -> LlamaHParams:
-        # TODO(#30708): Compute these using data structures matching llama.cpp.
+    fn hyperparams(self) raises -> LlamaHParams:
+        """Loads Llama hyperparameters by reading the GGUF metadata."""
+        var dims = int(self["llama.embedding_length"])
+        var n_heads = int(self["llama.attention.head_count"])
+        var n_kv_heads = int(self["llama.attention.head_count_kv"])
+
+        # Compute the vocab size from the token embedding shape.
+        # This works around -1 vocab_size from Llama 1 and 2 conversion.
+        # See for example: https://github.com/ggerganov/llama.cpp/pull/4258.
+        var vocab_size: Optional[Int] = None
+        for info in self.infos:
+            if str(info[].name) != "token_embd.weight":
+                continue
+
+            # Take the 2nd dim since token_embd is [dims, vocab_size].
+            vocab_size = int(info[].ne[1])
+
+        if not vocab_size:
+            # As a last resort try the vocab_size metadata field.
+            vocab_size = int(self["llama.vocab_size"])
+
         return LlamaHParams(
-            dims=4096,
-            n_layers=32,
-            n_heads=32,
-            norm_eps=1e-5,
-            n_kv_heads=32,
-            vocab_size=32000,
-            head_dim=4096 // 32,
-            n_rep=32 // 32,
+            dims=dims,
+            n_layers=int(self["llama.block_count"]),
+            n_heads=n_heads,
+            norm_eps=self["llama.attention.layer_norm_rms_epsilon"].float(),
+            n_kv_heads=n_kv_heads,
+            vocab_size=vocab_size.value()[],
+            head_dim=dims // n_heads,
+            n_rep=n_heads // n_kv_heads,
         )
 
     @always_inline

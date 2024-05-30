@@ -240,7 +240,7 @@ struct LlamaCFile(LoadableModel):
 
         return Tensor(tensor_ref.shape, ptr)
 
-    fn hyperparams(self) -> LlamaHParams:
+    fn hyperparams(self) raises -> LlamaHParams:
         return LlamaHParams(
             dims=self.config.dim,
             n_layers=self.config.n_layers,

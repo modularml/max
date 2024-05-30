@@ -117,3 +117,7 @@ struct Llama2[Model: LoadableModel, type: DType = DType.float32]:
         logits = outputs[0]
         g.output(List[Symbol](logits[-1, axis=1], outputs[1], outputs[2]))
         return g
+
+    def hyperparams(self) -> LlamaHParams:
+        """Returns hyperparameters corresponding to this Llama 2 model."""
+        return self.model.hyperparams()
