@@ -38,7 +38,7 @@ struct Llama3[Model: LoadableModel, type: DType = DType.float32]:
         self.quantization_encoding = quantization_encoding
 
     def build_graph(inout self, name: String) -> Graph:
-        params = Self.hyperparams()
+        params = self.hyperparams()
         cache_type = TensorType(
             DType.float32,
             Dim.dynamic(),
@@ -114,15 +114,6 @@ struct Llama3[Model: LoadableModel, type: DType = DType.float32]:
         g.output(List[Symbol](next_token, outputs[1], outputs[2]))
         return g
 
-    @staticmethod
-    def hyperparams() -> LlamaHParams:
-        return LlamaHParams(
-            dims=4096,
-            n_layers=32,
-            n_heads=32,
-            norm_eps=1e-5,
-            n_kv_heads=8,
-            vocab_size=128256,
-            head_dim=4096 // 32,
-            n_rep=32 // 8,
-        )
+    def hyperparams(self) -> LlamaHParams:
+        """Returns hyperparameters corresponding to this Llama 3 model."""
+        return self.model.hyperparams()

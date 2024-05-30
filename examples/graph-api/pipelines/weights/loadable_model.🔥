@@ -85,7 +85,7 @@ trait LoadableModel(Movable):
         """
         ...
 
-    fn hyperparams(self) -> LlamaHParams:
+    fn hyperparams(self) raises -> LlamaHParams:
         """Retrieves model-specific hyperparameters.
 
         Returns:

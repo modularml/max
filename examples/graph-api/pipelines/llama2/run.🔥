@@ -225,7 +225,7 @@ def run[ModelT: LoadableModel, WeightsT: DType = DType.float32](config: Config):
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
         quantization_encoding=config.quantization_encoding,
     )
-    params = model.model.hyperparams()
+    params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
     compiled_model = compile_graph(graph, config.custom_ops_paths)
