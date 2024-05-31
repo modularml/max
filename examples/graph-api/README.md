@@ -16,8 +16,8 @@ directory and can be invoked in a manner similar to the following:
 mojo run_pipeline.🔥 [pipeline] [options]
 ```
 
-The specific pipelines that can be executed and their options can be found in
-the above directory.
+Explore each specific pipeline and follow the detailed instructions provided
+in their README files within the [pipelines](./pipelines/) sub-repository.
 
 ## [Graph API introduction](basics/)
 

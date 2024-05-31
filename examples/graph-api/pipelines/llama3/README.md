@@ -38,7 +38,21 @@ The default settings for this pipeline use the 8B set of pretrained weights in
    [the installation instructions](https://docs.modular.com/engine/get-started)
    to set it up on your system.
 
-2. Run the text completion demo:
+2. Install Python dependencies.
+
+   This enables using the HuggingFace
+   [transformers](https://github.com/huggingface/transformers) AutoTokenizer.
+   If `transformers` isn't found, a Mojo tokenizer implementation is used.
+
+   ```shell
+   python3 -m pip install -r requirements.txt
+   ```
+
+3. Run the text completion demo:
+
+   **To access the llama models, you need to agree to their license in Huggingface.**
+
+   License is located here [Meta-Llama-3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)
 
    On first execution, the tokenizer library and model weights will be
    downloaded and placed in a local `.cache/` directory in your current path.
