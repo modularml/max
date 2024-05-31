@@ -12,13 +12,67 @@
 # ===----------------------------------------------------------------------=== #
 """A byte pair encoding tokenizer implementation for use with LLMs."""
 
+from base64 import b64decode
 from collections import Dict, List, Optional
 from pathlib import Path
 
 from tensor import Tensor
 
 from .arena_linked_list import ArenaLinkedList
-from .max_heap import MaxHeap, OrderedElement
+from .max_heap import MinHeap, OrderedElement
+
+
+# TODO(MSTDL-590): upstream split/lines into stdlib
+@value
+struct _SplitIter[is_mutable: Bool, lifetime: AnyLifetime[is_mutable].type]:
+    """Iterator over splits of a string. Returns string slices, preventing
+    allocating a new String for each slice of the original string, and
+    allows specifing a maximum number of splits."""
+
+    var span: Span[UInt8, is_mutable, lifetime]
+    var split: String
+    var max: Optional[Int]
+    var done: Bool
+
+    fn __iter__(self) -> Self:
+        return self
+
+    fn __next__(inout self) -> StringSlice[is_mutable, lifetime]:
+        """Return the next split slice via StringRef.find()."""
+        # If we've already split `max` times, return the final slice.
+        if self.max and self.max.value()[] == 0:
+            self.done = True
+            return StringSlice(unsafe_from_utf8=self.span)
+
+        var next_newline: Int
+        # If we've already split `max` times, return the final slice.
+        var split = self.split._strref_dangerous()
+        var slice = StringSlice(unsafe_from_utf8=self.span)
+        if (next_newline := slice._strref_dangerous().find(split)) != -1:
+            var line = self.span[:next_newline]
+            # advance the span start until the end of the found match
+            self.span = self.span[next_newline + len(self.split) :]
+            if self.max:
+                self.max = self.max.value()[] - 1
+            return StringSlice(unsafe_from_utf8=line)
+        self.done = True
+        return StringSlice(unsafe_from_utf8=self.span)
+
+    fn __len__(inout self) -> Int:
+        # Return a number >0 unless max split is -1 (signals end of iteration)
+        # or span is empty.
+        return 0 if self.done else 1
+
+
+def split(
+    string: String, split: String, /, max: Int = -2
+) -> _SplitIter[False, __lifetime_of(string)]:
+    """Iterate over string slice references. Splits at most `max` times."""
+    return _SplitIter(string.as_bytes_slice(), split, max, False)
+
+
+def lines(string: String) -> _SplitIter[False, __lifetime_of(string)]:
+    return split(string, "\n")
 
 
 @value
@@ -28,6 +82,15 @@ struct Token(CollectionElement):
     var token: String
     var score: Float32
 
+    fn __repr__(self) -> String:
+        return (
+            str("Token(")
+            + repr(self.token)
+            + ", score="
+            + str(self.score)
+            + ")"
+        )
+
 
 @value
 struct TokenWithID(CollectionElement):
@@ -35,6 +98,9 @@ struct TokenWithID(CollectionElement):
 
     var token: String
     var id: Int
+
+    fn __repr__(self) -> String:
+        return "Token(" + self.token.__repr__() + ", " + str(self.id) + ")"
 
 
 @value
@@ -47,8 +113,23 @@ struct MergeOption(OrderedElement):
     var checksum: Int
 
     fn __lt__(self, other: Self) -> Bool:
+        # 1. Lower scores are better
+        # 2. If two options with the same score, the earlier one is better
         return (self.score < other.score) or (
-            self.score == other.score and self.left > other.left
+            self.score == other.score and self.left < other.left
+        )
+
+    fn __repr__(self) -> String:
+        return (
+            str("MergeOption(left=")
+            + str(self.left)
+            + ", right="
+            + str(self.right)
+            + ", score="
+            + str(self.score)
+            + ", checksum="
+            + str(self.checksum)
+            + ")"
         )
 
 
@@ -79,7 +160,44 @@ struct BPETokenizer:
         self.token_ids = Dict[String, Int]()
 
     @staticmethod
-    def from_bytes(data: String) -> BPETokenizer:
+    def from_tiktoken(data: String) -> BPETokenizer:
+        """Construct a BPETokenizer instance given binary token scores.
+
+        The file must have the following binary format:
+        ```
+        [max_token_len:Int32]
+        [score_0:Float32]
+        [token_len_0:Int32]
+        [token_0:(UInt8*token_len_0)]
+        [score_1:Float32]
+        [token_len_1:Int32]
+        [token_1:(UInt8*token_len_0)]
+        ...
+        ```
+        """
+        model = BPETokenizer()
+
+        for line in lines(data):
+            if not len(line.as_bytes_slice()):
+                continue
+            splt = split(line, " ", 1)
+            token = b64decode(splt.__next__())
+            rank = int(splt.__next__())  # always exactly lineno as well
+            model.add_token(token, rank)
+
+        return model^
+
+    @staticmethod
+    def from_tiktoken(path: Path) -> Self:
+        """Construct a BPETokenizer instance given binary token scores.
+
+        See `BPETokenizer.from_bytes()` for the expected file format.
+        """
+        with open(path, "r") as file:
+            return Self.from_tiktoken(file.read())
+
+    @staticmethod
+    def from_binary(data: String) -> BPETokenizer:
         """Construct a BPETokenizer instance given binary token scores.
 
         The file must have the following binary format:
@@ -109,13 +227,13 @@ struct BPETokenizer:
         return model^
 
     @staticmethod
-    def from_file(path: Path) -> Self:
+    def from_binary(path: Path) -> Self:
         """Construct a BPETokenizer instance given binary token scores.
 
         See `BPETokenizer.from_bytes()` for the expected file format.
         """
         with open(path, "r") as file:
-            return Self.from_bytes(file.read())
+            return Self.from_binary(file.read())
 
     def add_token(inout self, token: String, score: Float32):
         """Add a token to the vocabulary."""
@@ -150,14 +268,14 @@ struct BPETokenizer:
                 TokenWithID(bos.value()[], self.token_ids[bos.value()[]])
             )
 
-        merge_options = MaxHeap[MergeOption]()
+        merge_options = MinHeap[MergeOption]()
         tokens = ArenaLinkedList[String]()
 
         @parameter
         def maybe_add_merge(left: tokens.ID, right: tokens.ID):
             merged = tokens[left] + tokens[right]
-            if merged in self.token_ids:
-                score = self.vocab[self.token_ids[merged]].score
+            if token_id := self.token_ids.find(merged):
+                score = self.vocab[token_id.value()[]].score
                 merge_options.push(MergeOption(left, right, score, len(merged)))
 
         # Initialize the tokens linked-list and initial merges.
@@ -174,6 +292,7 @@ struct BPETokenizer:
             if merge.left not in tokens or merge.right not in tokens:
                 continue  # outdated merge option
             merged = tokens[merge.left] + tokens[merge.right]
+            # TODO: don't create merged token before checking
             if len(merged) != merge.checksum:
                 continue  # outdated merge option
             # Merge the right token into the left token, then
