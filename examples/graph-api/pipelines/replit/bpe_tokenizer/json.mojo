@@ -174,42 +174,39 @@ var VALUE_TYPES = Set[TokenType](
 )
 
 
-fn get_next_token(
-    s: StringRef, startx: Int = 0
-) raises -> (StringRef, TokenType, Int):
+def get_next_token(inout s: StringRef) -> (StringRef, TokenType):
     """Gets the next token within the limits and returns the unscanned indices.
 
     Args:
-        s: JSON string.
-        start: Index of `s` to start scanning. Must be `>=0` and `<len(s)`.
+        s: JSON string, which is advanced beyond consumed bytes.
     Returns:
         Tuple of (
             Substring containing the token contents
             The type of token returned.
-            Index of next unscanned character in `s`.
         )
 
     """
-    var start = startx
-    var i = start
-    var end_idx = len(s) - 1
 
     # Skip the white spaces.
-    while i <= end_idx:
-        if s[i] in WS:
-            i += 1
+    while True:
+        if s.empty():
+            return StringRef(), TokenType.end
+
+        if s[0] in WS:
+            s = s.drop_front()
         else:
             break
-    if i > end_idx:
-        return StringRef(), TokenType.end, i
 
-    # Detect which type of token this is.
-    var token = s.drop_front(i).take_front(1)
+    # Keep track of how many bytes are in this token.
+    var token = s.take_front(1)
+    var i = 1
+    var end_idx = len(s)
     var token_type: TokenType
 
     # TODO: Why doesn't StringRef have a normal getitem?
-    var c = String(s[i])
-    i += 1
+    var c = String(s[0])
+
+    # Detect which type of token this is.
     if c == OBJECT_OPEN:
         token_type = TokenType.object_open
     elif c == OBJECT_CLOSE:
@@ -223,43 +220,40 @@ fn get_next_token(
     elif c == COMMA:
         token_type = TokenType.comma
     elif c == DOUBLE_QUOTE:
-        var first_idx = i
-        while i <= end_idx:
+        while True:
+            if i == end_idx:
+                raise "Could not find end double quotes."
+
             if s[i] == ESCAPE:
+                if i + 1 == end_idx:
+                    raise "escape at end of line."
                 i += 1  # Skip the next character
             elif s[i] == DOUBLE_QUOTE:
                 break
             i += 1
-        if i > end_idx:
-            raise "Could not find end double quotes."
-        var length = abs(first_idx - i)
+
         # Crop the double quotes from the token.
-        token = s.drop_front(first_idx).take_front(length)
+        token = s.drop_front(1).take_front(i - 1)
         token_type = TokenType.string
 
         # Move the i one more char, since it's a double-quote that's part of
         # this string.
         i += 1
     elif c in INITIAL_NUMBER_CHARS:
-        var first_idx = i
-        while i <= end_idx:
+        while i < end_idx:
             if s[i] not in NUMBER_CHARS:
                 break
             i += 1
         # TODO: Validate number
-        var length = abs(first_idx - i) + 1
-        token = s.drop_front(first_idx - 1).take_front(length)
+        token = s.take_front(i)
         token_type = TokenType.number
     elif islower(ord(c)):
         # Check if the next token is "true", "false" or "null"
         var first_idx = i
-        while i <= end_idx:
-            if not islower(ord(s[i])):
-                break
+        while i < end_idx and islower(ord(s[i])):
             i += 1
 
-        var length = abs(first_idx - i) + 1
-        token = s.drop_front(first_idx - 1).take_front(length)
+        token = s.take_front(i)
         if token == NULL:
             token_type = TokenType.null
         elif token == TRUE:
@@ -267,12 +261,10 @@ fn get_next_token(
         elif token == FALSE:
             token_type = TokenType.bool
         else:
-            raise 'Invalid token "' + str(token) + '" at character ' + str(
-                first_idx
-            ) + " in " + String(s)[first_idx:] + "\n\nFull string: " + s
+            raise 'Invalid token "' + str(token) + '" in "' + String(s) + '"'
 
     else:
-        start = max(0, i - 20)
+        var start = max(0, i - 20)
         var end = min(end_idx, i + 20)
         raise (
             "Unable to parse token: "
@@ -283,7 +275,8 @@ fn get_next_token(
             + "Context: "
             + String(s)[start:end]
         )
-    return token, token_type, i
+    s = s.drop_front(i)
+    return token, token_type
 
 
 @value
@@ -332,25 +325,20 @@ struct JsonStorage:
     var storage: List[Dict[String, Node]]
 
     @staticmethod
-    fn from_string(s: StringRef) raises -> Self:
-        var js: Self
-        var start: Int
-        js, start = _from_string(s, 0)
+    def from_string(s: StringRef) -> Self:
+        js = _from_string(s)
 
         # Make sure nothing appears afterwards:
-        var token: StringRef
-        var token_type: TokenType
-
-        token, token_type, start = get_next_token(s, start)
+        token, token_type = get_next_token(s)
         if token_type != TokenType.end:
             raise "Unexpected token found: " + str(token)
 
-        return JsonStorage(js.root, js.storage)
+        return js
 
-    fn get(self, args: List[String]) raises -> Node:
-        if len(args) == 0:
-            return self.root
+    def get(self, args: List[String]) -> Node:
         var node = self.root
+        if len(args) == 0:
+            return node
         for n in range(len(args)):
             var key = args[n]
             if node.type != NodeType.object and node.type != NodeType.array:
@@ -364,7 +352,7 @@ struct JsonStorage:
                 raise "Unable to get key '" + key + "' from " + str(node)
         return node
 
-    fn get(self, *args: String) raises -> Node:
+    def get(self, *args: String) -> Node:
         # Convert to list -- can't do self.get(args) :(
         var args_list = List[String]()
         for ele in args:
@@ -372,17 +360,15 @@ struct JsonStorage:
         return self.get(args_list)
 
 
-fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
-    var token: StringRef
-    var token_type: TokenType
-    var start: Int = startx
+def _from_string(inout s: StringRef) -> JsonStorage:
+    # Dict and Arrays will want the entire span as their location.
+    orig_buffer = s
 
-    token, token_type, start = get_next_token(s, start)
-    var root = Node(token_type.to_node_type(), token, -1)
+    token, token_type = get_next_token(s)
+    root = Node(token_type.to_node_type(), token, -1)
 
     var storage = List[Dict[String, Node]]()
     if token_type == TokenType.object_open:
-        var root_start = start - 1
         root.storage_index = 0
         var root_storage = Dict[String, Node]()
         storage.append(root_storage)
@@ -390,15 +376,15 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
         var object_closed = False
         while not object_closed:
             # Look ahead to see if the next token is a "}"
-            var temp: Int
-            token, token_type, temp = get_next_token(s, start)
+            var temp = s
+            token, token_type = get_next_token(temp)
             if token_type == TokenType.object_close:
                 object_closed = True
-                start = temp
+                s = temp
                 break
 
             # Read the next token (object key)
-            token, token_type, start = get_next_token(s, start)
+            token, token_type = get_next_token(s)
             var key = token
             if token_type == TokenType.end:
                 break
@@ -409,13 +395,12 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
                 raise "JSON key must be a string, got: " + str(token)
 
             # Consume the next token (should be a ':')
-            token, token_type, start = get_next_token(s, start)
+            token, token_type = get_next_token(s)
             if token_type != TokenType.colon:
                 raise "Expected a ':' after string key, got: " + str(token)
 
             # Get the value using a recursive call to _from_string:
-            var value: JsonStorage
-            value, start = _from_string(s, start)
+            var value = _from_string(s)
 
             # Get the current length of `storage` which will be used to
             # increment all indices in the returned nodes.
@@ -431,7 +416,7 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
 
             # Consume the next token, which could end the object or should be
             # a comma.
-            token, token_type, start = get_next_token(s, start)
+            token, token_type = get_next_token(s)
             if token_type == TokenType.object_close:
                 object_closed = True
                 break
@@ -442,11 +427,10 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
                     token
                 )
         if object_closed:
-            root.value = s.drop_front(root_start)
+            root.value = orig_buffer
         else:
             raise "Invalid formatted JSON object. Object was never closed."
     elif token_type == TokenType.array_open:
-        var root_start = start - 1
         root.storage_index = 0
         var root_storage = Dict[String, Node]()
         storage.append(root_storage)
@@ -458,16 +442,15 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
         var array_closed = False
         while True:
             # Look ahead to see if the next token is a "]"
-            var temp: Int
-            token, token_type, temp = get_next_token(s, start)
+            var temp = s
+            token, token_type = get_next_token(temp)
             if token_type == TokenType.array_close:
                 array_closed = True
-                start = temp
+                s = temp
                 break
 
             # Get the value using a recursive call to _from_string:
-            var value: JsonStorage
-            value, start = _from_string(s, start)
+            var value = _from_string(s)
 
             # Get the current length of `storage` which will be used to
             # increment all indices in the returned nodes.
@@ -485,7 +468,7 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
 
             # Consume the next token, which could end the array or should be
             # a comma.
-            token, token_type, start = get_next_token(s, start)
+            token, token_type = get_next_token(s)
             if token_type == TokenType.array_close:
                 array_closed = True
                 break
@@ -496,8 +479,8 @@ fn _from_string(s: StringRef, startx: Int) raises -> (JsonStorage, Int):
                     token
                 )
         if array_closed:
-            root.value = s.drop_front(root_start)
+            root.value = orig_buffer
         else:
             raise "Invalid formatted JSON array. Object was never closed."
 
-    return JsonStorage(root, storage), start
+    return JsonStorage(root, storage)
