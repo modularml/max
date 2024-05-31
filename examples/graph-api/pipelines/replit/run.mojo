@@ -21,7 +21,8 @@ from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
 from ..tokenizer import AutoTokenizer
 
-alias MAX_SEQ_LEN = 512
+# TODO: Expand this back out to 512 once MSDK-305 is fully resolved.
+alias MAX_SEQ_LEN = 33
 
 
 @value
@@ -76,7 +77,7 @@ def replit_run():
 
     # Generate a graph that does a single forward pass of the replit model.
     print("Building model...")
-    var replit = Replit[ReplitCheckpoint, DType.float32](get_default())
+    replit = Replit[ReplitCheckpoint, DType.float32](get_default())
     g = replit.build_graph(
         "replit",
         ReplitCheckpoint(checkpoint_file),
@@ -94,14 +95,14 @@ def replit_run():
     input_string = config.prompt
     print("Running on input:", input_string)
     alias hf_model_name = "replit/replit-code-v1_5-3b"
-    var bpe_tokenizer = AutoTokenizer(hf_model_name)
-    prompt = List[String]()
-    prompt.append(input_string)
+    bpe_tokenizer = AutoTokenizer(hf_model_name)
+
+    # Make sure newlines are properly encoded in the prompt.
+    prompt = List(input_string.replace("\\n", "\n"))
+
     encoded_prompt = bpe_tokenizer.encode(prompt)
     tokens = Tensor(TensorShape(1, len(encoded_prompt)), encoded_prompt)
 
-    var k_cache: Tensor[DType.float32]
-    var v_cache: Tensor[DType.float32]
     k_cache, v_cache = replit.create_empty_cache()
 
     # Greedily generate tokens one at a time until the end token is reached or
@@ -121,9 +122,10 @@ def replit_run():
         next_token = argmax[0, argmax_length - 1]
         if bpe_tokenizer.is_end_of_text(next_token):
             break
+
         tokens = Tensor[DType.int64](TensorShape(1, 1), next_token)
         tokens_str = bpe_tokenizer.decode(next_token)
-        print(tokens_str[0], end="")
+        print(tokens_str, end="")
     print()
 
 

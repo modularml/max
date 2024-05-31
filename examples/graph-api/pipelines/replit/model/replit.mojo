@@ -209,8 +209,6 @@ struct Replit[T: Checkpoint, weights_type: DType]:
             if use_cache:
                 k_cache = g[cache_input_idx][i]
                 v_cache = g[cache_input_idx + 1][i]
-                var k_cache_update: Symbol
-                var v_cache_update: Symbol
                 x, k_cache_update, v_cache_update = block(
                     x, attn_bias, k_cache, v_cache
                 )
