@@ -62,9 +62,6 @@ struct MPTBlock[T: Checkpoint, weights_type: DType]:
         v_cache: Optional[Symbol] = None,
     ) -> (Symbol, Symbol, Symbol):
         a = self.norm_1(input)
-        var k_cache_update: Symbol
-        var v_cache_update: Symbol
-        var b: Symbol
         b, k_cache_update, v_cache_update = self.attn(
             a, attn_bias, k_cache, v_cache
         )
