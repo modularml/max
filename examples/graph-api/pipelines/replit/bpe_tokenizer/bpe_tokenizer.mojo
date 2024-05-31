@@ -98,7 +98,7 @@ struct Tokenizer:
         # maintains those StringRefs for the duration of the Tokenizer object.
         # We make sure to keep s alive as long as we need it to avoid dangling
         # pointers.
-        var j = JsonStorage.from_string(StringRef(s.unsafe_uint8_ptr(), len(s)))
+        var j = JsonStorage.from_string(StringRef(s.unsafe_ptr(), len(s)))
 
         # Just read the vocab and merges, assume the configuration
         # parameters are as expected (e.g. type=BPE, byte_fallback=False, etc).
