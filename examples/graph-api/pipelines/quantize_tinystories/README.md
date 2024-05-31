@@ -42,8 +42,10 @@ LLMs with as little as 10M parameters
    weight format called `Q4_0`, and stages a graph composed of the quantized
    weights.
    After staging the full quantized Llama graph, the pipeline saves the
-   resulting quantized weights as a checkpoint under the `.cache/ directory`.
+   resulting quantized weights as a checkpoint under the `.cache/` directory.
+   On subsequent executions, the pipeline will skip the initial steps and load
+   the weights from the cached quantized checkpoint.
 
    ```shell
-   mojo ../../run_pipeline.🔥 quantize-tinystories
+   mojo ../../run_pipeline.🔥 quantize-tinystories --prompt "I believe the meaning of life is"
    ```
