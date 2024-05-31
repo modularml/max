@@ -28,32 +28,17 @@ The text completion demo is compatible with the the official Llama 3
 [text completion demo](https://github.com/meta-llama/llama3/blob/14aab0428d3ec3a9596f1dea06d9c564f9c0e35f/example_text_completion.py).
 
 The default settings for this pipeline use the 8B set of pretrained weights in
-`q4_k` quantized encodings.
+`q4_0` quantized encodings.
 
 ## Usage
 
 1. Install MAX:
 
    If MAX is not already installed, follow
-   [the installation instructions](https://docs.modular.com/max/install)
+   [the installation instructions](https://docs.modular.com/engine/get-started)
    to set it up on your system.
 
-2. Clone the MAX examples repository:
-
-   If you don't already have a local clone of this repository, create one via:
-
-   ```shell
-   git clone https://github.com/modularml/max.git
-   ```
-
-   The following instructions assume that you're present within this pipeline's
-   directory, and you can change to it after cloning:
-
-   ```shell
-   cd max/examples/graph-api/pipelines/llama3/
-   ```
-
-3. Run the text completion demo:
+2. Run the text completion demo:
 
    On first execution, the tokenizer library and model weights will be
    downloaded and placed in a local `.cache/` directory in your current path.
@@ -73,24 +58,15 @@ The default settings for this pipeline use the 8B set of pretrained weights in
 The following command-line options are available to customize operation of the
 pipeline:
 
+- `--batch-size`: The batch size. (Default value: `1`)
 - `--model-path`: Overrides the default URL, and allows for an
   already-downloaded pretrained weight file to be used with the model.
 - `--custom-ops-path`: The path to a compiled Mojo package containing a custom
    graph operation to use within the pipeline.
 - `--tokenizer-path`: The path to the tokenizer library to be used by the
    pipeline. (Default value: `.cache/tokenizer.bin`)
-- `--max-tokens`: The maximum number of tokens to generate.
-  (Default value: 512)
-- `--min-p`: The starting required percentage for
-  [Min P sampling](https://github.com/ggerganov/llama.cpp/pull/3841).
-  (Default value: 0.05)
 - `--prompt`: The text prompt to use for further generation.
 - `--quantization-encoding`: The encoding to use for a datatype that can be
-  quantized to a low bits per weight format. The options for quantized formats
-  will download and cache default weights, but `float32` requires the use of
-  `--model-path` to specify locally downloaded full-precision weights for use
-  in the model.
-  Valid values: `q4_0`, `q4_k`, `q6_k`, `float32`.
-  (Default value: `q4_k`).
-- `--temperature`: The temperature for sampling, on a scale from 0.0 - 1.0,
-  with 0.0 being greedy sampling. (Default value: 0.5)
+  quantized to a low bits per weight format.
+  Valid values: `q4_0`, `float32`.
+  (Default value: `q4_0`).

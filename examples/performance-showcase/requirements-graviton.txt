@@ -2,4 +2,7 @@
 
 torch==2.2.2
 transformers==4.40.1
-tritonclient[http]==2.44.0
+setuptools==69.5.1
+pillow==10.3.0
+py-cpuinfo==9.0.0
+h5py==3.11.0

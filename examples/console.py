@@ -40,8 +40,7 @@ EXCEEDED_RETRY_ERROR = (
 def list_repositories() -> List[Tuple[str, str]]:
     repos = []
     for top_repo in os.listdir(ROOT):
-        # Skip notebook folder and files
-        if "notebook" in top_repo or not os.path.isdir(top_repo):
+        if "notebook" in top_repo or "console.py" in top_repo:
             continue
 
         repo = os.path.join(ROOT, top_repo)
@@ -140,10 +139,15 @@ def select_repository(
     return selected_repo
 
 
-def run_repository(repo_name: str) -> None:
+def run_repository(repo_name: Tuple[str, str]) -> None:
     repo_path = os.path.join(ROOT, repo_name)
-    run_script_path = (Path(repo_path) / "run.sh").resolve()
-    subprocess.run(["magic", "run", "bash", run_script_path], cwd=repo_path)
+    requirements_path = os.path.join(repo_path, "requirements.txt")
+    run_script_path = os.path.join(repo_path, "run.sh")
+
+    if os.path.exists(requirements_path):
+        subprocess.run(["pip", "install", "-r", requirements_path])
+
+    subprocess.run(["bash", run_script_path], cwd=repo_path)
     return
 
 

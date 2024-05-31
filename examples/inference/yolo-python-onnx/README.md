@@ -6,36 +6,29 @@ from the webcam.
 
 ## Quickstart
 
-This example will change depending on if you have a webcam or not.
+First, install MAX as per the [MAX Engine get started
+guide](https://docs.modular.com/engine/get-started/).
+
+Then you can install the package requirements and run the example:
+
+```bash
+python3 -m venv venv && source venv/bin/activate
+python3 -m pip install --upgrade pip setuptools
+python3 -m pip install -r requirements.txt
+# Install the MAX Engine Python package
+python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
+
+# Run the example
+bash run.sh
+```
+
+The example will change depending on if you have a webcam or not.
 If you have a webcam, the example will capture the webcam
 and display a window running live segmentation.
 
 If you do not have a webcam, the example will segment
 [a downloaded video file](https://drive.google.com/file/d/1H9abV76VohmT-J2RmDrbDhF-FCHt1Sbh/view?usp=sharing)
 and generate `output.mp4`.
-
-### Magic instructions
-
-If you have [`magic`](https://docs.modular.com/magic), you can run the
-following command:
-
-```sh
-magic run bash run.sh
-```
-
-### Conda instructions
-
-Create a Conda environment, activate that environment, and install the
-requirements:
-
-```sh
-# Create a Conda environment if you don't have one
-conda create -n max-repo
-# Update the environment with the environment.yml file
-conda env update -n max-repo -f environment.yml --prune
-# Run the example
-conda run -n max-repo --live-stream bash run.sh
-```
 
 ## Note: GUI Dependencies
 

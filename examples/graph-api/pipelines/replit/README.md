@@ -32,22 +32,7 @@ implementation, and weights are
    [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
-2. Clone the MAX examples repository:
-
-   If you don't already have a local clone of this repository, create one via:
-
-   ```shell
-   git clone https://github.com/modularml/max.git
-   ```
-
-   The following instructions assume that you're present within this pipeline's
-   directory, and you can change to it after cloning:
-
-   ```shell
-   cd max/examples/graph-api/pipelines/replit/
-   ```
-
-3. Download and convert the model weights:
+2. Download and convert the model weights:
 
    Before the first execution of the pipeline, weights need to be downloaded
    and converted into the correct format for use by this model. This weight
@@ -60,7 +45,7 @@ implementation, and weights are
    source setup.sh
    ```
 
-4. Run the code completion demo:
+3. Run the code completion demo:
 
    Invoking the pipeline will cause the model graph to be compiled and code
    generation will begin from the specified prompt.

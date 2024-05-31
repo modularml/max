@@ -1,68 +1,88 @@
 # MAX Jupyter notebooks
 
+MAX and Mojo supports programming in [Jupyter notebooks](https://jupyter.org/),
+just like Python.
+
 This page explains how to get started with MAX example notebooks, and this
 repo directory contains notebooks that demonstrate some of MAX features.
 
-If you're not familiar with Jupyter notebooks, they're files that allow you to
-create documents with live code, equations, visualizations, and explanatory
-text. They're basically documents with executable code blocks, making them
-great for sharing code experiments and programming tutorials.
+If you're not familiar with Jupyter notebooks, they're files that allow you to create
+documents with live code, equations, visualizations, and explanatory text.
+They're basically documents with executable code blocks, making them great for
+sharing code experiments and programming tutorials.
 
 ## Get started in VS Code
 
 Visual Studio Code is a great environment for programming with Jupyter notebooks.
-Especially if you're developing with MAX on a remote system, using VS
+Especially if you're developing with MAX and Mojo on a remote system, using VS
 Code is ideal because it allows you to edit and interact with notebooks on the
 remote machine where you've installed MAX.
 
-All you need is MAX (via Magic) and the Jupyter VS Code extension:
+All you need is MAX and the Jupyter VS Code extension:
 
-1. [Install Magic](https://docs.modular.com/magic).
+1. Install the [MAX SDK](https://developer.modular.com/download).
 
 2. Install [Visual Studio Code](https://code.visualstudio.com/) and the
    [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
 
-3. Open any `.ipynb` file in this repo and start running the code.
+3. Then open any `.ipynb` file with MAX code, click **Select Kernel** in the top-right
+corner of the document, and then select **Jupyter Kernel > Python** or
+**Jupyter Kernel > Mojo**.
+
+   The Mojo kernel should have been installed automatically when you installed
+the Mojo SDK. If the Mojo kernel is not listed, make sure that your
+`$MODULAR_HOME` environment variable is set on the system where you installed
+MAX (specified in the `~/.profile` or `~/.bashrc` file).
+
+   Now run some MAX code!
 
 ## Get started with JupyterLab
 
 You can also run MAX notebooks in a local instance of JupyterLab. The following
-is just a quick setup guide for Linux users, but it might not work with your
-system (these instructions don't support remote access to the JupyterLab). For
-more details about using JupyterLab, see the complete [JupyterLab installation
-guide](https://jupyterlab.readthedocs.io/en/latest/getting_started/installation.html).
+is just a quick setup guide for Linux users with the Mojo SDK installed locally
+, and it might not work with your system (these instructions don't support
+remote access to the JupyterLab). For more details about using JupyterLab,
+see the complete [JupyterLab installation guide](https://jupyterlab.readthedocs.io/en/latest/getting_started/installation.html).
 
-### 1. Launch JupyterLab
+**Note:** You must run this setup on the same machine where you've installed
+the [Mojo SDK](https://developer.modular.com/download). However, syntax
+highlighting for Mojo code is not currently enabled in JupyterLab (coming soon).
 
-You can use either Magic or conda.
+1. Install JupyterLab:
 
-#### Using Magic
+    ```sh
+    python3 -m pip install jupyterlab
+    ```
 
-If you have [`magic`](https://docs.modular.com/magic) you can run the following
-command to launch JupyterLab from this directory:
+2. Make sure the user-level `bin` is in your `$PATH`:
 
-```sh
-magic run jupyter lab
-```
+    ```sh
+    export PATH="$HOME/.local/bin:$PATH"
+    ```
 
-After a moment, it will open a browser window with JupterLab running.
+3. Launch JupyterLab:
 
-#### Using conda
+    ```sh
+    jupyter lab
+    ```
 
-Create a Conda environment, activate that enviroment, and install JupyterLab.
+4. When you open any of the `.ipynb` notebooks from this repository, JupyterLab
+should automatically select the Mojo kernel (which was installed with the Mojo SDK).
 
-``` sh
-# Create a Conda environment if you don't have one
-conda create -n max-repo
-# Activate the environment
-conda env update -n max-repo -f environment.yml --prune
-# run JupyterLab
-conda run -n max-repo jupyter lab
-```
+   Now run some MAX code!
 
-After a moment, it will open a browser window with JupterLab running.
+## Notes and tips
 
-### 2. Run the .ipynb notebooks
+- Code in a Jupyter notebook cell behaves like code in a Mojo REPL environment:
+The `main()` function is not required, but there are some caveats:
 
-The left nav bar should show all the notebooks in this directory.
-Open any `.ipynb` file and start running the code.
+  - Top-level variables (variables declared outside a function) are not visible
+inside functions.
+
+  - Redefining undeclared variables is not supported (variables without a
+`let` or `var` in front). If you’d like to redefine a variable across notebook
+cells, you must declare the variable with either `let` or `var`.
+
+- If you are using the Mojo kernel, you can use `%%python` at the top of a
+code cell and write normal Python code. Variables, functions, and imports
+defined in a Python cell are available from subsequent Mojo code cells.

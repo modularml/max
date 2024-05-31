@@ -10,30 +10,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""A central driver for all MAX pipeline examples."""
+"""A central driver for all MAX pipeline serving examples."""
 
 import sys
-from pipelines.llama2.run import llama2_run
-from pipelines.llama3.run import llama3_run
-from pipelines.quantize_tinystories.run import quantize_tinystories_run
-from pipelines.replit.run import replit_run
+from pipelines.llama2.serve import llama2_serve
+from pipelines.llama3.serve import llama3_serve
 
 
 def main():
     args = sys.argv()
     if len(args) < 2:
-        print("Please specify the pipeline to run. Choices include:")
+        print("Please specify the pipeline to serve. Choices include:")
         print("- llama2")
-        print("- replit")
-        print("- quantize-tinystories")
     pipeline_name = args[1]
     if pipeline_name == "llama2":
-        llama2_run()
+        llama2_serve()
     elif pipeline_name == "llama3":
-        llama3_run()
-    elif pipeline_name == "replit":
-        replit_run()
-    elif pipeline_name == "quantize-tinystories":
-        quantize_tinystories_run()
+        llama3_serve()
     else:
         print("Unrecognized pipeline: " + str(pipeline_name))

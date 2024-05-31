@@ -9,46 +9,15 @@ within MAX.
 
 End-to-end pipelines that demonstrate the power of
 [MAX](https://docs.modular.com/max/) for accelerating common AI workloads, and
-more.
-
-We created a common Mojo driver file to execute these pipelines and you can
-use it to execute the pipelines as follows.
-
-### Magic instructions
-
-If you have [`magic`](https://docs.modular.com/magic), you can run the
-following commands:
-
-```sh
-magic run llama2 --prompt "I believe the meaning of life is"
-magic run llama3 --prompt "what is the meaning of life"
-magic run quantize-tinystories --prompt "I believe the meaning of life is"
-magic run replit --prompt "def fibonacci(n):"
-magic run basic
-magic run mojo run_pipeline.🔥 [pipeline] [options]
-```
-
-### Conda instructions
-
-```sh
-# Create a Conda environment if you don't have one
-conda create -n max-repo
-# Update the environment with the environment.yml file
-conda env update -n max-repo -f environment.yml --prune
-# Run the example
-conda activate max-repo
-
-mojo run_pipeline.🔥 [pipeline] [options] mojo run_pipeline.🔥 [pipeline] [options]
-
-conda deactivate
-```
+more. A common Mojo driver file for executing these pipelines is found in this
+directory and can be invoked in a manner similar to the following:
 
 ```shell
 mojo run_pipeline.🔥 [pipeline] [options]
 ```
 
-Explore each specific pipeline and follow the detailed instructions provided
-in their README files within the [pipelines](./pipelines/) sub-repository.
+The specific pipelines that can be executed and their options can be found in
+the above directory.
 
 ## [Graph API introduction](basics/)
 

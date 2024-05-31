@@ -22,13 +22,10 @@ from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
-    Q4_KEncoding,
-    Q6_KEncoding,
 )
 from tensor import Tensor, TensorShape
 
 from .kv_cache import KVCache
-from ..llama3.metrics import Metrics
 from .model.llama import Llama2
 from .token_sampler.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
@@ -101,6 +98,8 @@ struct Config:
                 self.temperature = atof(parse_argument_value(i))
             elif args[i] == "--min-p":
                 self.min_p = atof(parse_argument_value(i))
+            elif args[i] == "--batch-size":
+                self.batch_size = atol(parse_argument_value(i))
             elif args[i] == "--max-tokens":
                 self.max_tokens = atol(parse_argument_value(i))
             elif args[i] == "--model-path":
@@ -161,11 +160,8 @@ def _generate_text_with_tokenizer[
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
-    inout metrics: Metrics,
 ):
-    metrics.begin_timing_prompt()
     prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
-    metrics.set_tokens_in_prompt(prompt.size)
     sampler = WeightedSampler(config.temperature, config.min_p)
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
@@ -180,25 +176,17 @@ def _generate_text_with_tokenizer[
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
-    metrics.begin_timing_generation()
     for _ in range(prompt.size, config.max_tokens + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )
         var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
         tokens = Tensor(TensorShape(1, 1), token)
-        metrics.new_token()
         print(tokenizer.decode(token), end="")
     print()
-    metrics.end_timing()
 
 
-def generate_text(
-    compiled_model: Model,
-    params: LlamaHParams,
-    config: Config,
-    inout metrics: Metrics,
-):
+def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
     """Generates text by applying the compiled model to the provided prompt."""
 
     @parameter
@@ -209,7 +197,6 @@ def generate_text(
             compiled_model,
             params,
             config,
-            metrics,
         )
 
     if AutoTokenizer.is_available():
@@ -221,7 +208,6 @@ def generate_text(
                 compiled_model,
                 params,
                 config,
-                metrics,
             )
         except:
             print(
@@ -245,9 +231,6 @@ def run[
     model_type: LoadableModel, encoding: QuantizationEncoding
 ](config: Config):
     print("Building model...")
-    metrics = Metrics()
-    metrics.begin_timing_startup()
-
     model = Llama2[model_type, encoding](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
@@ -256,11 +239,8 @@ def run[
     graph = model.build_graph("llama_model")
 
     compiled_model = compile_graph(graph, config.custom_ops_paths)
-    metrics.end_timing_startup()
 
-    generate_text(compiled_model, params, config, metrics)
-    print()
-    metrics.print()
+    generate_text(compiled_model, params, config)
 
 
 def run_outer[
@@ -277,33 +257,13 @@ def run_outer[
             # If no manual model path has been specified, download and cache
             # default quantized weights.
             config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-            config.model_path = cache_path.joinpath("llama-2-7b.Q4_0.gguf")
+            config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
             download_weights_to_cache(
                 cache_path,
                 "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_0.gguf",
+                "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
             )
         run_fn[GGUFFile, Q4_0Encoding](config)
-    elif encoding == "q4_k":
-        if len(str(config.model_path)) == 0:
-            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-            config.model_path = cache_path.joinpath("llama-2-7b.Q4_K_M.gguf")
-            download_weights_to_cache(
-                cache_path,
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf",
-            )
-        run_fn[GGUFFile, Q4_KEncoding](config)
-    elif encoding == "q6_k":
-        if len(str(config.model_path)) == 0:
-            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-            config.model_path = cache_path.joinpath("llama-2-7b.Q6_K.gguf")
-            download_weights_to_cache(
-                cache_path,
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q6_K.gguf",
-            )
-        run_fn[GGUFFile, Q6_KEncoding](config)
     elif encoding == "float32":
         if config.model_path.suffix() == ".gguf":
             run_fn[GGUFFile, Float32Encoding](config)

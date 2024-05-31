@@ -235,7 +235,7 @@ struct GGUFArray:
 
     var data: UnsafePointer[GGUFValue]
 
-    # Max amount of items to print for an array.
+    # Max amount of items to print for an array
     alias max_print_size = 5
 
     fn __init__(inout self, size: Int):
@@ -510,7 +510,7 @@ struct GGUFTensorInfo:
     alias type_padding = 8
 
     fn __str__(self) -> String:
-        # Create padding to line up tensor name, type, and dims.
+        # Create padding for to line up tensor name, type, and dims
         var res = str(self.name)
         var sep = self.name_padding - len(res)
         if sep < 1:
@@ -872,23 +872,6 @@ struct GGUFFile(LoadableModel):
             )
 
         raise "key not found"
-
-    fn ggml_type(
-        self, key: String, layer_idx: Optional[Int] = None
-    ) raises -> GGMLType:
-        """Reads the GGML type for the specified tensor."""
-        var full_key = key + ".weight"
-        if layer_idx:
-            full_key = "blk." + str(layer_idx.value()[]) + "." + full_key
-
-        for i in range(self.n_tensors()):
-            var info = self.infos[i]
-            if str(info.name) != full_key:
-                continue
-
-            return info.type
-
-        raise "key: " + key + " not found in ggml_type"
 
     fn hyperparams(self) raises -> LlamaHParams:
         """Loads Llama hyperparameters by reading the GGUF metadata."""

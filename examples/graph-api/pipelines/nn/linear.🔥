@@ -18,37 +18,23 @@ from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
-    Q4_KEncoding,
-    Q6_KEncoding,
 )
 
 
 @value
-struct Linear:
+struct Linear[encoding: QuantizationEncoding = Float32Encoding]:
     """A fully-connected layer without activations."""
 
     var w: Symbol
-    var encoding_id: String
-
-    def __init__(inout self, w: Symbol):
-        self.w = w
-        # Default to float32 dtype if not provided.
-        self.encoding_id = Float32Encoding.id()
-
-    def __init__(inout self, encoded_weight: Tuple[Symbol, String]):
-        self.w, self.encoding_id = encoded_weight
 
     def __call__(self, x: Symbol) -> Symbol:
-        if self.encoding_id == Q4_0Encoding.id():
+        @parameter
+        if encoding.id() == Q4_0Encoding.id():
             return ops.qmatmul[Q4_0Encoding](x, self.w)
-        elif self.encoding_id == Q4_KEncoding.id():
-            return ops.qmatmul[Q4_KEncoding](x, self.w)
-        elif self.encoding_id == Q6_KEncoding.id():
-            return ops.qmatmul[Q6_KEncoding](x, self.w)
-        elif self.encoding_id == Float32Encoding.id():
+        elif encoding.id() == Float32Encoding.id():
             return x @ self.w
 
-        raise "unsupported quantization encoding in Linear: " + self.encoding_id
+        raise "unsupported quantization encoding in Linear: " + encoding.id()
 
     def __rmatmul__(self, lhs: Symbol) -> Symbol:
         return self(lhs)

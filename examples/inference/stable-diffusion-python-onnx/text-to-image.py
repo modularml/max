@@ -13,16 +13,17 @@
 # ===----------------------------------------------------------------------=== #
 
 import signal
-from argparse import ArgumentParser
-from pathlib import Path
+
+from max.engine import InferenceSession
 
 import numpy as np
-from diffusers import PNDMScheduler
-from max.engine import InferenceSession
-from PIL import Image
-from transformers import CLIPTokenizer
-from huggingface_hub import snapshot_download
 
+from argparse import ArgumentParser
+from diffusers import PNDMScheduler
+from transformers import CLIPTokenizer
+from PIL import Image
+
+DEFAULT_MODEL_DIR = "../../models/stable-diffusion-onnx"
 DESCRIPTION = "Generate an image based on the given prompt."
 GUIDANCE_SCALE_FACTOR = 7.5
 LATENT_SCALE_FACTOR = 0.18215
@@ -65,6 +66,12 @@ def main():
         help="Seed for psuedo-random number generation.",
     )
     parser.add_argument(
+        "--model-dir",
+        type=str,
+        default=DEFAULT_MODEL_DIR,
+        help="Directory for the downloaded model.",
+    )
+    parser.add_argument(
         "--output",
         "-o",
         type=str,
@@ -81,17 +88,16 @@ def main():
         np.random.seed(args.seed)
 
     # Compile & load models - this may take a few minutes.
-    session = InferenceSession()
-    model_dir = Path(snapshot_download("jackos/stable-diffusion-1.5-onnx"))
     print("Loading and compiling models...")
-    txt_encoder = session.load(model_dir / "text_encoder" / "model.onnx")
-    img_decoder = session.load(model_dir / "vae_decoder" / "model.onnx")
-    img_diffuser = session.load(model_dir / "unet" / "model.onnx")
+    session = InferenceSession()
+    txt_encoder = session.load(f"{args.model_dir}/text_encoder/model.onnx")
+    img_decoder = session.load(f"{args.model_dir}/vae_decoder/model.onnx")
+    img_diffuser = session.load(f"{args.model_dir}/unet/model.onnx")
     print("Models compiled.\n")
 
     # Tokenize inputs and run through text encoder.
     print("Processing input...")
-    tokenizer = CLIPTokenizer.from_pretrained(model_dir / "tokenizer")
+    tokenizer = CLIPTokenizer.from_pretrained(f"{args.model_dir}/tokenizer")
     prompt_p = tokenizer(
         args.prompt, padding="max_length", max_length=tokenizer.model_max_length
     )
@@ -101,9 +107,7 @@ def main():
         max_length=tokenizer.model_max_length,
     )
 
-    input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids)).astype(
-        np.int32
-    )
+    input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids))
     encoder_hidden_states = txt_encoder.execute(input_ids=input_ids)[
         "last_hidden_state"
     ]
@@ -111,7 +115,7 @@ def main():
 
     # Initialize latent and scheduler.
     print("Initializing latent...")
-    scheduler = PNDMScheduler.from_pretrained(model_dir / "scheduler")
+    scheduler = PNDMScheduler.from_pretrained(f"{args.model_dir}/scheduler")
 
     # Note: For onnx, shapes are given in NCHW format.
     latent = np.random.normal(

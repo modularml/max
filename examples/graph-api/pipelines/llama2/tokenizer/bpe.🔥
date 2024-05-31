@@ -118,11 +118,6 @@ struct BPETokenizer(Tokenizer):
         """Decodes a string by indexing the vocabulary."""
         decoded = String()
         for token_id in output_tokens:
-            if token_id[] >= len(self.vocab):
-                raise "token id: " + str(
-                    token_id[]
-                ) + " out of vocab size range (" + str(len(self.vocab)) + ")"
-
             decoded += self.vocab[int(token_id[])].token
         return decoded
 

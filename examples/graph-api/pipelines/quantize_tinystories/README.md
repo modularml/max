@@ -34,22 +34,7 @@ LLMs with as little as 10M parameters
    [the installation instructions](https://docs.modular.com/max/install) to set
    it up on your system.
 
-2. Clone the MAX examples repository:
-
-   If you don't already have a local clone of this repository, create one via:
-
-   ```shell
-   git clone https://github.com/modularml/max.git
-   ```
-
-   The following instructions assume that you're present within this pipeline's
-   directory, and you can change to it after cloning:
-
-   ```shell
-   cd max/examples/graph-api/pipelines/quantize_tinystories/
-   ```
-
-3. Run the quantize TinyStories demo:
+2. Run the quantize TinyStories demo:
 
    On first execution, this pipeline downloads the stories15M float32 model
    weights and places them in a local `.cache/` directory in your current path.
@@ -57,10 +42,8 @@ LLMs with as little as 10M parameters
    weight format called `Q4_0`, and stages a graph composed of the quantized
    weights.
    After staging the full quantized Llama graph, the pipeline saves the
-   resulting quantized weights as a checkpoint under the `.cache/` directory.
-   On subsequent executions, the pipeline will skip the initial steps and load
-   the weights from the cached quantized checkpoint.
+   resulting quantized weights as a checkpoint under the `.cache/ directory`.
 
    ```shell
-   mojo ../../run_pipeline.🔥 quantize-tinystories --prompt "I believe the meaning of life is"
+   mojo ../../run_pipeline.🔥 quantize-tinystories
    ```

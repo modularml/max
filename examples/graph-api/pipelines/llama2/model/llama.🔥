@@ -13,18 +13,10 @@
 """The body of the Llama 2 model definition."""
 
 from collections import List, Optional
-from memory.unsafe_pointer import UnsafePointer
 from pathlib import Path
-from sys.intrinsics import _type_is_eq
 
 from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
-from max.graph.quantization import (
-    Float32Encoding,
-    QuantizationEncoding,
-    Q4_0Encoding,
-    Q4_KEncoding,
-    Q6_KEncoding,
-)
+from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import (
     Attention,
@@ -34,22 +26,7 @@ from pipelines.nn import (
     Transformer,
     TransformerBlock,
 )
-from pipelines.weights.gguf import GGMLType, GGUFFile
 from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
-
-
-def encoding_id_from_ggml_type(ggml_type: GGMLType) -> String:
-    """Returns the quantization encoding id for a given GGML tensor type."""
-    if ggml_type is GGMLType.GGML_TYPE_F32:
-        return Float32Encoding.id()
-    elif ggml_type is GGMLType.GGML_TYPE_Q4_0:
-        return Q4_0Encoding.id()
-    elif ggml_type is GGMLType.GGML_TYPE_Q4_K:
-        return Q4_KEncoding.id()
-    elif ggml_type is GGMLType.GGML_TYPE_Q6_K:
-        return Q6_KEncoding.id()
-
-    raise "unknown GGML type:" + str(ggml_type)
 
 
 struct Llama2[
@@ -88,7 +65,7 @@ struct Llama2[
             # Torch models store weights in a transposed format, and transpose again at use.
             # The q4_0 format transposes the weights compared with the fp32 formats.
             transpose: Bool = (weight_type.id() == Float32Encoding.id()),
-        ) -> (Symbol, String):
+        ) -> Symbol:
             """Stages a constant op according to the quantization encoding."""
 
             # Set uint8 dtype if quantized and float32 otherwise, since all
@@ -99,45 +76,34 @@ struct Llama2[
             if transpose:
                 weight = weight.swapaxes(-1, -2)
 
-            if _type_is_eq[model_type, GGUFFile]():
-                # If this is a GGUF file, use the encoding ID from the GGML type.
-                encoding_id = encoding_id_from_ggml_type(
-                    rebind[UnsafePointer[GGUFFile]](
-                        UnsafePointer.address_of(self.model)
-                    )[].ggml_type(name, layer)
-                )
-                return weight, encoding_id
-
-            # Otherwise, default to the parametric encoding `weight_type`.
-            return weight, weight_type.id()
+            return weight
 
         def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
-            # GGUF always stores these as float32.
-            w, _ = weight[Float32Encoding](name, layer, transpose=False)
+            # GGUF always stores these as float32
+            w = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
-        layers = List[TransformerBlock]()
+        layers = List[TransformerBlock[encoding]]()
         for layer in range(params.n_layers):
-            attention = Attention(
+            attention = Attention[encoding](
                 n_heads=params.n_heads,
                 n_kv_heads=params.n_kv_heads,
                 head_dim=params.head_dim,
                 dim=params.dims,
-                enable_custom_rope_kernel=self.enable_custom_rope_kernel,
-                use_custom_attention=True,
                 wq=weight("attn_q", layer),
                 wk=weight("attn_k", layer),
                 wv=weight("attn_v", layer),
                 wo=weight("attn_output", layer),
+                enable_custom_rope_kernel=self.enable_custom_rope_kernel,
             )
-            feed_forward = FeedForward(
+            feed_forward = FeedForward[encoding](
                 w1=weight("ffn_gate", layer),
                 w2=weight("ffn_down", layer),
                 w3=weight("ffn_up", layer),
             )
 
             layers.append(
-                TransformerBlock(
+                TransformerBlock[encoding](
                     attention=attention,
                     feed_forward=feed_forward,
                     attention_norm=norm("attn_norm", layer),
@@ -145,8 +111,8 @@ struct Llama2[
                 )
             )
 
-        embedding = Embedding(weight("token_embd", transpose=False))
-        model = Transformer(
+        embedding = Embedding[encoding](weight("token_embd", transpose=False))
+        model = Transformer[encoding](
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,

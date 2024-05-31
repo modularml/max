@@ -14,25 +14,23 @@
 
 import sys
 import random
-import os
-from pathlib import Path
 
 from collections import List
-from memory import memcpy
 from python import Python
 from random import seed
 
 from max.engine import InferenceSession
-from max.tensor import Tensor, TensorShape, TensorSpec
+from tensor import Tensor, TensorShape, TensorSpec
 
 # Local Mojo imports
 import python_utils
 from scheduler import Scheduler
 
 
+var DEFAULT_MODEL_DIR = "../../models/stable-diffusion-onnx"
 var DESCRIPTION = "Generate an image based on the given prompt."
-var GUIDANCE_SCALE_FACTOR = Float32(7.5)
-var LATENT_SCALE_FACTOR = Float32(0.18215)
+var GUIDANCE_SCALE_FACTOR = 7.5
+var LATENT_SCALE_FACTOR = 0.18215
 var OUTPUT_HEIGHT = 512
 var OUTPUT_WIDTH = 512
 var LATENT_WIDTH = OUTPUT_WIDTH // 8
@@ -40,7 +38,9 @@ var LATENT_HEIGHT = OUTPUT_HEIGHT // 8
 var LATENT_CHANNELS = 4
 
 
-def vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
+def vstack[
+    dtype: DType
+](borrowed a: Tensor[dtype], borrowed b: Tensor[dtype]) -> Tensor[dtype]:
     """Concatenate tensors a & b along the outermost dimension."""
     # Generate return shape.
     out_shape = List[Int]()
@@ -52,16 +52,14 @@ def vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
     out = Tensor[dtype](TensorShape(out_shape))
 
     # Fill data.
-    memcpy(out.unsafe_ptr().address, a.unsafe_ptr().address, a.num_elements())
+    memcpy(out.unsafe_ptr(), a.unsafe_ptr(), a.num_elements())
     memcpy(
-        (out.unsafe_ptr() + a.num_elements()).address,
-        b.unsafe_ptr().address,
-        b.num_elements(),
+        out.unsafe_ptr() + a.num_elements(), b.unsafe_ptr(), b.num_elements()
     )
     return out
 
 
-def split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
+def split[dtype: DType](borrowed x: Tensor[dtype], i: Int) -> Tensor[dtype]:
     """Return the ith slice of the outermost dim; i.e., x[idx, :, :, ..., :]."""
     # Generate return shape
     shape = List[Int]()
@@ -72,8 +70,8 @@ def split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
     ret = Tensor[dtype](TensorShape(shape))
     # Fill data
     memcpy(
-        ret.unsafe_ptr().address,
-        (x.unsafe_ptr() + (x.num_elements() // 2) * i).address,
+        ret.unsafe_ptr(),
+        x.unsafe_ptr() + (x.num_elements() // 2) * i,
         x.num_elements() // 2,
     )
     return ret
@@ -96,10 +94,7 @@ def main():
     prompt = str("")
     negative_prompt = str("")
     num_steps = 25
-    snapshot_download = Python.import_module(
-        "huggingface_hub"
-    ).snapshot_download
-    model_dir = Path(str(snapshot_download("jackos/stable-diffusion-1.5-onnx")))
+    model_dir = str(DEFAULT_MODEL_DIR)
     output = str("output.png")
 
     for i in range(1, len(argv), 2):
@@ -111,6 +106,8 @@ def main():
             num_steps = atol(argv[i + 1])
         elif argv[i] == "--seed":
             seed(atol(argv[i + 1]))
+        elif argv[i] == "--model-dir":
+            model_dir = argv[i + 1]
         elif argv[i] == "-o" or argv[i] == "--output":
             output = argv[i + 1]
         else:
@@ -130,15 +127,15 @@ def main():
     # Compile & load models - this may take a few minutes.
     print("Loading and compiling models...")
     session = InferenceSession()
-    txt_encoder = session.load(model_dir / "text_encoder" / "model.onnx")
-    img_decoder = session.load(model_dir / "vae_decoder" / "model.onnx")
-    img_diffuser = session.load(model_dir / "unet" / "model.onnx")
+    txt_encoder = session.load(model_dir + "/text_encoder/model.onnx")
+    img_decoder = session.load(model_dir + "/vae_decoder/model.onnx")
+    img_diffuser = session.load(model_dir + "/unet/model.onnx")
     print("Models compiled.\n")
 
     # Tokenize inputs and run through text encoder.
     print("Processing input...")
     tokenizer = transformers.CLIPTokenizer.from_pretrained(
-        os.path.join(model_dir.path, "tokenizer")
+        model_dir + "/tokenizer"
     )
     max_length = int(tokenizer.model_max_length)
     prompt_p = tokenizer(prompt, padding="max_length", max_length=max_length)

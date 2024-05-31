@@ -20,11 +20,6 @@ MODEL_DIR="../../models/yolo"
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
 
-# If CONDA_PREFIX is set, install requirements
-if [[ -n "$CONDA_PREFIX" ]]; then
-    python3 -m pip install -r requirements.txt
-fi
-
 # Download model
 python3 download-model.py -o "$MODEL_DIR"
 

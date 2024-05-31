@@ -22,19 +22,14 @@ from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
-    Q4_KEncoding,
-    Q6_KEncoding,
 )
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
-from .metrics import Metrics
 from .model.llama import Llama3
-from .tokenizer.tiktoken import TikTokenEncoder
-from .tokenizer.regex import set_locale_unicode
-from ..llama2.token_sampler.weighted_sampler import WeightedSampler
+from ..tokenizer import AutoTokenizer
 from ..weights.download import download_weights_to_cache
-from ..weights.gguf import GGUFArray, GGUFFile
+from ..weights.gguf import GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
 
@@ -49,9 +44,6 @@ struct Config:
     var tokenizer_path: Path
     var prompt: String
     var quantization_encoding: String
-    var use_gpu: Bool
-    var temperature: Float32
-    var min_p: Float32
 
     def __init__(
         inout self,
@@ -62,10 +54,7 @@ struct Config:
         custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
         prompt: String = "",
-        quantization_encoding: String = "q4_k",
-        use_gpu: Bool = False,
-        temperature: Float32 = 0.5,
-        min_p: Float32 = 0.05,
+        quantization_encoding: String = "q4_0",
     ):
         self.batch_size = batch_size
         self.max_tokens = max_tokens
@@ -74,11 +63,7 @@ struct Config:
         self.tokenizer_path = tokenizer_path
         self.prompt = prompt
         self.quantization_encoding = quantization_encoding
-        """Encoding for quantized model weights: Q4_0, Q4_K, or Q6_K."""
-        self.use_gpu = use_gpu
-
-        self.temperature = temperature
-        self.min_p = min_p
+        """Encoding for quantized model weights, such as Q4_0."""
 
         self.parse_args()
 
@@ -95,10 +80,8 @@ struct Config:
         # Skip the run_pipeline.mojo and llama3 arguments.
         i = 2
         while i < len(args):
-            if args[i] == "--temperature":
-                self.temperature = atof(parse_argument_value(i))
-            elif args[i] == "--min-p":
-                self.min_p = atof(parse_argument_value(i))
+            if args[i] == "--batch-size":
+                self.batch_size = atol(parse_argument_value(i))
             elif args[i] == "--max-tokens":
                 self.max_tokens = atol(parse_argument_value(i))
             elif args[i] == "--model-path":
@@ -125,9 +108,9 @@ def execute(
     model: Model,
     tokens: Tensor[DType.int64],
     inout kv_cache: KVCache,
-) -> Tensor[DType.float32]:
+) -> Tensor[DType.int64]:
     """Execute the model predicting one new token."""
-    input_map = model._session.new_tensor_map()
+    input_map = session.new_tensor_map()
     input_map.borrow("input0", tokens)
     input_map.borrow("input1", kv_cache.keys_view())
     input_map.borrow("input2", kv_cache.values_view())
@@ -136,7 +119,7 @@ def execute(
         results.buffer[DType.float32]("output1"),
         results.buffer[DType.float32]("output2"),
     )
-    return results.get[DType.float32]("output0")
+    return results.get[DType.int64]("output0")
 
 
 def compile_graph(
@@ -149,113 +132,73 @@ def compile_graph(
     return session.load(graph, custom_ops_paths=custom_ops_paths)
 
 
-def generate_text(
-    tokenizer: TikTokenEncoder,
-    compiled_model: Model,
-    params: LlamaHParams,
-    config: Config,
-    inout metrics: Metrics,
-):
+def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
     """Generates text by applying the compiled model to the provided prompt."""
+    tokenizer = AutoTokenizer("meta-llama/Meta-Llama-3-8B")
 
-    metrics.begin_timing_prompt()
-    prompt = tokenizer.encode(config.prompt)
-    sampler = WeightedSampler(config.temperature, config.min_p)
-    metrics.set_tokens_in_prompt(prompt.size)
+    prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):
-        tokens[Index(0, i)] = prompt[i].id
+        tokens[Index(0, i)] = prompt[i]
 
     print("Executing...")
-    for token in prompt:
-        print(tokenizer.decode(token[].id).token, end="")
+    print(tokenizer.decode(prompt), end="")
 
     kv_cache = KVCache(params, config.max_tokens, config.batch_size)
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
-    metrics.begin_timing_generation()
     for _ in range(prompt.size, config.max_tokens + 1):
-        logits = execute(
+        tokens = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )
-        token = sampler.sample(logits).selected
-        tokens = Tensor(TensorShape(1, 1), Int64(token))
-        metrics.new_token()
-        print(tokenizer.decode(token).token, end="")
+        print(tokenizer.decode(tokens[0, 0]), end="")
     print()
-    metrics.end_timing()
 
 
-def run[encoding: QuantizationEncoding](config: Config):
-    metrics = Metrics()
-    metrics.begin_timing_startup()
-    model = Llama3[encoding](config.model_path)
-    params = model.hyperparams()
-
-    print("Loading tokenizer...")
-    tokenizer = TikTokenEncoder.cl100k_base_llama3(
-        model.model["tokenizer.ggml.tokens"]._value.unsafe_get[GGUFArray]()[]
-    )
-
+def run[
+    model_type: LoadableModel, encoding: QuantizationEncoding
+](config: Config):
     print("Building model...")
+    model = Llama3[model_type, encoding](config.model_path)
+    params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
     compiled_model = compile_graph(graph, config.custom_ops_paths)
-    metrics.end_timing_startup()
 
-    generate_text(tokenizer, compiled_model, params, config, metrics)
+    generate_text(compiled_model, params, config)
+
     print()
-    metrics.print()
 
 
-def cached_weights(url: String) -> Path:
+def run_outer[
+    run_fn: fn[model_type: LoadableModel, encoding: QuantizationEncoding] (
+        Config
+    ) raises -> object
+]():
+    config = Config()
+
     cache_path = cwd().joinpath(".cache")
-    download_weights_to_cache(cache_path, url)
-    return cache_path / url.split("/")[-1]
-
-
-alias llama_main = def (Config)
-
-
-@value
-struct WeightMetadata:
-    var main: llama_main
-    var url: String
-
-    @staticmethod
-    def _ALL() -> Dict[String, WeightMetadata]:
-        all_metadata = Dict[String, WeightMetadata]()
-        all_metadata[Q4_0Encoding.id()] = WeightMetadata(
-            run[Q4_0Encoding],
-            "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF/resolve/main/Meta-Llama-3-8B.Q4_0.gguf",
+    encoding = config.quantization_encoding.lower()
+    if encoding == "q4_0":
+        config.model_path = cache_path.joinpath("llama3-8b-q4_0-pure.gguf")
+        download_weights_to_cache(
+            cache_path,
+            "https://huggingface.co/brendanduke/Llama-3-8B-q4_0-pure.gguf/resolve/main/llama3-8b-q4_0-pure.gguf",
         )
-        all_metadata[Q4_KEncoding.id()] = WeightMetadata(
-            run[Q4_KEncoding],
-            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
+        run_fn[GGUFFile, Q4_0Encoding](config)
+    elif encoding == "float32":
+        config.model_path = cache_path.joinpath("llama3-8b-f32.gguf")
+        download_weights_to_cache(
+            cache_path,
+            "https://huggingface.co/brendanduke/Llama-3-8B-f32.gguf/resolve/main/llama3-8b-f32.gguf",
         )
-        all_metadata[Q6_KEncoding.id()] = WeightMetadata(
-            run[Q6_KEncoding],
-            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf",
-        )
-        return all_metadata^
-
-    @staticmethod
-    def from_encoding(encoding_id: String) -> Self:
-        return Self._ALL()[encoding_id]
+        run_fn[GGUFFile, Float32Encoding](config)
+    else:
+        raise 'Encoding "' + encoding + '" not yet supported'
 
 
 def llama3_run():
-    config = Config()
-    set_locale_unicode()
-
-    encoding = config.quantization_encoding.lower()
-    weight_metadata = WeightMetadata.from_encoding(encoding)
-    if not str(config.model_path):
-        # TODO(MOCO-794): assign directly
-        var model_path: String = str(cached_weights(weight_metadata.url))
-        config = Config()
-        config.model_path = model_path
-    weight_metadata.main(config)
+    run_outer[run]()

@@ -5,6 +5,9 @@ Engine Python API.
 
 ## Quickstart
 
+First, install MAX as per the [MAX Engine get started
+guide](https://docs.modular.com/engine/get-started/).
+
 For this example, you also need a HuggingFace account and user access token
 saved as the `HF_TOKEN` environment variable. To generate the access token
 with READ permissions, follow the [instructions
@@ -12,33 +15,20 @@ here](https://huggingface.co/docs/hub/en/security-tokens). Copy the access
 token and either set it as a permanent environment variable named `HF_TOKEN`
 or use it temporarily when you run the `run.sh` script, as shown below.
 
-Once you have your token properly set, you'll need to accept Mistral's terms
-and conditions on their HuggingFace page. Please visit [this
-link](https://huggingface.co/mistralai/Mistral-7B-v0.1) and accept the model's
-conditions.
+Once you have your token properly set, you'll need to accept Mistral's terms and
+conditions on their HuggingFace page. Please visit [this link](https://huggingface.co/mistralai/Mistral-7B-v0.1)
+and accept the model's conditions.
 
-### Magic instructions
-
-If you have [`magic`](https://docs.modular.com/magic), you can run the
-following command:
+Then you can install the package requirements and run this example:
 
 ```sh
+python3 -m venv venv && source venv/bin/activate
+python3 -m pip install --upgrade pip setuptools
+python3 -m pip install -r requirements.txt
+# Install the MAX Engine Python package
+python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
 # Run the MAX Engine example
-HF_TOKEN=<your-huggingface-user-token> magic run bash run.sh
-```
-
-### Conda instructions
-
-Create a Conda environment, activate that environment, and install the
-requirements:
-
-```sh
-# Create a Conda environment if you don't have one
-conda create -n max-repo
-# Update the environment with the environment.yml file
-conda env update -n max-repo -f environment.yml --prune
-# Run the example
-HF_TOKEN=<your-huggingface-user-token> conda run -n max-repo --live-stream ./run.sh
+HF_TOKEN=<your-huggingface-user-token> ./run.sh
 ```
 
 ## Scripts included

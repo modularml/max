@@ -12,40 +12,38 @@ either an ONNX model or a MAX Graph model.
 
 ## Add a custom op to an ONNX model
 
-1. If you don't already have an environment set up, create and activate a
-   virtual environment, then install the requirements:
+1. Run the `onnx-model.py` script to generate the `onnx-model.onnx` model:
 
    ```sh
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   pip install --find-links $(modular config max.path)/wheels max-engine
+   python3 -m pip install -r requirements.txt
    ```
-
-2. Run the `onnx-model.py` script to generate `onnx_det.onnx`
 
    ```sh
    python3 onnx-model.py
    ```
 
-3. The `onnx_det.onnx` model you get currently does not compile with MAX Engine
+2. The `onnx-model.onnx` model you get currently does not compile with MAX Engine
    because it includes the DET op that's currently not implemented in MAX.
    As proven if you try to benchmark it:
 
    ```sh
-   max benchmark onnx_det.onnx
+   max benchmark onnx-model.onnx
    ```
 
-4. Package the `det.mojo` custom op in `custom_ops` with this command:
+3. Package the `det.mojo` custom op in `custom_ops` with this command:
 
    ```sh
    mojo package custom_ops
    ```
 
-5. Now run the model with the custom op:
+4. Now run the model with the custom op:
 
    ```sh
-   max benchmark onnx_det.onnx --custom-ops-path=custom_ops.mojopkg
+   export MOJO_PYTHON_LIBRARY=$(modular config mojo-max.python_lib)
+   ```
+
+   ```sh
+   max benchmark onnx-model.onnx --custom-ops-path=custom_ops.mojopkg
    ```
 
    ```sh
