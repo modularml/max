@@ -1,7 +1,7 @@
 from pipelines.weights.gguf import GGUFFile
 from pathlib import Path
 from python import Python
-from sys import argv
+from sys import argv, exit
 
 
 def main():
@@ -14,15 +14,22 @@ def main():
     print("(Change directory by passing in an argument)\n")
     var ggufs = List[Path]()
     for p in Path.listdir(folder):
-        var p_str = String(p[])
-        if p_str.endswith("gguf"):
+        if p[].suffix() == ".gguf":
             ggufs.append(p[])
-            print(len(ggufs), ": ", p_str, sep="")
+            print(len(ggufs), ": ", p[], sep="")
+
+    if not ggufs:
+        print('No GGUF files in folder "', folder, '"', sep="")
+        return
 
     var py = Python.import_module("builtins")
     var inp = py.input("\nSelect GGUF to inspect: ")
+    inp_res = int(str(inp))
+    while inp_res > len(ggufs) or inp_res == 0:
+        print("Enter a number between 1 and", len(ggufs))
+        inp = py.input("\nSelect GGUF to inspect: ")
+        inp_res = int(str(inp))
 
-    var inp_res = String(inp).__int__()
-    var file = folder.joinpath(ggufs[inp_res - 1])
+    file = folder / str(ggufs[inp_res - 1])
     print("inspecting:", file, end="\n\n")
     print(GGUFFile(file))
