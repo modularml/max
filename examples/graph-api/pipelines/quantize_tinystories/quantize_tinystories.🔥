@@ -14,7 +14,7 @@
 
 from pathlib import cwd, Path
 
-from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
+from max.graph import Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import save, TensorDict
 from max.graph.quantization import Q4_0Encoding
 from tensor import Tensor, TensorShape
@@ -111,7 +111,9 @@ struct TeenyTinyLlama:
         )
 
         @parameter
-        def quantize(name: String, layer_idx: Optional[Int] = None) -> Symbol:
+        def quantize(
+            name: String, layer_idx: Optional[Int] = None
+        ) -> (Symbol, String):
             """Quantizes the parameter called `name` in the Llama 2 checkpoint.
 
             This function does the following:
@@ -134,7 +136,7 @@ struct TeenyTinyLlama:
             )
 
             # 3. Stage the quantized constant op.
-            return llama.constant(q4_0_param)
+            return llama.constant(q4_0_param), Q4_0Encoding.id()
 
         @parameter
         def weight(name: String, layer_idx: Optional[Int] = None) -> Symbol:
@@ -149,7 +151,7 @@ struct TeenyTinyLlama:
             return llama.constant(float32_param)
 
         # Stage all of the transformer blocks in the stories15M Llama.
-        transformer_blocks = List[TransformerBlock[Q4_0Encoding]]()
+        transformer_blocks = List[TransformerBlock]()
         for layer_idx in range(self.hyperparams.n_layers):
             # Stage a transformer block with quantized weights.
             # Read in float32 weights and quantize them before staging the op.
@@ -157,8 +159,8 @@ struct TeenyTinyLlama:
             # parameter dictionary.
             # Doing so enables saving the checkpoint after building the graph,
             # complete with quantized weights.
-            block = TransformerBlock[Q4_0Encoding](
-                attention=Attention[Q4_0Encoding](
+            block = TransformerBlock(
+                attention=Attention(
                     n_heads=self.hyperparams.n_heads,
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
@@ -171,7 +173,7 @@ struct TeenyTinyLlama:
                     wv=quantize("attn_v", layer_idx),
                     wo=quantize("attn_output", layer_idx),
                 ),
-                feed_forward=FeedForward[Q4_0Encoding](
+                feed_forward=FeedForward(
                     # Also quantize the feedforward gate/down/up matrices.
                     w1=quantize("ffn_gate", layer_idx),
                     w2=quantize("ffn_down", layer_idx),
@@ -195,10 +197,10 @@ struct TeenyTinyLlama:
         var logits: Symbol
         k_cache = llama[1]
         v_cache = llama[2]
-        logits, k_cache, v_cache = Transformer[Q4_0Encoding](
+        logits, k_cache, v_cache = Transformer(
             dim=self.hyperparams.dims,
             n_heads=self.hyperparams.n_heads,
-            embedding=Embedding[Q4_0Encoding](quantize("token_embd")),
+            embedding=Embedding(quantize("token_embd")),
             layers=transformer_blocks,
             norm=RMSNorm(self.hyperparams.norm_eps, weight("output_norm")),
             # For stories15M, output and token embeddings are shared.

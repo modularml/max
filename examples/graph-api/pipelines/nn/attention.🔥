@@ -99,17 +99,17 @@ def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
 
 
 @value
-struct Attention[encoding: QuantizationEncoding = Float32Encoding]:
+struct Attention:
     var n_heads: Int
     var n_kv_heads: Int
     var head_dim: Int
     var dim: Int
     var enable_custom_rope_kernel: Bool
 
-    var wq: Linear[encoding]
-    var wk: Linear[encoding]
-    var wv: Linear[encoding]
-    var wo: Linear[encoding]
+    var wq: Linear
+    var wk: Linear
+    var wv: Linear
+    var wo: Linear
 
     def __call__(
         self,

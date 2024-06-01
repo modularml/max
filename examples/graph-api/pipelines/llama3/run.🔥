@@ -163,7 +163,7 @@ def run[
     model_type: LoadableModel, encoding: QuantizationEncoding
 ](config: Config):
     print("Building model...")
-    model = Llama3[model_type, encoding](config.model_path)
+    model = Llama3[encoding](config.model_path)
     params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
