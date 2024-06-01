@@ -150,7 +150,7 @@ struct BlockQ6K:
     var ql: InlineArray[UInt8, QK_K // 2]
     """Quants: lower 4 bits."""
 
-    var qh: InlineArray[UInt8, QK_K // 2]
+    var qh: InlineArray[UInt8, QK_K // 4]
     """Quants: upper 2 bits."""
     var scales: InlineArray[Int8, QK_K // 16]
     """Scales: quantized with 8 bits."""
@@ -161,13 +161,13 @@ struct BlockQ6K:
     def __init__(
         inout self,
         ql: InlineArray[UInt8, QK_K // 2],
-        qh: InlineArray[UInt8, QK_K // 2],
+        qh: InlineArray[UInt8, QK_K // 4],
         scales: InlineArray[Int8, QK_K // 16],
         d: Float16,
     ):
         constrained[
             sizeof[Self]()
-            == (2 * (QK_K // 2)) + (QK_K // 16) + sizeof[Float16]()
+            == (QK_K // 2) + (QK_K // 4) + (QK_K // 16) + sizeof[Float16]()
         ]()
 
         self.ql = ql

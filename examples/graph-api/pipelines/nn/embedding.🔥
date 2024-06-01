@@ -24,7 +24,7 @@ from max.graph.quantization import (
 from max.tensor import Tensor, TensorShape
 
 from pipelines.nn import Linear
-from pipelines.weights.ggml_quants import BlockQ40, BlockQ4K
+from pipelines.weights.ggml_quants import BlockQ40, BlockQ4K, BlockQ6K
 
 
 def _out_dim(quantized_dim: Dim, encoding_id: String) -> Int:
@@ -34,6 +34,9 @@ def _out_dim(quantized_dim: Dim, encoding_id: String) -> Int:
     if encoding_id == Q4_KEncoding.id():
         num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ4K]()
         return int(BlockQ4K.elements_per_block() * num_blocks)
+    if encoding_id == Q6_KEncoding.id():
+        num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ6K]()
+        return int(BlockQ6K.elements_per_block() * num_blocks)
 
     raise "unsupported quantization encoding in Embedding: " + encoding_id
 
@@ -46,6 +49,11 @@ def _dequantize(reshaped_tokens: Symbol, encoding_id: String) -> Symbol:
         )
     if encoding_id == Q4_KEncoding.id():
         return ops.custom["ggml_q4_k_dequantize"](
+            reshaped_tokens,
+            TensorType(DType.float32, Dim.dynamic(), Dim.dynamic()),
+        )
+    if encoding_id == Q6_KEncoding.id():
+        return ops.custom["ggml_q6_k_dequantize"](
             reshaped_tokens,
             TensorType(DType.float32, Dim.dynamic(), Dim.dynamic()),
         )
