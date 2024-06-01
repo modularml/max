@@ -19,6 +19,7 @@ from max.graph.quantization import (
     QuantizationEncoding,
     Q4_0Encoding,
     Q4_KEncoding,
+    Q6_KEncoding,
 )
 
 
@@ -42,6 +43,8 @@ struct Linear:
             return ops.qmatmul[Q4_0Encoding](x, self.w)
         elif self.encoding_id == Q4_KEncoding.id():
             return ops.qmatmul[Q4_KEncoding](x, self.w)
+        elif self.encoding_id == Q6_KEncoding.id():
+            return ops.qmatmul[Q6_KEncoding](x, self.w)
         elif self.encoding_id == Float32Encoding.id():
             return x @ self.w
 
