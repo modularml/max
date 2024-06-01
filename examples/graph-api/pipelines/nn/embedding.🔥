@@ -27,40 +27,49 @@ from pipelines.nn import Linear
 from pipelines.weights.ggml_quants import BlockQ40, BlockQ4K
 
 
-def _out_dim[encoding: QuantizationEncoding](quantized_dim: Dim) -> Int:
-    if encoding.id() == Q4_0Encoding.id():
+def _out_dim(quantized_dim: Dim, encoding_id: String) -> Int:
+    if encoding_id == Q4_0Encoding.id():
         num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ40]()
         return int(BlockQ40.elements_per_block() * num_blocks)
-    if encoding.id() == Q4_KEncoding.id():
+    if encoding_id == Q4_KEncoding.id():
         num_blocks = quantized_dim.value[StaticDim].dim // sizeof[BlockQ4K]()
         return int(BlockQ4K.elements_per_block() * num_blocks)
 
-    raise "unsupported quantization encoding in Embedding: " + encoding.id()
+    raise "unsupported quantization encoding in Embedding: " + encoding_id
 
 
-def _dequantize[
-    encoding: QuantizationEncoding
-](reshaped_tokens: Symbol) -> Symbol:
-    if encoding.id() == Q4_0Encoding.id():
+def _dequantize(reshaped_tokens: Symbol, encoding_id: String) -> Symbol:
+    if encoding_id == Q4_0Encoding.id():
         return ops.custom["ggml_q4_0_dequantize"](
             reshaped_tokens,
             TensorType(DType.float32, Dim.dynamic(), Dim.dynamic()),
         )
-    if encoding.id() == Q4_KEncoding.id():
+    if encoding_id == Q4_KEncoding.id():
         return ops.custom["ggml_q4_k_dequantize"](
             reshaped_tokens,
             TensorType(DType.float32, Dim.dynamic(), Dim.dynamic()),
         )
 
-    raise "unsupported quantization encoding in Embedding: " + encoding.id()
+    raise "unsupported quantization encoding in Embedding: " + encoding_id
 
 
 @value
-struct Embedding[encoding: QuantizationEncoding = Float32Encoding]:
+struct Embedding:
     """Quantized embedding (can be in GGML Q4_0 packed format)."""
 
     var weights: Symbol
     """The embedding weights, which are possibly quantized."""
+
+    var encoding_id: String
+    """Id for the quantization encoding of this embedding."""
+
+    def __init__(inout self, weights: Symbol):
+        self.weights = weights
+        # Default to float32 if not provided.
+        self.encoding_id = Float32Encoding.id()
+
+    def __init__(inout self, encoded_weight: Tuple[Symbol, String]):
+        self.weights, self.encoding_id = encoded_weight
 
     def __call__(borrowed self, indices: Symbol) -> Symbol:
         """Gathers and dequantize rows of the quantized embedding, as needed.
@@ -73,7 +82,7 @@ struct Embedding[encoding: QuantizationEncoding = Float32Encoding]:
         """
 
         # If there is no quantization, then just gather and return early.
-        if encoding.id() == Float32Encoding.id():
+        if self.encoding_id == Float32Encoding.id():
             return ops.gather(self.weights, indices, axis=0)
 
         # Otherwise, gather and dequantize the rows.
@@ -83,8 +92,9 @@ struct Embedding[encoding: QuantizationEncoding = Float32Encoding]:
 
         # Compute the dequantized output dim as the number of quantized blocks
         # times the number of elements (quants) per block.
-        out_dim = _out_dim[encoding](
-            quantized_dim=self.weights.tensor_type().dims[-1]
+        out_dim = _out_dim(
+            quantized_dim=self.weights.tensor_type().dims[-1],
+            encoding_id=self.encoding_id,
         )
 
         # Compute shapes to reshape embeddings to matrix input expected by
@@ -119,7 +129,7 @@ struct Embedding[encoding: QuantizationEncoding = Float32Encoding]:
         )
 
         # Dequantize to floating point.
-        dequantized_tokens = _dequantize[encoding](reshaped_tokens)
+        dequantized_tokens = _dequantize(reshaped_tokens, self.encoding_id)
 
         # Restore original `rank(quantized_tokens) - 1` gather dimensions.
         return ops.reshape(dequantized_tokens, final_shape, final_dims)

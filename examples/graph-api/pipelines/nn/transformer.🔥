@@ -20,21 +20,19 @@ from pipelines.nn import Attention, Embedding, Linear, RMSNorm
 
 
 @value
-struct FeedForward[encoding: QuantizationEncoding = Float32Encoding]:
-    var w1: Linear[encoding]
-    var w2: Linear[encoding]
-    var w3: Linear[encoding]
+struct FeedForward:
+    var w1: Linear
+    var w2: Linear
+    var w3: Linear
 
     def __call__(self, input: Symbol) -> Symbol:
         return (ops.silu(input @ self.w1) * (input @ self.w3)) @ self.w2
 
 
 @value
-struct TransformerBlock[encoding: QuantizationEncoding = Float32Encoding](
-    CollectionElement
-):
-    var attention: Attention[encoding]
-    var feed_forward: FeedForward[encoding]
+struct TransformerBlock(CollectionElement):
+    var attention: Attention
+    var feed_forward: FeedForward
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
 
@@ -58,16 +56,16 @@ struct TransformerBlock[encoding: QuantizationEncoding = Float32Encoding](
 
 
 @value
-struct Transformer[encoding: QuantizationEncoding = Float32Encoding]:
+struct Transformer:
     alias max_seq_len = 2048
 
     var dim: Int
     var n_heads: Int
 
-    var embedding: Embedding[encoding]
-    var layers: List[TransformerBlock[encoding]]
+    var embedding: Embedding
+    var layers: List[TransformerBlock]
     var norm: RMSNorm
-    var output: Linear[encoding]
+    var output: Linear
     var theta: Float64
 
     def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:

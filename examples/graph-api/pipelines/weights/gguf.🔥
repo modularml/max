@@ -873,6 +873,23 @@ struct GGUFFile(LoadableModel):
 
         raise "key not found"
 
+    fn ggml_type(
+        self, key: String, layer_idx: Optional[Int] = None
+    ) raises -> GGMLType:
+        """Reads the GGML type for the specified tensor."""
+        var full_key = key + ".weight"
+        if layer_idx:
+            full_key = "blk." + str(layer_idx.value()[]) + "." + full_key
+
+        for i in range(self.n_tensors()):
+            var info = self.infos[i]
+            if str(info.name) != full_key:
+                continue
+
+            return info.type
+
+        raise "key: " + key + " not found in ggml_type"
+
     fn hyperparams(self) raises -> LlamaHParams:
         """Loads Llama hyperparameters by reading the GGUF metadata."""
         var dims = int(self["llama.embedding_length"])

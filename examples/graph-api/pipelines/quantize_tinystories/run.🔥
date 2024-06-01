@@ -12,24 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 """Pipeline for quantizing a Llama model trained on TinyStories."""
 
-from pathlib import cwd, Path
+from pathlib import cwd
 
-from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
-from max.graph.checkpoint import save, TensorDict
-from max.graph.quantization import Q4_0Encoding
-
-from pipelines.llama2.run import compile_graph, generate_text, Config
-from pipelines.nn import (
-    Attention,
-    Embedding,
-    FeedForward,
-    RMSNorm,
-    Transformer,
-    TransformerBlock,
-)
-from pipelines.weights.download import download_weights_to_cache
-from pipelines.weights.llama2checkpoint import LlamaCFile
-from pipelines.weights.loadable_model import LlamaHParams
 from .quantize_tinystories import quantize_and_save_tinystories
 from .load_tinystories import load_quantized_tinystories
 

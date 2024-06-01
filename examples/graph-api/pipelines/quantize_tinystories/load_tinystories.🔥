@@ -22,7 +22,7 @@ from pathlib import cwd, Path
 
 from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import load, TensorDict
-from max.graph.quantization import Q4_0Encoding
+from max.graph.quantization import Float32Encoding, Q4_0Encoding
 
 from pipelines.llama2.run import compile_graph, generate_text, Config
 from pipelines.nn import (
@@ -76,7 +76,7 @@ struct TeenyTinyLlama:
     """Dictionary of quantized model parameters for checkpointing."""
 
     def __init__(inout self, model_path: Path):
-        # Load quantized weights.
+        # Load quantized weights from MAX checkpoint.
         self.quantized_params = load(model_path)
         # Read Llama hyperparameters from the checkpoint.
         self.hyperparams = read_hyperparams_from_dict(self.quantized_params)
@@ -99,21 +99,35 @@ struct TeenyTinyLlama:
         )
 
         @parameter
-        def weight[
-            type: DType
-        ](name: String, layer_idx: Optional[Int] = None) -> Symbol:
-            """Stages a parameter as a constant op in the graph."""
+        def quantized_weight(
+            name: String, layer_idx: Optional[Int] = None
+        ) -> (Symbol, String):
+            """Stages a quantized parameter as a constant op in the graph."""
             # Load a parameter from the MAX checkpoint.
-            param = self.quantized_params.get[type](param_key(name, layer_idx))
-            # Stage a constant op in the graph.
-            return llama.constant(param)
+            param = self.quantized_params.get[DType.uint8](
+                param_key(name, layer_idx)
+            )
+
+            # Stage a constant op in the graph and return it with its encoding.
+            return llama.constant(param), Q4_0Encoding.id()
+
+        @parameter
+        def norm_weight(
+            name: String, layer_idx: Optional[Int] = None
+        ) -> Symbol:
+            """Stages a norm weight parameter as a constant op in the graph."""
+            return llama.constant(
+                self.quantized_params.get[DType.float32](
+                    param_key(name, layer_idx)
+                )
+            )
 
         # Stage all of the transformer blocks in the stories15M Llama.
-        transformer_blocks = List[TransformerBlock[Q4_0Encoding]]()
+        transformer_blocks = List[TransformerBlock]()
         for layer_idx in range(self.hyperparams.n_layers):
             # Stage a transformer block with quantized weights.
-            block = TransformerBlock[Q4_0Encoding](
-                attention=Attention[Q4_0Encoding](
+            block = TransformerBlock(
+                attention=Attention(
                     n_heads=self.hyperparams.n_heads,
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
@@ -121,27 +135,27 @@ struct TeenyTinyLlama:
                     enable_custom_rope_kernel=False,
                     # Load the quantized attention layer weights for all QKV and
                     # output projection
-                    wq=weight[DType.uint8]("attn_q", layer_idx),
-                    wk=weight[DType.uint8]("attn_k", layer_idx),
-                    wv=weight[DType.uint8]("attn_v", layer_idx),
-                    wo=weight[DType.uint8]("attn_output", layer_idx),
+                    wq=quantized_weight("attn_q", layer_idx),
+                    wk=quantized_weight("attn_k", layer_idx),
+                    wv=quantized_weight("attn_v", layer_idx),
+                    wo=quantized_weight("attn_output", layer_idx),
                 ),
-                feed_forward=FeedForward[Q4_0Encoding](
+                feed_forward=FeedForward(
                     # Also load the quantized feedforward gate/down/up matrices.
-                    w1=weight[DType.uint8]("ffn_gate", layer_idx),
-                    w2=weight[DType.uint8]("ffn_down", layer_idx),
-                    w3=weight[DType.uint8]("ffn_up", layer_idx),
+                    w1=quantized_weight("ffn_gate", layer_idx),
+                    w2=quantized_weight("ffn_down", layer_idx),
+                    w3=quantized_weight("ffn_up", layer_idx),
                 ),
                 attention_norm=RMSNorm(
                     # Load the float32 norm weights (were not quantized since
                     # they are bias vectors and therefore small).
                     self.hyperparams.norm_eps,
-                    weight[DType.float32]("attn_norm", layer_idx),
+                    norm_weight("attn_norm", layer_idx),
                 ),
                 ffn_norm=RMSNorm(
                     self.hyperparams.norm_eps,
                     # Same for the feedforward layer norm weights.
-                    weight[DType.float32]("ffn_norm", layer_idx),
+                    norm_weight("ffn_norm", layer_idx),
                 ),
             )
             transformer_blocks.append(block)
@@ -150,19 +164,15 @@ struct TeenyTinyLlama:
         var logits: Symbol
         k_cache = llama[1]
         v_cache = llama[2]
-        logits, k_cache, v_cache = Transformer[Q4_0Encoding](
+        logits, k_cache, v_cache = Transformer(
             dim=self.hyperparams.dims,
             n_heads=self.hyperparams.n_heads,
-            embedding=Embedding[Q4_0Encoding](
-                weight[DType.uint8]("token_embd")
-            ),
+            embedding=Embedding(quantized_weight("token_embd")),
             layers=transformer_blocks,
-            norm=RMSNorm(
-                self.hyperparams.norm_eps, weight[DType.float32]("output_norm")
-            ),
+            norm=RMSNorm(self.hyperparams.norm_eps, norm_weight("output_norm")),
             # For stories15M, output and token embeddings are shared.
             # So reuse the token embeddings for the output layer.
-            output=weight[DType.uint8]("token_embd"),
+            output=quantized_weight("token_embd"),
             theta=10000.0,
         )(tokens=llama[0], k_cache=k_cache, v_cache=v_cache)
 
