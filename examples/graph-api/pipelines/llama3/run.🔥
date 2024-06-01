@@ -22,6 +22,7 @@ from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
+    Q4_KEncoding,
 )
 from tensor import Tensor, TensorShape, TensorSpec
 
@@ -54,7 +55,7 @@ struct Config:
         custom_ops_paths: List[Path] = List[Path](),
         tokenizer_path: Path = "",
         prompt: String = "",
-        quantization_encoding: String = "q4_0",
+        quantization_encoding: String = "q4_k",
     ):
         self.batch_size = batch_size
         self.max_tokens = max_tokens
@@ -63,7 +64,7 @@ struct Config:
         self.tokenizer_path = tokenizer_path
         self.prompt = prompt
         self.quantization_encoding = quantization_encoding
-        """Encoding for quantized model weights, such as Q4_0."""
+        """Encoding for quantized model weights, such as Q4_0 or Q4_K."""
 
         self.parse_args()
 
@@ -189,6 +190,13 @@ def run_outer[
             "https://huggingface.co/brendanduke/Llama-3-8B-q4_0-pure.gguf/resolve/main/llama3-8b-q4_0-pure.gguf",
         )
         run_fn[GGUFFile, Q4_0Encoding](config)
+    elif encoding == "q4_k":
+        config.model_path = cache_path.joinpath("llama3-8b-q4_k-pure.gguf")
+        download_weights_to_cache(
+            cache_path,
+            "https://huggingface.co/brendanduke/Llama-3-8B-q4_k-pure.gguf/resolve/main/llama3-8b-q4_k-pure.gguf",
+        )
+        run_fn[GGUFFile, Q4_KEncoding](config)
     elif encoding == "float32":
         config.model_path = cache_path.joinpath("llama3-8b-f32.gguf")
         download_weights_to_cache(

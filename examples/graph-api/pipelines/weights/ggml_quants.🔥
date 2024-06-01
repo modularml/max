@@ -129,6 +129,11 @@ struct BlockQ4K:
         self.scales = scales
         self.qs = qs
 
+    @staticmethod
+    fn elements_per_block() -> Int:
+        """Returns the number of elements per Q4_K block."""
+        return QK_K
+
 
 @value
 struct BlockQ6K:
@@ -169,3 +174,8 @@ struct BlockQ6K:
         self.qh = qh
         self.scales = scales
         self.d = d
+
+    @staticmethod
+    fn elements_per_block() -> Int:
+        """Returns the number of elements per Q6_K block."""
+        return QK_K
