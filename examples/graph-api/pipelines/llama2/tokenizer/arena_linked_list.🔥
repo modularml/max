@@ -105,15 +105,15 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         return self.node(id)[].value()[].prev
 
     def node(
-        self: Reference[Self, _], id: Self.ID
-    ) -> Reference[Optional[Node[ElementType]], self.lifetime]:
+        ref [_]self: Self, id: Self.ID
+    ) -> Reference[Optional[Node[ElementType]], __lifetime_of(self)]:
         """Gets a reference to a value in the list."""
-        return self[]._arena.__get_ref(id)
+        return self._arena.__get_ref(id)
 
     def __getitem__(
-        self: Reference[Self, _], id: Self.ID
-    ) -> ref [self.lifetime] ElementType:
+        ref [_]self: Self, id: Self.ID
+    ) -> ref [__lifetime_of(self)] ElementType:
         """Gets a reference to a value in the list."""
-        node_ref = self[].node(id)
+        node_ref = self.node(id)
         debug_assert(node_ref[], "retrieved removed value")
         return Reference(node_ref[].value()[].value)[]
