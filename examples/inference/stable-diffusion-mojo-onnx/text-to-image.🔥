@@ -38,9 +38,7 @@ var LATENT_HEIGHT = OUTPUT_HEIGHT // 8
 var LATENT_CHANNELS = 4
 
 
-def vstack[
-    dtype: DType
-](borrowed a: Tensor[dtype], borrowed b: Tensor[dtype]) -> Tensor[dtype]:
+def vstack[dtype: DType](a: Tensor[dtype], b: Tensor[dtype]) -> Tensor[dtype]:
     """Concatenate tensors a & b along the outermost dimension."""
     # Generate return shape.
     out_shape = List[Int]()
@@ -59,7 +57,7 @@ def vstack[
     return out
 
 
-def split[dtype: DType](borrowed x: Tensor[dtype], i: Int) -> Tensor[dtype]:
+def split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
     """Return the ith slice of the outermost dim; i.e., x[idx, :, :, ..., :]."""
     # Generate return shape
     shape = List[Int]()

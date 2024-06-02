@@ -76,9 +76,9 @@ struct Scheduler:
 
     def step(
         inout self,
-        borrowed model_output: FloatTensor,
+        model_output: FloatTensor,
         timestep: Int,
-        borrowed sample: FloatTensor,
+        sample: FloatTensor,
     ) -> FloatTensor:
         var previous_timestep = timestep - self.step_ratio
 
@@ -127,10 +127,10 @@ struct Scheduler:
 
     def _get_previous_sample(
         inout self,
-        borrowed sample: FloatTensor,
+        sample: FloatTensor,
         timestep: Int,
         previous_timestep: Int,
-        borrowed model_output: FloatTensor,
+        model_output: FloatTensor,
     ) -> FloatTensor:
         alpha_prod_t = self.alphas_cumprod[timestep]
         alpha_prod_t_previous = (

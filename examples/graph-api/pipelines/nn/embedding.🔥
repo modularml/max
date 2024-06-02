@@ -79,7 +79,7 @@ struct Embedding:
     def __init__(inout self, encoded_weight: Tuple[Symbol, String]):
         self.weights, self.encoding_id = encoded_weight
 
-    def __call__(borrowed self, indices: Symbol) -> Symbol:
+    def __call__(self, indices: Symbol) -> Symbol:
         """Gathers and dequantize rows of the quantized embedding, as needed.
 
         Args:
