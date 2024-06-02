@@ -95,19 +95,13 @@ struct Ball[T: CollectionElement]:
         """Gets the previous item in the list, if any."""
         return self._get_node(id).prev
 
-    fn _get_node[
-        mutability: Bool,
-        lifetime: AnyLifetime[mutability].type,
-    ](self: Reference[Self, mutability, lifetime], id: Self.ID) -> ref [
-        lifetime
-    ] Node[T]:
+    fn _get_node(
+        self: Reference[Self, _], id: Self.ID
+    ) -> ref [self.lifetime] Node[T]:
         return self[]._arena.__get_ref(id)[].value()[]
 
-    fn __getitem__[
-        mutability: Bool,
-        lifetime: AnyLifetime[mutability].type,
-    ](self: Reference[Self, mutability, lifetime], id: Self.ID) -> ref [
-        lifetime
-    ] T:
+    fn __getitem__(
+        self: Reference[Self, _], id: Self.ID
+    ) -> ref [self.lifetime] T:
         """Gets a reference to a value in the list."""
         return self[]._get_node(id).value
