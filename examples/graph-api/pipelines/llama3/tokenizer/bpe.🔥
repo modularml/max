@@ -29,7 +29,7 @@ struct _SplitIter[is_mutable: Bool, lifetime: AnyLifetime[is_mutable].type]:
     allocating a new String for each slice of the original string, and
     allows specifing a maximum number of splits."""
 
-    var span: Span[UInt8, is_mutable, lifetime]
+    var span: Span[UInt8, lifetime]
     var split: String
     var max: Optional[Int]
     var done: Bool
@@ -37,7 +37,7 @@ struct _SplitIter[is_mutable: Bool, lifetime: AnyLifetime[is_mutable].type]:
     fn __iter__(self) -> Self:
         return self
 
-    fn __next__(inout self) -> StringSlice[is_mutable, lifetime]:
+    fn __next__(inout self) -> StringSlice[lifetime]:
         """Return the next split slice via StringRef.find()."""
         # If we've already split `max` times, return the final slice.
         if self.max and self.max.value()[] == 0:
@@ -133,7 +133,7 @@ struct MergeOption(OrderedElement):
         )
 
 
-def read[T: CollectionElement](inout span: Span[UInt8, _, _]) -> T:
+def read[T: CollectionElement](inout span: Span[UInt8, _]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     value = span.unsafe_ptr().bitcast[T]()[]
     span = span[sizeof[T]() :]
