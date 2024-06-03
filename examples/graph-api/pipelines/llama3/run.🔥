@@ -16,7 +16,8 @@ from collections import List, Optional
 from pathlib import cwd, Path
 from utils.index import Index
 
-from max.engine import InferenceSession, Model, TensorMap
+from max.engine import InferenceSession, Model, SessionOptions, TensorMap
+from max.engine._context import _Device
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
@@ -46,6 +47,7 @@ struct Config:
     var tokenizer_path: Path
     var prompt: String
     var quantization_encoding: String
+    var use_gpu: Bool
 
     def __init__(
         inout self,
@@ -57,6 +59,7 @@ struct Config:
         tokenizer_path: Path = "",
         prompt: String = "",
         quantization_encoding: String = "q4_k",
+        use_gpu: Bool = False,
     ):
         self.batch_size = batch_size
         self.max_tokens = max_tokens
@@ -65,6 +68,7 @@ struct Config:
         self.tokenizer_path = tokenizer_path
         self.prompt = prompt
         self.quantization_encoding = quantization_encoding
+        self.use_gpu = use_gpu
         """Encoding for quantized model weights: Q4_0, Q4_K, or Q6_K."""
 
         self.parse_args()
@@ -98,6 +102,9 @@ struct Config:
                 self.prompt = parse_argument_value(i)
             elif args[i] == "--quantization-encoding":
                 self.quantization_encoding = String(parse_argument_value(i))
+            elif args[i] == "--experimental-use-gpu":
+                self.use_gpu = True
+                i += 1
             else:
                 raise "unsupported CLI argument: " + String(args[i])
 
@@ -125,11 +132,11 @@ def execute(
 
 
 def compile_graph(
-    graph: Graph, custom_ops_paths: List[Path] = List[Path]()
+    session: InferenceSession,
+    graph: Graph,
+    custom_ops_paths: List[Path] = List[Path](),
 ) -> Model:
     """Compiles a staged graph using the graph compiler."""
-    session = InferenceSession()
-
     print("Compiling...")
     return session.load(graph, custom_ops_paths=custom_ops_paths)
 
@@ -168,7 +175,12 @@ def run[
     params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
-    compiled_model = compile_graph(graph, config.custom_ops_paths)
+    session_options = SessionOptions(
+        _device=_Device.CUDA if config.use_gpu else _Device.CPU
+    )
+    session = InferenceSession(session_options)
+
+    compiled_model = compile_graph(session, graph, config.custom_ops_paths)
 
     generate_text(compiled_model, params, config)
 
