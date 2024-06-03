@@ -133,6 +133,7 @@ struct TeenyTinyLlama:
                     head_dim=self.hyperparams.head_dim,
                     dim=self.hyperparams.dims,
                     enable_custom_rope_kernel=False,
+                    use_custom_attention=True,
                     # Load the quantized attention layer weights for all QKV and
                     # output projection
                     wq=quantized_weight("attn_q", layer_idx),

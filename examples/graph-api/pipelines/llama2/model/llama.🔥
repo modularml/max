@@ -90,11 +90,12 @@ struct Llama2[
                 n_kv_heads=params.n_kv_heads,
                 head_dim=params.head_dim,
                 dim=params.dims,
+                enable_custom_rope_kernel=self.enable_custom_rope_kernel,
+                use_custom_attention=True,
                 wq=weight("attn_q", layer),
                 wk=weight("attn_k", layer),
                 wv=weight("attn_v", layer),
                 wo=weight("attn_output", layer),
-                enable_custom_rope_kernel=self.enable_custom_rope_kernel,
             )
             feed_forward = FeedForward(
                 w1=weight("ffn_gate", layer),
