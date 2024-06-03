@@ -21,7 +21,7 @@ import sys
 def execute(model: Model, text: String, transformers: PythonObject) -> String:
     # The model was compiled with a maximum seqlen, so read that out from the model output metadata
     output_spec = model.get_model_output_metadata()[0]
-    max_seqlen = output_spec[1].value()[]
+    max_seqlen = output_spec[1].value()
 
     tokenizer = transformers.AutoTokenizer.from_pretrained("bert-base-uncased")
 

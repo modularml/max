@@ -135,11 +135,11 @@ struct GroupedQueryAttention:
         v = ops.transpose(v, 1, 2)
 
         if k_cache:
-            k_cache_value = k_cache.value()[]
+            k_cache_value = k_cache.value()
             k = ops.concat(List[Symbol](k_cache_value, k), axis=3)
             if not v_cache:
                 raise error(g, "v_cache cannot be None if k_cache is defined.")
-            v_cache_value = v_cache.value()[]
+            v_cache_value = v_cache.value()
             v = ops.concat(List[Symbol](v_cache_value, v), axis=2)
 
         # Record the k and v into the cache. An extra dimension is added
@@ -166,7 +166,7 @@ struct GroupedQueryAttention:
         s_k = ops.shape_of(k)[-1]
 
         if attn_bias:
-            bias = attn_bias.value()[]
+            bias = attn_bias.value()
             attn_bias_shape = ops.shape_of(bias)
             _s_q = ops.max(g.scalar(Int32(0)), attn_bias_shape[2] - s_q)
             _s_k = ops.max(g.scalar(Int32(0)), attn_bias_shape[3] - s_k)
