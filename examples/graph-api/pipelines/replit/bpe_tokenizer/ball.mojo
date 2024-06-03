@@ -37,10 +37,10 @@ struct Ball[T: CollectionElement]:
     var id1 = list.append(0)
     var id2 = list.append(1)
     list[id2] == 1
-    list.next(id1).value()[] == id2
-    list.prev(id2).value()[] == id1
+    list.next(id1).value() == id2
+    list.prev(id2).value() == id1
     list.remove(id1)
-    list._head.value()[] == id2
+    list._head.value() == id2
     (id1 in list) == False
     list[id2] = 3
     ```
@@ -67,7 +67,7 @@ struct Ball[T: CollectionElement]:
         var id = len(self._arena)
         var node = Node[T](value^, self._tail, None)
         if self._tail:
-            self._get_node(self._tail.value()[]).next = id
+            self._get_node(self._tail.value()).next = id
         else:
             self._head = id
         self._tail = id
@@ -79,12 +79,12 @@ struct Ball[T: CollectionElement]:
         var node = self._arena[id]._value_copy()
         self._arena[id] = None
         if node.prev:
-            self._get_node(node.prev.value()[]).next = node.next
+            self._get_node(node.prev.value()).next = node.next
         if node.next:
-            self._get_node(node.next.value()[]).prev = node.prev
-        if self._head.value()[] == id:
+            self._get_node(node.next.value()).prev = node.prev
+        if self._head.value() == id:
             self._head = node.next
-        if self._tail.value()[] == id:
+        if self._tail.value() == id:
             self._tail = node.prev
 
     fn next(self, id: Self.ID) -> Optional[Self.ID]:
@@ -98,7 +98,7 @@ struct Ball[T: CollectionElement]:
     fn _get_node(
         ref [_]self: Self, id: Self.ID
     ) -> ref [__lifetime_of(self)] Node[T]:
-        return self._arena.__get_ref(id)[].value()[]
+        return self._arena.__get_ref(id)[].value()
 
     fn __getitem__(
         ref [_]self: Self, id: Self.ID

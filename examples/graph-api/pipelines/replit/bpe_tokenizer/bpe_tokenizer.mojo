@@ -153,8 +153,8 @@ struct Tokenizer:
         in length, so we can always safely recognize an outdated merge.
         """
         var output = List[TokenWithID]()
-        if bos and bos.value()[] in self.vocab:
-            output.append(TokenWithID(bos.value()[], self.vocab[bos.value()[]]))
+        if bos and bos.value() in self.vocab:
+            output.append(TokenWithID(bos.value(), self.vocab[bos.value()]))
 
         var merge_options = MaxHeap[MergeOption]()
         var tokens = Ball[String]()
@@ -172,7 +172,7 @@ struct Tokenizer:
         for i in range(len(str)):
             var id = tokens.append(str[i].replace(" ", "Ġ"))
             if prev:
-                maybe_add_merge(prev.value()[], id)
+                maybe_add_merge(prev.value(), id)
             prev = id
 
         while merge_options:
@@ -194,20 +194,20 @@ struct Tokenizer:
             tokens[merge.left] = tokens[merge.left] + tokens[merge.right]
             tokens.remove(merge.right)
             if right:
-                maybe_add_merge(merge.left, right.value()[])
+                maybe_add_merge(merge.left, right.value())
             if left:
-                maybe_add_merge(left.value()[], merge.left)
+                maybe_add_merge(left.value(), merge.left)
 
         # Loop through the final list and construct the token sequence.
         var node_id = tokens._head
         while node_id:
-            var id = node_id.value()[]
+            var id = node_id.value()
             var token = tokens[id]
             output.append(TokenWithID(token, self._encode_token(token)))
             node_id = tokens.next(id)
 
-        if eos and eos.value()[] in self.vocab:
-            output.append(TokenWithID(eos.value()[], self.vocab[eos.value()[]]))
+        if eos and eos.value() in self.vocab:
+            output.append(TokenWithID(eos.value(), self.vocab[eos.value()]))
 
         return output
 

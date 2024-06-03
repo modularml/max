@@ -91,7 +91,7 @@ struct Replit[T: Checkpoint, weights_type: DType]:
         )
         attn_bias = ops.cast(alibi_bias * slopes, DType.float32)
         if attention_mask:
-            mask = attention_mask.value()[]
+            mask = attention_mask.value()
             s_k = ops.shape_of(mask)[-1]
             _s_k = ops.max(
                 g.scalar(Int32(0)), ops.shape_of(attn_bias)[-1] - s_k

@@ -40,7 +40,7 @@ from pipelines.weights.loadable_model import LlamaHParams
 @always_inline
 def param_key(name: String, layer_idx: Optional[Int] = None) -> String:
     """Qualify parameter name with its layer index, if passed."""
-    return name + "_" + str(layer_idx.value()[]) if layer_idx else name
+    return name + "_" + str(layer_idx.value()) if layer_idx else name
 
 
 def read_hyperparams_from_dict(

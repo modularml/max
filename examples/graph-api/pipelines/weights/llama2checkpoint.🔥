@@ -235,7 +235,7 @@ struct LlamaCFile(LoadableModel):
             raise "key not found"
 
         var ptr = DTypePointer[type].alloc(tensor_ref.nelems())
-        var layer_offset = layer_idx.value()[] * tensor_ref.nelems() if layer_idx else 0
+        var layer_offset = layer_idx.value() * tensor_ref.nelems() if layer_idx else 0
         memcpy(ptr, tensor_ref.offset + layer_offset, tensor_ref.nelems())
 
         return Tensor(tensor_ref.shape, ptr)

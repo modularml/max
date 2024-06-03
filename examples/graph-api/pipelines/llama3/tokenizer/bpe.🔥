@@ -40,7 +40,7 @@ struct _SplitIter[is_mutable: Bool, lifetime: AnyLifetime[is_mutable].type]:
     fn __next__(inout self) -> StringSlice[lifetime]:
         """Return the next split slice via StringRef.find()."""
         # If we've already split `max` times, return the final slice.
-        if self.max and self.max.value()[] == 0:
+        if self.max and self.max.value() == 0:
             self.done = True
             return StringSlice(unsafe_from_utf8=self.span)
 
@@ -53,7 +53,7 @@ struct _SplitIter[is_mutable: Bool, lifetime: AnyLifetime[is_mutable].type]:
             # advance the span start until the end of the found match
             self.span = self.span[next_newline + len(self.split) :]
             if self.max:
-                self.max = self.max.value()[] - 1
+                self.max = self.max.value() - 1
             return StringSlice(unsafe_from_utf8=line)
         self.done = True
         return StringSlice(unsafe_from_utf8=self.span)
@@ -263,10 +263,8 @@ struct BPETokenizer:
         in length, so we can always safely recognize an outdated merge.
         """
         output = List[TokenWithID]()
-        if bos and bos.value()[] in self.token_ids:
-            output.append(
-                TokenWithID(bos.value()[], self.token_ids[bos.value()[]])
-            )
+        if bos and bos.value() in self.token_ids:
+            output.append(TokenWithID(bos.value(), self.token_ids[bos.value()]))
 
         merge_options = MinHeap[MergeOption]()
         tokens = ArenaLinkedList[String]()
@@ -275,7 +273,7 @@ struct BPETokenizer:
         def maybe_add_merge(left: tokens.ID, right: tokens.ID):
             merged = tokens[left] + tokens[right]
             if token_id := self.token_ids.find(merged):
-                score = self.vocab[token_id.value()[]].score
+                score = self.vocab[token_id.value()].score
                 merge_options.push(MergeOption(left, right, score, len(merged)))
 
         # Initialize the tokens linked-list and initial merges.
@@ -283,7 +281,7 @@ struct BPETokenizer:
         for i in range(len(str)):
             id = tokens.append(str[i])
             if prev:
-                maybe_add_merge(prev.value()[], id)
+                maybe_add_merge(prev.value(), id)
             prev = id
 
         while merge_options:
@@ -302,22 +300,20 @@ struct BPETokenizer:
             tokens[merge.left] = merged
             tokens.remove(merge.right)
             if right:
-                maybe_add_merge(merge.left, right.value()[])
+                maybe_add_merge(merge.left, right.value())
             if left:
-                maybe_add_merge(left.value()[], merge.left)
+                maybe_add_merge(left.value(), merge.left)
 
         # Loop through the final list and construct the token sequence.
         node_id = tokens._head
         while node_id:
-            id = node_id.value()[]
+            id = node_id.value()
             token = tokens[id]
             output.append(TokenWithID(token, self._encode_token(token)))
             node_id = tokens.next(id)
 
-        if eos and eos.value()[] in self.token_ids:
-            output.append(
-                TokenWithID(eos.value()[], self.token_ids[eos.value()[]])
-            )
+        if eos and eos.value() in self.token_ids:
+            output.append(TokenWithID(eos.value(), self.token_ids[eos.value()]))
 
         return output
 

@@ -37,10 +37,10 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
     id1 = list.append(0)
     id2 = list.append(1)
     list[id2] == 1
-    list.next(id1).value()[] == id2
-    list.prev(id2).value()[] == id1
+    list.next(id1).value() == id2
+    list.prev(id2).value() == id1
     list.remove(id1)
-    list._head.value()[] == id2
+    list._head.value() == id2
     (id1 in list) == False
     list[id2] = 3
     ```
@@ -67,8 +67,8 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         id = len(self._arena)
         node = Node[ElementType](value^, self._tail, None)
         if self._tail:
-            tail = self.node(self._tail.value()[])
-            tail[].value()[].next = id
+            tail = self.node(self._tail.value())
+            tail[].value().next = id
         else:
             self._head = id
         self._tail = id
@@ -81,28 +81,28 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         debug_assert(self._head, "removing from empty list")
         debug_assert(self._tail, "removing from empty list")
 
-        node = self.node(id)[].value()[]
+        node = self.node(id)[].value()
         self.node(id)[] = None
         if node.prev:
-            prev = self.node(node.prev.value()[])
-            prev[].value()[].next = node.next
+            prev = self.node(node.prev.value())
+            prev[].value().next = node.next
         if node.next:
-            next = self.node(node.next.value()[])
-            next[].value()[].prev = node.prev
-        if self._head.value()[] == id:
+            next = self.node(node.next.value())
+            next[].value().prev = node.prev
+        if self._head.value() == id:
             self._head = node.next
-        if self._tail.value()[] == id:
+        if self._tail.value() == id:
             self._tail = node.prev
 
     def next(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the next item in the list, if any."""
         debug_assert(self.node(id)[], "next on item not in list")
-        return self.node(id)[].value()[].next
+        return self.node(id)[].value().next
 
     def prev(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the previous item in the list, if any."""
         debug_assert(self.node(id)[], "prev on item not in list")
-        return self.node(id)[].value()[].prev
+        return self.node(id)[].value().prev
 
     def node(
         ref [_]self: Self, id: Self.ID
@@ -116,4 +116,4 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         """Gets a reference to a value in the list."""
         node_ref = self.node(id)
         debug_assert(node_ref[], "retrieved removed value")
-        return Reference(node_ref[].value()[].value)[]
+        return Reference(node_ref[].value().value)[]

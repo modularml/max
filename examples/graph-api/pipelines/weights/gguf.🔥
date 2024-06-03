@@ -844,7 +844,7 @@ struct GGUFFile(LoadableModel):
     ) raises -> Tensor[type]:
         var full_key = key + ".weight"
         if layer_idx:
-            full_key = "blk." + str(layer_idx.value()[]) + "." + full_key
+            full_key = "blk." + str(layer_idx.value()) + "." + full_key
 
         for i in range(self.n_tensors()):
             var info = self.infos[i]
@@ -878,7 +878,7 @@ struct GGUFFile(LoadableModel):
         """Reads the GGML type for the specified tensor."""
         var full_key = key + ".weight"
         if layer_idx:
-            full_key = "blk." + str(layer_idx.value()[]) + "." + full_key
+            full_key = "blk." + str(layer_idx.value()) + "." + full_key
 
         for i in range(self.n_tensors()):
             var info = self.infos[i]
@@ -916,7 +916,7 @@ struct GGUFFile(LoadableModel):
             n_heads=n_heads,
             norm_eps=self["llama.attention.layer_norm_rms_epsilon"].float(),
             n_kv_heads=n_kv_heads,
-            vocab_size=vocab_size.value()[],
+            vocab_size=vocab_size.value(),
             head_dim=dims // n_heads,
             n_rep=n_heads // n_kv_heads,
         )
