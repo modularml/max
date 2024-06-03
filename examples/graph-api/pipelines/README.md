@@ -10,8 +10,12 @@ hosting common functionality.
 
 The pipelines include:
 
-- [Llama 2](llama2): A text completion demo using the Llama 2 model, implemented
-in Mojo using the MAX Graph API.
+- [Llama 3](llama3): A text completion demo using the Llama 3 model,
+implemented in Mojo using the MAX Graph API. This pipeline contains everything
+needed to run a self-hosted large language model.
+- [Llama 2](llama2): Similar to the Llama 3 text generation pipeline, only
+with the Llama 2 model. The Llama 2 pipeline also shows how to use a custom
+kernel in MAX Graphs.
 - [Replit Code](replit): Code generation via the Replit Code V1.5 3B mode,
 implemented in Mojo using the MAX Graph API.
 - [Quantize TinyStories](quantize_tinystories): A demonstration of quantizing
@@ -27,6 +31,8 @@ the pipelines.
 In addition to the pipelines, common modules contain types and functions shared
 between the various pipelines. These modules currently include:
 
-- [weights](weights): A module containing code for loading common weight
+- [nn](./nn/): Abstractions for common layers in neural network architectures.
+- [tokenizer](./tokenizer/): Shared tokenizers used across text pipelines.
+- [weights](./weights/): A module containing code for loading common weight
 formats, such as
 [GGUF](https://github.com/ggerganov/ggml/blob/cce2ac9a5d788c3b6bb72a3b3dbde9247d8b85a7/docs/gguf.md).
