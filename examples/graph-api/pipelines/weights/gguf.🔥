@@ -669,15 +669,14 @@ struct GGUFReader:
             var array = GGUFArray(array_n)
             if array_type is GGUFType.GGUF_TYPE_STRING:
                 for i in range(array_n):
-                    initialize_pointee_copy(
-                        array.data + i, GGUFValue(self.gguf_string())
+                    (array.data + i).init_pointee_copy(
+                        GGUFValue(self.gguf_string())
                     )
 
                 return GGUFKV(key, GGUFValue(array))
 
             for i in range(array_n):
-                initialize_pointee_copy(
-                    array.data + i,
+                (array.data + i).init_pointee_copy(
                     array_type.dispatch[GGUFValue, _gguf_value](),
                 )
 
