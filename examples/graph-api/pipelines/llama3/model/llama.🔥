@@ -110,6 +110,7 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
                 head_dim=params.head_dim,
                 dim=params.dims,
                 enable_custom_rope_kernel=False,
+                use_custom_attention=True,
                 wq=weight("attn_q", layer),
                 wk=weight("attn_k", layer),
                 wv=weight("attn_v", layer),
