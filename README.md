@@ -48,26 +48,25 @@ git checkout nightly
 
 ## Running
 
-### Option 1: Example console (excludes notebooks)
+### MAX Pipelines
 
-Run the console and follow the prompt to choose which example to run.
+To show off the full power of MAX, a
+[series of end-to-end pipelines for common AI workloads](./examples/graph-api/pipelines/)
+(and more) are ready to run. As one example, this includes everything needed to
+self-host
+[the Llama 3 text-generation model](./examples/graph-api/pipelines/llama3/).
+These pipelines are completely written in Mojo, and all code is provided so
+that they can be customized, built upon, or learned from.
 
-```sh
-python3 -m venv venv && source venv/bin/activate
-python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
-python3 examples/console.py
-```
+### Examples
 
-which opens up
+In addition to the end-to-end pipelines, there are many [examples](./examples/)
+that exercise various aspects of MAX, from
+[performing inference using PyTorch and ONNX models](./examples/inference/) to
+[demonstrating command-line tooling capabilities](./examples/tools/).
 
-<p align="center">
-    <img src="https://modular-assets.s3.amazonaws.com/images/modular_console_bg.png">
-</p>
-
-### Option 2: Follow the README
-
-Follow the instructions in the README for each example, notebook or tool
-you want to run.
+You can follow the instructions in the README for each example,
+notebook or tool you want to run.
 
 ### Notebooks
 
