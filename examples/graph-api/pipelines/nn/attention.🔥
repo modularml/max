@@ -12,13 +12,16 @@
 # ===----------------------------------------------------------------------=== #
 """The attention mechanism used within the model."""
 
-from max.graph import ops, Symbol
+from math import rsqrt
+
+from max.graph import ops, Dim, Symbol, TensorType
 from max.graph.quantization import Float32Encoding, QuantizationEncoding
+from max.tensor import Tensor, TensorShape
 
 from pipelines.nn import Linear
 
 
-def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
+def rope_graph(x: Symbol, freqs_cis: Symbol) -> Symbol:
     """Applies rotary positional embeddings (RoPE) to `x`.
 
     Args:
@@ -71,6 +74,30 @@ def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
     return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
 
 
+def rope(
+    x: Symbol, freqs_cis: Symbol, enable_custom_rope_kernel: Bool
+) -> Symbol:
+    """Applies rotary positional embeddings (RoPE) to `x`.
+
+    Calls a custom Mojo kernel if `enable_custom_rope_kernel` is set.
+    Otherwise, implements RoPE with MAX graph ops.
+
+    Args:
+        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
+        freqs_cis: Positional frequencies tensor with shape
+            (seq_len, head_dim // 2, 2).
+        enable_custom_rope_kernel: Use a custom RoPE Mojo kernel if True,
+            otherwise compute RoPE with MAX graph ops.
+
+    Returns:
+        Input activation tensor with rotary positional embeddings applied and
+        the same shape as `x`.
+    """
+    return rope_custom_kernel(
+        x, freqs_cis
+    ) if enable_custom_rope_kernel else rope_graph(x, freqs_cis)
+
+
 def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
     g = start_pos.graph()
 
@@ -105,34 +132,162 @@ struct Attention:
     var head_dim: Int
     var dim: Int
     var enable_custom_rope_kernel: Bool
+    var use_custom_attention: Bool
+    """Use a custom flash attention kernel if set."""
 
     var wq: Linear
     var wk: Linear
     var wv: Linear
     var wo: Linear
 
+    def repeat_kv(self, kv: Symbol) -> Symbol:
+        """Repeats key/value tensors to match the number of query heads."""
+        batch_size = ops.shape_of(kv)[0]
+        kv = kv.reshape(batch_size, -1, self.n_kv_heads, 1, self.head_dim)
+        kv = ops.tile(
+            kv, List[Int64](1, 1, 1, self.n_heads // self.n_kv_heads, 1)
+        )
+        return kv.reshape(batch_size, -1, self.n_heads, self.head_dim)
+
+    def flash_attention(
+        self,
+        xq: Symbol,
+        xk: Symbol,
+        xv: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> Symbol:
+        """Op calling into a custom "split KV cache" flash attention kernel.
+
+        The custom flash attention kernel takes the previous KV cache and
+        current KV tensors separately.
+        This avoids data movement of the KV cache due to a `concat` op outside
+        the flash attention kernel.
+        """
+        g = xq.graph()
+        prev_seq_len = ops.shape_of(k_cache)[0]
+        seq_len = ops.shape_of(xq)[1]
+
+        attn_mask = attention_mask(prev_seq_len, seq_len)
+
+        # Broadcast the attention mask across all attention heads.
+        attn_shape = ops.shape_of(attn_mask)
+        attn_shape = ops.concat(
+            List(
+                g.scalar(Int64(1), rank=1),
+                g.scalar(Int64(32), rank=1),
+                attn_shape[0].reshape(1),
+                attn_shape[1].reshape(1),
+            )
+        )
+        attn_mask_bcast = g.op(
+            "mo.broadcast_to",
+            List(
+                ops.unsqueeze(ops.unsqueeze(attn_mask, axis=0), axis=0),
+                attn_shape,
+            ),
+            TensorType(
+                DType.float32, 1, self.n_heads, Dim.dynamic(), Dim.dynamic()
+            ),
+        )
+
+        # Transpose operands to their expected layouts:
+        # q and v: BHSD
+        # k: BHSD
+        # k_cache: 1BHSD
+        # v_cache: 1BHSD
+        return ops.custom["with_mask_flash_attention_split_kv_cpu"](
+            List(
+                xq.swapaxes(1, 2),
+                xk.swapaxes(1, 2),
+                xv.swapaxes(1, 2),
+                k_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
+                v_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
+                attn_mask_bcast,
+                g.constant(
+                    Tensor(TensorShape(), rsqrt(Float32(self.head_dim)))
+                ),
+            ),
+            TensorType(
+                DType.float32, 1, self.n_heads, Dim.dynamic(), self.head_dim
+            ),
+        )
+
+    def naive_attention(
+        self,
+        xq: Symbol,
+        xk: Symbol,
+        xv: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> Symbol:
+        head_dim = xq.graph().scalar[DType.float32](self.head_dim)
+        prev_seq_len = ops.shape_of(k_cache)[0]
+        seq_len = ops.shape_of(xq)[1]
+
+        keys = ops.concat(List[Symbol](k_cache, xk.swapaxes(0, 1))).swapaxes(
+            0, 1
+        )
+        values = ops.concat(List[Symbol](v_cache, xv.swapaxes(0, 1))).swapaxes(
+            0, 1
+        )
+
+        # Tile keys and values if this is GQA, otherwise no-op.
+        keys = self.repeat_kv(keys)
+        values = self.repeat_kv(values)
+
+        xq = xq.swapaxes(1, 2)
+        keys = keys.swapaxes(1, 2)
+        values = values.swapaxes(1, 2)
+
+        scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
+        scores = scores + attention_mask(prev_seq_len, seq_len)
+        output = ops.softmax(scores) @ values
+        return output
+
+    def attention(
+        self,
+        xq: Symbol,
+        xk: Symbol,
+        xv: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> Symbol:
+        if self.use_custom_attention:
+            return self.flash_attention(xq, xk, xv, k_cache, v_cache)
+        else:
+            return self.naive_attention(
+                xq,
+                xk,
+                xv,
+                # Squeeze because naive_attention expects rank = 4 {k,v}_cache.
+                ops.squeeze(k_cache, axis=1),
+                ops.squeeze(v_cache, axis=1),
+            )
+
     def __call__(
         self,
         input: Symbol,
-        start_pos: Symbol,
         freqs_cis: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> (Symbol, Symbol, Symbol):
-        g = input.graph()
+        """Computes attention on the input, reusing the KV cache.
+
+        Args:
+            input: Activations with shape (batch, seq_len, dim).
+            freqs_cis: Positional frequencies tensor with shape
+                (seq_len, head_dim // 2, 2).
+            k_cache: Previously computed keys with shape
+                (prev_seq_len, 1, batch, n_kv_heads, head_dim).
+            v_cache: Previously computed values with shape
+                (prev_seq_len, 1, batch, n_kv_heads, head_dim).
+
+        Returns the result of multi-headed self attention on the input.
+        """
         input_shape = ops.shape_of(input)
 
         batch_size, seq_len = input_shape[0], input_shape[1]
-        head_dim = g.scalar[DType.float32](self.head_dim)
-
-        @parameter
-        def repeat_kv(kv: Symbol) -> Symbol:
-            """Repeats key/value tensors to match the number of query heads."""
-            kv = kv.reshape(batch_size, -1, self.n_kv_heads, 1, self.head_dim)
-            kv = ops.tile(
-                kv, List[Int64](1, 1, 1, self.n_heads // self.n_kv_heads, 1)
-            )
-            return kv.reshape(batch_size, -1, self.n_heads, self.head_dim)
 
         xq = input @ self.wq
         xk = input @ self.wk
@@ -142,29 +297,12 @@ struct Attention:
         xk = xk.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
         xv = xv.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
 
-        xq = rope_custom_kernel(
-            xq, freqs_cis
-        ) if self.enable_custom_rope_kernel else rope(xq, freqs_cis)
-        xk = rope_custom_kernel(
-            xk, freqs_cis
-        ) if self.enable_custom_rope_kernel else rope(xk, freqs_cis)
+        # Apply RoPE positional embeddings.
+        xq = rope(xq, freqs_cis, self.enable_custom_rope_kernel)
+        xk = rope(xk, freqs_cis, self.enable_custom_rope_kernel)
 
-        keys = ops.concat(List[Symbol](k_cache, xk.swapaxes(0, 1))).swapaxes(
-            0, 1
-        )
-        values = ops.concat(List[Symbol](v_cache, xv.swapaxes(0, 1))).swapaxes(
-            0, 1
-        )
+        output = self.attention(xq, xk, xv, k_cache, v_cache)
 
-        keys = repeat_kv(keys)
-        values = repeat_kv(values)
-
-        xq = xq.swapaxes(1, 2)
-        keys = keys.swapaxes(1, 2)
-        values = values.swapaxes(1, 2)
-
-        scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + attention_mask(start_pos, seq_len)
-        output = ops.softmax(scores) @ values
         output = output.swapaxes(1, 2).reshape(batch_size, seq_len, -1)
+
         return output @ self.wo, xk, xv
