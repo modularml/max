@@ -28,6 +28,7 @@ from max.graph.quantization import (
 from tensor import Tensor, TensorShape
 
 from .kv_cache import KVCache
+from ..llama3.metrics import Metrics
 from .model.llama import Llama2
 from .token_sampler.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
@@ -162,8 +163,11 @@ def _generate_text_with_tokenizer[
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
+    inout metrics: Metrics,
 ):
+    metrics.begin_timing_prompt()
     prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
+    metrics.set_tokens_in_prompt(prompt.size)
     sampler = WeightedSampler(config.temperature, config.min_p)
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
@@ -178,17 +182,25 @@ def _generate_text_with_tokenizer[
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
+    metrics.begin_timing_generation()
     for _ in range(prompt.size, config.max_tokens + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )
         var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
         tokens = Tensor(TensorShape(1, 1), token)
+        metrics.new_token()
         print(tokenizer.decode(token), end="")
     print()
+    metrics.end_timing()
 
 
-def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
+def generate_text(
+    compiled_model: Model,
+    params: LlamaHParams,
+    config: Config,
+    inout metrics: Metrics,
+):
     """Generates text by applying the compiled model to the provided prompt."""
 
     @parameter
@@ -199,6 +211,7 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
             compiled_model,
             params,
             config,
+            metrics,
         )
 
     if AutoTokenizer.is_available():
@@ -210,6 +223,7 @@ def generate_text(compiled_model: Model, params: LlamaHParams, config: Config):
                 compiled_model,
                 params,
                 config,
+                metrics,
             )
         except:
             print(
@@ -233,6 +247,9 @@ def run[
     model_type: LoadableModel, encoding: QuantizationEncoding
 ](config: Config):
     print("Building model...")
+    metrics = Metrics()
+    metrics.begin_timing_startup()
+
     model = Llama2[model_type, encoding](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
@@ -241,8 +258,11 @@ def run[
     graph = model.build_graph("llama_model")
 
     compiled_model = compile_graph(graph, config.custom_ops_paths)
+    metrics.end_timing_startup()
 
-    generate_text(compiled_model, params, config)
+    generate_text(compiled_model, params, config, metrics)
+    print()
+    metrics.print()
 
 
 def run_outer[

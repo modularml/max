@@ -28,7 +28,6 @@ def main():
         print("- replit")
         print("- quantize-tinystories")
         return
-
     pipeline_name = args[1]
     if pipeline_name == "llama2":
         llama2_run()

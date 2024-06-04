@@ -29,6 +29,7 @@ from max.graph.quantization import (
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
+from .metrics import Metrics
 from .model.llama import Llama3
 from .tokenizer.tiktoken import TikTokenEncoder
 from .tokenizer.regex import set_locale_unicode
@@ -159,11 +160,14 @@ def generate_text(
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
+    inout metrics: Metrics,
 ):
     """Generates text by applying the compiled model to the provided prompt."""
 
+    metrics.begin_timing_prompt()
     prompt = tokenizer.encode(config.prompt)
     sampler = WeightedSampler(config.temperature, config.min_p)
+    metrics.set_tokens_in_prompt(prompt.size)
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):
@@ -178,6 +182,7 @@ def generate_text(
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
+    metrics.begin_timing_generation()
     for _ in range(prompt.size, config.max_tokens + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
@@ -185,9 +190,13 @@ def generate_text(
         token = sampler.sample(logits).selected
         tokens = Tensor(TensorShape(1, 1), Int64(token))
         print(tokenizer.decode(token).token, end="")
+    print()
+    metrics.end_timing()
 
 
 def run[encoding: QuantizationEncoding](config: Config):
+    metrics = Metrics()
+    metrics.begin_timing_startup()
     model = Llama3[encoding](config.model_path)
     params = model.hyperparams()
 
@@ -205,8 +214,11 @@ def run[encoding: QuantizationEncoding](config: Config):
     session = InferenceSession(session_options)
 
     compiled_model = compile_graph(session, graph, config.custom_ops_paths)
+    metrics.end_timing_startup()
 
-    generate_text(tokenizer, compiled_model, params, config)
+    generate_text(tokenizer, compiled_model, params, config, metrics)
+    print()
+    metrics.print()
 
 
 def cached_weights(url: String) -> Path:
