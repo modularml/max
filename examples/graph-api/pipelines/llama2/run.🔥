@@ -22,6 +22,8 @@ from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
 )
 from tensor import Tensor, TensorShape
 
@@ -257,13 +259,33 @@ def run_outer[
             # If no manual model path has been specified, download and cache
             # default quantized weights.
             config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
-            config.model_path = cache_path.joinpath("ggml-model-q4_0.gguf")
+            config.model_path = cache_path.joinpath("llama-2-7b.Q4_0.gguf")
             download_weights_to_cache(
                 cache_path,
                 "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-                "https://huggingface.co/brendanduke/Llama-2-7B-q4_0-pure.gguf/resolve/main/ggml-model-q4_0.gguf",
+                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_0.gguf",
             )
         run_fn[GGUFFile, Q4_0Encoding](config)
+    elif encoding == "q4_k":
+        if len(str(config.model_path)) == 0:
+            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+            config.model_path = cache_path.joinpath("llama-2-7b.Q4_K_M.gguf")
+            download_weights_to_cache(
+                cache_path,
+                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf",
+            )
+        run_fn[GGUFFile, Q4_KEncoding](config)
+    elif encoding == "q6_k":
+        if len(str(config.model_path)) == 0:
+            config.tokenizer_path = cache_path.joinpath("tokenizer.bin")
+            config.model_path = cache_path.joinpath("llama-2-7b.Q6_K.gguf")
+            download_weights_to_cache(
+                cache_path,
+                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
+                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q6_K.gguf",
+            )
+        run_fn[GGUFFile, Q6_KEncoding](config)
     elif encoding == "float32":
         if config.model_path.suffix() == ".gguf":
             run_fn[GGUFFile, Float32Encoding](config)

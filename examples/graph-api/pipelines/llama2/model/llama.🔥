@@ -13,10 +13,18 @@
 """The body of the Llama 2 model definition."""
 
 from collections import List, Optional
+from memory.unsafe_pointer import UnsafePointer
 from pathlib import Path
+from sys.intrinsics import _type_is_eq
 
 from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
-from max.graph.quantization import Float32Encoding, QuantizationEncoding
+from max.graph.quantization import (
+    Float32Encoding,
+    QuantizationEncoding,
+    Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
+)
 
 from pipelines.nn import (
     Attention,
@@ -26,7 +34,22 @@ from pipelines.nn import (
     Transformer,
     TransformerBlock,
 )
+from pipelines.weights.gguf import GGMLType, GGUFFile
 from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
+
+
+def encoding_id_from_ggml_type(ggml_type: GGMLType) -> String:
+    """Returns the quantization encoding id for a given GGML tensor type."""
+    if ggml_type is GGMLType.GGML_TYPE_F32:
+        return Float32Encoding.id()
+    elif ggml_type is GGMLType.GGML_TYPE_Q4_0:
+        return Q4_0Encoding.id()
+    elif ggml_type is GGMLType.GGML_TYPE_Q4_K:
+        return Q4_KEncoding.id()
+    elif ggml_type is GGMLType.GGML_TYPE_Q6_K:
+        return Q6_KEncoding.id()
+
+    raise "unknown GGML type:" + str(ggml_type)
 
 
 struct Llama2[
@@ -76,6 +99,16 @@ struct Llama2[
             if transpose:
                 weight = weight.swapaxes(-1, -2)
 
+            if _type_is_eq[model_type, GGUFFile]():
+                # If this is a GGUF file, use the encoding ID from the GGML type.
+                encoding_id = encoding_id_from_ggml_type(
+                    rebind[UnsafePointer[GGUFFile]](
+                        UnsafePointer.address_of(self.model)
+                    )[].ggml_type(name, layer)
+                )
+                return weight, encoding_id
+
+            # Otherwise, default to the parametric encoding `weight_type`.
             return weight, weight_type.id()
 
         def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
