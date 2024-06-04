@@ -145,8 +145,7 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
         # outputs (logits, k_cache, v_cache)
         outputs = model(tokens=g[0], k_cache=g[1], v_cache=g[2])
         logits = outputs[0]
-        next_token = ops.arg_max(logits[-1, axis=1], axis=-1)
-        g.output(List[Symbol](next_token, outputs[1], outputs[2]))
+        g.output(List(logits[-1, axis=1], outputs[1], outputs[2]))
         return g
 
     def hyperparams(self) -> LlamaHParams:
