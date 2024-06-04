@@ -141,23 +141,23 @@ struct TikTokenEncoder:
         #   needs to know how to handle the boundary conditions between different segments
         tokens = List[TokenWithID]()
         if bos:
-            tokens += self.encode_special(bos.value())
+            tokens += self.encode_special(bos.value()[])
 
         for segment in self.regex.findall(string, negative_lookahead_hack=True):
             ss = str(segment)
             if token_id := self.bpe.token_ids.find(ss):
-                tokens += TokenWithID(ss^, token_id.value())
+                tokens += TokenWithID(ss^, token_id.value()[])
             else:
                 tokens += self.bpe.encode(ss^)
 
         if eos:
-            tokens += self.encode_special(eos.value())
+            tokens += self.encode_special(eos.value()[])
 
         return tokens
 
     def encode_special(self, string: String) -> TokenWithID:
         if special_id := self.special_tokens.find(string):
-            return TokenWithID(string, special_id.value())
+            return TokenWithID(string, special_id.value()[])
         return TokenWithID(string, self.bpe.token_ids[string])
 
     def decode(self, token_id: Int) -> TokenWithID:

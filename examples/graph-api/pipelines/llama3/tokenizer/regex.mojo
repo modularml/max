@@ -38,7 +38,7 @@ struct CompileOption:
 fn llvm_regcomp(ptr: UnsafePointer[_CRegex], pattern: String, mode: Int) -> Int:
     return MLIR_func[
         "llvm_regcomp",
-        fn (UnsafePointer[_CRegex], UnsafePointer[UInt8], Int) -> Int,
+        fn (UnsafePointer[_CRegex], UnsafePointer[Int8], Int) -> Int,
     ]()(ptr, pattern.unsafe_ptr(), mode)
 
 
@@ -52,7 +52,7 @@ fn llvm_regexec(
         "llvm_regexec",
         fn (
             UnsafePointer[_CRegex],
-            UnsafePointer[UInt8],
+            UnsafePointer[Int8],
             Int,
             UnsafePointer[_CRegexMatch],
             Int,
@@ -163,8 +163,8 @@ struct _MatchIter[
     regex_lifetime: ImmutableLifetime,
     string_lifetime: ImmutableLifetime,
 ]:
-    var regex: Reference[Regex, regex_lifetime]
-    var string: Reference[String, string_lifetime]
+    var regex: Reference[Regex, False, regex_lifetime]
+    var string: Reference[String, False, string_lifetime]
     var start: Int
     var next_match: Optional[Match[string_lifetime]]
     # This is a workaround for not having negative lookaheads, expect this
@@ -175,8 +175,8 @@ struct _MatchIter[
 
     def __init__(
         inout self,
-        regex: Reference[Regex, regex_lifetime],
-        string: Reference[String, string_lifetime],
+        regex: Reference[Regex, False, regex_lifetime],
+        string: Reference[String, False, string_lifetime],
         negative_lookahead_hack: Bool = False,
     ):
         self.regex = regex
@@ -190,7 +190,7 @@ struct _MatchIter[
         return self
 
     def __next__(inout self) -> Match[string_lifetime]:
-        m = self.next_match.value()
+        m = self.next_match.value()[]
         self._next()
         return m^
 
@@ -204,24 +204,24 @@ struct _MatchIter[
             # End the regex at the end of the last capture group,
             # or at the end of the match if none are populated.
             max_end = self.start
-            for i in range(1, len(m.value()._groups)):
-                group = m.value()._groups[i]
+            for i in range(1, len(m.value()[]._groups)):
+                group = m.value()[]._groups[i]
                 if group and group.end > max_end:
                     max_end = group.end
             if max_end == self.start:
-                max_end = m.value().end()
+                max_end = m.value()[].end()
             self.start = max_end
-            self.next_match.value()._groups[0].end = max_end
+            self.next_match.value()[]._groups[0].end = max_end
         else:
-            self.start = m.value().end() if m else len(self.string[])
+            self.start = m.value()[].end() if m else len(self.string[])
 
 
 @value
 struct Match[lifetime: ImmutableLifetime]:
-    var _string: Span[UInt8, lifetime]
+    var _string: Span[UInt8, False, lifetime]
     var _groups: List[_CRegexMatch]
 
-    fn __getitem__(self, group: Int) -> StringSlice[lifetime]:
+    fn __getitem__(self, group: Int) -> StringSlice[False, lifetime]:
         var m = self._groups[group]
         return StringSlice(unsafe_from_utf8=self._string[m.start : m.end])
 
