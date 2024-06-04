@@ -33,7 +33,7 @@ from .metrics import Metrics
 from .model.llama import Llama3
 from .tokenizer.tiktoken import TikTokenEncoder
 from .tokenizer.regex import set_locale_unicode
-from ..llama2.token_sampler.weighted_sampler import WeightedSampler
+from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.download import download_weights_to_cache
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
