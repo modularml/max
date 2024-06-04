@@ -25,6 +25,7 @@ from max.graph.checkpoint import load, TensorDict
 from max.graph.quantization import Float32Encoding, Q4_0Encoding
 
 from pipelines.llama2.run import compile_graph, generate_text, Config
+from pipelines.llama3.metrics import Metrics
 from pipelines.nn import (
     Attention,
     Embedding,
@@ -200,8 +201,12 @@ def load_quantized_tinystories(checkpoint_path: Path):
     llama = llama_builder.build()
 
     # Generate text using the quantized Llama model and the provided prompt.
+    metrics = Metrics()
     generate_text(
         compile_graph(llama),
         llama_builder.hyperparams,
         Config(tokenizer_path=cache_path.joinpath("tokenizer.bin")),
+        metrics,
     )
+    print()
+    metrics.print()
