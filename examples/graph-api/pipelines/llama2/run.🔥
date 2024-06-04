@@ -30,7 +30,7 @@ from tensor import Tensor, TensorShape
 from .kv_cache import KVCache
 from ..llama3.metrics import Metrics
 from .model.llama import Llama2
-from .token_sampler.weighted_sampler import WeightedSampler
+from ..samplers.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
 from ..tokenizer import AutoTokenizer, Tokenizer
 from ..weights.download import download_weights_to_cache
