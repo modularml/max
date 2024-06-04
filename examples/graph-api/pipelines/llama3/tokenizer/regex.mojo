@@ -17,7 +17,10 @@ from _mlir._c.ffi import MLIR_func
 
 
 def set_locale_unicode():
-    locale = external_call["setlocale", UnsafePointer[UInt8]](0, "")  # LC_ALL
+    empty_string = str("")
+    locale = external_call["setlocale", UnsafePointer[UInt8]](
+        0, Reference(empty_string.as_bytes_slice()[0])
+    )  # LC_ALL
     if not locale:
         raise "didn't set locale"
 
