@@ -1,0 +1,110 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+"""Common benchmarks and metrics for the Llama models."""
+
+from time import now
+
+
+struct Metrics:
+    """A group of timings and throughput measurements for text generation."""
+
+    var start_startup: Optional[Int]
+    var end_startup: Optional[Int]
+    var start_time_before_prompt: Optional[Int]
+    var start_time_before_generation: Optional[Int]
+    var start_time_before_context: Optional[Int]
+    var end_time: Optional[Int]
+    var tokens_in_prompt: Optional[Int]
+    var tokens_generated: Int
+
+    def __init__(inout self):
+        self.tokens_in_prompt = None
+        self.start_startup = None
+        self.end_startup = None
+        self.start_time_before_prompt = None
+        self.start_time_before_generation = None
+        self.start_time_before_context = None
+        self.end_time = None
+        self.tokens_generated = 0
+
+    def set_tokens_in_prompt(inout self, tokens_in_prompt: Int):
+        """Provides the count of tokens processed in the prompt."""
+        self.tokens_in_prompt = tokens_in_prompt
+
+    def begin_timing_startup(inout self):
+        """Begins measurement of the pipeline startup time."""
+        self.start_startup = now()
+
+    def end_timing_startup(inout self):
+        """Ends measurement of the pipeline startup time."""
+        self.end_startup = now()
+
+    def begin_timing_prompt(inout self):
+        """Begins timing from before prompt processing."""
+        self.start_time_before_prompt = now()
+
+    def begin_timing_generation(inout self):
+        """Begins timing from the first generated token."""
+        self.start_time_before_generation = now()
+
+    def new_token(inout self):
+        """Adds a new token to the count, or initiates timing at the first token.
+        """
+        if self.start_time_before_context:
+            self.tokens_generated += 1
+        else:
+            self.start_time_before_context = now()
+
+    def end_timing(inout self):
+        """Ends timing token generation."""
+        self.end_time = now()
+
+    def print(self):
+        """Prints the final gathered metrics to the console."""
+        if not self.start_time_before_context:
+            # Text generation was never started, so no metrics to print.
+            return
+        start_context = self.start_time_before_context.value()
+        tokens_in_prompt = self.tokens_in_prompt.value()
+        if not self.start_time_before_prompt:
+            raise "timing was never started before the prompt, make sure to call `begin_timing_prompt()`"
+        start_inc_prompt = self.start_time_before_prompt.value()
+        if not self.start_time_before_generation:
+            raise "timing was never started before text generation, make sure to call `begin_timing_generation()`"
+        start = self.start_time_before_generation.value()
+        if not self.end_time:
+            raise "timing was never stopped, make sure to call `end_timing()`"
+        end = self.end_time.value()
+        print("Prompt size:", tokens_in_prompt)
+        print("Output size:", self.tokens_generated)
+        if self.start_startup and self.end_startup:
+            print(
+                "Startup time:",
+                (self.end_startup.value() - self.start_startup.value()) * 1e-6,
+                "ms",
+            )
+        print(
+            "Time to first token:",
+            (start_context - start_inc_prompt) * 1e-6,
+            "ms",
+        )
+        print(
+            "Prompt eval throughput (context-encoding):",
+            tokens_in_prompt / (start_context - start) * 1e9,
+            "tokens per second",
+        )
+        print(
+            "Eval throughput (token-generation):",
+            self.tokens_generated / (end - start_context) * 1e9,
+            "tokens per second",
+        )
