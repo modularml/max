@@ -74,23 +74,24 @@ struct Metrics:
         if not self.start_time_before_context:
             # Text generation was never started, so no metrics to print.
             return
-        start_context = self.start_time_before_context.value()
-        tokens_in_prompt = self.tokens_in_prompt.value()
+        start_context = self.start_time_before_context.value()[]
+        tokens_in_prompt = self.tokens_in_prompt.value()[]
         if not self.start_time_before_prompt:
             raise "timing was never started before the prompt, make sure to call `begin_timing_prompt()`"
-        start_inc_prompt = self.start_time_before_prompt.value()
+        start_inc_prompt = self.start_time_before_prompt.value()[]
         if not self.start_time_before_generation:
             raise "timing was never started before text generation, make sure to call `begin_timing_generation()`"
-        start = self.start_time_before_generation.value()
+        start = self.start_time_before_generation.value()[]
         if not self.end_time:
             raise "timing was never stopped, make sure to call `end_timing()`"
-        end = self.end_time.value()
+        end = self.end_time.value()[]
         print("Prompt size:", tokens_in_prompt)
         print("Output size:", self.tokens_generated)
         if self.start_startup and self.end_startup:
             print(
                 "Startup time:",
-                (self.end_startup.value() - self.start_startup.value()) * 1e-6,
+                (self.end_startup.value()[] - self.start_startup.value()[])
+                * 1e-6,
                 "ms",
             )
         print(
