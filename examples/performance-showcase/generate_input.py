@@ -43,7 +43,7 @@ def main():
             pickle.dump(dict(**inputs), f)
     elif args.model == "clip":
         processor = AutoProcessor.from_pretrained(
-            "openai/clip-vit-base-patch32"
+            "openai/clip-vit-large-patch14"
         )
         url = "http://images.cocodataset.org/val2017/000000039769.jpg"
         image = Image.open(requests.get(url, stream=True).raw)
