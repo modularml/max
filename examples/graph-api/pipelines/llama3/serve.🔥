@@ -20,13 +20,16 @@ from sys.ffi import DLHandle
 from utils.index import Index
 from time import sleep
 
-from max.engine import InferenceSession, Model, TensorMap
+from max.engine import InferenceSession, Model, SessionOptions, TensorMap
+from max.engine._context import _Device
 from max.engine._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
 )
 from max.serve.http.runtime import PythonEntry
 from max.serve.server import InferenceServer
@@ -44,35 +47,32 @@ from max.serve._serve_rt import (
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
-from .model.llama import Llama2
-from .tokenizer.bpe import BPETokenizer
-from .token_sampler.weighted_sampler import WeightedSampler
-from ..tokenizer import AutoTokenizer, Tokenizer
-from ..weights.gguf import GGUFFile
-from ..weights.llama2checkpoint import LlamaCFile
+from .model.llama import Llama3
+from .tokenizer.tiktoken import TikTokenEncoder
+from .tokenizer.regex import set_locale_unicode
+from ..llama2.token_sampler.weighted_sampler import WeightedSampler
+from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
 from .run import (
     Config,
+    llama_main,
+    cached_weights,
     compile_graph,
     execute,
-    run_outer,
-    _generate_text_with_tokenizer,
 )
 
 
-struct Llama2InferenceService[
-    ModelT: LoadableModel,
+struct Llama3InferenceService[
     EncodingT: QuantizationEncoding = Float32Encoding,
-    TokenizerT: Tokenizer = AutoTokenizer,
 ](InferenceService):
-    """Inference service for Llama2."""
+    """Inference service for Llama3."""
 
     var _config: Config
-    var _tokenizer: TokenizerT
+    var _tokenizer: TikTokenEncoder
     var _session: InferenceSession
 
-    var _model: Llama2[ModelT, EncodingT]
+    var _model: Llama3[EncodingT]
     var _graph: Graph
     var _compiled_model: Model
 
@@ -84,24 +84,24 @@ struct Llama2InferenceService[
         inout self,
         owned config: Config,
         owned server_ptr: DTypePointer[DType.invalid],  # TODO: Remove
-        owned tokenizer: TokenizerT,
         owned session: InferenceSession,
     ) raises:
         self._config = config^
         self._server_ptr = server_ptr
-        self._tokenizer = tokenizer^
         self._session = session^
         self._lib = handle_from_config("serving", ".serve_lib")
         self._json_module = Python.import_module("json")
 
         print("Building model...")
-        self._model = Llama2[ModelT, EncodingT](
-            self._config.model_path,
-            enable_custom_rope_kernel=self._config.enable_custom_rope_kernel,
-        )
+        self._model = Llama3[EncodingT](self._config.model_path)
         self._graph = self._model.build_graph("llama_model")
         self._compiled_model = self._session.load(
             self._graph, custom_ops_paths=self._config.custom_ops_paths
+        )
+        self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
+            self._model.model["tokenizer.ggml.tokens"]._value.unsafe_get[
+                GGUFArray
+            ]()[]
         )
 
     fn __del__(owned self):
@@ -174,13 +174,13 @@ struct Llama2InferenceService[
                     str(node["role"]) + ":" + str(node["content"]) + "\n"
                 )
 
-            prompt = self._tokenizer.encode(raw_prompt, bos=String("\n<s>\n"))
+            prompt = self._tokenizer.encode(raw_prompt)
             sampler = WeightedSampler(
                 self._config.temperature, self._config.min_p
             )
             tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
             for i in range(len(prompt)):
-                tokens[Index(0, i)] = prompt[i]
+                tokens[Index(0, i)] = prompt[i].id
 
             outputs = List[String]()
             kv_cache = KVCache(
@@ -206,17 +206,15 @@ struct Llama2InferenceService[
                 logits = execute(
                     self._session, self._compiled_model, tokens, kv_cache
                 )
-                var token: SIMD[DType.int64, 1] = sampler.sample(
-                    logits
-                ).selected
-                tokens = Tensor(TensorShape(1, 1), token)
+                token = sampler.sample(logits).selected
+                tokens = Tensor(TensorShape(1, 1), Int64(token))
 
-                if self._tokenizer.is_end_of_text(
-                    tokens[Index(0, tokens.shape()[1] - 1)]
-                ):
-                    break
+                # if self._tokenizer.is_end_of_text(
+                #     tokens[Index(0, tokens.shape()[1] - 1)]
+                # ):
+                #     break
 
-                next_token = self._tokenizer.decode(token)
+                next_token = self._tokenizer.decode(token).token
                 if not stream:
                     outputs.append(next_token)
                 else:
@@ -226,7 +224,6 @@ struct Llama2InferenceService[
                     var choice = Python.dict()
                     var delta = Python.dict()
                     delta["content"] = next_token
-                    choice["index"] = 0
                     choice["delta"] = delta
                     choices.append(choice)
                     chunk["choices"] = choices
@@ -275,15 +272,14 @@ struct Llama2InferenceService[
             response.set[Error](e)
 
 
-def serve_inner[
-    ModelT: LoadableModel,
-    EncodingT: QuantizationEncoding,
-    TokenizerT: Tokenizer = AutoTokenizer,
-](owned config: Config, owned tokenizer: TokenizerT):
-    session = InferenceSession()
+def serve[EncodingT: QuantizationEncoding](config: Config):
+    session_options = SessionOptions(
+        _device=_Device.CUDA if config.use_gpu else _Device.CPU
+    )
+    session = InferenceSession(session_options)
     server = InferenceServer.create[True]("0.0.0.0:8000", session)
-    service = Llama2InferenceService[ModelT, EncodingT, TokenizerT](
-        config^, server._impl._impl._ptr, tokenizer^, session
+    service = Llama3InferenceService[EncodingT](
+        config, server._impl._impl._ptr, session
     )
     print("Listening on port 8000!")
     service.init(server)
@@ -292,35 +288,42 @@ def serve_inner[
     _ = service^
 
 
-def serve[
-    ModelT: LoadableModel,
-    EncodingT: QuantizationEncoding = Float32Encoding,
-](config: Config):
-    if AutoTokenizer.is_available():
-        try:
-            serve_inner[ModelT, EncodingT](
-                config, AutoTokenizer("meta-llama/Llama-2-7b-hf")
-            )
-        except:
-            print(
-                "Unable to initialize AutoTokenizer, using Mojo tokenizer"
-                " instead."
-            )
-            # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
-            # fails, for example due to lack of authentication.
-            serve_inner[ModelT, EncodingT, BPETokenizer](
-                config, BPETokenizer.from_file(config.tokenizer_path)
-            )
-    else:
-        print(
-            "Hugging Face `transformers` not installed, using Mojo tokenizer"
-            " instead."
+@value
+struct ServingWeightMetadata:
+    var main: llama_main
+    var url: String
+
+    @staticmethod
+    def _ALL() -> Dict[String, ServingWeightMetadata]:
+        all_metadata = Dict[String, ServingWeightMetadata]()
+        all_metadata[Q4_0Encoding.id()] = ServingWeightMetadata(
+            serve[Q4_0Encoding],
+            "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF/resolve/main/Meta-Llama-3-8B.Q4_0.gguf",
         )
-        # Fall back to the Mojo tokenizer if `transformers` is not installed.
-        serve_inner[ModelT, EncodingT, BPETokenizer](
-            config, BPETokenizer.from_file(config.tokenizer_path)
+        all_metadata[Q4_KEncoding.id()] = ServingWeightMetadata(
+            serve[Q4_KEncoding],
+            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
         )
+        all_metadata[Q6_KEncoding.id()] = ServingWeightMetadata(
+            serve[Q6_KEncoding],
+            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf",
+        )
+        return all_metadata^
+
+    @staticmethod
+    def from_encoding(encoding_id: String) -> Self:
+        return Self._ALL()[encoding_id]
 
 
-def llama2_serve():
-    run_outer[serve]()
+def llama3_serve():
+    config = Config()
+    set_locale_unicode()
+
+    encoding = config.quantization_encoding.lower()
+    weight_metadata = ServingWeightMetadata.from_encoding(encoding)
+    if not str(config.model_path):
+        # TODO(MOCO-794): assign directly
+        var model_path: String = str(cached_weights(weight_metadata.url))
+        config = Config()
+        config.model_path = model_path
+    weight_metadata.main(config)
