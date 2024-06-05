@@ -37,9 +37,9 @@ def main():
         with open(".cache/roberta.pkl", "rb") as f:
             inputs = pickle.load(f)
         input_spec_list = [
-            engine.TorchInputSpec(shape=(1, None), dtype=engine.DType.int64),
-            engine.TorchInputSpec(shape=(1, None), dtype=engine.DType.int64),
-            engine.TorchInputSpec(shape=(1, None), dtype=engine.DType.int64),
+            engine.TorchInputSpec(shape=(1, 128), dtype=engine.DType.int64),
+            engine.TorchInputSpec(shape=(1, 128), dtype=engine.DType.int64),
+            engine.TorchInputSpec(shape=(1, 128), dtype=engine.DType.int64),
         ]
     elif args.model == "clip":
         with open(".cache/clip.pkl", "rb") as f:

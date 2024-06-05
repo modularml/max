@@ -54,34 +54,28 @@ def main():
         model = RobertaForSequenceClassification.from_pretrained(
             "cardiffnlp/twitter-roberta-base-emotion-multilabel-latest"
         )
-        if not os.path.exists(model_script):
-            with torch.no_grad():
-                traced_model = torch.jit.trace(
-                    model, example_kwarg_inputs=dict(inputs), strict=False
-                )
-            torch.jit.save(traced_model, model_script)
-
-        with torch.inference_mode():
-            qps = common.run(lambda: model.forward(**inputs))
-        common.save_result("pt", qps)
     elif args.model == "clip":
         with open(".cache/clip.pkl", "rb") as f:
             inputs = pickle.load(f)
 
         model = CLIPModel.from_pretrained(
-            "openai/clip-vit-base-patch32", torchscript=True
+            "openai/clip-vit-large-patch14", torchscript=True
         )
-        if not os.path.exists(model_script):
-            with torch.no_grad():
-                traced_model = torch.jit.trace(
-                    model, example_kwarg_inputs=dict(inputs), strict=False
-                )
 
-            torch.jit.save(traced_model, model_script)
+    # Get the TorchScript model and run with prepared inputs
+    if not os.path.exists(model_script):
+        with torch.no_grad():
+            traced_model = torch.jit.trace(
+                model, example_kwarg_inputs=dict(inputs), strict=False
+            )
 
-        with torch.inference_mode():
-            qps = common.run(lambda: model.forward(**inputs))
-        common.save_result("pt", qps)
+        torch.jit.save(traced_model, model_script)
+
+    model = torch.jit.load(model_script)
+
+    with torch.inference_mode():
+        qps = common.run(lambda: model.forward(**inputs))
+    common.save_result("pt", qps)
 
 
 if __name__ == "__main__":
