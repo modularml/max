@@ -235,7 +235,7 @@ struct GGUFArray:
 
     var data: UnsafePointer[GGUFValue]
 
-    # Max amount of items to print for an array
+    # Max amount of items to print for an array.
     alias max_print_size = 5
 
     fn __init__(inout self, size: Int):
@@ -510,7 +510,7 @@ struct GGUFTensorInfo:
     alias type_padding = 8
 
     fn __str__(self) -> String:
-        # Create padding for to line up tensor name, type, and dims
+        # Create padding to line up tensor name, type, and dims.
         var res = str(self.name)
         var sep = self.name_padding - len(res)
         if sep < 1:
