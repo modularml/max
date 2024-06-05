@@ -189,6 +189,7 @@ def generate_text(
         )
         token = sampler.sample(logits).selected
         tokens = Tensor(TensorShape(1, 1), Int64(token))
+        metrics.new_token()
         print(tokenizer.decode(token).token, end="")
     print()
     metrics.end_timing()
