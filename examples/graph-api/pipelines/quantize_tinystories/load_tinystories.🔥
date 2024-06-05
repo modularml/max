@@ -180,7 +180,11 @@ struct TeenyTinyLlama:
 
         # Stage an output op for the computed logits and updated KV cache.
         llama.output(
-            List[Symbol](logits.reshape(Self.batch_size, -1), k_cache, v_cache)
+            List[Symbol](
+                logits[-1, axis=1].reshape(Self.batch_size, -1),
+                k_cache,
+                v_cache,
+            )
         )
 
         # Return the constructed quantized Llama 2.
