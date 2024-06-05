@@ -20,13 +20,16 @@ from sys.ffi import DLHandle
 from utils.index import Index
 from time import sleep
 
-from max.engine import InferenceSession, Model, TensorMap
+from max.engine import InferenceSession, Model, SessionOptions, TensorMap
+from max.engine._context import _Device
 from max.engine._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
 )
 from max.serve.http.runtime import PythonEntry
 from max.serve.server import InferenceServer
@@ -45,26 +48,31 @@ from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
 from .model.llama import Llama3
-from .tokenizer.bpe import BPETokenizer
-from ..tokenizer import AutoTokenizer, Tokenizer
-from ..weights.gguf import GGUFFile
+from .tokenizer.tiktoken import TikTokenEncoder
+from .tokenizer.regex import set_locale_unicode
+from ..samplers.weighted_sampler import WeightedSampler
+from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
-from .run import Config, compile_graph, execute, run_outer
+from .run import (
+    Config,
+    llama_main,
+    cached_weights,
+    compile_graph,
+    execute,
+)
 
 
 struct Llama3InferenceService[
-    ModelT: LoadableModel,
     EncodingT: QuantizationEncoding = Float32Encoding,
-    TokenizerT: Tokenizer = AutoTokenizer,
 ](InferenceService):
     """Inference service for Llama3."""
 
     var _config: Config
-    var _tokenizer: TokenizerT
+    var _tokenizer: TikTokenEncoder
     var _session: InferenceSession
 
-    var _model: Llama3[ModelT, EncodingT]
+    var _model: Llama3[EncodingT]
     var _graph: Graph
     var _compiled_model: Model
 
@@ -76,21 +84,24 @@ struct Llama3InferenceService[
         inout self,
         owned config: Config,
         owned server_ptr: DTypePointer[DType.invalid],  # TODO: Remove
-        owned tokenizer: TokenizerT,
         owned session: InferenceSession,
     ) raises:
         self._config = config^
         self._server_ptr = server_ptr
-        self._tokenizer = tokenizer^
         self._session = session^
         self._lib = handle_from_config("serving", ".serve_lib")
         self._json_module = Python.import_module("json")
 
         print("Building model...")
-        self._model = Llama3[ModelT, EncodingT](self._config.model_path)
+        self._model = Llama3[EncodingT](self._config.model_path)
         self._graph = self._model.build_graph("llama_model")
         self._compiled_model = self._session.load(
             self._graph, custom_ops_paths=self._config.custom_ops_paths
+        )
+        self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
+            self._model.model["tokenizer.ggml.tokens"]._value.unsafe_get[
+                GGUFArray
+            ]()[]
         )
 
     fn __del__(owned self):
@@ -138,10 +149,7 @@ struct Llama3InferenceService[
                     request.get_ptr(),
                     UnsafePointer.address_of(entry),
                 )
-                var cpython = _get_global_python_itf().cpython()
-                var state = cpython.PyGILState_Ensure()
                 handle_type(entry)
-                cpython.PyGILState_Release(state)
 
     async fn async_infer[
         req_type: InferenceRequest, resp_type: InferenceResponse
@@ -149,32 +157,43 @@ struct Llama3InferenceService[
         inout self, request: req_type, inout response: Variant[resp_type, Error]
     ) -> None:
         @parameter
-        fn handle(entry: PythonEntry) raises -> None:
-            var messages = List[String]()
-            var body = PythonObject(entry.request)
-            var stream = False
+        def handle(entry: PythonEntry) -> None:
+            cpython = _get_global_python_itf().cpython()
+            state = cpython.PyGILState_Ensure()
+
+            body = PythonObject(entry.request)
+            cpython.Py_IncRef(entry.request)
+            stream = False
             if body.__contains__("stream") and body["stream"]:
                 stream = True
 
             # Tokenize prompt and message contents.
+            var raw_prompt: String = ""
             for node in body["messages"]:
-                messages.append(str(node["content"]))
-            var prompt = self._tokenizer.encode(
-                messages[0], bos=String("\n<s>\n")
-            )
-            var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
-            for i in range(len(prompt)):
-                tokens[Index(0, i)] = prompt[i]
+                raw_prompt += (
+                    str(node["role"]) + ":" + str(node["content"]) + "\n"
+                )
 
-            # Generate tokens until EOS or limit reached.
-            var parent = PythonObject(entry.handler).parent
-            var resp = PythonObject(entry.response)
-            var outputs = List(self._tokenizer.decode(prompt))
-            var kv_cache = KVCache(
+            prompt = self._tokenizer.encode(raw_prompt)
+            sampler = WeightedSampler(
+                self._config.temperature, self._config.min_p
+            )
+            tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+            for i in range(len(prompt)):
+                tokens[Index(0, i)] = prompt[i].id
+
+            outputs = List[String]()
+            kv_cache = KVCache(
                 self._model.model.hyperparams(),
                 self._config.max_tokens,
                 self._config.batch_size,
             )
+
+            parent = PythonObject(entry.handler).parent
+            cpython.Py_IncRef(entry.handler)
+
+            resp = PythonObject(entry.response)
+            cpython.Py_IncRef(entry.response)
             if stream:
                 parent.send_response(200)
                 parent.send_header("Content-type", "text/event-stream")
@@ -184,10 +203,18 @@ struct Llama3InferenceService[
             # iterations generate one token.
             # Avoid overrunning the cache by setting the trip count accordingly.
             for _ in range(prompt.size, self._config.max_tokens + 1):
-                tokens = execute(
+                logits = execute(
                     self._session, self._compiled_model, tokens, kv_cache
                 )
-                var next_token = self._tokenizer.decode(tokens[0, 0])
+                token = sampler.sample(logits).selected
+                tokens = Tensor(TensorShape(1, 1), Int64(token))
+
+                # if self._tokenizer.is_end_of_text(
+                #     tokens[Index(0, tokens.shape()[1] - 1)]
+                # ):
+                #     break
+
+                next_token = self._tokenizer.decode(token).token
                 if not stream:
                     outputs.append(next_token)
                 else:
@@ -212,13 +239,19 @@ struct Llama3InferenceService[
 
             # Write complete response if not streaming.
             if not stream:
-                var choices = Python.list()
+                var raw_message: String = ""
                 for output in outputs:
-                    var choice = Python.dict()
-                    var message = Python.dict()
-                    message["content"] = output[]
-                    choice["message"] = message
-                    choices.append(choice)
+                    raw_message += output[]
+
+                choice = Python.dict()
+                message = Python.dict()
+                message["role"] = "assistant"
+                message["content"] = raw_message
+                choice["index"] = 0
+                choice["message"] = message
+
+                choices = Python.list()
+                choices.append(choice)
                 resp["choices"] = choices
 
                 parent.send_response(200)
@@ -230,6 +263,7 @@ struct Llama3InferenceService[
                 parent.wfile.write(json_str)
 
             # TODO: Add error handling.
+            cpython.PyGILState_Release(state)
 
         try:
             # TODO: Fold into the ProtocolHandler eventually.
@@ -238,15 +272,14 @@ struct Llama3InferenceService[
             response.set[Error](e)
 
 
-def serve_inner[
-    ModelT: LoadableModel,
-    EncodingT: QuantizationEncoding,
-    TokenizerT: Tokenizer = AutoTokenizer,
-](owned config: Config, owned tokenizer: TokenizerT):
-    session = InferenceSession()
+def serve[EncodingT: QuantizationEncoding](config: Config):
+    session_options = SessionOptions(
+        _device=_Device.CUDA if config.use_gpu else _Device.CPU
+    )
+    session = InferenceSession(session_options)
     server = InferenceServer.create[True]("0.0.0.0:8000", session)
-    service = Llama3InferenceService[ModelT, EncodingT, TokenizerT](
-        config^, server._impl._impl._ptr, tokenizer^, session
+    service = Llama3InferenceService[EncodingT](
+        config, server._impl._impl._ptr, session
     )
     print("Listening on port 8000!")
     service.init(server)
@@ -255,13 +288,42 @@ def serve_inner[
     _ = service^
 
 
-def serve[
-    ModelT: LoadableModel,
-    EncodingT: QuantizationEncoding = Float32Encoding,
-](config: Config):
-    tokenizer = AutoTokenizer("meta-llama/Meta-Llama-3-8B")
-    serve_inner[ModelT, EncodingT](config, tokenizer^)
+@value
+struct ServingWeightMetadata:
+    var main: llama_main
+    var url: String
+
+    @staticmethod
+    def _ALL() -> Dict[String, ServingWeightMetadata]:
+        all_metadata = Dict[String, ServingWeightMetadata]()
+        all_metadata[Q4_0Encoding.id()] = ServingWeightMetadata(
+            serve[Q4_0Encoding],
+            "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF/resolve/main/Meta-Llama-3-8B.Q4_0.gguf",
+        )
+        all_metadata[Q4_KEncoding.id()] = ServingWeightMetadata(
+            serve[Q4_KEncoding],
+            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
+        )
+        all_metadata[Q6_KEncoding.id()] = ServingWeightMetadata(
+            serve[Q6_KEncoding],
+            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf",
+        )
+        return all_metadata^
+
+    @staticmethod
+    def from_encoding(encoding_id: String) -> Self:
+        return Self._ALL()[encoding_id]
 
 
 def llama3_serve():
-    run_outer[serve]()
+    config = Config()
+    set_locale_unicode()
+
+    encoding = config.quantization_encoding.lower()
+    weight_metadata = ServingWeightMetadata.from_encoding(encoding)
+    if not str(config.model_path):
+        # TODO(MOCO-794): assign directly
+        var model_path: String = str(cached_weights(weight_metadata.url))
+        config = Config()
+        config.model_path = model_path
+    weight_metadata.main(config)

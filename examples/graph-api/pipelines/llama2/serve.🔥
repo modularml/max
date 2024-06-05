@@ -46,6 +46,7 @@ from tensor import Tensor, TensorShape, TensorSpec
 from .kv_cache import KVCache
 from .model.llama import Llama2
 from .tokenizer.bpe import BPETokenizer
+from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer, Tokenizer
 from ..weights.gguf import GGUFFile
 from ..weights.llama2checkpoint import LlamaCFile
@@ -148,10 +149,7 @@ struct Llama2InferenceService[
                     request.get_ptr(),
                     UnsafePointer.address_of(entry),
                 )
-                var cpython = _get_global_python_itf().cpython()
-                var state = cpython.PyGILState_Ensure()
                 handle_type(entry)
-                cpython.PyGILState_Release(state)
 
     async fn async_infer[
         req_type: InferenceRequest, resp_type: InferenceResponse
@@ -159,32 +157,43 @@ struct Llama2InferenceService[
         inout self, request: req_type, inout response: Variant[resp_type, Error]
     ) -> None:
         @parameter
-        fn handle(entry: PythonEntry) raises -> None:
-            var messages = List[String]()
-            var body = PythonObject(entry.request)
-            var stream = False
+        def handle(entry: PythonEntry) -> None:
+            cpython = _get_global_python_itf().cpython()
+            state = cpython.PyGILState_Ensure()
+
+            body = PythonObject(entry.request)
+            cpython.Py_IncRef(entry.request)
+            stream = False
             if body.__contains__("stream") and body["stream"]:
                 stream = True
 
             # Tokenize prompt and message contents.
+            var raw_prompt: String = ""
             for node in body["messages"]:
-                messages.append(str(node["content"]))
-            var prompt = self._tokenizer.encode(
-                messages[0], bos=String("\n<s>\n")
+                raw_prompt += (
+                    str(node["role"]) + ":" + str(node["content"]) + "\n"
+                )
+
+            prompt = self._tokenizer.encode(raw_prompt, bos=String("\n<s>\n"))
+            sampler = WeightedSampler(
+                self._config.temperature, self._config.min_p
             )
-            var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+            tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
             for i in range(len(prompt)):
                 tokens[Index(0, i)] = prompt[i]
 
-            # Generate tokens until EOS or limit reached.
-            var parent = PythonObject(entry.handler).parent
-            var resp = PythonObject(entry.response)
-            var outputs = List(self._tokenizer.decode(prompt))
-            var kv_cache = KVCache(
+            outputs = List[String]()
+            kv_cache = KVCache(
                 self._model.model.hyperparams(),
                 self._config.max_tokens,
                 self._config.batch_size,
             )
+
+            parent = PythonObject(entry.handler).parent
+            cpython.Py_IncRef(entry.handler)
+
+            resp = PythonObject(entry.response)
+            cpython.Py_IncRef(entry.response)
             if stream:
                 parent.send_response(200)
                 parent.send_header("Content-type", "text/event-stream")
@@ -194,10 +203,20 @@ struct Llama2InferenceService[
             # iterations generate one token.
             # Avoid overrunning the cache by setting the trip count accordingly.
             for _ in range(prompt.size, self._config.max_tokens + 1):
-                tokens = execute(
+                logits = execute(
                     self._session, self._compiled_model, tokens, kv_cache
                 )
-                var next_token = self._tokenizer.decode(tokens[0, 0])
+                var token: SIMD[DType.int64, 1] = sampler.sample(
+                    logits
+                ).selected
+                tokens = Tensor(TensorShape(1, 1), token)
+
+                if self._tokenizer.is_end_of_text(
+                    tokens[Index(0, tokens.shape()[1] - 1)]
+                ):
+                    break
+
+                next_token = self._tokenizer.decode(token)
                 if not stream:
                     outputs.append(next_token)
                 else:
@@ -207,6 +226,7 @@ struct Llama2InferenceService[
                     var choice = Python.dict()
                     var delta = Python.dict()
                     delta["content"] = next_token
+                    choice["index"] = 0
                     choice["delta"] = delta
                     choices.append(choice)
                     chunk["choices"] = choices
@@ -222,13 +242,19 @@ struct Llama2InferenceService[
 
             # Write complete response if not streaming.
             if not stream:
-                var choices = Python.list()
+                var raw_message: String = ""
                 for output in outputs:
-                    var choice = Python.dict()
-                    var message = Python.dict()
-                    message["content"] = output[]
-                    choice["message"] = message
-                    choices.append(choice)
+                    raw_message += output[]
+
+                choice = Python.dict()
+                message = Python.dict()
+                message["role"] = "assistant"
+                message["content"] = raw_message
+                choice["index"] = 0
+                choice["message"] = message
+
+                choices = Python.list()
+                choices.append(choice)
                 resp["choices"] = choices
 
                 parent.send_response(200)
@@ -240,6 +266,7 @@ struct Llama2InferenceService[
                 parent.wfile.write(json_str)
 
             # TODO: Add error handling.
+            cpython.PyGILState_Release(state)
 
         try:
             # TODO: Fold into the ProtocolHandler eventually.
