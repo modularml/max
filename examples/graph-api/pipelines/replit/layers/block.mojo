@@ -67,7 +67,7 @@ struct MPTBlock[T: Checkpoint, weights_type: DType]:
         )
         # Rebind the attention output to the shape of the input to allow the
         # `add` op to correctly set shapes.
-        b = ops.rebind(b, input.tensor_type().dims)
+        b = b.rebind(input.tensor_type().dims)
         output = input + b
         m = self.norm_2(output)
         n = self.ffn(m)
