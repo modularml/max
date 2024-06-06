@@ -99,8 +99,6 @@ struct Config:
                 self.temperature = atof(parse_argument_value(i))
             elif args[i] == "--min-p":
                 self.min_p = atof(parse_argument_value(i))
-            elif args[i] == "--batch-size":
-                self.batch_size = atol(parse_argument_value(i))
             elif args[i] == "--max-tokens":
                 self.max_tokens = atol(parse_argument_value(i))
             elif args[i] == "--model-path":

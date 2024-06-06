@@ -90,7 +90,6 @@ The default settings for this pipeline use the 7B set of pretrained weights in
 The following command-line options are available to customize operation of the
 pipeline:
 
-- `--batch-size`: The batch size. (Default value: `1`)
 - `--model-path`: Overrides the default URL, and allows for an
   already-downloaded pretrained weight file to be used with the model.
 - `--custom-ops-path`: The path to a compiled Mojo package containing a custom
@@ -99,11 +98,21 @@ pipeline:
    pipeline. (Default value: `.cache/tokenizer.bin`)
 - `--enable-custom-rope-kernel`: Enables the use of the custom RoPE kernel
    within the compute graph.
+- `--max-tokens`: The maximum number of tokens to generate.
+  (Default value: 512)
+- `--min-p`: The starting required percentage for
+  [Min P sampling](https://github.com/ggerganov/llama.cpp/pull/3841).
+  (Default value: 0.05)
 - `--prompt`: The text prompt to use for further generation.
 - `--quantization-encoding`: The encoding to use for a datatype that can be
-  quantized to a low bits per weight format.
-  Valid values: `q4_0`, `float32`.
+  quantized to a low bits per weight format. The options for quantized formats
+  will download and cache default weights, but `float32` requires the use of
+  `--model-path` to specify locally downloaded full-precision weights for use
+  in the model.
+  Valid values: `q4_0`, `q4_k`, `q6_k`, `float32`.
   (Default value: `q4_0`).
+- `--temperature`: The temperature for sampling, on a scale from 0.0 - 1.0,
+  with 0.0 being greedy sampling. (Default value: 0.5)
 
 ## Ideas for future extension
 
