@@ -1,8 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-
-torch==2.2.2
-transformers==4.40.1
-setuptools==69.5.1
-pillow==10.3.0
-py-cpuinfo==9.0.0
-h5py==3.11.0
