@@ -13,6 +13,8 @@
 
 """Neural network embedding layers."""
 
+from tensor import Tensor, TensorShape
+
 from max.graph import ops, Dim, StaticDim, Symbol, TensorType
 from max.graph.quantization import (
     Float32Encoding,
@@ -21,7 +23,6 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
-from max.tensor import Tensor, TensorShape
 
 from pipelines.nn import Linear
 from pipelines.weights.ggml_quants import BlockQ40, BlockQ4K, BlockQ6K
