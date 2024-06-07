@@ -78,8 +78,6 @@ struct Transformer:
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
     ) -> (Symbol, Symbol, Symbol):
-        g = tokens.graph()
-
         start_pos = ops.shape_of(k_cache)[0]
         h = self.embedding(tokens)
         freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
@@ -90,8 +88,8 @@ struct Transformer:
             h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
                 h,
                 freqs_cis,
-                ops.slice[keep_dims=True](k_cache, g.scalar(Int64(i)), axis=1),
-                ops.slice[keep_dims=True](v_cache, g.scalar(Int64(i)), axis=1),
+                k_cache[i, axis=1, keep_dims=True],
+                v_cache[i, axis=1, keep_dims=True],
             )
             k_cache_updates.append(k_cache_layer_update.swapaxes(0, 1))
             v_cache_updates.append(v_cache_layer_update.swapaxes(0, 1))
