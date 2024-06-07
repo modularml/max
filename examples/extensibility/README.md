@@ -22,18 +22,18 @@ either an ONNX model or a MAX Graph model.
    pip install --find-links $(modular config max.path)/wheels max-engine
    ```
 
-2. Run the `onnx-model.py` script to generate `onnx-model.onnx`
+2. Run the `onnx-model.py` script to generate `onnx_det.onnx`
 
    ```sh
    python3 onnx-model.py
    ```
 
-3. The `onnx-model.onnx` model you get currently does not compile with MAX Engine
+3. The `onnx_det.onnx` model you get currently does not compile with MAX Engine
    because it includes the DET op that's currently not implemented in MAX.
    As proven if you try to benchmark it:
 
    ```sh
-   max benchmark onnx-model.onnx
+   max benchmark onnx_det.onnx
    ```
 
 4. Package the `det.mojo` custom op in `custom_ops` with this command:
@@ -45,7 +45,7 @@ either an ONNX model or a MAX Graph model.
 5. Now run the model with the custom op:
 
    ```sh
-   max benchmark onnx-model.onnx --custom-ops-path=custom_ops.mojopkg
+   max benchmark onnx_det.onnx --custom-ops-path=custom_ops.mojopkg
    ```
 
    ```sh
