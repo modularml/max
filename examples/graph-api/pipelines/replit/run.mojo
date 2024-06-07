@@ -13,7 +13,8 @@
 from pathlib import cwd, Path
 import sys
 
-from max.engine import InferenceSession, Model, TensorMap
+from max.engine import InferenceSession, Model, SessionOptions, TensorMap
+from max.engine._context import _Device
 from tensor import Tensor, TensorShape
 
 from .model.replit import Replit
@@ -31,15 +32,18 @@ struct Config:
 
     var converted_weights_path: Path
     var prompt: String
+    var use_gpu: Bool
 
     def __init__(
         inout self,
         /,
         converted_weights_path: Path = "",
         prompt: String = 'def hello():\n  print("hello world")',
+        use_gpu: Bool = False,
     ):
         self.converted_weights_path = converted_weights_path
         self.prompt = prompt
+        self.use_gpu = use_gpu
         self.parse_args()
 
     def parse_args(inout self):
@@ -62,6 +66,9 @@ struct Config:
             elif args[i] == "--prompt":
                 self.prompt = read_value(i + 1)
                 i += 2
+            elif args[i] == "--experimental-use-gpu":
+                self.use_gpu = True
+                i += 1
             else:
                 raise "unsupported CLI argument: " + String(args[i])
 
@@ -88,7 +95,10 @@ def replit_run():
     # Load the graph into the session, which generates the MLIR and runs
     # optimization passes on it.
     print("Compiling...")
-    session = InferenceSession()
+    session_options = SessionOptions(
+        _device=_Device.CUDA if config.use_gpu else _Device.CPU
+    )
+    session = InferenceSession(session_options)
     compiled_model = session.load(g)
 
     # Set up input and caches, and preprocess the input.
