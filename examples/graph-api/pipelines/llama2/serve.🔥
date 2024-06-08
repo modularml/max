@@ -28,19 +28,7 @@ from max.graph.quantization import (
     QuantizationEncoding,
     Q4_0Encoding,
 )
-from max.serve.http.runtime import PythonEntry
-from max.serve.server import InferenceServer
-from max.serve.service import (
-    InferenceRequest,
-    InferenceResponse,
-    InferenceService,
-)
-from max.serve._serve_rt import (
-    CServerAsync,
-    InferenceRequestImpl,
-    InferenceResponseImpl,
-)
-
+from max.serve.http import PythonServer, PythonService
 from tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
@@ -65,7 +53,7 @@ struct Llama2InferenceService[
     ModelT: LoadableModel,
     EncodingT: QuantizationEncoding = Float32Encoding,
     TokenizerT: Tokenizer = AutoTokenizer,
-](InferenceService):
+](PythonService):
     """Inference service for Llama2."""
 
     var _config: Config
@@ -76,22 +64,17 @@ struct Llama2InferenceService[
     var _graph: Graph
     var _compiled_model: Model
 
-    var _lib: DLHandle
-    var _server_ptr: DTypePointer[DType.invalid]
     var _json_module: PythonObject
 
     fn __init__(
         inout self,
         owned config: Config,
-        owned server_ptr: DTypePointer[DType.invalid],  # TODO: Remove
         owned tokenizer: TokenizerT,
         owned session: InferenceSession,
     ) raises:
         self._config = config^
-        self._server_ptr = server_ptr
         self._tokenizer = tokenizer^
         self._session = session^
-        self._lib = handle_from_config("serving", ".serve_lib")
         self._json_module = Python.import_module("json")
 
         print("Building model...")
@@ -112,167 +95,108 @@ struct Llama2InferenceService[
         _ = self._graph^
         _ = self._compiled_model^
 
-    fn init(self, inout server: InferenceServer) raises:
-        server._impl.init(self._compiled_model)
+    fn handle(
+        inout self, owned body: PythonObject, owned handler: PythonObject
+    ) raises -> None:
+        if handler.path != "/v1/chat/completions":
+            handler.send_response(500)
+            handler.end_headers()
+            return
 
-    fn infer[
-        req_type: InferenceRequest, resp_type: InferenceResponse
-    ](inout self, request: req_type, inout response: resp_type) raises -> None:
-        var respOr = Variant[resp_type, Error](response^)
-        var rt = Runtime()
-        rt.run(self.async_infer(request, respOr))
-        if respOr.isa[Error]():
-            raise respOr.unsafe_take[Error]()
-        else:
-            response = respOr.unsafe_take[resp_type]()
+        var messages = List[String]()
+        var stream = False
+        if body.__contains__("stream") and body["stream"]:
+            stream = True
 
-    fn handle_openai[
-        handle_type: fn (PythonEntry) capturing raises -> None,
-        req_type: InferenceRequest,
-    ](self, request: req_type) raises:
-        var api_type = request.get_api_type()
-        var payload_type = request.get_payload_type()
-        if api_type == 1:
-            # OpenAI
-            if payload_type == 0:
-                # gRPC
-                raise Error(
-                    "OpenAI API compatibility is only supported via HTTP."
-                )
-            else:
-                # HTTP
-                var entry = PythonEntry()
-                call_dylib_func[NoneType](
-                    self._lib,
-                    "M_OpenAIInferenceRequest_fillEntry",
-                    self._server_ptr,
-                    request.get_ptr(),
-                    UnsafePointer.address_of(entry),
-                )
-                handle_type(entry)
+        # Tokenize prompt and message contents.
+        var raw_prompt: String = ""
+        for node in body["messages"]:
+            raw_prompt += str(node["role"]) + ":" + str(node["content"]) + "\n"
 
-    async fn async_infer[
-        req_type: InferenceRequest, resp_type: InferenceResponse
-    ](
-        inout self, request: req_type, inout response: Variant[resp_type, Error]
-    ) -> None:
-        @parameter
-        def handle(entry: PythonEntry) -> None:
-            cpython = _get_global_python_itf().cpython()
-            state = cpython.PyGILState_Ensure()
+        var prompt = self._tokenizer.encode(raw_prompt, bos=String("\n<s>\n"))
+        var sampler = WeightedSampler(
+            self._config.temperature, self._config.min_p
+        )
+        var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+        for i in range(len(prompt)):
+            tokens[Index(0, i)] = prompt[i]
 
-            body = PythonObject(entry.request)
-            cpython.Py_IncRef(entry.request)
-            stream = False
-            if body.__contains__("stream") and body["stream"]:
-                stream = True
+        var outputs = List[String]()
+        var kv_cache = KVCache(
+            self._model.model.hyperparams(),
+            self._config.max_tokens,
+            self._config.batch_size,
+        )
+        if stream:
+            handler.send_response(200)
+            handler.send_header("Content-type", "text/event-stream")
+            handler.end_headers()
 
-            # Tokenize prompt and message contents.
-            var raw_prompt: String = ""
-            for node in body["messages"]:
-                raw_prompt += (
-                    str(node["role"]) + ":" + str(node["content"]) + "\n"
-                )
-
-            prompt = self._tokenizer.encode(raw_prompt, bos=String("\n<s>\n"))
-            sampler = WeightedSampler(
-                self._config.temperature, self._config.min_p
+        # The first iteration caches the entire prompt and all subsequent
+        # iterations generate one token.
+        # Avoid overrunning the cache by setting the trip count accordingly.
+        for _ in range(prompt.size, self._config.max_tokens + 1):
+            var logits = execute(
+                self._session, self._compiled_model, tokens, kv_cache
             )
-            tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
-            for i in range(len(prompt)):
-                tokens[Index(0, i)] = prompt[i]
+            var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
+            tokens = Tensor(TensorShape(1, 1), token)
 
-            outputs = List[String]()
-            kv_cache = KVCache(
-                self._model.model.hyperparams(),
-                self._config.max_tokens,
-                self._config.batch_size,
-            )
+            if self._tokenizer.is_end_of_text(
+                tokens[Index(0, tokens.shape()[1] - 1)]
+            ):
+                break
 
-            parent = PythonObject(entry.handler).parent
-            cpython.Py_IncRef(entry.handler)
-
-            resp = PythonObject(entry.response)
-            cpython.Py_IncRef(entry.response)
-            if stream:
-                parent.send_response(200)
-                parent.send_header("Content-type", "text/event-stream")
-                parent.end_headers()
-
-            # The first iteration caches the entire prompt and all subsequent
-            # iterations generate one token.
-            # Avoid overrunning the cache by setting the trip count accordingly.
-            for _ in range(prompt.size, self._config.max_tokens + 1):
-                logits = execute(
-                    self._session, self._compiled_model, tokens, kv_cache
-                )
-                var token: SIMD[DType.int64, 1] = sampler.sample(
-                    logits
-                ).selected
-                tokens = Tensor(TensorShape(1, 1), token)
-
-                if self._tokenizer.is_end_of_text(
-                    tokens[Index(0, tokens.shape()[1] - 1)]
-                ):
-                    break
-
-                next_token = self._tokenizer.decode(token)
-                if not stream:
-                    outputs.append(next_token)
-                else:
-                    # Write chunk response if streaming.
-                    var chunk = Python.dict()
-                    var choices = Python.list()
-                    var choice = Python.dict()
-                    var delta = Python.dict()
-                    delta["content"] = next_token
-                    choice["index"] = 0
-                    choice["delta"] = delta
-                    choices.append(choice)
-                    chunk["choices"] = choices
-
-                    var json_str = self._json_module.dumps(chunk).encode(
-                        encoding="utf_8"
-                    )
-                    try:
-                        parent.wfile.write(json_str)
-                        parent.wfile.flush()
-                    except BrokenPipeError:
-                        break
-
-            # Write complete response if not streaming.
+            var next_token = self._tokenizer.decode(token)
             if not stream:
-                var raw_message: String = ""
-                for output in outputs:
-                    raw_message += output[]
-
-                choice = Python.dict()
-                message = Python.dict()
-                message["role"] = "assistant"
-                message["content"] = raw_message
+                outputs.append(next_token)
+            else:
+                # Write chunk response if streaming.
+                var chunk = Python.dict()
+                var choices = Python.list()
+                var choice = Python.dict()
+                var delta = Python.dict()
+                delta["content"] = next_token
                 choice["index"] = 0
-                choice["message"] = message
-
-                choices = Python.list()
+                choice["delta"] = delta
                 choices.append(choice)
-                resp["choices"] = choices
+                chunk["choices"] = choices
 
-                parent.send_response(200)
-                parent.send_header("Content-Type", "application/json")
-                parent.end_headers()
-                var json_str = self._json_module.dumps(resp).encode(
+                var json_str = self._json_module.dumps(chunk).encode(
                     encoding="utf_8"
                 )
-                parent.wfile.write(json_str)
+                try:
+                    handler.wfile.write(PythonObject("data: ").encode("utf-8"))
+                    handler.wfile.write(json_str)
+                    handler.wfile.write(PythonObject("\n\n").encode("utf-8"))
+                    handler.wfile.flush()
+                except BrokenPipeError:
+                    break
 
-            # TODO: Add error handling.
-            cpython.PyGILState_Release(state)
+        # Write complete response if not streaming.
+        if stream:
+            handler.wfile.write(PythonObject("data: [DONE]\n").encode("utf-8"))
+            handler.wfile.flush()
+        else:
+            var raw_message: String = ""
+            for output in outputs:
+                raw_message += output[]
 
-        try:
-            # TODO: Fold into the ProtocolHandler eventually.
-            self.handle_openai[handle, req_type](request)
-        except e:
-            response.set[Error](e)
+            var choice = Python.dict()
+            var message = Python.dict()
+            message["role"] = "assistant"
+            message["content"] = raw_message
+            choice["index"] = 0
+            choice["message"] = message
+
+            var choices = Python.list()
+            choices.append(choice)
+            var resp = Python.dict()
+            resp["choices"] = choices
+            var json_str = self._json_module.dumps(resp).encode(
+                encoding="utf_8"
+            )
+            handler.wfile.write(json_str)
 
 
 def serve_inner[
@@ -281,15 +205,12 @@ def serve_inner[
     TokenizerT: Tokenizer = AutoTokenizer,
 ](owned config: Config, owned tokenizer: TokenizerT):
     session = InferenceSession()
-    server = InferenceServer.create[True]("0.0.0.0:8000", session)
     service = Llama2InferenceService[ModelT, EncodingT, TokenizerT](
-        config^, server._impl._impl._ptr, tokenizer^, session
+        config^, tokenizer^, session
     )
+    server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
-    service.init(server)
     server.serve(service)
-    _ = server^
-    _ = service^
 
 
 def serve[
