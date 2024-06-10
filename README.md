@@ -29,7 +29,7 @@ with benchmarking and visualization tooling.
 ## Getting Started
 
 MAX is available in both stable and nightly builds. To install either version,
-follow the guide to [install the MAX SDK](https://modul.ar/get-started) (also
+follow the guide to [install the MAX SDK](https://modul.ar/install-max) (also
 see for the system requirements).
 
 Then clone this repository:
