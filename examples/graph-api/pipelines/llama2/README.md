@@ -23,8 +23,8 @@ optional RoPE kernel that can be loaded into the Llama 2 compute graph.
 ## Model
 
 [Llama 2](https://llama.meta.com/llama2/) is an open source large language
-model released by Meta. The structure of this implementation of the model was
-inspired by Andrej Karpathy's [llama.c](https://github.com/karpathy/llama2.c),
+model released by Meta. The structure of this implementation was
+inspired by Andrej Karpathy's [llama2.c](https://github.com/karpathy/llama2.c),
 and [originally written in Mojo by Aydyn Tairov](https://github.com/tairov/llama2.mojo).
 
 The text completion demo is compatible with the the official Llama 2
