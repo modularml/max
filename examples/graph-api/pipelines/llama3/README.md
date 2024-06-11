@@ -18,11 +18,9 @@ optimal inference performance via the MAX Engine.
 ## Model
 
 [Llama 3](https://llama.meta.com/llama3/) is an open source large language
-model released by Meta. The structure of this implementation of the model was
-inspired by Andrej Karpathy's [llama.c](https://github.com/karpathy/llama2.c),
-and [originally written in Mojo by Aydyn
-Tairov](https://github.com/tairov/llama2.mojo), which were originally written
-to run Llama 2.
+model released by Meta. The structure of this implementation was inspired by
+Andrej Karpathy's [llama2.c](https://github.com/karpathy/llama2.c) and its [Mojo
+port by Aydyn Tairov](https://github.com/tairov/llama2.mojo).
 
 The text completion demo is compatible with the the official Llama 3
 [text completion demo](https://github.com/meta-llama/llama3/blob/14aab0428d3ec3a9596f1dea06d9c564f9c0e35f/example_text_completion.py).

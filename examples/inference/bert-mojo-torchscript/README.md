@@ -1,7 +1,7 @@
 # TorchScript BERT inference with Mojo
 
 This directory includes scripts used to run simple BERT inference via the [MAX
-Engine Mojo API](https://docs.modular.com/max/reference/mojo/engine/) to
+Engine Mojo API](https://docs.modular.com/max/api/mojo/engine/) to
 predict the masked words in a sentence.
 
 ## Quickstart
