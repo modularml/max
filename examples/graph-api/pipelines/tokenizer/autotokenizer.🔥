@@ -126,13 +126,13 @@ struct AutoTokenizer(Tokenizer):
     @always_inline
     def _get_np_dtype[type: DType](self) -> PythonObject:
         @parameter
-        if type.is_float32():
+        if type is DType.float32:
             return self._numpy_module.float32
-        elif type.is_int32():
+        elif type is DType.int32:
             return self._numpy_module.int32
-        elif type.is_int64():
+        elif type is DType.int64:
             return self._numpy_module.int64
-        elif type.is_uint8():
+        elif type is DType.uint8:
             return self._numpy_module.uint8
 
         raise Error("Unknown datatype")

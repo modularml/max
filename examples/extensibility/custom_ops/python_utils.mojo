@@ -57,13 +57,13 @@ fn shape_to_python_list[
 @always_inline
 fn get_np_dtype[type: DType](np: PythonObject) raises -> PythonObject:
     @parameter
-    if type.is_float32():
+    if type is DType.float32:
         return np.float32
-    elif type.is_int32():
+    elif type is DType.int32:
         return np.int32
-    elif type.is_int64():
+    elif type is DType.int64:
         return np.int64
-    elif type.is_uint8():
+    elif type is DType.uint8:
         return np.uint8
 
     raise "Unknown datatype"
