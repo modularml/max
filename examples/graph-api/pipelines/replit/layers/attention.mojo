@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """The attention mechanism used within the model."""
 
+import math
 from collections import Optional
 from utils.numerics import min_finite
 
