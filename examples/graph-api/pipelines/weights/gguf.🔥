@@ -341,7 +341,7 @@ struct GGUFValue:
     @staticmethod
     fn from_dtype[type: DType](value: Scalar[type]) raises -> Self:
         @parameter
-        if type.is_bool():
+        if type is DType.bool:
             # Treat `Bool` as an exception since it isn't `Scalar[DType.bool]`.
             return Self(Bool(value))
         else:
