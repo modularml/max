@@ -22,14 +22,14 @@ struct SamplerResult(Stringable):
     rationalizing sampler behavior). The goal is to facilitate experimentation,
     not raw performance."""
 
-    # Chosen token (vocabulary index)
     var selected: Int
+    """Chosen token (vocabulary index)."""
 
-    # Options the selected token was sampled from after filtering
     var options: List[Int]
+    """Options the selected token was sampled from after filtering."""
 
-    # List of the associated likelihoods (len(options) == len(likelihoods))
     var likelihoods: List[Float32]
+    """List of the associated likelihoods (len(options) == len(likelihoods))."""
 
     fn __init__(
         inout self: Self,

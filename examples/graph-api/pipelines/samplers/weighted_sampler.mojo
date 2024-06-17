@@ -20,10 +20,16 @@ from utils.numerics import min_finite
 
 @value
 struct WeightedSampler(TokenSampler):
-    # Standard temperature parameter -- 1.0 is unmodified, 0.0 is effectively greedy sampling
+    """A random token sampler.
+    Source: https://github.com/ggerganov/llama.cpp/pull/3841.
+    """
+
     var temperature: Float32
-    # min_p style filter (source: https://github.com/ggerganov/llama.cpp/pull/3841)
+    """Standard temperature parameter -- 1.0 is unmodified, 0.0 is effectively
+    greedy sampling."""
+
     var min_p: Float32
+    """Minimum required starting percentage for sampled tokens."""
 
     fn __init__(inout self: Self, temperature: Float32, min_p: Float32 = 0.05):
         self.temperature = temperature
