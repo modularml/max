@@ -4,3 +4,4 @@ torch==2.2.2
 onnxruntime==1.17.3
 opencv-python==4.9.0.80
 ultralytics==8.2.5
+numpy<2.0

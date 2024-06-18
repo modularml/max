@@ -2,4 +2,4 @@
 
 torch==2.2.2
 transformers==4.40.1
-
+numpy<2.0
