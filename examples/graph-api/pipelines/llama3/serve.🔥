@@ -105,7 +105,7 @@ struct Llama3InferenceService[
 
         var messages = List[String]()
         var stream = False
-        if body.__contains__("stream") and body["stream"]:
+        if body.get("stream") is not None and body["stream"]:
             stream = True
 
         # Tokenize prompt and message contents.

@@ -79,6 +79,7 @@ def _decode_map() -> Dict[Int, UInt8]:
     return decode_map^
 
 
+@value
 struct TikTokenEncoder:
     var bpe: BPETokenizer
     var regex: Regex

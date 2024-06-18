@@ -121,7 +121,7 @@ struct Config:
                 raise "unsupported CLI argument: " + String(args[i])
 
         if self.prompt == "":
-            raise "--prompt is a required argument"
+            self.prompt = "I believe the meaning of life is"
 
 
 def execute(
@@ -194,6 +194,9 @@ def generate_text(
 
 
 def run[encoding: QuantizationEncoding](config: Config):
+    if config.prompt == "I believe the meaning of life is":
+        print("Using default prompt, provide an argument to change it:")
+        print('    --prompt "Hello llama3"')
     metrics = Metrics()
     metrics.begin_timing_startup()
     model = Llama3[encoding](config.model_path)
