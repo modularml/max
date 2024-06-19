@@ -347,7 +347,8 @@ struct JsonStorage:
                 ) + " because it's not an array or object."
 
             try:
-                node = self.storage[node.storage_index][key]
+                var next = self.storage[node.storage_index][key]
+                node = next^
             except e:
                 raise "Unable to get key '" + key + "' from " + str(node)
         return node
