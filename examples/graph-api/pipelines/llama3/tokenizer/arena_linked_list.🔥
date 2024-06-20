@@ -32,7 +32,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
     - Linked-list ops are done on the arena directly
 
     ```mojo
-    from tokenizer.arena_linked_list import ArenaLinkedList
+    from pipelines.llama3.tokenizer.arena_linked_list import ArenaLinkedList
     list = ArenaLinkedList[Int]()
     id1 = list.append(0)
     id2 = list.append(1)
