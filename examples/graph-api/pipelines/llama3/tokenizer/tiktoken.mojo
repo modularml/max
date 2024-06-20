@@ -113,6 +113,9 @@ struct TikTokenEncoder:
         special_tokens = Dict[String, Int]()
         special_tokens["<|begin_of_text|>"] = 128000
         special_tokens["<|end_of_text|>"] = 128001
+        special_tokens["<|start_header_id|>"] = 128006
+        special_tokens["<|end_header_id|>"] = 128007
+        special_tokens["<|eot_id|>"] = 128009
         for e in special_tokens.items():
             bpe.add_token(e[].key, e[].value)
 

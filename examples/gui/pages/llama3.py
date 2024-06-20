@@ -90,8 +90,6 @@ def start_llama3(
                     model_state.info(line, icon="🛠️")
 
 
-client = openai.OpenAI(api_key="NA", base_url="http://localhost:8000/v1")
-
 quantization = st.sidebar.selectbox(
     "Quantization Encoding", ["q4_k", "q4_0", "q6_k"]
 )
@@ -110,20 +108,35 @@ model_path = st.sidebar.text_input("Model Path", value=model_path)
 download_file(model_url, model_path, model_state)
 
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.5)
-max_tokens = st.sidebar.slider("Max Tokens", 0, 1024, 512)
+max_tokens = st.sidebar.slider("Max Tokens", 0, 8192, 8192)
 min_p = st.sidebar.slider("Minimum Probability Threshold", 0.0, 1.0, 0.05)
 custom_ops_path = st.sidebar.text_input("Custom Ops Path")
 tokenizer_path = st.sidebar.text_input("Tokenizer Path")
-
-start_llama3(
-    temperature,
-    max_tokens,
-    min_p,
-    custom_ops_path,
-    tokenizer_path,
-    quantization,
-    model_path,
+system_prompt = st.sidebar.text_area(
+    "System Prompt",
+    value="You are a helpful coding assistant named MAX Llama3.",
 )
+start_local_server = st.sidebar.checkbox("Start Local Server", True)
+if start_local_server:
+    server_ip_address = st.sidebar.text_input(
+        "Server Address", "http://localhost:8000", disabled=True
+    )
+else:
+    server_ip_address = st.sidebar.text_input(
+        "Server Address", "http://localhost:8000", disabled=False
+    )
+client = openai.OpenAI(api_key="NA", base_url=f"{server_ip_address}/v1")
+
+if start_local_server:
+    start_llama3(
+        temperature,
+        max_tokens,
+        min_p,
+        custom_ops_path,
+        tokenizer_path,
+        quantization,
+        model_path,
+    )
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -143,13 +156,14 @@ if prompt := st.chat_input("Send a message to llama3"):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="🦙"):
+        messages = [{"role": "system", "content": system_prompt}]
+        messages += [
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state.messages
+        ]
         stream = client.chat.completions.create(
             model="",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-                if m["role"] == "user"
-            ],
+            messages=messages,  # type: ignore
             stream=True,
         )
         response = st.write_stream(stream)

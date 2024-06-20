@@ -37,6 +37,7 @@ from tensor import Tensor, TensorShape, TensorSpec
 from .kv_cache import KVCache
 from .model.llama import Llama3
 from .tokenizer.tiktoken import TikTokenEncoder
+from .tokenizer.bpe import TokenWithID
 from .tokenizer.regex import set_locale_unicode
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
@@ -103,17 +104,32 @@ struct Llama3InferenceService[
             handler.end_headers()
             return
 
-        var messages = List[String]()
         var stream = False
         if body.get("stream") is not None and body["stream"]:
             stream = True
 
         # Tokenize prompt and message contents.
-        var raw_prompt: String = ""
-        for node in body["messages"]:
-            raw_prompt += str(node["role"]) + ":" + str(node["content"]) + "\n"
+        var prompt = List[TokenWithID](
+            self._tokenizer.encode_special("<|begin_of_text|>")
+        )
 
-        var prompt = self._tokenizer.encode(raw_prompt)
+        for node in body["messages"]:
+            prompt.append(self._tokenizer.encode_special("<|start_header_id|>"))
+            prompt += self._tokenizer.encode(str(node["role"]), bos=None)
+            prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
+            prompt += self._tokenizer.encode(
+                str("\n\n") + node["content"], bos=None
+            )
+            prompt.append(self._tokenizer.encode_special("<|eot_id|>"))
+            # Only add a newline after "system" to follow the prompt format exactly at:
+            #   https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/
+            if str(node["role"]) != "system":
+                prompt += self._tokenizer.encode("\n", bos=None)
+        prompt.append(self._tokenizer.encode_special("<|start_header_id|>"))
+        prompt += self._tokenizer.encode("assistant", bos=None)
+        prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
+        prompt += self._tokenizer.encode("\n", bos=None)
+
         var sampler = WeightedSampler(
             self._config.temperature, self._config.min_p
         )
