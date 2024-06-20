@@ -34,7 +34,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
     A MaxHeap is a convenient data structure for implementing a priority queue.
 
     Usage:
-    ```mojo
+    ```
     pq = MaxHeap[...]()
     pq.push(initial)
     while pq:

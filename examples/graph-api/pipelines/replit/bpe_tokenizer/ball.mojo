@@ -32,7 +32,7 @@ struct Ball[T: CollectionElement]:
     - Linked-list ops are done on the arena directly
 
     ```mojo
-    from tokenizer.ball import Ball
+    from pipelines.replit.bpe_tokenizer.ball import Ball
     var list = Ball[Int]()
     var id1 = list.append(0)
     var id2 = list.append(1)

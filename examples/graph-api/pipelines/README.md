@@ -36,3 +36,21 @@ between the various pipelines. These modules currently include:
 - [weights](./weights/): A module containing code for loading common weight
 formats, such as
 [GGUF](https://github.com/ggerganov/ggml/blob/cce2ac9a5d788c3b6bb72a3b3dbde9247d8b85a7/docs/gguf.md).
+
+## Tests
+
+Unit tests for the pipelines and their shared components have been provided in
+a directory parallel to this one. They can be run using the Mojo testing
+framework via an invocation similar to the following (if running from this
+directory):
+
+```shell
+mojo test ../ -I ../
+```
+
+To select a single test case to run, an invocation like the following can be
+used:
+
+```shell
+mojo test -I ../ "../test/llama3/test_heap.mojo::test_simple()"
+```
