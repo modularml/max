@@ -111,13 +111,13 @@ struct Transformer:
 
         Args:
             tokens: input data represented in tokens
-            k_cache: the key cache
-            v_cache: the value cache
+            k_cache: cache of computed attention keys for previous tokens
+            v_cache: cache of computed attention values for previous tokens
 
         Returns:
             output tokens,
-            updated key cache,
-            updated value cache
+            updated cache of computed attention keys for previous tokens,
+            updated cache of computed attention values for previous tokens
         """
         start_pos = ops.shape_of(k_cache)[0]
         h = self.embedding(tokens)
