@@ -59,5 +59,5 @@ trait TokenSampler:
     """A generic token sampler that takes in a list of logits and samples
     an element based on the associated likelihoods."""
 
-    fn sample[dtype: DType](self, logits: Tensor[dtype]) -> SamplerResult:
+    def sample[dtype: DType](self, logits: Tensor[dtype]) -> SamplerResult:
         ...

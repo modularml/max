@@ -75,10 +75,7 @@ struct MPTBlock[T: Checkpoint, weights_type: DType]:
 
     @staticmethod
     def create(
-        params: T,
-        prefix: String,
-        g: Graph,
-        hyperparams: HyperParams,
+        params: T, prefix: String, g: Graph, hyperparams: HyperParams
     ) -> MPTBlock[T, weights_type]:
         """Build a MPT Block from the given params and string prefix.
 

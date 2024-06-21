@@ -229,7 +229,7 @@ struct Replit[T: Checkpoint, weights_type: DType]:
         if use_cache:
             k_cache = ops.concat(k_cache_updates)
             v_cache = ops.concat(v_cache_updates)
-            g.output(List[Symbol](x, k_cache, v_cache))
+            g.output(List[Symbol](x[-1, axis=1], k_cache, v_cache))
         else:
             g.output(x)
         return g

@@ -31,11 +31,19 @@ struct WeightedSampler(TokenSampler):
     var min_p: Float32
     """Minimum required starting percentage for sampled tokens."""
 
-    fn __init__(inout self: Self, temperature: Float32, min_p: Float32 = 0.05):
+    def __init__(inout self: Self, temperature: Float32, min_p: Float32 = 0.05):
         self.temperature = temperature
         self.min_p = min_p
 
-    fn sample[dtype: DType](self, logits: Tensor[dtype]) -> SamplerResult:
+    def sample[dtype: DType](self, logits: Tensor[dtype]) -> SamplerResult:
+        """Generates a random sample from the logits.
+
+        Args:
+          logits: Tensor logits. Shape must be [1, vocab_size].
+
+        Returns:
+          A SamplerResult with the selected token.
+        """
         var normalization = Scalar[DType.float32](0)
 
         # Add a floor to mitigate div0 if T=0.0 is passed in.
