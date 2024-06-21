@@ -21,6 +21,11 @@ from pipelines.nn import Attention, Embedding, Linear, RMSNorm
 
 @value
 struct FeedForward:
+    """
+    Simple FeedForward layer composed of three linear layers.
+    Uses SiLU activation function.
+    """
+
     var w1: Linear
     var w2: Linear
     var w3: Linear
@@ -31,6 +36,11 @@ struct FeedForward:
 
 @value
 struct TransformerBlock(CollectionElement):
+    """
+    Stacks Attention, FeedForward, and RMSNorm layers
+    into single transformer block.
+    """
+
     var attention: Attention
     var feed_forward: FeedForward
     var attention_norm: RMSNorm
@@ -53,6 +63,10 @@ struct TransformerBlock(CollectionElement):
 
 @value
 struct Transformer:
+    """
+    Transformer model consisting of TransformerBlock layers.
+    """
+
     alias max_seq_len = 2048
 
     var dim: Int
@@ -65,6 +79,20 @@ struct Transformer:
     var theta: Float64
 
     def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
+        """
+        Computes the frequency tensor for complex exponentials (cis)
+        for a given seq_len. Tensor is scaled with theta parameter.
+        Required to apply Rotary Position Embedding (RoPE) to tensor.
+        See 'Roformer: Enhanced Transformer with Rotary Embedding'
+        (arxiv.org/pdf/2104.09864).
+
+        Args:
+            start_pos: starting position of input tensor
+            seq_len: length of input tensor
+
+        Returns:
+            The frequency tensor for complex exponentials
+        """
         g = start_pos.graph()
         n = self.dim // self.n_heads
         iota = g.range[DType.float32](0, n - 1, 2)
@@ -78,6 +106,19 @@ struct Transformer:
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
     ) -> (Symbol, Symbol, Symbol):
+        """
+        Forward pass through transformer model.
+
+        Args:
+            tokens: input data represented in tokens
+            k_cache: the key cache
+            v_cache: the value cache
+
+        Returns:
+            output tokens,
+            updated key cache,
+            updated value cache
+        """
         start_pos = ops.shape_of(k_cache)[0]
         h = self.embedding(tokens)
         freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
