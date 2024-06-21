@@ -21,6 +21,7 @@ from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
 from ..tokenizer import AutoTokenizer
+from ..llama3.metrics import Metrics
 
 # TODO: Expand this back out to 512 once MSDK-305 is fully resolved.
 alias DEFAULT_MAX_SEQ_LEN = 33
@@ -196,7 +197,7 @@ struct ReplitPipeline:
         else:
             return DEFAULT_MAX_SEQ_LEN
 
-    def reset(inout self, prompt: String):
+    def reset(inout self, prompt: String) -> Int:
         """Resets the prompt and model state."""
         self._initial_prompt = prompt
         self._max_seq_len = self._get_max_tokens(len(prompt))
@@ -207,6 +208,7 @@ struct ReplitPipeline:
         )
         self._cur_seq_len = len(prompt)
         self._is_end_of_text = False
+        return encoded_prompt.size
 
     def next_token(inout self) -> Optional[String]:
         """Generates the next token, or None if the end has been reached."""
@@ -243,6 +245,8 @@ struct ReplitPipeline:
 
 def replit_run():
     config = Config()
+    metrics = Metrics()
+    metrics.begin_timing_startup()
 
     # Set up the Replit model prepare it for token generation.
     var replit = ReplitPipeline(
@@ -251,6 +255,7 @@ def replit_run():
         max_length=config.max_length,
         max_new_tokens=config.max_new_tokens,
     )
+    metrics.end_timing_startup()
 
     input_string = config.prompt
     print("Running on input:", input_string)
@@ -259,14 +264,22 @@ def replit_run():
     prompt = input_string.replace("\\n", "\n")
 
     # Run code generation.
-    replit.reset(prompt)
+    metrics.begin_timing_prompt()
+    tokens_in_prompt = replit.reset(prompt)
+    metrics.set_tokens_in_prompt(tokens_in_prompt)
+
     print("Output:")
+    metrics.begin_timing_generation()
+
     while True:
         s = replit.next_token()
         if not s:
             break
+        metrics.new_token()
         print(s.value(), end="")
+    metrics.end_timing()
     print()
+    metrics.print()
 
 
 def execute(
