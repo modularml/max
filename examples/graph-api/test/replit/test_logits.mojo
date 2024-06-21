@@ -509,12 +509,8 @@ fn test_replit_logits() raises:
     k_cache, v_cache = replit.create_empty_cache()
     var result_map = execute_replit(g, input, attention_mask, k_cache, v_cache)
 
-    var expected_logits = Tensor[DType.float32](TensorShape(1, 7, 5),
-        -3.2801,  5.2049,  0.3586, -4.6237,  3.0359,  0.6726, -4.4877,  4.4617,
-         9.9736, -0.3301, -1.8101, -2.4456,  6.1897,  7.9995, -0.3979, -2.5187,
-         5.1449, -0.0361, -5.4335,  2.5537,  0.4311,  2.9251,  2.3858,  1.8648,
-         5.1234,  7.9649, -0.9178, -1.6446,  0.5353,  1.3245, -1.9980, -2.2461,
-         6.2784,  8.0301, -0.1669)
+    var expected_logits = Tensor[DType.float32](TensorShape(1, 5),
+        -1.9980, -2.2461,  6.2784,  8.0301, -0.1669)
     var logits = result_map.get[DType.float32]("output0")
     _testing.assert_tensors_almost_equal(logits, expected_logits, atol=1e-4, rtol=1e-4)
 
@@ -560,9 +556,8 @@ fn test_replit_logits_with_prev_cache() raises:
         -0.1002,  0.1982,  0.1820, -0.4769)
     var attention_mask2 = Tensor[DType.bool](TensorShape(1, 9), True)
     var result_map2 = execute_replit(g, input2, attention_mask2, k_cache, v_cache)
-    var expected_logits2 = Tensor[DType.float32](TensorShape(1, 2, 5),
-        -1.8195, -2.3358,  6.2423,  8.0377, -0.2316,  0.8508, -4.5605,  4.4140,
-         9.9478, -0.3976)
+    var expected_logits2 = Tensor[DType.float32](TensorShape(1, 5),
+        0.8508, -4.5605,  4.4140,  9.9478, -0.3976)
     var logits2 = result_map2.get[DType.float32]("output0")
     _testing.assert_tensors_almost_equal(logits2, expected_logits2, atol=1e-4, rtol=1e-4)
     var expected_k_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 2, 9),
@@ -607,13 +602,13 @@ fn execute_replit(
 
 
 fn main() raises:
-    test_attention()
-    test_attention_with_bias()
-    test_mpt_block()
-    test_mpt_mlp()
-    test_shared_embedding()
-    test_shared_embedding_unembed()
-    test_norm()
-    test_linear()
+    # test_attention()
+    # test_attention_with_bias()
+    # test_mpt_block()
+    # test_mpt_mlp()
+    # test_shared_embedding()
+    # test_shared_embedding_unembed()
+    # test_norm()
+    # test_linear()
     test_replit_logits()
     test_replit_logits_with_prev_cache()

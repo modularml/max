@@ -20,6 +20,8 @@ from tensor import Tensor, TensorShape
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
+from ..samplers.token_sampler import TokenSampler
+from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer
 from ..llama3.metrics import Metrics
 
@@ -200,17 +202,24 @@ struct ReplitPipeline:
     def reset(inout self, prompt: String) -> Int:
         """Resets the prompt and model state."""
         self._initial_prompt = prompt
-        self._max_seq_len = self._get_max_tokens(len(prompt))
         self._k_cache, self._v_cache = self._replit.create_empty_cache()
         encoded_prompt = self._tokenizer.encode(List(prompt))
+
         self._next_token_tensor = Tensor(
             TensorShape(1, len(encoded_prompt)), encoded_prompt
         )
-        self._cur_seq_len = len(prompt)
+        self._cur_seq_len = len(encoded_prompt)
+        self._max_seq_len = self._get_max_tokens(self._cur_seq_len)
         self._is_end_of_text = False
         return encoded_prompt.size
 
     def next_token(inout self) -> Optional[String]:
+        """Generates the next token, or None if the end has been reached."""
+        return self.next_token(WeightedSampler(0))
+
+    def next_token[
+        Sampler: TokenSampler
+    ](inout self, sampler: Sampler) -> Optional[String]:
         """Generates the next token, or None if the end has been reached."""
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
@@ -226,21 +235,18 @@ struct ReplitPipeline:
             self._k_cache,
             self._v_cache,
         )
-        output = results.get[DType.float32]("output0")
-        self._k_cache = results.get[DType.float32]("output1")
-        self._v_cache = results.get[DType.float32]("output2")
-        argmax = output.argmax(axis=-1).astype[DType.int64]()
-
-        argmax_length = argmax.dim(1)
-        next_token = argmax[0, argmax_length - 1]
-        if self._tokenizer.is_end_of_text(next_token):
+        logits = results.get[DType.float32]("output0")
+        var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
+        if self._tokenizer.is_end_of_text(token):
             self._is_end_of_text = True
             return None
+
+        # Set up inputs for the next iteration.
+        self._k_cache = results.get[DType.float32]("output1")
+        self._v_cache = results.get[DType.float32]("output2")
         self._cur_seq_len += 1
-        self._next_token_tensor = Tensor[DType.int64](
-            TensorShape(1, 1), next_token
-        )
-        return self._tokenizer.decode(next_token)
+        self._next_token_tensor = Tensor[DType.int64](TensorShape(1, 1), token)
+        return self._tokenizer.decode(token)
 
 
 def replit_run():
@@ -266,13 +272,14 @@ def replit_run():
     # Run code generation.
     metrics.begin_timing_prompt()
     tokens_in_prompt = replit.reset(prompt)
+    sampler = WeightedSampler(0.5)
+
     metrics.set_tokens_in_prompt(tokens_in_prompt)
 
     print("Output:")
     metrics.begin_timing_generation()
-
     while True:
-        s = replit.next_token()
+        s = replit.next_token(sampler)
         if not s:
             break
         metrics.new_token()
