@@ -51,6 +51,7 @@ fn rope[
     var n_heads = input.shape[2]
     var n_head_dim = input.shape[3]
 
+    @__copy_capture(n_tok, n_heads, n_head_dim)
     @parameter
     fn process_rows(start_idx: Int, end_idx: Int):
         for i in range(start_idx, end_idx):
@@ -59,6 +60,7 @@ fn rope[
             var i2 = i % n_heads
 
             @parameter
+            @__copy_capture(i0, i1, i2)
             @always_inline
             fn func[width: Int](i3: Int):
                 var idx = StaticIntTuple[4](i0, i1, i2, i3 * 2)
