@@ -49,6 +49,7 @@ struct Scheduler:
     def __init__(inout self, inference_steps: Int):
         self.counter = 0
         self.previous_outputs = List[FloatTensor]()
+        self.alphas_cumprod = List[Float32]()
 
         # Generate timesteps.
         self.step_ratio = Self.training_steps // inference_steps
@@ -63,7 +64,6 @@ struct Scheduler:
             self.timesteps.insert(1, self.timesteps[1])
 
         # Generate alpha cumulative product.
-        self.alphas_cumprod = List[Float32]()
         var start = Self.beta_start**0.5
         var end = Self.beta_end**0.5
         var step = (end - start) / Self.training_steps
