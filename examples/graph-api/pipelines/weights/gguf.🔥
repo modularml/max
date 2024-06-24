@@ -781,6 +781,8 @@ struct GGUFFile(LoadableModel):
         reader.align_to(self.alignment)
         self.offset = reader.offset
 
+        self.fp = open(model_path, "r")
+
         # Compute total size of the data section accounting for alignment.
         self.size = 0
         for i in range(n_tensors):
@@ -791,8 +793,6 @@ struct GGUFFile(LoadableModel):
                 return (x + n - 1) & ~(n - 1)
 
             self.size += pad(size_cur, self.alignment)
-
-        self.fp = open(model_path, "r")
 
     fn __moveinit__(inout self, owned other: GGUFFile):
         @always_inline
