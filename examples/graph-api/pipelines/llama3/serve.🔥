@@ -21,7 +21,7 @@ from utils.index import Index
 from time import sleep
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
-from max.engine._context import _Device
+from max._driver import cpu_device, cuda_device
 from max.engine._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import (
@@ -224,7 +224,7 @@ struct Llama3InferenceService[
 
 def serve[EncodingT: QuantizationEncoding](config: Config):
     session_options = SessionOptions(
-        _device=_Device.CUDA if config.use_gpu else _Device.CPU
+        cuda_device() if config.use_gpu else cpu_device()
     )
     session = InferenceSession(session_options)
     service = Llama3InferenceService[EncodingT](config, session)

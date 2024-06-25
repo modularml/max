@@ -17,7 +17,7 @@ from pathlib import cwd, Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
-from max.engine._context import _Device
+from max._driver import cpu_device, cuda_device
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
@@ -211,7 +211,7 @@ def run[encoding: QuantizationEncoding](config: Config):
     graph = model.build_graph("llama_model")
 
     session_options = SessionOptions(
-        _device=_Device.CUDA if config.use_gpu else _Device.CPU
+        cuda_device() if config.use_gpu else cpu_device()
     )
     session = InferenceSession(session_options)
 
