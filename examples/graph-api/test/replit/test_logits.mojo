@@ -215,7 +215,7 @@ fn test_attention() raises:
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
 
-    var attn = GroupedQueryAttention(
+    var attn = GroupedQueryAttention[DType.float32](
         nano_params,
         Linear(g.constant(params.get[DType.float32]("transformer.blocks.0.attn.Wqkv.weight"))),
         Linear(g.constant(params.get[DType.float32]("transformer.blocks.0.attn.out_proj.weight")))
@@ -252,7 +252,7 @@ fn test_attention_with_bias() raises:
         List[Type](TensorType(DType.float32, 1, 8, 8), TensorType(DType.float32, 1, 4, 1, 10)),
     )
 
-    var attn = GroupedQueryAttention(
+    var attn = GroupedQueryAttention[DType.float32](
         nano_params,
         Linear(g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.attn.Wqkv.weight"))),
         Linear(g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.attn.out_proj.weight")))
@@ -296,7 +296,7 @@ fn test_mpt_block() raises:
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
-    var block = MPTBlock[TestCheckpoint, DType.float32].create(params, block_prefix, g, nano_params)
+    var block = MPTBlock[DType.float32].create(params, block_prefix, g, nano_params)
     g.output(block(g[0])[0])
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
         0.9180, -0.8026, -0.8702, -0.6859,  0.3235, -1.1530, -1.4351, -0.7616,
@@ -416,7 +416,7 @@ fn test_norm() raises:
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
     var w = g.constant[DType.float32](params.get[DType.float32]("transformer.norm_f.weight"))
-    var layer = LPLayerNorm(w, nano_params)
+    var layer = LPLayerNorm[DType.float32](w, nano_params)
     g.output(layer(g[0]))
 
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
@@ -602,13 +602,13 @@ fn execute_replit(
 
 
 fn main() raises:
-    # test_attention()
-    # test_attention_with_bias()
-    # test_mpt_block()
-    # test_mpt_mlp()
-    # test_shared_embedding()
-    # test_shared_embedding_unembed()
-    # test_norm()
-    # test_linear()
+    test_attention()
+    test_attention_with_bias()
+    test_mpt_block()
+    test_mpt_mlp()
+    test_shared_embedding()
+    test_shared_embedding_unembed()
+    test_norm()
+    test_linear()
     test_replit_logits()
     test_replit_logits_with_prev_cache()
