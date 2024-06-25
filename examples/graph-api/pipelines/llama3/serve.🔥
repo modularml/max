@@ -215,6 +215,10 @@ struct Llama3InferenceService[
             var json_str = self._json_module.dumps(resp).encode(
                 encoding="utf_8"
             )
+            handler.send_response(200)
+            handler.send_header("Content-type", "text/json")
+            handler.end_headers()
+
             handler.wfile.write(json_str)
 
 
