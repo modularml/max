@@ -45,8 +45,13 @@ def gen_slopes(g: Graph, n_heads: Int32, alibi_bias_max: Int32 = 8) -> Symbol:
     return slopes.reshape(1, int(n_heads), 1, 1)
 
 
-struct Replit[T: Checkpoint, weights_type: DType]:
-    """Replit model implementation."""
+struct Replit[T: Checkpoint, dtype: DType]:
+    """Replit model implementation.
+
+    Parameters:
+        T: Checkpoint used to load weights for this model.
+        dtype: The DType of the weights and inputs to this model.
+    """
 
     var hyperparams: HyperParams
 
@@ -55,10 +60,10 @@ struct Replit[T: Checkpoint, weights_type: DType]:
 
     def create_empty_cache(
         self,
-    ) -> (Tensor[DType.float32], Tensor[DType.float32]):
+    ) -> (Tensor[dtype], Tensor[dtype]):
         head_dim = self.hyperparams.d_model // self.hyperparams.n_heads
         return (
-            Tensor[DType.float32](
+            Tensor[dtype](
                 TensorShape(
                     self.hyperparams.num_blocks,
                     self.hyperparams.batch_size,
@@ -67,7 +72,7 @@ struct Replit[T: Checkpoint, weights_type: DType]:
                     0,
                 )
             ),
-            Tensor[DType.float32](
+            Tensor[dtype](
                 TensorShape(
                     self.hyperparams.num_blocks,
                     self.hyperparams.batch_size,
@@ -83,13 +88,13 @@ struct Replit[T: Checkpoint, weights_type: DType]:
     ) -> Symbol:
         alibi_bias = ops.cast(
             g.range[DType.int32](1 - self.hyperparams.seq_len, 1, 1),
-            DType.float32,
+            dtype,
         )
         alibi_bias = alibi_bias.reshape(1, 1, 1, self.hyperparams.seq_len)
         slopes = gen_slopes(
             g, self.hyperparams.n_heads, self.hyperparams.alibi_bias_max
         )
-        attn_bias = ops.cast(alibi_bias * slopes, DType.float32)
+        attn_bias = ops.cast(alibi_bias * slopes, dtype)
         if attention_mask:
             mask = attention_mask.value()
             s_k = ops.shape_of(mask)[-1]
@@ -109,10 +114,8 @@ struct Replit[T: Checkpoint, weights_type: DType]:
             )
             min_val = g.op(
                 "mo.broadcast_to",
-                List[Symbol](
-                    g.scalar(min_finite[DType.float32]()), attn_bias_shape
-                ),
-                TensorType(DType.float32, broadcast_dims),
+                List[Symbol](g.scalar(min_finite[dtype]()), attn_bias_shape),
+                TensorType(dtype, broadcast_dims),
             )
             attn_bias = ops.select(mask, attn_bias, min_val)
         return attn_bias
@@ -159,7 +162,7 @@ struct Replit[T: Checkpoint, weights_type: DType]:
         if use_cache:
             head_dim = self.hyperparams.d_model // self.hyperparams.n_heads
             k_cache_type = TensorType(
-                DType.float32,
+                dtype,
                 self.hyperparams.num_blocks,
                 self.hyperparams.batch_size,
                 self.hyperparams.kv_n_heads,
@@ -167,7 +170,7 @@ struct Replit[T: Checkpoint, weights_type: DType]:
                 Dim.dynamic(),
             )
             v_cache_type = TensorType(
-                DType.float32,
+                dtype,
                 self.hyperparams.num_blocks,
                 self.hyperparams.batch_size,
                 self.hyperparams.kv_n_heads,
@@ -184,13 +187,10 @@ struct Replit[T: Checkpoint, weights_type: DType]:
 
         @parameter
         def weight(name: String) -> Symbol:
-            return ops.cast(
-                g.constant(params.get[weights_type](name)), DType.float32
-            )
+            return g.constant(params.get[dtype](name))
 
         wte = SharedEmbedding(weight("transformer.wte.weight"))
         x = wte(g[0])
-
         if with_attention_mask:
             attn_bias = self._attn_bias(g, g[1])
         else:
@@ -201,9 +201,10 @@ struct Replit[T: Checkpoint, weights_type: DType]:
         # as outputs.
         k_cache_updates = List[Symbol]()
         v_cache_updates = List[Symbol]()
+
         for i in range(self.hyperparams.num_blocks):
             block_prefix = "transformer.blocks." + str(i) + "."
-            block = MPTBlock[T, weights_type].create(
+            block = MPTBlock[dtype].create(
                 params, block_prefix, g, self.hyperparams
             )
             if use_cache:
@@ -217,15 +218,13 @@ struct Replit[T: Checkpoint, weights_type: DType]:
             else:
                 x = block(x, attn_bias)[0]
 
-        norm_f = LPLayerNorm(
+        norm_f = LPLayerNorm[dtype](
             weight("transformer.norm_f.weight"), self.hyperparams
         )
         x = norm_f(x)
-
         # Generate output tokens using the same SharedEmbedding layer created
         # previously.
         x = wte(x, True)
-
         if use_cache:
             k_cache = ops.concat(k_cache_updates)
             v_cache = ops.concat(v_cache_updates)

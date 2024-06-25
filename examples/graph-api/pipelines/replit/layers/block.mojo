@@ -34,19 +34,23 @@ struct MPTMLP:
         return self.down_proj(ops.gelu(self.up_proj(input)))
 
 
-struct MPTBlock[T: Checkpoint, weights_type: DType]:
-    """A block in the MosaicML Pretrained Transformer model."""
+struct MPTBlock[dtype: DType]:
+    """A block in the MosaicML Pretrained Transformer model.
 
-    var norm_1: LPLayerNorm
-    var attn: GroupedQueryAttention
-    var norm_2: LPLayerNorm
+    Parameters:
+        dtype: The DType of the weights and inputs to this block.
+    """
+
+    var norm_1: LPLayerNorm[dtype]
+    var attn: GroupedQueryAttention[dtype]
+    var norm_2: LPLayerNorm[dtype]
     var ffn: MPTMLP
 
     def __init__(
         inout self,
-        norm_1: LPLayerNorm,
-        attn: GroupedQueryAttention,
-        norm_2: LPLayerNorm,
+        norm_1: LPLayerNorm[dtype],
+        attn: GroupedQueryAttention[dtype],
+        norm_2: LPLayerNorm[dtype],
         ffn: MPTMLP,
     ):
         self.norm_1 = norm_1
@@ -74,9 +78,14 @@ struct MPTBlock[T: Checkpoint, weights_type: DType]:
         return output + n, k_cache_update, v_cache_update
 
     @staticmethod
-    def create(
-        params: T, prefix: String, g: Graph, hyperparams: HyperParams
-    ) -> MPTBlock[T, weights_type]:
+    def create[
+        T: Checkpoint
+    ](
+        params: T,
+        prefix: String,
+        g: Graph,
+        hyperparams: HyperParams,
+    ) -> MPTBlock[dtype]:
         """Build a MPT Block from the given params and string prefix.
 
         Args:
@@ -90,20 +99,17 @@ struct MPTBlock[T: Checkpoint, weights_type: DType]:
 
         @parameter
         def load_param(name: String) -> Symbol:
-            return ops.cast(
-                g.constant(params.get[weights_type](prefix + name)),
-                DType.float32,
-            )
+            return g.constant(params.get[dtype](prefix + name))
 
-        norm_1 = LPLayerNorm(load_param("norm_1.weight"), hyperparams)
-        attn = GroupedQueryAttention(
+        norm_1 = LPLayerNorm[dtype](load_param("norm_1.weight"), hyperparams)
+        attn = GroupedQueryAttention[dtype](
             hyperparams,
             Linear(load_param("attn.Wqkv.weight")),
             Linear(load_param("attn.out_proj.weight")),
         )
-        norm_2 = LPLayerNorm(load_param("norm_2.weight"), hyperparams)
+        norm_2 = LPLayerNorm[dtype](load_param("norm_2.weight"), hyperparams)
         ffn = MPTMLP(
             Linear(load_param("ffn.up_proj.weight")),
             Linear(load_param("ffn.down_proj.weight")),
         )
-        return MPTBlock[T, weights_type](norm_1, attn, norm_2, ffn)
+        return MPTBlock[dtype](norm_1, attn, norm_2, ffn)

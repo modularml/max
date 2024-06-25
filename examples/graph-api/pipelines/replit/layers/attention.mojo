@@ -82,8 +82,11 @@ def tri(rows: Symbol, cols: Symbol, k: Symbol) -> Symbol:
 
 
 @value
-struct GroupedQueryAttention:
+struct GroupedQueryAttention[dtype: DType]:
     """An attention layer that uses an intermediate number of key-value heads.
+
+    Parameters:
+        dtype: The DType of the weights and inputs to this layer.
     """
 
     var hyperparams: HyperParams
@@ -206,11 +209,9 @@ struct GroupedQueryAttention:
 
             min_val = g.op(
                 "mo.broadcast_to",
-                List[Symbol](
-                    g.scalar(min_finite[DType.float32]()), attn_weight_shape
-                ),
+                List[Symbol](g.scalar(min_finite[dtype]()), attn_weight_shape),
                 TensorType(
-                    DType.float32,
+                    dtype,
                     Dim.dynamic(),
                     Dim.dynamic(),
                     seq_len,

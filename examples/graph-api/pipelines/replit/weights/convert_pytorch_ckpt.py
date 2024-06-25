@@ -15,6 +15,7 @@ Usage:
   python3 convert_pytorch_ckpt.py \
     --input /path/to/replit/pytorch_model.bin \
     --output_dir /path/to/converted/files
+    --output_type bfloat16
 """
 
 import os
@@ -42,7 +43,9 @@ _TORCH_DTYPE_MAP = {
 _ESCAPE_SUB = r"[^a-zA-Z0-9.\-_()]"
 
 
-def convert(input_path: pathlib.Path, output_dir: pathlib.Path):
+def convert(
+    input_path: pathlib.Path, output_dir: pathlib.Path, export_bfloat16=False
+):
     weights = torch.load(input_path, weights_only=True)
     if not isinstance(weights, dict):
         # It's possible that weights could be Tensor/primitive type.
@@ -57,9 +60,12 @@ def convert(input_path: pathlib.Path, output_dir: pathlib.Path):
         dtype = _TORCH_DTYPE_MAP[tensor.dtype]
         # Special case bfloat16 since it's not a numpy dtype
         if tensor.dtype == torch.bfloat16:
-            # Convert to float32 since bfloat16 isn't supported on ARM yet.
-            tensor_np = tensor.to(torch.float32).numpy()
-            dtype = DType.f32
+            if export_bfloat16:
+                tensor_np = tensor.view(torch.float16).numpy()
+            else:
+                # Convert to float32 since bfloat16 isn't supported on ARM yet.
+                tensor_np = tensor.to(torch.float32).numpy()
+                dtype = DType.f32
         else:
             tensor_np = tensor.numpy()
         with open(output_dir / re.sub(_ESCAPE_SUB, "_", key), "wb") as f:
@@ -89,11 +95,21 @@ def main():
         ),
         required=True,
     )
+    parser.add_argument(
+        "--output_type",
+        type=str,
+        help=(
+            "Path to directory that contains all converted Mojo Tensor files. "
+            "The filenames will correspond to the weight keys."
+        ),
+        default="float32",
+    )
 
     args = parser.parse_args()
 
     if not args.input.exists():
         raise FileNotFoundError(f"Could not find input file {args.input}")
+
     if args.output_dir.exists():
         if args.output_dir.is_dir():
             if any(args.output_dir.iterdir()):
@@ -105,7 +121,13 @@ def main():
     else:
         os.makedirs(args.output_dir)
 
-    convert(args.input, args.output_dir)
+    if args.output_type not in ["float32", "bfloat16"]:
+        raise ValueError(
+            "Output type must be 'float32' or 'bfloat16'. Got "
+            f"{args.output_type}"
+        )
+
+    convert(args.input, args.output_dir, args.output_type == "bfloat16")
 
 
 if __name__ == "__main__":
