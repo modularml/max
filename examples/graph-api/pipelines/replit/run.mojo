@@ -14,7 +14,7 @@ from pathlib import cwd, Path
 import sys
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
-from max.engine._context import _Device
+from max._driver import cpu_device, cuda_device, Device
 from tensor import Tensor, TensorShape
 from utils import StaticTuple
 
@@ -191,9 +191,8 @@ struct ReplitPipeline[dtype: DType]:
         # Load the graph into the session, which generates the MLIR and runs
         # optimization passes on it.
         print("Compiling...")
-        session_options = SessionOptions(
-            _device=_Device.CUDA if use_gpu else _Device.CPU
-        )
+        var device = cuda_device() if use_gpu else cpu_device()
+        var session_options = SessionOptions(device)
         self._session = InferenceSession(session_options)
         self._compiled_model = self._session.load(g)
 
