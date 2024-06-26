@@ -22,7 +22,7 @@ from time import sleep
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
 from max._driver import cpu_device, cuda_device
-from max.engine._utils import handle_from_config, call_dylib_func
+from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
