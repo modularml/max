@@ -18,6 +18,7 @@ from tensor import Tensor, TensorShape
 from max.graph import ops, Dim, StaticDim, Symbol, TensorType
 from max.graph.quantization import (
     Float32Encoding,
+    BFloat16Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
     Q4_KEncoding,
@@ -91,7 +92,10 @@ struct Embedding:
         """
 
         # If there is no quantization, then just gather and return early.
-        if self.encoding_id == Float32Encoding.id():
+        if (
+            self.encoding_id == Float32Encoding.id()
+            or self.encoding_id == BFloat16Encoding.id()
+        ):
             return ops.gather(self.weights, indices, axis=0)
 
         # Otherwise, gather and dequantize the rows.

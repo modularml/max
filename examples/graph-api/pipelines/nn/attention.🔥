@@ -98,7 +98,9 @@ def rope(
     ) if enable_custom_rope_kernel else rope_graph(x, freqs_cis)
 
 
-def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
+def attention_mask(
+    start_pos: Symbol, seq_len: Symbol, activation_dtype: DType
+) -> Symbol:
     g = start_pos.graph()
 
     seq_len = seq_len.reshape()
@@ -106,7 +108,10 @@ def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
 
     # Mask out current sequence elements [i, j] where j > i with an
     # upper-triangular matrix filled with -inf.
-    mask_val = g.full(Scalar[DType.float32].MIN, List[Symbol](seq_len, seq_len))
+    mask_val = ops.cast(
+        g.full(Scalar[DType.float32].MIN, List[Symbol](seq_len, seq_len)),
+        activation_dtype,
+    )
     mask = ops.band_part(
         mask_val,
         g.scalar[DType.int64](-1),
@@ -120,13 +125,19 @@ def attention_mask(start_pos: Symbol, seq_len: Symbol) -> Symbol:
     # the only masked entries are (i, j) for j > cache_len + i, since row i
     # corresponds to token cache_len + i.
     return ops.concat(
-        List[Symbol](g.full[DType.float32](0, List(seq_len, start_pos)), mask),
+        List[Symbol](
+            ops.cast(
+                g.full[DType.float32](0, List(seq_len, start_pos)),
+                activation_dtype,
+            ),
+            mask,
+        ),
         axis=1,
     )
 
 
 @value
-struct Attention:
+struct Attention[model_dtype: DType = DType.float32]:
     var n_heads: Int
     var n_kv_heads: Int
     var head_dim: Int
@@ -168,7 +179,7 @@ struct Attention:
         prev_seq_len = ops.shape_of(k_cache)[0]
         seq_len = ops.shape_of(xq)[1]
 
-        attn_mask = attention_mask(prev_seq_len, seq_len)
+        attn_mask = attention_mask(prev_seq_len, seq_len, model_dtype)
 
         # Broadcast the attention mask across all attention heads.
         attn_shape = ops.shape_of(attn_mask)
@@ -187,7 +198,7 @@ struct Attention:
                 attn_shape,
             ),
             TensorType(
-                DType.float32, 1, self.n_heads, Dim.dynamic(), Dim.dynamic()
+                model_dtype, 1, self.n_heads, Dim.dynamic(), Dim.dynamic()
             ),
         )
 
@@ -209,7 +220,7 @@ struct Attention:
                 ),
             ),
             TensorType(
-                DType.float32, 1, self.n_heads, Dim.dynamic(), self.head_dim
+                model_dtype, 1, self.n_heads, Dim.dynamic(), self.head_dim
             ),
         )
 
@@ -221,7 +232,7 @@ struct Attention:
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> Symbol:
-        head_dim = xq.graph().scalar[DType.float32](self.head_dim)
+        head_dim = xq.graph().scalar(self.head_dim, model_dtype)
         prev_seq_len = ops.shape_of(k_cache)[0]
         seq_len = ops.shape_of(xq)[1]
 
@@ -241,7 +252,7 @@ struct Attention:
         values = values.swapaxes(1, 2)
 
         scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + attention_mask(prev_seq_len, seq_len)
+        scores = scores + attention_mask(prev_seq_len, seq_len, model_dtype)
         output = ops.softmax(scores) @ values
         return output
 

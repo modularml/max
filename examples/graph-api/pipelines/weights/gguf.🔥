@@ -85,7 +85,8 @@ struct GGMLType:
     alias GGML_TYPE_I8: Int32 = 16
     alias GGML_TYPE_I16: Int32 = 17
     alias GGML_TYPE_I32: Int32 = 18
-    alias GGML_TYPE_COUNT: Int32 = 19  # marks the end of the enum
+    alias GGML_TYPE_BF16: Int32 = 30
+    alias GGML_TYPE_COUNT: Int32 = 31  # marks the end of the enum
 
     var _value: Int32
 
@@ -136,6 +137,8 @@ struct GGMLType:
             return "Q8_1"
         if self._value == self.GGML_TYPE_Q8_K:
             return "Q8_K"
+        if self._value == self.GGML_TYPE_BF16:
+            return "BF16"
         return "<unknown>"
 
     @always_inline
@@ -158,6 +161,8 @@ struct GGMLType:
             return DType.int16
         if self is Self.GGML_TYPE_I32:
             return DType.int32
+        if self is Self.GGML_TYPE_BF16:
+            return DType.bfloat16
 
         raise "GGML type lacks corresponding DType"
 
@@ -202,6 +207,13 @@ struct GGMLType:
                 "f16",
                 blck_size=1,
                 type_size=sizeof[DType.float16](),
+                is_quantized=False,
+            )
+        if self is Self.GGML_TYPE_BF16:
+            return GGMLTypeTrait(
+                "bfloat16",
+                blck_size=1,
+                type_size=sizeof[DType.bfloat16](),
                 is_quantized=False,
             )
 
