@@ -16,7 +16,7 @@ import sys
 from time import now
 
 from max.engine import InferenceSession, Model, TensorMap
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from ..benchmarks.human_eval import HumanEval
 from .model.replit import Replit

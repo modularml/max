@@ -16,7 +16,7 @@ from base64 import b64decode
 from collections import Dict, List, Optional
 from pathlib import Path
 
-from tensor import Tensor
+from max.tensor import Tensor
 
 from .arena_linked_list import ArenaLinkedList
 from .max_heap import MinHeap, OrderedElement

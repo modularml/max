@@ -15,7 +15,7 @@ import python
 from memory import memcpy
 from collections import List
 
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 
 @always_inline

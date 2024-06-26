@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from .token_sampler import TokenSampler, SamplerResult
-from tensor import Tensor
+from max.tensor import Tensor
 from random import random_float64
 import math
 from utils.numerics import min_finite
