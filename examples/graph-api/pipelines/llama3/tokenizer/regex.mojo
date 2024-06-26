@@ -217,7 +217,7 @@ struct _MatchIter[
 
 
 @value
-struct Match[lifetime: ImmutableLifetime]:
+struct Match[lifetime: ImmutableLifetime](Formattable):
     var _string: Span[UInt8, lifetime]
     var _groups: List[_CRegexMatch]
 
@@ -227,6 +227,10 @@ struct Match[lifetime: ImmutableLifetime]:
 
     fn __str__(self) -> String:
         return str(self[0])
+
+    fn format_to(self, inout writer: Formatter):
+        # TODO: Avoid intermediate String allocation.
+        writer.write(str(self))
 
     fn __len__(self) -> Int:
         return self.end() - self.start()
