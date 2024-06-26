@@ -25,7 +25,7 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from .kv_cache import KVCache
 from ..llama3.metrics import Metrics

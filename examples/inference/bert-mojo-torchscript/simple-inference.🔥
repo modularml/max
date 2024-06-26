@@ -15,7 +15,7 @@
 from max.engine import InputSpec, InferenceSession, Model
 from pathlib import Path
 from python import Python
-from tensor import TensorSpec
+from max.tensor import TensorSpec
 import sys
 
 

@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from tensor import Tensor
+from max.tensor import Tensor
 from utils import StaticTuple
 
 

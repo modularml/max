@@ -32,7 +32,7 @@ from max.graph.quantization import (
     Q6_KEncoding,
 )
 from max.serve.http import PythonServer, PythonService
-from tensor import Tensor, TensorShape, TensorSpec
+from max.tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
 from .model.llama import Llama3

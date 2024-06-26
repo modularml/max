@@ -18,7 +18,7 @@ from max.graph._testing import (
     execute_n_args,
     execute_unary,
 )
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from pipelines.nn import (
     Attention,

@@ -17,7 +17,7 @@ from pathlib import cwd, Path
 from max.graph import Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import save, TensorDict
 from max.graph.quantization import Q4_0Encoding
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from pipelines.llama2.run import compile_graph, generate_text, Config
 from pipelines.llama3.metrics import Metrics

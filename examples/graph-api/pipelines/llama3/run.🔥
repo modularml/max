@@ -27,7 +27,7 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
-from tensor import Tensor, TensorShape, TensorSpec
+from max.tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
 from .metrics import Metrics

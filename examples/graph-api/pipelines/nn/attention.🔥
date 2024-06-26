@@ -13,7 +13,7 @@
 """The attention mechanism used within the model."""
 
 from math import rsqrt
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from max.graph import ops, Dim, Symbol, TensorType
 from max.graph.quantization import Float32Encoding, QuantizationEncoding

@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 from pathlib import Path
 
-from tensor import Tensor
+from max.tensor import Tensor
 
 
 trait Checkpoint(Movable):

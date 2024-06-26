@@ -15,7 +15,7 @@ from pathlib import Path
 
 from max.engine import InferenceSession, TensorMap
 from max.graph import _testing, Graph, TensorType, Symbol, Type
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from pipelines.replit.weights.replit_checkpoint import Checkpoint
 from pipelines.replit.weights.hyperparams import HyperParams

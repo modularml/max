@@ -13,7 +13,7 @@
 
 """Neural network embedding layers."""
 
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 
 from max.graph import ops, Dim, StaticDim, Symbol, TensorType
 from max.graph.quantization import (

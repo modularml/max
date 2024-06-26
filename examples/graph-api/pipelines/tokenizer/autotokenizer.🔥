@@ -15,7 +15,7 @@
 from math import ceildiv
 from python import Python
 from random import randint
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 from utils import Index
 
 from . import Tokenizer

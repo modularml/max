@@ -15,7 +15,7 @@ import sys
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
 from max._driver import cpu_device, cuda_device, Device
-from tensor import Tensor, TensorShape
+from max.tensor import Tensor, TensorShape
 from utils import StaticTuple
 
 from .model.replit import Replit

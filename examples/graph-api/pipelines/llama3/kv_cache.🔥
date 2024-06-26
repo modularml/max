@@ -13,7 +13,7 @@
 """KV cache for the Transformer."""
 
 from buffer import Buffer
-from tensor import Tensor, TensorSpec, TensorShape
+from max.tensor import Tensor, TensorSpec, TensorShape
 
 from max.engine import EngineTensorView
 
