@@ -152,7 +152,7 @@ struct TeenyTinyLlama:
             return llama.constant(float32_param)
 
         # Stage all of the transformer blocks in the stories15M Llama.
-        transformer_blocks = List[TransformerBlock]()
+        transformer_blocks = List[TransformerBlock[DType.float32]]()
         for layer_idx in range(self.hyperparams.n_layers):
             # Stage a transformer block with quantized weights.
             # Read in float32 weights and quantize them before staging the op.

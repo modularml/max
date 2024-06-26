@@ -21,6 +21,7 @@ from max._driver import cpu_device, cuda_device
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
+    BFloat16Encoding,
     QuantizationEncoding,
     Q4_0Encoding,
     Q4_KEncoding,
@@ -75,7 +76,7 @@ struct Config:
         self.tokenizer_path = tokenizer_path
         self.prompt = prompt
         self.quantization_encoding = quantization_encoding
-        """Encoding for quantized model weights: Q4_0, Q4_K, or Q6_K."""
+        """Encoding for quantized model weights: bfloat16, Q4_0, Q4_K, or Q6_K."""
         self.use_gpu = use_gpu
 
         self.temperature = temperature
@@ -114,6 +115,11 @@ struct Config:
                 self.prompt = parse_argument_value(i)
             elif args[i] == "--quantization-encoding":
                 self.quantization_encoding = String(parse_argument_value(i))
+
+                @parameter
+                if sys.has_neon():
+                    if self.quantization_encoding == "bfloat16":
+                        raise "bfloat16 is not currently supported on ARM"
             elif args[i] == "--experimental-use-gpu":
                 self.use_gpu = True
                 i += 1
@@ -251,6 +257,10 @@ struct WeightMetadata:
         all_metadata[Q6_KEncoding.id()] = WeightMetadata(
             run[Q6_KEncoding],
             "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf",
+        )
+        all_metadata[BFloat16Encoding.id()] = WeightMetadata(
+            run[BFloat16Encoding],
+            "https://huggingface.co/ddh0/Meta-Llama-3-8B-Instruct-bf16-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-bf16.gguf",
         )
         all_metadata[Float32Encoding.id()] = WeightMetadata(
             run[Float32Encoding],

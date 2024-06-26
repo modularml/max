@@ -169,7 +169,7 @@ fn test_freqs_cis() raises:
         dim=2,
         n_heads=1,
         embedding=Embedding(g.constant(Tensor[DType.float32](10, 10))),
-        layers=List[TransformerBlock[]](),
+        layers=List[TransformerBlock[DType.float32]](),
         norm=RMSNorm(1e-5, g.constant(Tensor[DType.float32](2))),
         output=g.constant(Tensor[DType.float32](10, 10)),
         theta=500000.0,
@@ -395,7 +395,7 @@ fn test_attention_mask() raises:
     var g = Graph(
         List[Type](TensorType(DType.int64, 1), TensorType(DType.int64, 1))
     )
-    _ = g.output(attention_mask(g[0], g[1]))
+    _ = g.output(attention_mask(g[0], g[1], DType.float32))
 
     var start_pos = Tensor[DType.int64](TensorShape(1), 0)
     var seq_len = Tensor[DType.int64](TensorShape(1), 2)

@@ -116,7 +116,7 @@ struct Llama2[
             w, _ = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
-        layers = List[TransformerBlock]()
+        layers = List[TransformerBlock[DType.float32]]()
         for layer in range(params.n_layers):
             attention = Attention(
                 n_heads=params.n_heads,

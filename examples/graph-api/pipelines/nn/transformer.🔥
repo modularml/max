@@ -35,13 +35,13 @@ struct FeedForward:
 
 
 @value
-struct TransformerBlock(CollectionElement):
+struct TransformerBlock[model_dtype: DType = DType.float32](CollectionElement):
     """
     Stacks Attention, FeedForward, and RMSNorm layers
     into single transformer block.
     """
 
-    var attention: Attention
+    var attention: Attention[model_dtype]
     var feed_forward: FeedForward
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
@@ -62,7 +62,7 @@ struct TransformerBlock(CollectionElement):
 
 
 @value
-struct Transformer:
+struct Transformer[model_dtype: DType = DType.float32]:
     """
     Transformer model consisting of TransformerBlock layers.
     """
@@ -73,7 +73,7 @@ struct Transformer:
     var n_heads: Int
 
     var embedding: Embedding
-    var layers: List[TransformerBlock]
+    var layers: List[TransformerBlock[model_dtype]]
     var norm: RMSNorm
     var output: Linear
     var theta: Float64
@@ -101,7 +101,7 @@ struct Transformer:
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 
         var retval = ops.stack(List(ops.cos(freqs), ops.sin(freqs)), axis=-1)
-        return ops.cast(retval[start_pos : start_pos + seq_len], DType.float32)
+        return ops.cast(retval[start_pos : start_pos + seq_len], model_dtype)
 
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
