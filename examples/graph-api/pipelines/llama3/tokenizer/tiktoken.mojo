@@ -15,9 +15,10 @@
 from base64 import b64decode
 from collections import Dict
 from pathlib import Path
-from .bpe import BPETokenizer, TokenWithID
+from .bpe import BPETokenizer
 from .regex import Match, Regex, CompileOption
 from ...weights.gguf import GGUFArray, GGUFString
+from ...tokenizer import Tokenizer
 
 
 def _next_rune(inout span: Span[UInt8, _]) -> Int:
@@ -80,7 +81,7 @@ def _decode_map() -> Dict[Int, UInt8]:
 
 
 @value
-struct TikTokenEncoder:
+struct TikTokenEncoder(Tokenizer):
     var bpe: BPETokenizer
     var regex: Regex
     var special_tokens: Dict[String, Int]
@@ -133,36 +134,45 @@ struct TikTokenEncoder:
 
     def encode(
         self,
-        string: String,
+        input_string: List[String],
         bos: Optional[String] = str("<|begin_of_text|>"),
         eos: Optional[String] = None,
-    ) -> List[TokenWithID]:
+    ) -> List[Int64]:
         # Compared to Rust tiktoken, this does not currently implement
         # - special tokens  (not used in llama3)
         # - multithreaded decoding
         #   multithreaded decoding is quite a bit more complex, as it requires
         #   both splitting the text across threads and merging afterwards, and also
         #   needs to know how to handle the boundary conditions between different segments
-        tokens = List[TokenWithID]()
+        tokens = List[Int64]()
         if bos:
-            tokens += self.encode_special(bos.value())
+            tokens += Int64(self.encode_special(bos.value()))
 
-        for segment in self.regex.findall(string, negative_lookahead_hack=True):
+        for segment in self.regex.findall(
+            input_string[0], negative_lookahead_hack=True
+        ):
             ss = str(segment)
             if token_id := self.bpe.token_ids.find(ss):
-                tokens += TokenWithID(ss^, token_id.value())
+                tokens += Int64(token_id.value())
             else:
-                tokens += self.bpe.encode(ss^)
+                for subtoken_id in self.bpe.encode(ss^):
+                    tokens += Int64(subtoken_id[].id)
 
         if eos:
-            tokens += self.encode_special(eos.value())
+            tokens += Int64(self.encode_special(eos.value()))
 
         return tokens
 
-    def encode_special(self, string: String) -> TokenWithID:
+    def encode_special(self, string: String) -> Int:
         if special_id := self.special_tokens.find(string):
-            return TokenWithID(string, special_id.value())
-        return TokenWithID(string, self.bpe.token_ids[string])
+            return special_id.value()
+        return self.bpe.token_ids[string]
 
-    def decode(self, token_id: Int) -> TokenWithID:
-        return TokenWithID(self.bpe.vocab[token_id].token, token_id)
+    def decode(inout self, output_tokens: List[Int64]) -> String:
+        decoded = String()
+        for token_id in output_tokens:
+            decoded += self.bpe.vocab[int(token_id[])].token
+        return decoded
+
+    def is_end_of_text(self, val: Int64) -> Bool:
+        return False

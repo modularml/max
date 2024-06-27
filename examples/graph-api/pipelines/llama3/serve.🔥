@@ -37,7 +37,6 @@ from max.tensor import Tensor, TensorShape, TensorSpec
 from .kv_cache import KVCache
 from .model.llama import Llama3
 from .tokenizer.tiktoken import TikTokenEncoder
-from .tokenizer.bpe import TokenWithID
 from .tokenizer.regex import set_locale_unicode
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
@@ -109,7 +108,7 @@ struct Llama3InferenceService[
             stream = True
 
         # Tokenize prompt and message contents.
-        var prompt = List[TokenWithID](
+        var prompt = List[Int64](
             self._tokenizer.encode_special("<|begin_of_text|>")
         )
 
@@ -124,18 +123,18 @@ struct Llama3InferenceService[
             # Only add a newline after "system" to follow the prompt format exactly at:
             #   https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/
             if str(node["role"]) != "system":
-                prompt += self._tokenizer.encode("\n", bos=None)
+                prompt += self._tokenizer.encode(String("\n"), bos=None)
         prompt.append(self._tokenizer.encode_special("<|start_header_id|>"))
-        prompt += self._tokenizer.encode("assistant", bos=None)
+        prompt += self._tokenizer.encode(String("assistant"), bos=None)
         prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
-        prompt += self._tokenizer.encode("\n", bos=None)
+        prompt += self._tokenizer.encode(String("\n"), bos=None)
 
         var sampler = WeightedSampler(
             self._config.temperature, self._config.min_p
         )
         var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
         for i in range(len(prompt)):
-            tokens[Index(0, i)] = prompt[i].id
+            tokens[Index(0, i)] = prompt[i]
 
         var outputs = List[String]()
         var kv_cache = KVCache(
@@ -163,7 +162,7 @@ struct Llama3InferenceService[
                 break
 
             # HACK: Check after decoding the token.
-            var next_token = self._tokenizer.decode(token).token
+            var next_token = self._tokenizer.decode(Int64(token))
             if next_token == "<|eot_id|>":
                 break
 
