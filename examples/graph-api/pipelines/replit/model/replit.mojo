@@ -104,9 +104,9 @@ struct Replit[T: Checkpoint, dtype: DType]:
             attn_bias = attn_bias[:, :, :, _s_k:]
             attn_bias_shape = ops.shape_of(attn_bias)
             broadcast_dims = List[Dim](
-                Dim.dynamic(), Dim.dynamic(), Dim.dynamic(), Dim.dynamic()
+                1, self.hyperparams.n_heads, 1, mask.shape()[1]
             )
-            mask = mask.reshape(-1, 1, 1, s_k)
+            mask = mask.reshape(mask.shape()[0], 1, 1, mask.shape()[1])
             mask = g.op(
                 "mo.broadcast_to",
                 List[Symbol](mask, attn_bias_shape),
@@ -144,15 +144,16 @@ struct Replit[T: Checkpoint, dtype: DType]:
             Replit Graph.
         """
         # Set up graph and inputs.
+        seq_len = "seq_len"
         input_type = TensorType(
-            DType.int64, self.hyperparams.batch_size, Dim.dynamic()
+            DType.int64, self.hyperparams.batch_size, seq_len
         )
         in_types = List[Type](input_type)
         mask_input_idx = -1
         cache_input_idx = -1
         if with_attention_mask:
             attention_mask_type = TensorType(
-                DType.bool, self.hyperparams.batch_size, Dim.dynamic()
+                DType.bool, self.hyperparams.batch_size, "full_seq_len"
             )
             in_types.append(attention_mask_type)
             mask_input_idx = 1
@@ -161,20 +162,21 @@ struct Replit[T: Checkpoint, dtype: DType]:
             cache_input_idx = 1
         if use_cache:
             head_dim = self.hyperparams.d_model // self.hyperparams.n_heads
+            prev_seq_len = "prev_seq_len"
             k_cache_type = TensorType(
                 dtype,
                 self.hyperparams.num_blocks,
                 self.hyperparams.batch_size,
                 self.hyperparams.kv_n_heads,
                 head_dim,
-                Dim.dynamic(),
+                prev_seq_len,
             )
             v_cache_type = TensorType(
                 dtype,
                 self.hyperparams.num_blocks,
                 self.hyperparams.batch_size,
                 self.hyperparams.kv_n_heads,
-                Dim.dynamic(),
+                prev_seq_len,
                 head_dim,
             )
             in_types.append(k_cache_type)

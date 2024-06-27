@@ -160,8 +160,7 @@ struct NanoLlama(LoadableModel):
 
 fn test_freqs_cis() raises:
     var g = Graph(
-        List[Type](),
-        List[Type](TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), 2)),
+        List[Type]()
     )
     var dummy = Transformer(
         dim=2,
@@ -194,22 +193,19 @@ fn test_freqs_cis() raises:
 
 fn test_rope() raises:
     alias bs = 1
-    alias seqlen = 2
+    alias seq_len = 2
     alias n_local_kv_heads = 2
     alias head_dim = 2
 
     var g = Graph(
         List[Type](
-            TensorType(DType.float32, bs, seqlen, n_local_kv_heads, head_dim),
+            TensorType(DType.float32, bs, seq_len, n_local_kv_heads, head_dim),
             TensorType(DType.float32, 2, 1, 2),
-        ),
-        List[Type](
-            TensorType(DType.float32, bs, seqlen, n_local_kv_heads, head_dim)
-        ),
+        )
     )
     _ = g.output(rope(x=g[0], freqs_cis=g[1], enable_custom_rope_kernel=False))
 
-    var x = Tensor[DType.float32](TensorShape(bs, seqlen, n_local_kv_heads, head_dim),
+    var x = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
         -1.3140, -1.5004,
          0.4776, -0.2095,
 
@@ -220,7 +216,7 @@ fn test_rope() raises:
          0.4200,  0.9075,
          0.5403,  0.8415,
     )
-    var expected = Tensor[DType.float32](TensorShape(bs, seqlen, n_local_kv_heads, head_dim),
+    var expected = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
          0.8097, -1.8226,
          0.3907,  0.3454,
 
@@ -234,22 +230,19 @@ fn test_rope() raises:
 
 fn test_rope_batch_size_2() raises:
     alias bs = 2
-    alias seqlen = 2
+    alias seq_len = 2
     alias n_local_kv_heads = 1
     alias head_dim = 2
 
     var g = Graph(
         List[Type](
-            TensorType(DType.float32, bs, seqlen, n_local_kv_heads, head_dim),
+            TensorType(DType.float32, bs, seq_len, n_local_kv_heads, head_dim),
             TensorType(DType.float32, 2, 1, 2),
-        ),
-        List[Type](
-            TensorType(DType.float32, bs, seqlen, n_local_kv_heads, head_dim)
-        ),
+        )
     )
     _ = g.output(rope(x=g[0], freqs_cis=g[1], enable_custom_rope_kernel=False))
 
-    var x = Tensor[DType.float32](TensorShape(bs, seqlen, n_local_kv_heads, head_dim),
+    var x = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
          3.4737,  1.4446,
         -2.9905,  0.0881,
 
@@ -260,7 +253,7 @@ fn test_rope_batch_size_2() raises:
          1.0000,  0.0000,
          0.5403,  0.8415,
     )
-    var expected = Tensor[DType.float32](TensorShape(bs, seqlen, n_local_kv_heads, head_dim),
+    var expected = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
          3.4737,  1.4446,
         -1.6900, -2.4689,
 
@@ -274,22 +267,19 @@ fn test_rope_batch_size_2() raises:
 
 fn test_rope_seq_len_5() raises:
     alias bs = 1
-    alias seqlen = 5
+    alias seq_len = 5
     alias n_local_kv_heads = 1
     alias head_dim = 6
 
     var g = Graph(
         List[Type](
-            TensorType(DType.float32, bs, seqlen, n_local_kv_heads, head_dim),
-            TensorType(DType.float32, seqlen, head_dim // 2, 2),
-        ),
-        List[Type](
-            TensorType(DType.float32, bs, seqlen, n_local_kv_heads, head_dim)
-        ),
+            TensorType(DType.float32, bs, seq_len, n_local_kv_heads, head_dim),
+            TensorType(DType.float32, seq_len, head_dim // 2, 2),
+        )
     )
     _ = g.output(rope(x=g[0], freqs_cis=g[1], enable_custom_rope_kernel=False))
 
-    var freqs_cis = Tensor[DType.float32](TensorShape(seqlen, head_dim // 2, 2),
+    var freqs_cis = Tensor[DType.float32](TensorShape(seq_len, head_dim // 2, 2),
          1.0000,  0.0000,
          1.0000,  0.0000,
          1.0000,  0.0000,
@@ -310,14 +300,14 @@ fn test_rope_seq_len_5() raises:
         -0.2820,  0.9594,
          0.6511,  0.7590,
     )
-    var x = Tensor[DType.float32](TensorShape(bs, seqlen, n_local_kv_heads, head_dim),
+    var x = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
          1.9269,  1.4873,  0.9007, -2.1055,  0.6784, -1.2345,
         -0.0431, -1.6047, -0.7521,  1.6487, -0.3925, -1.4036,
         -0.7279, -0.5594, -2.3169, -0.2168, -1.3847, -0.8712,
         -0.2234,  1.7174,  0.3189, -0.4245, -0.8286,  0.3309,
         -1.5576,  0.9956, -0.8798, -0.6011, -1.2742,  2.1228,
     )
-    var expected = Tensor[DType.float32](TensorShape(bs, seqlen, n_local_kv_heads, head_dim),
+    var expected = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
          1.9269,  1.4873,  0.9007, -2.1055,  0.6784, -1.2345,
          1.3270, -0.9032, -1.4106,  1.1376, -0.0833, -1.4551,
          0.8116, -0.4291, -1.2147, -1.9849, -0.8942, -1.3699,
@@ -335,7 +325,7 @@ def test_feed_forward() -> None:
     alias hidden_dim = 2
 
     llama = NanoLlama()
-    g = Graph(TensorType(DType.float32, "batch", "seqlen", dim))
+    g = Graph(TensorType(DType.float32, "batch", "seq_len", dim))
     layer = llama.feed_forward(g)
     g.output(layer(g[0]))
 
@@ -362,7 +352,7 @@ def test_feed_forward() -> None:
 fn test_rms_norm() raises:
     alias dim = 2
 
-    var g = Graph(TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), dim))
+    var g = Graph(TensorType(DType.float32, "batch", "seq_len", dim))
     var layer = RMSNorm(
         1e-5,
         g.constant(Tensor[DType.float32](TensorShape(dim), 1.0476, -0.3264)),
@@ -445,16 +435,16 @@ def test_attention() -> None:
     alias head_dim = 2
 
     # TODO(andrew's fix)
-    batch = Dim.dynamic()
-    seqlen = Dim.dynamic()
-    startpos = Dim.dynamic()
+    batch = "batch"
+    seq_len = "seq_len"
+    start_pos = "start_pos"
 
     g = Graph(
         List[Type](
-            TensorType(DType.float32, batch, seqlen, dim),
-            TensorType(DType.float32, seqlen, 1, 2),
-            TensorType(DType.float32, startpos, 1, batch, n_kv_heads, head_dim),
-            TensorType(DType.float32, startpos, 1, batch, n_kv_heads, head_dim),
+            TensorType(DType.float32, batch, seq_len, dim),
+            TensorType(DType.float32, seq_len, 1, 2),
+            TensorType(DType.float32, start_pos, 1, batch, n_kv_heads, head_dim),
+            TensorType(DType.float32, start_pos, 1, batch, n_kv_heads, head_dim),
         )
     )
 
@@ -531,14 +521,14 @@ def test_transformer_block() -> None:
     alias head_dim = 2
     alias hidden_dim = 2
 
-    batch_size = Dim.dynamic()
-    seq_len = Dim.dynamic()
-    prev_seq_len = Dim.dynamic()
-    cache_type = TensorType(DType.float32, prev_seq_len, 1, batch_size, n_kv_heads, head_dim)
+    batch = "batch"
+    seq_len = "seq_len"
+    prev_seq_len = "prev_seq_len"
+    cache_type = TensorType(DType.float32, prev_seq_len, 1, batch, n_kv_heads, head_dim)
 
     g = Graph(
         List[Type](
-            TensorType(DType.float32, batch_size, seq_len, dim),
+            TensorType(DType.float32, batch, seq_len, dim),
             TensorType(DType.float32, seq_len, 1, 2),
             cache_type,
             cache_type,
