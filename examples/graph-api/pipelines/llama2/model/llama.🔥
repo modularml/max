@@ -70,13 +70,13 @@ struct Llama2[
         params = self.model.hyperparams()
         cache_type = TensorType(
             DType.float32,
-            Dim.dynamic(),
+            "prev_seq_len",
             params.n_layers,
             Self.batch_size,
             params.n_kv_heads,
             params.head_dim,
         )
-        tokens_type = TensorType(DType.int64, self.batch_size, Dim.dynamic())
+        tokens_type = TensorType(DType.int64, self.batch_size, "seq_len")
         g = Graph(name, List[Type](tokens_type, cache_type, cache_type))
 
         @parameter

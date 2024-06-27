@@ -32,10 +32,7 @@ from pipelines.nn.attention import attention_mask
 
 
 fn test_freqs_cis() raises:
-    var g = Graph(
-        List[Type](),
-        List[Type](TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), 2)),
-    )
+    var g = Graph(List[Type]())
     var dummy = Transformer(
         dim=2,
         n_heads=1,
@@ -80,7 +77,7 @@ fn test_feed_forward() raises:
     alias dim = 2
     alias hidden_dim = 2
 
-    var g = Graph(TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), dim))
+    var g = Graph(TensorType(DType.float32, "batch", "seq_len", dim))
     var layer = FeedForward(
         w1=g.constant(
             Tensor[DType.float32](
@@ -131,7 +128,7 @@ fn test_feed_forward() raises:
 fn test_rms_norm() raises:
     alias dim = 2
 
-    var g = Graph(TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), dim))
+    var g = Graph(TensorType(DType.float32, "batch", "seq_len", dim))
     var layer = RMSNorm(
         1e-5,
         g.constant(Tensor[DType.float32](TensorShape(dim), 1.0476, -0.3264)),
@@ -168,8 +165,7 @@ fn test_rms_norm() raises:
 
 fn test_attention_mask() raises:
     var g = Graph(
-        List[Type](TensorType(DType.int64, 1), TensorType(DType.int64, 1)),
-        List[Type](TensorType(DType.float32, Dim.dynamic(), Dim.dynamic())),
+        List[Type](TensorType(DType.int64, 1), TensorType(DType.int64, 1))
     )
     _ = g.output(attention_mask(g[0], g[1], DType.float32))
 
@@ -216,23 +212,26 @@ fn test_attention() raises:
     alias n_kv_heads = 1
     alias head_dim = 2
 
+    var batch = "batch"
+    var seq_len = "seq_len"
+    var prev_seq_len = "prev_seq_len"
     var g = Graph(
         List[Type](
-            TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), dim),
-            TensorType(DType.float32, Dim.dynamic(), 1, 2),
+            TensorType(DType.float32, batch, seq_len, dim),
+            TensorType(DType.float32, seq_len, 1, 2),
             TensorType(
                 DType.float32,
-                Dim.dynamic(),
+                prev_seq_len,
                 1,
-                Dim.dynamic(),
+                batch,
                 n_kv_heads,
                 head_dim,
             ),
             TensorType(
                 DType.float32,
-                Dim.dynamic(),
+                prev_seq_len,
                 1,
-                Dim.dynamic(),
+                batch,
                 n_kv_heads,
                 head_dim,
             ),
@@ -371,18 +370,18 @@ fn test_transformer_block() raises:
     alias head_dim = 2
     alias hidden_dim = 2
 
-    var batch_size = Dim.dynamic()
-    var seq_len = Dim.dynamic()
-    var prev_seq_len = Dim.dynamic()
+    var batch = "batch"
+    var seq_len = "seq_len"
+    var prev_seq_len = "prev_seq_len"
     var g = Graph(
         List[Type](
-            TensorType(DType.float32, Dim.dynamic(), Dim.dynamic(), dim),
+            TensorType(DType.float32, batch, seq_len, dim),
             TensorType(DType.float32, seq_len, 1, 2),
             TensorType(
                 DType.float32,
                 prev_seq_len,
                 1,
-                batch_size,
+                batch,
                 n_kv_heads,
                 head_dim,
             ),
@@ -390,7 +389,7 @@ fn test_transformer_block() raises:
                 DType.float32,
                 prev_seq_len,
                 1,
-                batch_size,
+                batch,
                 n_kv_heads,
                 head_dim,
             ),

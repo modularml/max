@@ -145,25 +145,29 @@ struct GroupedQueryAttention[dtype: DType]:
         v = value.reshape(batch_size, seq_len, kv_n_heads, head_dim)
         v = ops.transpose(v, 1, 2)
 
+        full_seq_len = Dim("full_seq_len")
         if k_cache:
             k_cache_value = k_cache.value()
-            k = ops.concat(List[Symbol](k_cache_value, k), axis=3)
+            k = ops.concat(
+                List[Symbol](k_cache_value, k), axis=3, out_dim=full_seq_len
+            )
             if not v_cache:
                 raise error(g, "v_cache cannot be None if k_cache is defined.")
             v_cache_value = v_cache.value()
-            v = ops.concat(List[Symbol](v_cache_value, v), axis=2)
+            v = ops.concat(
+                List[Symbol](v_cache_value, v), axis=2, out_dim=full_seq_len
+            )
 
-        cache_size = Dim("cache_size")
-        k = k.rebind(batch_size, kv_n_heads, head_dim, cache_size)
-        v = v.rebind(batch_size, kv_n_heads, cache_size, head_dim)
+        k = k.rebind(batch_size, kv_n_heads, head_dim, full_seq_len)
+        v = v.rebind(batch_size, kv_n_heads, full_seq_len, head_dim)
 
         # Record the k and v into the cache. An extra dimension is added
         # so that all cached keys/values can be concatenated on that dimension.
         k_cache_update = k.reshape(
-            1, batch_size, kv_n_heads, head_dim, cache_size
+            1, batch_size, kv_n_heads, head_dim, full_seq_len
         )
         v_cache_update = v.reshape(
-            1, batch_size, kv_n_heads, cache_size, head_dim
+            1, batch_size, kv_n_heads, full_seq_len, head_dim
         )
 
         if kv_n_heads > 1 and kv_n_heads < n_heads:
@@ -171,15 +175,17 @@ struct GroupedQueryAttention[dtype: DType]:
             # query.
             n_repeats = n_heads // kv_n_heads
 
-            k = k.reshape(batch_size, kv_n_heads, 1, head_dim, cache_size)
+            k = k.reshape(batch_size, kv_n_heads, 1, head_dim, full_seq_len)
             k = ops.tile(k, List[Int64](1, 1, n_repeats, 1, 1))
             k = k.reshape(
-                batch_size, kv_n_heads * n_repeats, head_dim, cache_size
+                batch_size, kv_n_heads * n_repeats, head_dim, full_seq_len
             )
 
-            v = v.reshape(batch_size, kv_n_heads, 1, cache_size, head_dim)
+            v = v.reshape(batch_size, kv_n_heads, 1, full_seq_len, head_dim)
             v = ops.tile(v, List[Int64](batch_size, 1, n_repeats, 1, 1))
-            v = v.reshape(1, kv_n_heads * n_repeats, cache_size, head_dim)
+            v = v.reshape(
+                batch_size, kv_n_heads * n_repeats, full_seq_len, head_dim
+            )
 
         softmax_scale = 1 / math.sqrt(d_model / n_heads)
         attn_weight = (q @ k) * softmax_scale
@@ -191,9 +197,7 @@ struct GroupedQueryAttention[dtype: DType]:
             attn_bias_shape = ops.shape_of(bias)
             _s_q = ops.max(g.scalar(Int32(0)), attn_bias_shape[2] - s_q)
             _s_k = ops.max(g.scalar(Int32(0)), attn_bias_shape[3] - s_k)
-            bias = bias[:, :, _s_q:, _s_k:].rebind(
-                Dim.dynamic(), Dim.dynamic(), 1, cache_size
-            )
+            bias = bias[:, :, _s_q:, _s_k:].rebind(1, n_heads, 1, full_seq_len)
             attn_weight = attn_weight + bias
 
         if is_causal and (not q.tensor_type().dims[2] == 1):
@@ -212,10 +216,10 @@ struct GroupedQueryAttention[dtype: DType]:
                 List[Symbol](g.scalar(min_finite[dtype]()), attn_weight_shape),
                 TensorType(
                     dtype,
-                    Dim.dynamic(),
-                    Dim.dynamic(),
+                    batch_size,
+                    n_heads,
                     seq_len,
-                    cache_size,
+                    full_seq_len,
                 ),
             )
             causal_mask = g.op(
@@ -223,10 +227,10 @@ struct GroupedQueryAttention[dtype: DType]:
                 List[Symbol](causal_mask, attn_weight_shape),
                 TensorType(
                     causal_mask.tensor_type().dtype,
-                    Dim.dynamic(),
-                    Dim.dynamic(),
+                    batch_size,
+                    n_heads,
                     seq_len,
-                    cache_size,
+                    full_seq_len,
                 ),
             )
             attn_weight = ops.select(causal_mask, attn_weight, min_val)
@@ -234,6 +238,5 @@ struct GroupedQueryAttention[dtype: DType]:
         attn_weight = ops.softmax(attn_weight)
         out = attn_weight @ v
         out = ops.transpose(out, 1, 2)
-        out = out.rebind(batch_size, seq_len, n_heads, head_dim)
         out = out.reshape(batch_size, seq_len, d_model)
         return self.out_proj(out), k_cache_update, v_cache_update

@@ -111,7 +111,7 @@ def attention_mask(
     mask_val = ops.cast(
         g.full(Scalar[DType.float32].MIN, List[Symbol](seq_len, seq_len)),
         activation_dtype,
-    )
+    ).rebind("seq_len", "seq_len")
     mask = ops.band_part(
         mask_val,
         g.scalar[DType.int64](-1),
@@ -129,10 +129,11 @@ def attention_mask(
             ops.cast(
                 g.full[DType.float32](0, List(seq_len, start_pos)),
                 activation_dtype,
-            ),
+            ).rebind("seq_len", "start_pos"),
             mask,
         ),
         axis=1,
+        out_dim=Dim("full_seq_len"),
     )
 
 
@@ -153,7 +154,7 @@ struct Attention[model_dtype: DType = DType.float32]:
 
     def repeat_kv(self, kv: Symbol) -> Symbol:
         """Repeats key/value tensors to match the number of query heads."""
-        batch_size = ops.shape_of(kv)[0]
+        batch_size = kv.shape()[0]
         kv = kv.reshape(batch_size, -1, self.n_kv_heads, 1, self.head_dim)
         kv = ops.tile(
             kv, List[Int64](1, 1, 1, self.n_heads // self.n_kv_heads, 1)
@@ -198,7 +199,11 @@ struct Attention[model_dtype: DType = DType.float32]:
                 attn_shape,
             ),
             TensorType(
-                model_dtype, 1, self.n_heads, Dim.dynamic(), Dim.dynamic()
+                model_dtype,
+                1,
+                self.n_heads,
+                attn_mask.shape()[0],
+                attn_mask.shape()[1],
             ),
         )
 
@@ -219,9 +224,7 @@ struct Attention[model_dtype: DType = DType.float32]:
                     Tensor(TensorShape(), rsqrt(Float32(self.head_dim)))
                 ),
             ),
-            TensorType(
-                model_dtype, 1, self.n_heads, Dim.dynamic(), self.head_dim
-            ),
+            TensorType(model_dtype, 1, self.n_heads, "seq_len", self.head_dim),
         )
 
     def naive_attention(
@@ -236,12 +239,13 @@ struct Attention[model_dtype: DType = DType.float32]:
         prev_seq_len = ops.shape_of(k_cache)[0]
         seq_len = ops.shape_of(xq)[1]
 
-        keys = ops.concat(List[Symbol](k_cache, xk.swapaxes(0, 1))).swapaxes(
-            0, 1
-        )
-        values = ops.concat(List[Symbol](v_cache, xv.swapaxes(0, 1))).swapaxes(
-            0, 1
-        )
+        full_seq_len = Dim("full_seq_len")
+        keys = ops.concat(
+            List[Symbol](k_cache, xk.swapaxes(0, 1)), out_dim=full_seq_len
+        ).swapaxes(0, 1)
+        values = ops.concat(
+            List[Symbol](v_cache, xv.swapaxes(0, 1)), out_dim=full_seq_len
+        ).swapaxes(0, 1)
 
         # Tile keys and values if this is GQA, otherwise no-op.
         keys = self.repeat_kv(keys)
@@ -296,17 +300,16 @@ struct Attention[model_dtype: DType = DType.float32]:
 
         Returns the result of multi-headed self attention on the input.
         """
-        input_shape = ops.shape_of(input)
-
-        batch_size, seq_len = input_shape[0], input_shape[1]
+        batch = input.shape()[0]
+        seq_len = input.shape()[1]
 
         xq = input @ self.wq
         xk = input @ self.wk
         xv = input @ self.wv
 
-        xq = xq.reshape(batch_size, seq_len, self.n_heads, self.head_dim)
-        xk = xk.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
-        xv = xv.reshape(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+        xq = xq.reshape(batch, seq_len, self.n_heads, self.head_dim)
+        xk = xk.reshape(batch, seq_len, self.n_kv_heads, self.head_dim)
+        xv = xv.reshape(batch, seq_len, self.n_kv_heads, self.head_dim)
 
         # Apply RoPE positional embeddings.
         xq = rope(xq, freqs_cis, self.enable_custom_rope_kernel)
@@ -314,6 +317,6 @@ struct Attention[model_dtype: DType = DType.float32]:
 
         output = self.attention(xq, xk, xv, k_cache, v_cache)
 
-        output = output.swapaxes(1, 2).reshape(batch_size, seq_len, -1)
+        output = output.swapaxes(1, 2).reshape(batch, seq_len, -1)
 
         return output @ self.wo, xk, xv
