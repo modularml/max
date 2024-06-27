@@ -175,11 +175,11 @@ def generate_text(
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):
-        tokens[Index(0, i)] = prompt[i].id
+        tokens[Index(0, i)] = prompt[i]
 
     print("Executing...")
     for token in prompt:
-        print(tokenizer.decode(token[].id).token, end="")
+        print(tokenizer.decode(token[]), end="")
 
     kv_cache = KVCache(params, config.max_tokens, config.batch_size)
 
@@ -191,10 +191,10 @@ def generate_text(
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )
-        token = sampler.sample(logits).selected
-        tokens = Tensor(TensorShape(1, 1), Int64(token))
+        token = Int64(sampler.sample(logits).selected)
+        tokens = Tensor(TensorShape(1, 1), token)
         metrics.new_token()
-        print(tokenizer.decode(token).token, end="")
+        print(tokenizer.decode(token), end="")
     print()
     metrics.end_timing()
 
