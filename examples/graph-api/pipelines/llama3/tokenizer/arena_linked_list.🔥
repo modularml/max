@@ -77,9 +77,9 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
 
     def remove(inout self, id: Self.ID):
         """Removes an element from the list."""
-        debug_assert(self.node(id)[], "removing item not in list")
-        debug_assert(self._head, "removing from empty list")
-        debug_assert(self._tail, "removing from empty list")
+        debug_assert(bool(self.node(id)[]), "removing item not in list")
+        debug_assert(bool(self._head), "removing from empty list")
+        debug_assert(bool(self._tail), "removing from empty list")
 
         node = self.node(id)[].value()
         self.node(id)[] = None
@@ -96,12 +96,12 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
 
     def next(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the next item in the list, if any."""
-        debug_assert(self.node(id)[], "next on item not in list")
+        debug_assert(bool(self.node(id)[]), "next on item not in list")
         return self.node(id)[].value().next
 
     def prev(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the previous item in the list, if any."""
-        debug_assert(self.node(id)[], "prev on item not in list")
+        debug_assert(bool(self.node(id)[]), "prev on item not in list")
         return self.node(id)[].value().prev
 
     def node(
@@ -115,5 +115,5 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
     ) -> ref [__lifetime_of(self)] ElementType:
         """Gets a reference to a value in the list."""
         node_ref = self.node(id)
-        debug_assert(node_ref[], "retrieved removed value")
+        debug_assert(bool(node_ref[]), "retrieved removed value")
         return Reference(node_ref[].value().value)[]
