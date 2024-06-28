@@ -66,7 +66,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
 
     fn pop(inout self) -> ElementType:
         """Removes the top element from the heap and return it."""
-        debug_assert(self, "heap is empty")
+        debug_assert(bool(self), "heap is empty")
         self._sink_down(self.begin_idx)
 
         var top = self.heap[self.begin_idx]

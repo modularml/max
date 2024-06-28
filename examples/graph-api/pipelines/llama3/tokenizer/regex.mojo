@@ -195,7 +195,7 @@ struct _MatchIter[
         return m^
 
     fn __len__(self) -> Int:
-        return int(Bool(self.next_match))
+        return int(bool(self.next_match))
 
     def _next(inout self):
         m = self.regex[].find(self.string[], start=self.start)
