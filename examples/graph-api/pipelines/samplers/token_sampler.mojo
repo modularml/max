@@ -13,6 +13,7 @@
 
 from max.tensor import Tensor
 from utils import StaticTuple
+import max._driver as driver
 
 
 @value
@@ -60,4 +61,10 @@ trait TokenSampler:
     an element based on the associated likelihoods."""
 
     def sample[dtype: DType](self, logits: Tensor[dtype]) -> SamplerResult:
+        ...
+
+    # TODO (MSDK-491): Unify these and delete the other.
+    def _sample[
+        dtype: DType, rank: Int
+    ](self, owned logits: driver.Tensor[dtype, rank]) -> SamplerResult:
         ...

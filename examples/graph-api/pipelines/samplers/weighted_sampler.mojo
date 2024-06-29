@@ -16,6 +16,7 @@ from max.tensor import Tensor
 from random import random_float64
 import math
 from utils.numerics import min_finite
+import max._driver as driver
 
 
 @value
@@ -76,6 +77,81 @@ struct WeightedSampler(TokenSampler):
 
         # Now run through again with the actual probabilities
         for i in range(logits.num_elements()):
+            var intermediate: SIMD[DType.float32, 1] = (
+                logits[0, i] - largest
+            ).cast[DType.float32]() / temp_modified
+            var p: Float32 = math.exp(intermediate) / normalization
+
+            if p >= (self.min_p / normalization):
+                retained_idx.append(i)
+                retained_p.append(p)
+
+        # Renormalize after filtering min_p
+        normalization = Scalar[DType.float32](0)
+        for v in range(len(retained_idx)):
+            normalization += retained_p[v]
+
+        # Simple O(N) weighted sampler
+        # Collect the considered tokens as we go for the SamplerResult
+        var u = random_float64()
+        var cdf = Scalar[dtype.float32](0.0)
+        for i in range(len(retained_idx)):
+            options.append(retained_idx[i])
+            likelihoods.append(
+                retained_p[i] / normalization.cast[DType.float32]()
+            )
+
+            cdf += retained_p[i] / normalization
+
+            if cdf > u:
+                return SamplerResult(retained_idx[i], options)
+
+        return SamplerResult(retained_idx[len(retained_idx) - 1], options)
+
+    # TODO (MSDK-491): Unify these and delete the other.
+    def _sample[
+        dtype: DType, rank: Int
+    ](self, owned logits: driver.Tensor[dtype, rank]) -> SamplerResult:
+        """Generates a random sample from the logits.
+
+        Args:
+          logits: Tensor logits. Shape must be [1, vocab_size].
+
+        Returns:
+          A SamplerResult with the selected token.
+        """
+        var normalization = Scalar[DType.float32](0)
+
+        # Add a floor to mitigate div0 if T=0.0 is passed in.
+        var temp_modified: SIMD[DType.float32, 1] = max(
+            Float32(1e-6), self.temperature
+        )
+
+        # Overflow mitigation.
+        # p_i = exp(logit_i / T) / (sum_j exp(logit_j / T))
+        #     = exp(logit_max / T) / exp(logit_max / T) (...)
+        #     = exp((logit_i-logit_max)/T) / (sum_j exp((logit_j-logit_max)/T))
+        var largest = min_finite[dtype]()
+
+        for i in range(logits.spec().num_elements()):
+            if largest < logits[0, i]:
+                largest = logits[0, i]
+
+        for i in range(logits.spec().num_elements()):
+            var intermediate: SIMD[DType.float32, 1] = (
+                logits[0, i] - largest
+            ).cast[DType.float32]() / temp_modified
+            var p = math.exp(intermediate)
+            normalization += p
+
+        # Start filtering for min_p
+        var retained_idx = List[Int]()
+        var retained_p = List[Float32]()
+        var options = List[Int]()
+        var likelihoods = List[Float32]()
+
+        # Now run through again with the actual probabilities
+        for i in range(logits.spec().num_elements()):
             var intermediate: SIMD[DType.float32, 1] = (
                 logits[0, i] - largest
             ).cast[DType.float32]() / temp_modified
