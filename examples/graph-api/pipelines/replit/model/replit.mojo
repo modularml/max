@@ -15,7 +15,8 @@ from utils.numerics import min_finite
 from collections import Optional, List
 
 from max.graph import ops, Dim, TensorType, Symbol, Graph, Type
-from max.tensor import Tensor, TensorShape
+from max.tensor import TensorSpec
+from max._driver import AnyTensor, Device
 
 from ..layers.embedding import SharedEmbedding
 from ..layers.block import MPTBlock
@@ -58,28 +59,32 @@ struct Replit[T: Checkpoint, dtype: DType]:
     def __init__(inout self, hyperparams: HyperParams):
         self.hyperparams = hyperparams
 
-    def create_empty_cache(
-        self,
-    ) -> (Tensor[dtype], Tensor[dtype]):
+    def create_empty_cache(self, device: Device) -> (AnyTensor, AnyTensor):
         head_dim = self.hyperparams.d_model // self.hyperparams.n_heads
         return (
-            Tensor[dtype](
-                TensorShape(
-                    self.hyperparams.num_blocks,
-                    self.hyperparams.batch_size,
-                    self.hyperparams.kv_n_heads,
-                    head_dim,
-                    0,
+            AnyTensor(
+                device.allocate(
+                    TensorSpec(
+                        dtype,
+                        self.hyperparams.num_blocks,
+                        self.hyperparams.batch_size,
+                        self.hyperparams.kv_n_heads,
+                        head_dim,
+                        0,
+                    )
                 )
             ),
-            Tensor[dtype](
-                TensorShape(
-                    self.hyperparams.num_blocks,
-                    self.hyperparams.batch_size,
-                    self.hyperparams.kv_n_heads,
-                    0,
-                    head_dim,
-                )
+            AnyTensor(
+                device.allocate(
+                    TensorSpec(
+                        dtype,
+                        self.hyperparams.num_blocks,
+                        self.hyperparams.batch_size,
+                        self.hyperparams.kv_n_heads,
+                        0,
+                        head_dim,
+                    )
+                ),
             ),
         )
 

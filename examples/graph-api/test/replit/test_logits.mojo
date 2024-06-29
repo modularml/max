@@ -16,6 +16,7 @@ from pathlib import Path
 from max.engine import InferenceSession, TensorMap
 from max.graph import _testing, Graph, TensorType, Symbol, Type
 from max.tensor import Tensor, TensorShape
+from max._driver import cpu_device
 
 from pipelines.replit.weights.replit_checkpoint import Checkpoint
 from pipelines.replit.weights.hyperparams import HyperParams
@@ -504,9 +505,9 @@ fn test_replit_logits() raises:
     # Test with empty kv cache.
     var input = Tensor[DType.int64](TensorShape(1, 7), 1, 3, 2, 1, 4, 0, 2)
     var attention_mask = Tensor[DType.bool](TensorShape(1, 7), True)
-    var k_cache: Tensor[DType.float32]
-    var v_cache: Tensor[DType.float32]
-    k_cache, v_cache = replit.create_empty_cache()
+    var kv_cache = replit.create_empty_cache(cpu_device())
+    var k_cache = Tensor[DType.float32](kv_cache[0].spec())
+    var v_cache = Tensor[DType.float32](kv_cache[1].spec())
     var result_map = execute_replit(g, input, attention_mask, k_cache, v_cache)
 
     var expected_logits = Tensor[DType.float32](TensorShape(1, 5),
