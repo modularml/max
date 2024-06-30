@@ -108,7 +108,7 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
             return weight, encoding_id
 
         def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
-            # GGUF always stores these as float32
+            # GGUF always stores these as float32.
             w, _ = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
