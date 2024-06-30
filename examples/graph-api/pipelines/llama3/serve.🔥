@@ -45,7 +45,7 @@ from ..weights.loadable_model import LlamaHParams, LoadableModel
 from .run import (
     Config,
     llama_main,
-    cached_weights,
+    download_to_cache,
     compile_graph,
     execute,
 )
@@ -266,8 +266,5 @@ def llama3_serve():
     encoding = config.quantization_encoding.lower()
     weight_metadata = ServingWeightMetadata.from_encoding(encoding)
     if not str(config.model_path):
-        # TODO(MOCO-794): assign directly
-        var model_path: String = str(cached_weights(weight_metadata.url))
-        config = Config()
-        config.model_path = model_path
+        config.model_path = download_to_cache(weight_metadata.url)
     weight_metadata.main(config)
