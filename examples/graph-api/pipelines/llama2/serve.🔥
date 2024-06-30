@@ -12,22 +12,14 @@
 # ===----------------------------------------------------------------------=== #
 
 import sys
-from collections import List, Optional
-from pathlib import cwd, Path
-from python.python import _get_global_python_itf, Python, CPython
-from runtime.llcl import Runtime, TaskGroup
+from python.python import Python
 from sys.ffi import DLHandle
 from utils.index import Index
-from time import sleep
 
 from max.engine import InferenceSession, Model, TensorMap
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
-from max.graph.quantization import (
-    Float32Encoding,
-    QuantizationEncoding,
-    Q4_0Encoding,
-)
+from max.graph.quantization import QuantizationEncoding, Float32Encoding
 from max.serve.http import PythonServer, PythonService
 from max.tensor import Tensor, TensorShape, TensorSpec
 
@@ -37,6 +29,7 @@ from .tokenizer.bpe import BPETokenizer
 from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer, Tokenizer
 from ..weights.gguf import GGUFFile
+from ..weights.download import download_to_cache
 from ..weights.llama2checkpoint import LlamaCFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
@@ -44,13 +37,13 @@ from .run import (
     Config,
     compile_graph,
     execute,
-    run_outer,
     _generate_text_with_tokenizer,
+    outer,
 )
 
 
 struct Llama2InferenceService[
-    ModelT: LoadableModel,
+    ModelType: LoadableModel,
     EncodingT: QuantizationEncoding = Float32Encoding,
     TokenizerT: Tokenizer = AutoTokenizer,
 ](PythonService):
@@ -59,8 +52,7 @@ struct Llama2InferenceService[
     var _config: Config
     var _tokenizer: TokenizerT
     var _session: InferenceSession
-
-    var _model: Llama2[ModelT, EncodingT]
+    var _model: Llama2[ModelType, EncodingT]
     var _graph: Graph
     var _compiled_model: Model
 
@@ -78,7 +70,7 @@ struct Llama2InferenceService[
         self._json_module = Python.import_module("json")
 
         print("Building model...")
-        self._model = Llama2[ModelT, EncodingT](
+        self._model = Llama2[ModelType, EncodingT](
             self._config.model_path,
             enable_custom_rope_kernel=self._config.enable_custom_rope_kernel,
         )
@@ -86,14 +78,6 @@ struct Llama2InferenceService[
         self._compiled_model = self._session.load(
             self._graph, custom_ops_paths=self._config.custom_ops_paths
         )
-
-    fn __del__(owned self):
-        _ = self._config^
-        _ = self._tokenizer^
-        _ = self._session^
-        _ = self._model^
-        _ = self._graph^
-        _ = self._compiled_model^
 
     fn handle(
         inout self, owned body: PythonObject, owned handler: PythonObject
@@ -203,12 +187,12 @@ struct Llama2InferenceService[
 
 
 def serve_inner[
-    ModelT: LoadableModel,
+    ModelType: LoadableModel,
     EncodingT: QuantizationEncoding,
     TokenizerT: Tokenizer = AutoTokenizer,
 ](owned config: Config, owned tokenizer: TokenizerT):
     session = InferenceSession()
-    service = Llama2InferenceService[ModelT, EncodingT, TokenizerT](
+    service = Llama2InferenceService[ModelType, EncodingT, TokenizerT](
         config^, tokenizer^, session
     )
     server = PythonServer.create("0.0.0.0:8000")
@@ -217,34 +201,26 @@ def serve_inner[
 
 
 def serve[
-    ModelT: LoadableModel,
+    ModelType: LoadableModel,
     EncodingT: QuantizationEncoding = Float32Encoding,
-](config: Config):
-    if AutoTokenizer.is_available():
-        try:
-            serve_inner[ModelT, EncodingT](
-                config, AutoTokenizer("meta-llama/Llama-2-7b-hf")
-            )
-        except:
-            print(
-                "Unable to initialize AutoTokenizer, using Mojo tokenizer"
-                " instead."
-            )
-            # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
-            # fails, for example due to lack of authentication.
-            serve_inner[ModelT, EncodingT, BPETokenizer](
-                config, BPETokenizer.from_file(config.tokenizer_path)
-            )
-    else:
-        print(
-            "Hugging Face `transformers` not installed, using Mojo tokenizer"
-            " instead."
+](config: Config) -> None:
+    try:
+        serve_inner[ModelType, EncodingT](
+            config, AutoTokenizer("meta-llama/Llama-2-7b-hf")
         )
-        # Fall back to the Mojo tokenizer if `transformers` is not installed.
-        serve_inner[ModelT, EncodingT, BPETokenizer](
+    except e:
+        # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
+        # fails, for example due to lack of authentication.
+        print("Unable to initialize AutoTokenizer:", e)
+        print("Using Mojo tokenizer instead.")
+        if not str(config.tokenizer_path):
+            config.tokenizer_path = download_to_cache(
+                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
+            )
+        serve_inner[ModelType, EncodingT, BPETokenizer](
             config, BPETokenizer.from_file(config.tokenizer_path)
         )
 
 
 def llama2_serve():
-    run_outer[serve]()
+    outer[serve]()
