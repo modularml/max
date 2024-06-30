@@ -34,7 +34,7 @@ from pipelines.nn import (
     Transformer,
     TransformerBlock,
 )
-from pipelines.weights.download import download_weights_to_cache
+from pipelines.weights.download import download_to_cache
 from pipelines.weights.loadable_model import LlamaHParams
 
 
@@ -194,9 +194,7 @@ struct TeenyTinyLlama:
 def load_quantized_tinystories(checkpoint_path: Path):
     """Runs the TinyStories pipeline."""
     # Download and cache only the tokenizer config for Llama.
-    cache_path = cwd().joinpath(".cache")
-    download_weights_to_cache(
-        cache_path,
+    tokenizer_path = download_to_cache(
         "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
     )
 
@@ -209,7 +207,7 @@ def load_quantized_tinystories(checkpoint_path: Path):
     generate_text(
         compile_graph(llama),
         llama_builder.hyperparams,
-        Config(tokenizer_path=cache_path.joinpath("tokenizer.bin")),
+        Config(tokenizer_path=tokenizer_path),
         metrics,
     )
     print()
