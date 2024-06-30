@@ -12,11 +12,11 @@
 # ===----------------------------------------------------------------------=== #
 
 import sys
-from collections import List
-from pathlib import cwd, Path
+from pathlib import Path
 from utils.index import Index
 
-from max.engine import InferenceSession, Model
+from max.engine import InferenceSession, Model, SessionOptions
+from max._driver import cpu_device, cuda_device
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
@@ -51,6 +51,7 @@ struct Config:
     var enable_custom_rope_kernel: Bool
     var prompt: String
     var quantization_encoding: String
+    var use_gpu: Bool
     var temperature: Float32
     var min_p: Float32
 
@@ -64,7 +65,8 @@ struct Config:
         tokenizer_path: Path = "",
         enable_custom_rope_kernel: Bool = False,
         prompt: String = "",
-        quantization_encoding: String = "q4_0",
+        quantization_encoding: String = "q4_k",
+        use_gpu: Bool = False,
         temperature: Float32 = 0.5,
         min_p: Float32 = 0.05,
     ):
@@ -76,9 +78,9 @@ struct Config:
         self.enable_custom_rope_kernel = enable_custom_rope_kernel
         self.prompt = prompt
         self.quantization_encoding = quantization_encoding
-        """Encoding for quantized model weights, such as Q4_0."""
+        """Encoding for quantized model weights: Q4_0, Q4_K, or Q6_K."""
+        self.use_gpu = use_gpu
 
-        """Token sampler parameters"""
         self.temperature = temperature
         self.min_p = min_p
 
@@ -104,6 +106,8 @@ struct Config:
             elif args[i] == "--max-tokens":
                 self.max_tokens = atol(parse_argument_value(i))
             elif args[i] == "--model-path":
+                # If a manual model path has been specified, don't use one of
+                # the downloadable pretrained models.
                 self.model_path = Path(parse_argument_value(i))
             elif args[i] == "--custom-ops-path":
                 self.custom_ops_paths.append(Path(parse_argument_value(i)))
@@ -120,9 +124,19 @@ struct Config:
                 raise "unsupported CLI argument: " + String(args[i])
 
         if self.prompt == "":
-            raise "--prompt is a required argument"
+            self.prompt = "I believe the meaning of life is"
+
+        # Check for invalid config
         if self.enable_custom_rope_kernel and len(self.custom_ops_paths) == 0:
             raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
+        if (
+            self.model_path.suffix() != ".gguf"
+            and not self.quantization_encoding
+        ):
+            raise (
+                "`--model-path` must be `.bin` or `.gguf` file. "
+                "Alternatively provide a `--quantization-encoding`"
+            )
 
 
 def execute(
@@ -145,11 +159,11 @@ def execute(
 
 
 def compile_graph(
-    graph: Graph, custom_ops_paths: List[Path] = List[Path]()
+    session: InferenceSession,
+    graph: Graph,
+    custom_ops_paths: List[Path] = List[Path](),
 ) -> Model:
     """Compiles a staged graph using the graph compiler."""
-    session = InferenceSession()
-
     print("Compiling...")
     return session.load(graph, custom_ops_paths=custom_ops_paths)
 
@@ -167,7 +181,6 @@ def _generate_text_with_tokenizer[
     prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
     metrics.set_tokens_in_prompt(prompt.size)
     sampler = WeightedSampler(config.temperature, config.min_p)
-
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):
         tokens[Index(0, i)] = prompt[i]
@@ -201,8 +214,26 @@ def generate_text(
 ):
     """Generates text by applying the compiled model to the provided prompt."""
 
-    @parameter
-    def generate_with_mojo_tokenizer():
+    # Prefer the AutoTokenizer if it is available, for correctness.
+    try:
+        auto_tokenizer = AutoTokenizer("meta-llama/Llama-2-7b-hf")
+        _generate_text_with_tokenizer[AutoTokenizer](
+            auto_tokenizer,
+            compiled_model,
+            params,
+            config,
+            metrics,
+        )
+    except e:
+        print("Unable to initialize AutoTokenizer:", e)
+        print("Using Mojo tokenizer instead.")
+        # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
+        # fails, for example due to lack of authentication.
+        if not str(config.tokenizer_path):
+            config.tokenizer_path = download_to_cache(
+                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
+            )
+
         mojo_tokenizer = BPETokenizer.from_file(config.tokenizer_path)
         _generate_text_with_tokenizer[BPETokenizer](
             mojo_tokenizer,
@@ -212,42 +243,15 @@ def generate_text(
             metrics,
         )
 
-    if AutoTokenizer.is_available():
-        # Prefer the AutoTokenizer if it is available, for correctness.
-        try:
-            auto_tokenizer = AutoTokenizer("meta-llama/Llama-2-7b-hf")
-            _generate_text_with_tokenizer[AutoTokenizer](
-                auto_tokenizer,
-                compiled_model,
-                params,
-                config,
-                metrics,
-            )
-        except:
-            print(
-                "Unable to initialize AutoTokenizer, using Mojo tokenizer"
-                " instead."
-            )
-
-            # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
-            # fails, for example due to lack of authentication.
-            generate_with_mojo_tokenizer()
-    else:
-        print(
-            "Hugging Face `transformers` not installed, using Mojo tokenizer"
-            " instead."
-        )
-        # Fall back to the Mojo tokenizer if `transformers` is not installed.
-        generate_with_mojo_tokenizer()
-
 
 def run[
-    model_type: LoadableModel, encoding: QuantizationEncoding
-](config: Config):
-    print("Building model...")
+    model_type: LoadableModel, encoding: QuantizationEncoding = Float32Encoding
+](config: Config) -> None:
+    if config.prompt == "I believe the meaning of life is":
+        print("Using default prompt, provide an argument to change it:")
+        print('    --prompt "Hello llama3"')
     metrics = Metrics()
     metrics.begin_timing_startup()
-
     model = Llama2[model_type, encoding](
         config.model_path,
         enable_custom_rope_kernel=config.enable_custom_rope_kernel,
@@ -255,7 +259,12 @@ def run[
     params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
-    compiled_model = compile_graph(graph, config.custom_ops_paths)
+    session_options = SessionOptions(
+        cuda_device() if config.use_gpu else cpu_device()
+    )
+    session = InferenceSession(session_options)
+
+    compiled_model = compile_graph(session, graph, config.custom_ops_paths)
     metrics.end_timing_startup()
 
     generate_text(compiled_model, params, config, metrics)
@@ -263,51 +272,48 @@ def run[
     metrics.print()
 
 
-def run_outer[
-    run_fn: fn[model_type: LoadableModel, encoding: QuantizationEncoding] (
-        Config
-    ) raises -> object
+# Passing the inner function allows this function to be shared with `serve.🔥`
+def outer[
+    inner: def[model_type: LoadableModel, encoding: QuantizationEncoding] (
+        config: Config
+    ) -> None
 ]():
     config = Config()
-
     encoding = config.quantization_encoding.lower()
-    if encoding == "q4_0":
-        if len(str(config.model_path)) == 0:
-            config.tokenizer_path = download_to_cache(
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
-            )
-            config.model_path = download_to_cache(
-                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_0.gguf"
-            )
-        run_fn[GGUFFile, Q4_0Encoding](config)
-    elif encoding == "q4_k":
-        if len(str(config.model_path)) == 0:
-            config.tokenizer_path = download_to_cache(
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
-            )
-            config.model_path = download_to_cache(
-                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf",
-            )
-        run_fn[GGUFFile, Q4_KEncoding](config)
-    elif encoding == "q6_k":
-        if len(str(config.model_path)) == 0:
-            config.tokenizer_path = download_to_cache(
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
-            )
-            config.model_path = download_to_cache(
-                "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf",
-            )
-        run_fn[GGUFFile, Q6_KEncoding](config)
-    elif encoding == "float32":
-        if config.model_path.suffix() == ".gguf":
-            run_fn[GGUFFile, Float32Encoding](config)
-        elif config.model_path.suffix() == ".bin":
-            run_fn[LlamaCFile, Float32Encoding](config)
-        else:
-            raise "invalid model path"
-    else:
-        raise 'Encoding "' + encoding + '" not yet supported'
+
+    # If using a `.bin` model skip the quantization logic
+    if config.model_path.suffix() == ".bin":
+        run[LlamaCFile](config)
+        return
+
+    encoding_urls = Dict[String, String]()
+    # fmt: off
+    encoding_urls[Q4_0Encoding.id()] = "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_0.gguf"
+    encoding_urls[Q4_KEncoding.id()] = "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf"
+    encoding_urls[Q6_KEncoding.id()] = "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q6_K.gguf"
+    # fmt: on
+
+    # Raise error if encoding is not supported
+    if encoding not in encoding_urls:
+        error = (
+            "--quantization-encoding "
+            + encoding
+            + " is not supported, supported encodings:"
+        )
+        for item in encoding_urls:
+            error += " " + item[]
+        raise error
+
+    if not str(config.model_path):
+        config.model_path = download_to_cache(encoding_urls[encoding])
+
+    if encoding == Q4_0Encoding.id():
+        inner[GGUFFile, Q4_0Encoding](config)
+    elif encoding == Q4_KEncoding.id():
+        inner[GGUFFile, Q4_KEncoding](config)
+    elif encoding == Q6_KEncoding.id():
+        inner[GGUFFile, Q6_KEncoding](config)
 
 
 def llama2_run():
-    run_outer[run]()
+    outer[run]()

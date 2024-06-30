@@ -56,16 +56,6 @@ struct AutoTokenizer(Tokenizer):
         self._prev_tokens = existing._prev_tokens^
         self._prev_decoded = existing._prev_decoded^
 
-    @staticmethod
-    def is_available() -> Bool:
-        """Returns True if AutoTokenizer is available and False otherwise."""
-        try:
-            Python.import_module("transformers")
-        except:
-            return False
-        else:
-            return True
-
     @always_inline
     @staticmethod
     def _numpy_data_pointer[

@@ -20,6 +20,7 @@ pipeline.
 
 from pathlib import cwd, Path
 
+from max.engine import InferenceSession
 from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import load, TensorDict
 from max.graph.quantization import Float32Encoding, Q4_0Encoding
@@ -204,8 +205,9 @@ def load_quantized_tinystories(checkpoint_path: Path):
 
     # Generate text using the quantized Llama model and the provided prompt.
     metrics = Metrics()
+    session = InferenceSession()
     generate_text(
-        compile_graph(llama),
+        compile_graph(session, llama),
         llama_builder.hyperparams,
         Config(tokenizer_path=tokenizer_path),
         metrics,

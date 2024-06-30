@@ -13,7 +13,6 @@
 """The body of the Llama 2 model definition."""
 
 from collections import List, Optional
-from memory.unsafe_pointer import UnsafePointer
 from pathlib import Path
 from sys.intrinsics import _type_is_eq
 
@@ -159,7 +158,7 @@ struct Llama2[
         # outputs (logits, k_cache, v_cache)
         outputs = model(tokens=g[0], k_cache=g[1], v_cache=g[2])
         logits = outputs[0]
-        g.output(List[Symbol](logits[-1, axis=1], outputs[1], outputs[2]))
+        g.output(List(logits[-1, axis=1], outputs[1], outputs[2]))
         return g
 
     def hyperparams(self) -> LlamaHParams:
