@@ -11,48 +11,29 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import sys
-from collections import List, Optional
-from pathlib import cwd, Path
-from python.python import _get_global_python_itf, Python, CPython
-from runtime.llcl import Runtime, TaskGroup
-from sys.ffi import DLHandle
+from python.python import Python
 from utils.index import Index
-from time import sleep
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
 from max._driver import cpu_device, cuda_device
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
-from max.graph.quantization import (
-    Float32Encoding,
-    QuantizationEncoding,
-    Q4_0Encoding,
-    Q4_KEncoding,
-    Q6_KEncoding,
-)
+from max.graph.quantization import QuantizationEncoding
 from max.serve.http import PythonServer, PythonService
 from max.tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
 from .model.llama import Llama3
 from .tokenizer.tiktoken import TikTokenEncoder
-from .tokenizer.regex import set_locale_unicode
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
-from .run import (
-    Config,
-    llama_main,
-    download_to_cache,
-    compile_graph,
-    execute,
-)
+from .run import Config, outer, compile_graph, execute
 
 
 struct Llama3InferenceService[
-    EncodingT: QuantizationEncoding = Float32Encoding,
+    EncodingT: QuantizationEncoding,
 ](PythonService):
     """Inference service for Llama3."""
 
@@ -86,14 +67,6 @@ struct Llama3InferenceService[
                 GGUFArray
             ]()[]
         )
-
-    fn __del__(owned self):
-        _ = self._config^
-        _ = self._tokenizer^
-        _ = self._session^
-        _ = self._model^
-        _ = self._graph^
-        _ = self._compiled_model^
 
     fn handle(
         inout self, owned body: PythonObject, owned handler: PythonObject
@@ -221,7 +194,7 @@ struct Llama3InferenceService[
             handler.wfile.write(json_str)
 
 
-def serve[EncodingT: QuantizationEncoding](config: Config):
+def serve[EncodingT: QuantizationEncoding](config: Config) -> None:
     session_options = SessionOptions(
         cuda_device() if config.use_gpu else cpu_device()
     )
@@ -232,39 +205,5 @@ def serve[EncodingT: QuantizationEncoding](config: Config):
     server.serve(service)
 
 
-@value
-struct ServingWeightMetadata:
-    var main: llama_main
-    var url: String
-
-    @staticmethod
-    def _ALL() -> Dict[String, ServingWeightMetadata]:
-        all_metadata = Dict[String, ServingWeightMetadata]()
-        all_metadata[Q4_0Encoding.id()] = ServingWeightMetadata(
-            serve[Q4_0Encoding],
-            "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF/resolve/main/Meta-Llama-3-8B.Q4_0.gguf",
-        )
-        all_metadata[Q4_KEncoding.id()] = ServingWeightMetadata(
-            serve[Q4_KEncoding],
-            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
-        )
-        all_metadata[Q6_KEncoding.id()] = ServingWeightMetadata(
-            serve[Q6_KEncoding],
-            "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf",
-        )
-        return all_metadata^
-
-    @staticmethod
-    def from_encoding(encoding_id: String) -> Self:
-        return Self._ALL()[encoding_id]
-
-
 def llama3_serve():
-    config = Config()
-    set_locale_unicode()
-
-    encoding = config.quantization_encoding.lower()
-    weight_metadata = ServingWeightMetadata.from_encoding(encoding)
-    if not str(config.model_path):
-        config.model_path = download_to_cache(weight_metadata.url)
-    weight_metadata.main(config)
+    outer[serve]()
