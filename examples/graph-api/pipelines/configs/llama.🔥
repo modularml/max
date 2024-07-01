@@ -1,0 +1,66 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
+from pathlib import Path
+from .parse_args import OptionType, OptionTypeEnum, OptionValue
+from .registry import ConfigRegistry, ConfigRegistryDict
+
+
+def get_llama_base_default_config() -> Dict[String, OptionValue]:
+    default_config = Dict[String, OptionValue]()
+    default_config["batch-size"] = 1
+    default_config["max-tokens"] = 512
+    default_config["model-path"] = Path("")
+    default_config["custom-ops-paths"] = List[Path]()
+    default_config["tokenizer-path"] = Path("")
+    default_config["prompt"] = String("I believe the meaning of life is")
+    default_config["quantization-encoding"] = String("q4_k")
+    default_config["experimental-use-gpu"] = False
+    default_config["temperature"] = 0.5
+    default_config["min-p"] = 0.05
+    return default_config
+
+
+@value
+struct LlamaConfigRegistry(ConfigRegistry):
+    """
+    This struct holds a dictionary of llama configs and their corresponding types
+    as used by both llama2 and llama3.
+    """
+
+    var registry: ConfigRegistryDict
+
+    def __init__(
+        inout self,
+        additional_pipeline_args: ConfigRegistryDict = ConfigRegistryDict(),
+    ):
+        """
+        This constructor instantiates llama2 / llama3 config keys and their
+        corresponding types. An optional pipeline args dict is also available
+        for use if a specific pipeline has additional arguments.
+        """
+        self.registry = ConfigRegistryDict()
+        self.registry["batch-size"] = OptionTypeEnum.INT
+        self.registry["max-tokens"] = OptionTypeEnum.INT
+        self.registry["model-path"] = OptionTypeEnum.PATH
+        self.registry["custom-ops-paths"] = OptionTypeEnum.PATH_LIST
+        self.registry["tokenizer-path"] = OptionTypeEnum.PATH
+        self.registry["prompt"] = OptionTypeEnum.STRING
+        self.registry["quantization-encoding"] = OptionTypeEnum.STRING
+        self.registry["temperature"] = OptionTypeEnum.FLOAT
+        self.registry["min-p"] = OptionTypeEnum.FLOAT
+
+        self.registry.update(additional_pipeline_args)
+
+    def register(self, key: String, option_type: OptionType):
+        self.registry[key] = option_type

@@ -14,6 +14,7 @@
 import sys
 from pathlib import Path
 from utils.index import Index
+from testing import assert_true
 
 from max.engine import InferenceSession, Model, SessionOptions, TensorMap
 from max._driver import cpu_device, cuda_device
@@ -33,6 +34,17 @@ from .metrics import Metrics
 from .model.llama import Llama3
 from .tokenizer.tiktoken import TikTokenEncoder
 from .tokenizer.regex import set_locale_unicode
+from ..configs.llama import (
+    LlamaConfigRegistry,
+    get_llama_base_default_config,
+)
+from ..configs.registry import ConfigRegistryDict
+from ..configs.parse_args import (
+    OptionTypeEnum,
+    OptionValue,
+    parse_args,
+    register_pipeline_configs,
+)
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.download import download_to_cache
 from ..weights.gguf import GGUFArray, GGUFFile
@@ -43,90 +55,51 @@ from ..weights.loadable_model import LlamaHParams, LoadableModel
 struct Config:
     """Configuration for token generation runtime options."""
 
-    var batch_size: Int
-    var max_tokens: Int
-    var model_path: Path
-    var custom_ops_paths: List[Path]
-    var tokenizer_path: Path
-    var prompt: String
-    var quantization_encoding: String
-    var use_gpu: Bool
-    var temperature: Float32
-    var min_p: Float32
+    var config: Dict[String, OptionValue]
 
-    def __init__(
-        inout self,
-        /,
-        batch_size: Int = 1,
-        max_tokens: Int = 512,
-        model_path: Path = "",
-        custom_ops_paths: List[Path] = List[Path](),
-        tokenizer_path: Path = "",
-        prompt: String = "",
-        quantization_encoding: String = "q4_k",
-        use_gpu: Bool = False,
-        temperature: Float32 = 0.5,
-        min_p: Float32 = 0.05,
-    ):
-        self.batch_size = batch_size
-        self.max_tokens = max_tokens
-        self.model_path = model_path
-        self.custom_ops_paths = custom_ops_paths
-        self.tokenizer_path = tokenizer_path
-        self.prompt = prompt
-        self.quantization_encoding = quantization_encoding
-        """Encoding for quantized model weights: bfloat16, Q4_0, Q4_K, or Q6_K."""
-        self.use_gpu = use_gpu
+    def __init__(inout self):
+        # Add llama3-specific arguments to config_registry
+        llama3_additional_configs = ConfigRegistryDict()
+        llama3_additional_configs["experimental-use-gpu"] = OptionTypeEnum.BOOL
 
-        self.temperature = temperature
-        self.min_p = min_p
+        config_registry = LlamaConfigRegistry(llama3_additional_configs)
 
-        self.parse_args()
+        default_configs = get_llama_base_default_config()
+        self.config = register_pipeline_configs(
+            config_registry.registry,
+            parse_args(),
+            default_configs,
+        )
 
-    def parse_args(inout self):
-        args = sys.argv()
+        @parameter
+        if sys.has_neon():
+            encoding = self.config["quantization-encoding"]
+            if encoding[String] == "bfloat16":
+                raise "bfloat16 is not currently supported on ARM"
 
-        def parse_argument_value(inout index: Int) -> StringRef:
-            if index + 1 >= len(args):
-                raise "missing value for parameter `" + str(args[index]) + "`"
-            result = args[index + 1]
-            index += 2
-            return result
+    fn get(inout self, key: String) raises -> OptionValue:
+        """Returns an option value for `key` in the underlying config.
 
-        # Skip the run_pipeline.mojo and llama3 arguments.
-        i = 2
-        while i < len(args):
-            if args[i] == "--temperature":
-                self.temperature = atof(parse_argument_value(i))
-            elif args[i] == "--min-p":
-                self.min_p = atof(parse_argument_value(i))
-            elif args[i] == "--max-tokens":
-                self.max_tokens = atol(parse_argument_value(i))
-            elif args[i] == "--model-path":
-                # If a manual model path has been specified, don't use one of
-                # the downloadable pretrained models.
-                self.model_path = Path(parse_argument_value(i))
-            elif args[i] == "--custom-ops-path":
-                self.custom_ops_paths.append(Path(parse_argument_value(i)))
-            elif args[i] == "--tokenizer-path":
-                self.tokenizer_path = Path(parse_argument_value(i))
-            elif args[i] == "--prompt":
-                self.prompt = parse_argument_value(i)
-            elif args[i] == "--quantization-encoding":
-                self.quantization_encoding = String(parse_argument_value(i))
+        Args:
+            key: Key for the underlying config option.
 
-                @parameter
-                if sys.has_neon():
-                    if self.quantization_encoding == "bfloat16":
-                        raise "bfloat16 is not currently supported on ARM"
-            elif args[i] == "--experimental-use-gpu":
-                self.use_gpu = True
-                i += 1
-            else:
-                raise "unsupported CLI argument: " + String(args[i])
+        Returns:
+            An OptionValue.
 
-        if self.prompt == "":
-            self.prompt = "I believe the meaning of life is"
+        Raises:
+            An error for invalid key.
+        """
+        return self.config[key]
+
+    fn set(inout self, key: String, val: OptionValue):
+        """Sets a new value for a given config key. This will overwrite the old
+        value if the key is already present.
+
+        Args:
+            key: A string based key for the underlying config option.
+            val: A new value for a key that already exist.
+        """
+        self.config[key] = val
 
 
 def execute(
@@ -168,8 +141,11 @@ def generate_text(
     """Generates text by applying the compiled model to the provided prompt."""
 
     metrics.begin_timing_prompt()
-    prompt = tokenizer.encode(config.prompt)
-    sampler = WeightedSampler(config.temperature, config.min_p)
+
+    prompt = tokenizer.encode(config.get("prompt")[String])
+    sampler = WeightedSampler(
+        config.get("temperature")[Float64], config.get("min-p")[Float64]
+    )
     metrics.set_tokens_in_prompt(prompt.size)
 
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
@@ -180,13 +156,15 @@ def generate_text(
     for token in prompt:
         print(tokenizer.decode(token[]), end="")
 
-    kv_cache = KVCache(params, config.max_tokens, config.batch_size)
+    kv_cache = KVCache(
+        params, config.get("max-tokens")[Int], config.get("batch-size")[Int]
+    )
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
-    for _ in range(prompt.size, config.max_tokens + 1):
+    for _ in range(prompt.size, config.get("max-tokens")[Int] + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )
@@ -199,12 +177,12 @@ def generate_text(
 
 
 def run[encoding: QuantizationEncoding](config: Config) -> None:
-    if config.prompt == "I believe the meaning of life is":
+    if config.get("prompt")[String] == "I believe the meaning of life is":
         print("Using default prompt, provide an argument to change it:")
         print('    --prompt "Hello llama3"')
     metrics = Metrics()
     metrics.begin_timing_startup()
-    model = Llama3[encoding](config.model_path)
+    model = Llama3[encoding](config.get("model-path")[Path])
     params = model.hyperparams()
 
     print("Loading tokenizer...")
@@ -216,11 +194,15 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     graph = model.build_graph("llama_model")
 
     session_options = SessionOptions(
-        cuda_device() if config.use_gpu else cpu_device()
+        cuda_device() if config.get("experimental-use-gpu")[
+            Bool
+        ] else cpu_device()
     )
     session = InferenceSession(session_options)
 
-    compiled_model = compile_graph(session, graph, config.custom_ops_paths)
+    compiled_model = compile_graph(
+        session, graph, config.get("custom-ops-paths")[List[Path]]
+    )
     metrics.end_timing_startup()
 
     generate_text(tokenizer, compiled_model, params, config, metrics)
@@ -234,7 +216,7 @@ def outer[
 ]():
     config = Config()
     set_locale_unicode()
-    encoding = config.quantization_encoding.lower()
+    encoding = config.get("quantization-encoding")[String]
 
     encoding_urls = Dict[String, String]()
     # fmt: off
@@ -256,8 +238,9 @@ def outer[
             error += " " + item[]
         raise error
 
-    if not str(config.model_path):
-        config.model_path = download_to_cache(encoding_urls[encoding])
+    model_path_config = config.get("model-path")[Path]
+    if not str(model_path_config):
+        config.set("model-path", download_to_cache(encoding_urls[encoding]))
 
     if encoding == Q4_0Encoding.id():
         inner[Q4_0Encoding](config)
