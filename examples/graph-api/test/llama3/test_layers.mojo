@@ -172,7 +172,7 @@ fn test_freqs_cis() raises:
         theta=500000.0,
     )
     _ = g.output(
-        dummy.freqs_cis(g.scalar[DType.int64](0), g.scalar[DType.int64](8))
+        dummy.freqs_cis(g.scalar[DType.int64](0), g.scalar[DType.int64](8), Dim("seq_len"))
     )
 
     var expected = Tensor[DType.float32](TensorShape(8, 1, 2),

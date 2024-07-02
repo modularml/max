@@ -43,7 +43,9 @@ fn test_freqs_cis() raises:
         theta=10000.0,
     )
     _ = g.output(
-        dummy.freqs_cis(g.scalar[DType.int64](0), g.scalar[DType.int64](8))
+        dummy.freqs_cis(
+            g.scalar[DType.int64](0), g.scalar[DType.int64](8), Dim("seq_len")
+        )
     )
 
     # This test vector was produced from the FB Llama repo:
