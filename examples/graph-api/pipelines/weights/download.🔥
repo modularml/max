@@ -12,16 +12,24 @@
 # ===----------------------------------------------------------------------=== #
 """Functions for lazily downloading model weights on first execution."""
 
-from os import mkdir
-from pathlib import cwd, Path
+
+import os
+from pathlib import Path
 from sys.ffi import external_call
+
+
+def modular_cache_dir() -> Path:
+    """Follow the convention for caching downloads."""
+    xdg_cache_home = os.getenv("XDG_CACHE_HOME")
+    if xdg_cache_home:
+        return Path(xdg_cache_home) / "modular"
+    return Path.home() / ".cache" / "modular"
 
 
 def download_to_cache(url: String) -> Path:
     """If file doesn't exist download to `.cache` and return path."""
-    cache_path = cwd() / ".cache"
-    if not cache_path.is_dir():
-        mkdir(cache_path)
+    cache_path = modular_cache_dir()
+    os.makedirs(cache_path, exist_ok=True)
     last_component = url.split("/")[-1]
     destination = cache_path.joinpath(last_component)
     if not destination.is_file():

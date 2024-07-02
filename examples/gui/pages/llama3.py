@@ -12,11 +12,11 @@
 # ===----------------------------------------------------------------------=== #
 
 import os
-import openai
 import subprocess
-import streamlit as st
 
-from shared import menu, kill_process, download_file
+import openai
+import streamlit as st
+from shared import download_file, kill_process, menu, modular_cache_dir
 
 st.set_page_config("Llama3", page_icon="🦙")
 
@@ -102,7 +102,8 @@ elif quantization == "q6_k":
     model_url = "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf"
 
 model_url = st.sidebar.text_input("Model URL", value=model_url)
-model_path = os.path.join("models", os.path.basename(model_url))
+os.makedirs(modular_cache_dir(), exist_ok=True)
+model_path = os.path.join(modular_cache_dir(), os.path.basename(model_url))
 model_path = st.sidebar.text_input("Model Path", value=model_path)
 
 download_file(model_url, model_path, model_state)

@@ -13,8 +13,10 @@
 
 import os
 import time
-import requests
+from pathlib import Path
+
 import psutil
+import requests
 import streamlit as st
 
 __all__ = ["menu", "kill_process", "download_file"]
@@ -23,6 +25,14 @@ __all__ = ["menu", "kill_process", "download_file"]
 def menu():
     st.sidebar.page_link("home.py", label="️Home", icon="⚡️")
     st.sidebar.page_link("pages/llama3.py", label="Llama3", icon="🦙")
+
+
+def modular_cache_dir() -> Path:
+    """Follow the convention for caching downloads."""
+    xdg_cache_home = os.getenv("XDG_CACHE_HOME")
+    if xdg_cache_home:
+        return Path(xdg_cache_home) / "modular"
+    return Path.home() / ".cache" / "modular"
 
 
 def kill_process(port: int, model_state=None):
