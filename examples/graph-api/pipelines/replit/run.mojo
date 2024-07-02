@@ -48,13 +48,13 @@ struct Config:
         args["prompt"] = OptionTypeEnum.STRING
         args["max_length"] = OptionTypeEnum.INT
         args["max_new_tokens"] = OptionTypeEnum.INT
-        args["use_gpu"] = OptionTypeEnum.BOOL
+        args["experimental-use-gpu"] = OptionTypeEnum.BOOL
         args["dtype"] = OptionTypeEnum.STRING
 
         default_configs = Dict[String, OptionValue]()
         default_configs["converted_weights_path"] = Path("")
         default_configs["prompt"] = str('def hello():\n  print("hello world")')
-        default_configs["use_gpu"] = False
+        default_configs["experimental-use-gpu"] = False
         default_configs["dtype"] = str("float32")
 
         self.config = register_pipeline_configs(
@@ -321,7 +321,7 @@ def dispatch[dtype: DType](config: Config):
         max_new_tokens = config.get("max_new_tokens")[Int]
     replit = ReplitPipeline[dtype](
         config.get("converted_weights_path")[Path],
-        use_gpu=config.get("use_gpu")[Bool],
+        use_gpu=config.get("experimental-use-gpu")[Bool],
         max_length=max_length,
         max_new_tokens=max_new_tokens,
     )
