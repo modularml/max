@@ -13,7 +13,7 @@
 
 """Neural network layers core to transformers."""
 
-from max.graph import ops, Symbol
+from max.graph import ops, Symbol, Dim
 from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import Attention, Embedding, Linear, RMSNorm
@@ -78,7 +78,9 @@ struct Transformer[model_dtype: DType = DType.float32]:
     var output: Linear
     var theta: Float64
 
-    def freqs_cis(self, start_pos: Symbol, seq_len: Symbol) -> Symbol:
+    def freqs_cis(
+        self, start_pos: Symbol, seq_len: Symbol, seq_len_dim: Dim
+    ) -> Symbol:
         """
         Computes the frequency tensor for complex exponentials (cis)
         for a given seq_len. Tensor is scaled with theta parameter.
@@ -101,7 +103,12 @@ struct Transformer[model_dtype: DType = DType.float32]:
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 
         var retval = ops.stack(List(ops.cos(freqs), ops.sin(freqs)), axis=-1)
-        return ops.cast(retval[start_pos : start_pos + seq_len], model_dtype)
+        return ops.cast(
+            retval[
+                start_pos : start_pos + seq_len, out_dims = List(seq_len_dim)
+            ],
+            model_dtype,
+        )
 
     def __call__(
         self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
@@ -121,7 +128,9 @@ struct Transformer[model_dtype: DType = DType.float32]:
         """
         start_pos = ops.shape_of(k_cache)[0]
         h = self.embedding(tokens)
-        freqs_cis = self.freqs_cis(start_pos, ops.shape_of(tokens)[1])
+        freqs_cis = self.freqs_cis(
+            start_pos, ops.shape_of(tokens)[1], tokens.shape()[1]
+        )
 
         k_cache_updates = List[Symbol]()
         v_cache_updates = List[Symbol]()
