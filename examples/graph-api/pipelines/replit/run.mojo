@@ -21,6 +21,14 @@ from max.tensor import TensorSpec
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
+
+from ..configs.registry import ConfigRegistryDict
+from ..configs.parse_args import (
+    OptionTypeEnum,
+    OptionValue,
+    parse_args,
+    register_pipeline_configs,
+)
 from ..samplers.token_sampler import TokenSampler
 from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer
@@ -32,95 +40,55 @@ alias DEFAULT_MAX_SEQ_LEN = 33
 
 @value
 struct Config:
-    """Configuration for token generation runtime options."""
+    var config: Dict[String, OptionValue]
 
-    var converted_weights_path: Path
-    var prompt: String
-    var max_length: Optional[Int]
-    var max_new_tokens: Optional[Int]
-    var use_gpu: Bool
-    var dtype: DType
+    def __init__(inout self):
+        args = ConfigRegistryDict()
+        args["converted_weights_path"] = OptionTypeEnum.PATH
+        args["prompt"] = OptionTypeEnum.STRING
+        args["max_length"] = OptionTypeEnum.INT
+        args["max_new_tokens"] = OptionTypeEnum.INT
+        args["use_gpu"] = OptionTypeEnum.BOOL
+        args["dtype"] = OptionTypeEnum.STRING
 
-    def __init__(
-        inout self,
-        /,
-        converted_weights_path: Path = "",
-        prompt: String = 'def hello():\n  print("hello world")',
-        max_length: Optional[Int] = None,
-        max_new_tokens: Optional[Int] = None,
-        use_gpu: Bool = False,
-        dtype: DType = DType.float32,
-    ):
-        self.converted_weights_path = converted_weights_path
-        self.prompt = prompt
-        self.max_length = max_length
-        self.max_new_tokens = max_new_tokens
-        self.use_gpu = use_gpu
-        self.dtype = dtype
-        self.parse_args()
+        default_configs = Dict[String, OptionValue]()
+        default_configs["converted_weights_path"] = Path("")
+        default_configs["prompt"] = str('def hello():\n  print("hello world")')
+        default_configs["use_gpu"] = False
+        default_configs["dtype"] = str("float32")
 
-    def parse_args(inout self):
-        args = sys.argv()
-        raw_type = str("")
+        self.config = register_pipeline_configs(
+            args,
+            parse_args(),
+            default_configs,
+        )
 
-        @parameter
-        def read_value(index: Int) -> StringRef:
-            if index >= len(args):
-                raise "missing value for parameter `" + str(
-                    args[index - 1]
-                ) + "`"
-            return args[index]
+    def __contains__(self, key: String):
+        return key in self.config
 
-        # Skip the run_pipeline.mojo and replit arguments.
-        i = 2
-        while i < len(args):
-            if args[i] == "--converted_weights_path":
-                self.converted_weights_path = Path(read_value(i + 1))
-                i += 2
-            elif args[i] == "--prompt":
-                self.prompt = read_value(i + 1)
-                i += 2
-            elif args[i] == "--max_length":
-                self.max_length = int(read_value(i + 1))
-                i += 2
-            elif args[i] == "--max_new_tokens":
-                self.max_new_tokens = int(read_value(i + 1))
-                i += 2
-            elif args[i] == "--experimental-use-gpu":
-                self.use_gpu = True
-                i += 1
-            elif args[i] == "--dtype":
-                raw_type = read_value(i + 1)
-                if not sys.info.is_x86() and raw_type == "bfloat16":
-                    raise "bfloat16 is not supported for ARM architectures."
-                if raw_type == "float32":
-                    self.dtype = DType.float32
-                elif raw_type == "bfloat16":
-                    self.dtype = DType.bfloat16
-                else:
-                    raise "dtype must be 'bfloat16' or 'float32', got" + raw_type
-                i += 2
-            else:
-                raise "unsupported CLI argument: " + String(args[i])
+    fn get(inout self, key: String) raises -> OptionValue:
+        """Returns an option value for `key` in the underlying config.
 
-        print("dtype", self.dtype)
-        if len(str(self.converted_weights_path)) == 0:
-            if self.dtype == DType.float32:
-                self.converted_weights_path = cwd().joinpath(
-                    ".cache/replit/converted_float32"
-                )
-            else:  # DType.bfloat16
-                self.converted_weights_path = cwd().joinpath(
-                    ".cache/replit/converted_bfloat16"
-                )
-            if not self.converted_weights_path.exists():
-                raise (
-                    "Unable to find checkpoint at "
-                    + str(self.converted_weights_path)
-                    + ". Please run: setup.sh "
-                    + raw_type
-                )
-            print("Using checkpoint at", self.converted_weights_path)
+        Args:
+            key: Key for the underlying config option.
+
+        Returns:
+            An OptionValue.
+
+        Raises:
+            An error for invalid key.
+        """
+        return self.config[key]
+
+    fn set(inout self, key: String, val: OptionValue):
+        """Sets a new value for a given config key. This will overwrite the old
+        value if the key is already present.
+
+        Args:
+            key: A string based key for the underlying config option.
+            val: A new value for a key that already exist.
+        """
+        self.config[key] = val
 
 
 struct ReplitPipeline[dtype: DType]:
@@ -345,15 +313,21 @@ def dispatch[dtype: DType](config: Config):
     metrics.begin_timing_startup()
 
     # Set up the Replit model prepare it for token generation.
+    var max_length: Optional[Int] = None
+    if "max_length" in config:
+        max_length = config.get("max_length")[Int]
+    var max_new_tokens: Optional[Int] = None
+    if "max_new_tokens" in config:
+        max_new_tokens = config.get("max_new_tokens")[Int]
     replit = ReplitPipeline[dtype](
-        config.converted_weights_path,
-        use_gpu=config.use_gpu,
-        max_length=config.max_length,
-        max_new_tokens=config.max_new_tokens,
+        config.get("converted_weights_path")[Path],
+        use_gpu=config.get("use_gpu")[Bool],
+        max_length=max_length,
+        max_new_tokens=max_new_tokens,
     )
     metrics.end_timing_startup()
 
-    input_string = config.prompt
+    input_string = config.get("prompt")[String]
     print("Running on input:", input_string)
 
     # Make sure newlines are properly encoded in the prompt.
@@ -392,11 +366,44 @@ def execute(
 def replit_run():
     config = Config()
 
+    # Finalize parsed arguments.
+    dtype = DType.float32
+
+    raw_type = config.get("dtype")[String]
+    if not sys.info.is_x86() and raw_type == "bfloat16":
+        raise "bfloat16 is not supported for ARM architectures."
+    if raw_type == "float32":
+        dtype = DType.float32
+    elif raw_type == "bfloat16":
+        dtype = DType.bfloat16
+    else:
+        raise "dtype must be 'bfloat16' or 'float32', got" + raw_type
+
+    converted_weights_path = config.get("converted_weights_path")[Path]
+    if len(str(converted_weights_path)) == 0:
+        if dtype == DType.float32:
+            converted_weights_path = cwd().joinpath(
+                ".cache/replit/converted_float32"
+            )
+        else:  # DType.bfloat16
+            converted_weights_path = cwd().joinpath(
+                ".cache/replit/converted_bfloat16"
+            )
+        if not converted_weights_path.exists():
+            raise (
+                "Unable to find checkpoint at "
+                + str(converted_weights_path)
+                + ". Please run: setup.sh "
+                + raw_type
+            )
+        print("Using checkpoint at", converted_weights_path)
+        config.set("converted_weights_path", converted_weights_path)
+
     @parameter
     if not is_x86():
         dispatch[DType.float32](config)
     else:
-        if config.dtype == DType.bfloat16:
+        if dtype == DType.bfloat16:
             dispatch[DType.bfloat16](config)
         else:
             dispatch[DType.float32](config)
