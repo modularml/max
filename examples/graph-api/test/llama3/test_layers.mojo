@@ -615,6 +615,75 @@ def test_transformer_block() -> None:
         rtol=1e-4,
     )
 
+def test_model() -> None:
+    alias dim = 2
+    alias layers = 1
+    alias n_heads = 1
+    alias n_kv_heads = 1
+    alias head_dim = 2
+    alias hidden_dim = 2
+
+    batch_size = "batch_size"
+    seq_len = "seq_len"
+    total_len = "total_len"
+
+    token_type = TensorType(DType.uint64, batch_size, seq_len)
+    cache_type = TensorType(DType.float32, total_len, layers, batch_size, n_kv_heads, head_dim)
+    llama = NanoLlama()
+    g = Graph(List[Type](token_type, cache_type, cache_type))
+    layer = llama.transformer(g)
+    outputs = layer(g[0], g[1], g[2])
+    g.output(List(outputs[0], outputs[1], outputs[2]))
+
+    tokens = Tensor[DType.int64](TensorShape(2, 2), 2, 0, 1, 2)
+    k_cache = Tensor[DType.int64](TensorShape(0, 1, 2, 1, 2))
+    v_cache = Tensor[DType.int64](TensorShape(0, 1, 2, 1, 2))
+
+    actuals = _testing.execute_n_args(g, tokens, k_cache, v_cache)
+
+    expected_tokens = Tensor[DType.float32](TensorShape(2, 2, 4),
+        -0.2158, -0.6037, -0.6346,  1.0045,
+         0.1893,  0.4635,  0.6581, -0.8597,
+
+        -0.2278, -0.6952, -0.5812,  1.0791,
+        -0.2158, -0.6040, -0.6345,  1.0047,
+    )
+    expected_k_cache = Tensor[DType.float32](TensorShape(2, 1, 2, 1, 2),
+         0.0676,  0.1021,
+         0.0856,  0.0816,
+
+         0.7479,  0.0235,
+        -0.0494,  0.1121,
+    )
+    expected_v_cache = Tensor[DType.float32](TensorShape(2, 1, 2, 1, 2),
+         0.0707, -0.0102,
+         0.0473, -0.0113,
+
+        -0.6686, -0.0203,
+         0.0707, -0.0102,
+    )
+
+    _testing.assert_tensors_almost_equal(
+        actuals.get[DType.float32]("output0"),
+        expected_tokens,
+        atol=1e-4,
+        rtol=1e-4,
+    )
+
+    _testing.assert_tensors_almost_equal(
+        actuals.get[DType.float32]("output1"),
+        expected_k_cache,
+        atol=1e-4,
+        rtol=1e-4,
+    )
+
+    _testing.assert_tensors_almost_equal(
+        actuals.get[DType.float32]("output2"),
+        expected_v_cache,
+        atol=1e-4,
+        rtol=1e-4,
+    )
+
 
 def main():
     test_freqs_cis()
@@ -626,3 +695,4 @@ def main():
     test_attention_mask()
     test_attention()
     test_transformer_block()
+    test_model()
