@@ -17,8 +17,6 @@ optimal inference performance via the MAX Engine.
 
 The flexibility provided by MAX Graphs even includes
 [the ability to define custom compute kernels](https://docs.modular.com/max/extensibility/graph-custom-op).
-An example of such a custom operation is present in this pipeline as an
-optional RoPE kernel that can be loaded into the Llama 2 compute graph.
 
 ## Model
 
@@ -70,21 +68,6 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    mojo ../../run_pipeline.🔥 llama2 --prompt "I believe the meaning of life is"
    ```
 
-4. (Optional) Run with the custom RoPE kernel:
-
-   A custom RoPE kernel has been defined in the `kernels/` directory to
-   demonstrate the extensibility of the MAX graph compiler. To use that within
-   this Llama 2 model, compile the Mojo package for the operation and set the
-   appropriate pipeline flags using the following:
-
-   ```shell
-   source setup-custom-rope.sh && \
-   mojo ../../run_pipeline.🔥 llama2 \
-    --prompt "I believe the meaning of life is" \
-    --custom-ops-path "$CUSTOM_KERNELS/rope.mojopkg" \
-    --enable-custom-rope-kernel
-   ```
-
 ## Options
 
 The following command-line options are available to customize operation of the
@@ -96,8 +79,6 @@ pipeline:
    graph operation to use within the pipeline.
 - `--tokenizer-path`: The path to the tokenizer library to be used by the
    pipeline. (Default value: `.cache/tokenizer.bin`)
-- `--enable-custom-rope-kernel`: Enables the use of the custom RoPE kernel
-   within the compute graph.
 - `--max-tokens`: The maximum number of tokens to generate.
   (Default value: 512)
 - `--min-p`: The starting required percentage for

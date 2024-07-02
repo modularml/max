@@ -21,7 +21,7 @@ from max.graph.quantization import Float32Encoding, QuantizationEncoding
 from pipelines.nn import Linear
 
 
-def rope_graph(x: Symbol, freqs_cis: Symbol) -> Symbol:
+def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
     """Applies rotary positional embeddings (RoPE) to `x`.
 
     Args:
@@ -49,53 +49,6 @@ def rope_graph(x: Symbol, freqs_cis: Symbol) -> Symbol:
     rope_complex = ops.as_complex(rope_re, rope_im)
 
     return ops.reshape_like(rope_complex, x)
-
-
-def rope_custom_kernel(x: Symbol, freqs_cis: Symbol) -> Symbol:
-    """Applies rotary positional embeddings (RoPE) to `x`.
-
-    Args:
-        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
-        freqs_cis: Positional frequencies tensor with shape
-            (seq_len, head_dim // 2, 2).
-
-    Returns:
-        Input activation tensor with rotary positional embeddings applied and
-        the same shape as `x`.
-    """
-    # The kernel requires freqs_cis to be 2-D.
-    # Reshape freqs (seq_len, head_dim // 2, 2) => (seq_len, head_dim).
-    f_shape = ops.shape_of(freqs_cis)
-    new_f_shape = ops.stack(
-        List[Symbol](f_shape[0], x.graph().scalar(Int64(-1)))
-    )
-    freqs_2d = ops.reshape(freqs_cis, new_f_shape)
-
-    return ops.custom["rope"](List[Symbol](x, freqs_2d), x.tensor_type())
-
-
-def rope(
-    x: Symbol, freqs_cis: Symbol, enable_custom_rope_kernel: Bool
-) -> Symbol:
-    """Applies rotary positional embeddings (RoPE) to `x`.
-
-    Calls a custom Mojo kernel if `enable_custom_rope_kernel` is set.
-    Otherwise, implements RoPE with MAX graph ops.
-
-    Args:
-        x: Activation tensor with shape (batch, seq_len, n_kv_heads, head_dim).
-        freqs_cis: Positional frequencies tensor with shape
-            (seq_len, head_dim // 2, 2).
-        enable_custom_rope_kernel: Use a custom RoPE Mojo kernel if True,
-            otherwise compute RoPE with MAX graph ops.
-
-    Returns:
-        Input activation tensor with rotary positional embeddings applied and
-        the same shape as `x`.
-    """
-    return rope_custom_kernel(
-        x, freqs_cis
-    ) if enable_custom_rope_kernel else rope_graph(x, freqs_cis)
 
 
 def attention_mask(
@@ -312,8 +265,8 @@ struct Attention[model_dtype: DType = DType.float32]:
         xv = xv.reshape(batch, seq_len, self.n_kv_heads, self.head_dim)
 
         # Apply RoPE positional embeddings.
-        xq = rope(xq, freqs_cis, self.enable_custom_rope_kernel)
-        xk = rope(xk, freqs_cis, self.enable_custom_rope_kernel)
+        xq = rope(xq, freqs_cis)
+        xk = rope(xk, freqs_cis)
 
         output = self.attention(xq, xk, xv, k_cache, v_cache)
 

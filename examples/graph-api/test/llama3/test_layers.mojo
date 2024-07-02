@@ -203,7 +203,7 @@ fn test_rope() raises:
             TensorType(DType.float32, 2, 1, 2),
         )
     )
-    _ = g.output(rope(x=g[0], freqs_cis=g[1], enable_custom_rope_kernel=False))
+    _ = g.output(rope(x=g[0], freqs_cis=g[1]))
 
     var x = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
         -1.3140, -1.5004,
@@ -240,7 +240,7 @@ fn test_rope_batch_size_2() raises:
             TensorType(DType.float32, 2, 1, 2),
         )
     )
-    _ = g.output(rope(x=g[0], freqs_cis=g[1], enable_custom_rope_kernel=False))
+    _ = g.output(rope(x=g[0], freqs_cis=g[1]))
 
     var x = Tensor[DType.float32](TensorShape(bs, seq_len, n_local_kv_heads, head_dim),
          3.4737,  1.4446,
@@ -277,7 +277,7 @@ fn test_rope_seq_len_5() raises:
             TensorType(DType.float32, seq_len, head_dim // 2, 2),
         )
     )
-    _ = g.output(rope(x=g[0], freqs_cis=g[1], enable_custom_rope_kernel=False))
+    _ = g.output(rope(x=g[0], freqs_cis=g[1]))
 
     var freqs_cis = Tensor[DType.float32](TensorShape(seq_len, head_dim // 2, 2),
          1.0000,  0.0000,
