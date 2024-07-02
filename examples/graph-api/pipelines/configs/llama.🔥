@@ -21,7 +21,7 @@ def get_llama_base_default_config() -> Dict[String, OptionValue]:
     default_config["batch-size"] = 1
     default_config["max-tokens"] = 512
     default_config["model-path"] = Path("")
-    default_config["custom-ops-paths"] = List[Path]()
+    default_config["custom-ops-path"] = List[Path]()
     default_config["tokenizer-path"] = Path("")
     default_config["prompt"] = String("I believe the meaning of life is")
     default_config["quantization-encoding"] = String("q4_k")
@@ -53,12 +53,13 @@ struct LlamaConfigRegistry(ConfigRegistry):
         self.registry["batch-size"] = OptionTypeEnum.INT
         self.registry["max-tokens"] = OptionTypeEnum.INT
         self.registry["model-path"] = OptionTypeEnum.PATH
-        self.registry["custom-ops-paths"] = OptionTypeEnum.PATH_LIST
+        self.registry["custom-ops-path"] = OptionTypeEnum.PATH_LIST
         self.registry["tokenizer-path"] = OptionTypeEnum.PATH
         self.registry["prompt"] = OptionTypeEnum.STRING
         self.registry["quantization-encoding"] = OptionTypeEnum.STRING
         self.registry["temperature"] = OptionTypeEnum.FLOAT
         self.registry["min-p"] = OptionTypeEnum.FLOAT
+        self.registry["experimental-use-gpu"] = OptionTypeEnum.BOOL
 
         self.registry.update(additional_pipeline_args)
 

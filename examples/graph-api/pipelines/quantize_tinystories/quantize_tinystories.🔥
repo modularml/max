@@ -249,10 +249,13 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
     metrics = Metrics()
 
     session = InferenceSession()
+
+    config = Config()
+    config.set("tokenizer-path", tokenizer_path)
     generate_text(
         compile_graph(session, llama),
         llama_builder.hyperparams,
-        Config(tokenizer_path=tokenizer_path),
+        config,
         metrics,
     )
     print()

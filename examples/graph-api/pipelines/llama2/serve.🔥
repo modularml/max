@@ -15,6 +15,7 @@ import sys
 from python.python import Python
 from sys.ffi import DLHandle
 from utils.index import Index
+from pathlib import Path
 
 from max.engine import InferenceSession, Model, TensorMap
 from max._utils import handle_from_config, call_dylib_func
@@ -71,12 +72,15 @@ struct Llama2InferenceService[
 
         print("Building model...")
         self._model = Llama2[ModelType, EncodingT](
-            self._config.model_path,
-            enable_custom_rope_kernel=self._config.enable_custom_rope_kernel,
+            self._config.get("model-path")[Path],
+            enable_custom_rope_kernel=self._config.get(
+                "enable-custom-rope-kernel"
+            )[Bool],
         )
         self._graph = self._model.build_graph("llama_model")
         self._compiled_model = self._session.load(
-            self._graph, custom_ops_paths=self._config.custom_ops_paths
+            self._graph,
+            custom_ops_paths=self._config.get("custom-ops-path")[List[Path]],
         )
 
     fn handle(
@@ -98,7 +102,8 @@ struct Llama2InferenceService[
 
         var prompt = self._tokenizer.encode(raw_prompt, bos=String("\n<s>\n"))
         var sampler = WeightedSampler(
-            self._config.temperature, self._config.min_p
+            self._config.get("temperature")[Float64],
+            self._config.get("min-p")[Float64],
         )
         var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
         for i in range(len(prompt)):
@@ -107,8 +112,8 @@ struct Llama2InferenceService[
         var outputs = List[String]()
         var kv_cache = KVCache(
             self._model.model.hyperparams(),
-            self._config.max_tokens,
-            self._config.batch_size,
+            self._config.get("max-tokens")[Int],
+            self._config.get("batch-size")[Int],
         )
         if stream:
             handler.send_response(200)
@@ -118,7 +123,7 @@ struct Llama2InferenceService[
         # The first iteration caches the entire prompt and all subsequent
         # iterations generate one token.
         # Avoid overrunning the cache by setting the trip count accordingly.
-        for _ in range(prompt.size, self._config.max_tokens + 1):
+        for _ in range(prompt.size, self._config.get("max-tokens")[Int] + 1):
             var logits = execute(
                 self._session, self._compiled_model, tokens, kv_cache
             )
@@ -213,12 +218,16 @@ def serve[
         # fails, for example due to lack of authentication.
         print("Unable to initialize AutoTokenizer:", e)
         print("Using Mojo tokenizer instead.")
-        if not str(config.tokenizer_path):
-            config.tokenizer_path = download_to_cache(
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
+        tokenizer_path = config.get("tokenizer-path")[Path]
+        if not str(tokenizer_path):
+            config.set(
+                "tokenizer-path",
+                download_to_cache(
+                    "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
+                ),
             )
         serve_inner[ModelType, EncodingT, BPETokenizer](
-            config, BPETokenizer.from_file(config.tokenizer_path)
+            config, BPETokenizer.from_file(config.get("tokenizer-path")[Path])
         )
 
 

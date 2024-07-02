@@ -62,7 +62,7 @@ struct Llama3InferenceService[
         self._graph = self._model.build_graph("llama_model")
         self._compiled_model = self._session.load(
             self._graph,
-            custom_ops_paths=self._config.get("custom-ops-paths")[List[Path]],
+            custom_ops_paths=self._config.get("custom-ops-path")[List[Path]],
         )
         self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
             self._model.model["tokenizer.ggml.tokens"]._value.unsafe_get[
