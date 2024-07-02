@@ -17,8 +17,8 @@ from collections import Dict
 from pathlib import Path
 from .bpe import BPETokenizer
 from .regex import Match, Regex, CompileOption
-from ...weights.gguf import GGUFArray, GGUFString
-from ...tokenizer import Tokenizer
+from ..weights.gguf import GGUFArray, GGUFString
+from . import Tokenizer
 
 
 def _next_rune(inout span: Span[UInt8, _]) -> Int:

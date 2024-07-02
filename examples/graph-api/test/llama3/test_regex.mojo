@@ -17,7 +17,7 @@ from pathlib import Path
 from testing import *
 from builtin._location import __source_location
 
-from pipelines.llama3.tokenizer.regex import Match, Regex
+from pipelines.tokenizer.regex import Match, Regex
 
 
 def test_email():
