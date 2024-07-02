@@ -194,10 +194,8 @@ struct GroupedQueryAttention[dtype: DType]:
 
         if attn_bias:
             bias = attn_bias.value()
-            attn_bias_shape = ops.shape_of(bias)
-            _s_q = ops.max(g.scalar(Int32(0)), attn_bias_shape[2] - s_q)
-            _s_k = ops.max(g.scalar(Int32(0)), attn_bias_shape[3] - s_k)
-            bias = bias[:, :, _s_q:, _s_k:].rebind(1, n_heads, 1, full_seq_len)
+            out_dims = List[Dim](1, n_heads, 1, full_seq_len)
+            bias = bias[:, :, :, -s_k:, out_dims=out_dims]
             attn_weight = attn_weight + bias
 
         if is_causal and (not q.tensor_type().dims[2] == 1):
@@ -207,7 +205,9 @@ struct GroupedQueryAttention[dtype: DType]:
             s = ops.max(s_q, s_k)
             causal_mask = g.full[DType.bool](1, List[Symbol](s, s))
             causal_mask = tril(causal_mask)
-            causal_mask = causal_mask[-s_q:, -s_k:].reshape(1, 1, s_q, s_k)
+            causal_mask = causal_mask[
+                -s_q:, -s_k:, out_dims = List[Dim](seq_len, full_seq_len)
+            ].reshape(1, 1, s_q, s_k)
 
             attn_weight_shape = ops.shape_of(attn_weight)
 

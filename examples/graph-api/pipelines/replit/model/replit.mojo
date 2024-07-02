@@ -103,10 +103,10 @@ struct Replit[T: Checkpoint, dtype: DType]:
         if attention_mask:
             mask = attention_mask.value()
             s_k = ops.shape_of(mask)[-1]
-            _s_k = ops.max(
-                g.scalar(Int32(0)), ops.shape_of(attn_bias)[-1] - s_k
+            out_dims = List[Dim](
+                1, self.hyperparams.n_heads, 1, mask.shape()[-1]
             )
-            attn_bias = attn_bias[:, :, :, _s_k:]
+            attn_bias = attn_bias[:, :, :, -s_k:, out_dims=out_dims]
             attn_bias_shape = ops.shape_of(attn_bias)
             broadcast_dims = List[Dim](
                 1, self.hyperparams.n_heads, 1, mask.shape()[1]
