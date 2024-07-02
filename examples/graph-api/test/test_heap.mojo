@@ -15,7 +15,7 @@
 
 from testing import *
 
-from pipelines.llama3.tokenizer.max_heap import MaxHeap, MinHeap
+from pipelines.tokenizer.max_heap import MaxHeap, MinHeap
 
 
 def test_simple():

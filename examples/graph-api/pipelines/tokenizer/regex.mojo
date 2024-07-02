@@ -93,7 +93,7 @@ struct _CRegex:
         self._re_guts = UnsafePointer[NoneType]()
         self._initialized = False
 
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(inout self, owned _existing: Self):
         # _CRegex can't be safely moved once it's initialized.
         # We have to implement __move__ currently to satisfy Arc's Movable
         # trait bounds.

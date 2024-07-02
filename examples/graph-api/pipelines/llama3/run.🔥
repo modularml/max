@@ -32,8 +32,8 @@ from max.tensor import Tensor, TensorShape, TensorSpec
 from .kv_cache import KVCache
 from .metrics import Metrics
 from .model.llama import Llama3
-from .tokenizer.tiktoken import TikTokenEncoder
-from .tokenizer.regex import set_locale_unicode
+from ..tokenizer.tiktoken import TikTokenEncoder
+from ..tokenizer.regex import set_locale_unicode
 from ..configs.llama import (
     LlamaConfigRegistry,
     get_llama_base_default_config,

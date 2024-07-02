@@ -25,7 +25,9 @@ from max.tensor import Tensor, TensorShape, TensorSpec
 
 from .kv_cache import KVCache
 from .model.llama import Llama3
-from .tokenizer.tiktoken import TikTokenEncoder
+from ..tokenizer.tiktoken import TikTokenEncoder
+from ..tokenizer.bpe import TokenWithID
+from ..tokenizer.regex import set_locale_unicode
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
