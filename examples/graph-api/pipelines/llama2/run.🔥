@@ -32,6 +32,17 @@ from ..llama3.metrics import Metrics
 from .model.llama import Llama2
 from ..samplers.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
+from ..configs.llama import (
+    LlamaConfigRegistry,
+    get_llama_base_default_config,
+)
+from ..configs.registry import ConfigRegistryDict
+from ..configs.parse_args import (
+    OptionTypeEnum,
+    OptionValue,
+    parse_args,
+    register_pipeline_configs,
+)
 from ..tokenizer import AutoTokenizer, Tokenizer
 from ..weights.download import download_to_cache
 from ..weights.gguf import GGUFFile
@@ -43,100 +54,67 @@ from ..weights.loadable_model import LlamaHParams, LoadableModel
 struct Config:
     """Configuration for token generation runtime options."""
 
-    var batch_size: Int
-    var max_tokens: Int
-    var model_path: Path
-    var custom_ops_paths: List[Path]
-    var tokenizer_path: Path
-    var enable_custom_rope_kernel: Bool
-    var prompt: String
-    var quantization_encoding: String
-    var use_gpu: Bool
-    var temperature: Float32
-    var min_p: Float32
+    var config: Dict[String, OptionValue]
 
-    def __init__(
-        inout self,
-        /,
-        batch_size: Int = 1,
-        max_tokens: Int = 512,
-        model_path: Path = "",
-        custom_ops_paths: List[Path] = List[Path](),
-        tokenizer_path: Path = "",
-        enable_custom_rope_kernel: Bool = False,
-        prompt: String = "",
-        quantization_encoding: String = "q4_k",
-        use_gpu: Bool = False,
-        temperature: Float32 = 0.5,
-        min_p: Float32 = 0.05,
-    ):
-        self.batch_size = batch_size
-        self.max_tokens = max_tokens
-        self.model_path = model_path
-        self.custom_ops_paths = custom_ops_paths
-        self.tokenizer_path = tokenizer_path
-        self.enable_custom_rope_kernel = enable_custom_rope_kernel
-        self.prompt = prompt
-        self.quantization_encoding = quantization_encoding
-        """Encoding for quantized model weights: Q4_0, Q4_K, or Q6_K."""
-        self.use_gpu = use_gpu
+    def __init__(inout self):
+        # Add llama2-specific arguments to config_registry
+        llama2_additional_configs = ConfigRegistryDict()
+        llama2_additional_configs[
+            "enable-custom-rope-kernel"
+        ] = OptionTypeEnum.BOOL
 
-        self.temperature = temperature
-        self.min_p = min_p
+        config_registry = LlamaConfigRegistry(llama2_additional_configs)
 
-        self.parse_args()
-
-    def parse_args(inout self):
-        args = sys.argv()
-
-        def parse_argument_value(inout index: Int) -> StringRef:
-            if index + 1 >= len(args):
-                raise "missing value for parameter `" + str(args[index]) + "`"
-            result = args[index + 1]
-            index += 2
-            return result
-
-        # Skip the run_pipeline.mojo and llama2 arguments.
-        i = 2
-        while i < len(args):
-            if args[i] == "--temperature":
-                self.temperature = atof(parse_argument_value(i))
-            elif args[i] == "--min-p":
-                self.min_p = atof(parse_argument_value(i))
-            elif args[i] == "--max-tokens":
-                self.max_tokens = atol(parse_argument_value(i))
-            elif args[i] == "--model-path":
-                # If a manual model path has been specified, don't use one of
-                # the downloadable pretrained models.
-                self.model_path = Path(parse_argument_value(i))
-            elif args[i] == "--custom-ops-path":
-                self.custom_ops_paths.append(Path(parse_argument_value(i)))
-            elif args[i] == "--tokenizer-path":
-                self.tokenizer_path = Path(parse_argument_value(i))
-            elif args[i] == "--enable-custom-rope-kernel":
-                self.enable_custom_rope_kernel = True
-                i += 1
-            elif args[i] == "--prompt":
-                self.prompt = parse_argument_value(i)
-            elif args[i] == "--quantization-encoding":
-                self.quantization_encoding = String(parse_argument_value(i))
-            else:
-                raise "unsupported CLI argument: " + String(args[i])
-
-        if self.prompt == "":
-            self.prompt = "I believe the meaning of life is"
+        default_configs = get_llama_base_default_config()
+        default_configs["enable-custom-rope-kernel"] = False
+        self.config = register_pipeline_configs(
+            config_registry.registry,
+            parse_args(),
+            default_configs,
+        )
 
         # Check for invalid config
-        if self.enable_custom_rope_kernel and len(self.custom_ops_paths) == 0:
+        enable_custom_rope_kernel = self.config["enable-custom-rope-kernel"]
+        custom_ops_paths = self.config["custom-ops-path"]
+        model_path = self.config["model-path"]
+        quantization_encoding = self.config["quantization-encoding"]
+        if (
+            enable_custom_rope_kernel[Bool]
+            and len(custom_ops_paths[List[Path]]) == 0
+        ):
             raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
         if (
-            self.model_path.suffix() != ".gguf"
-            and not self.quantization_encoding
+            model_path[Path].suffix() != ".gguf"
+            and not quantization_encoding[String]
         ):
             raise (
                 "`--model-path` must be `.bin` or `.gguf` file. "
                 "Alternatively provide a `--quantization-encoding`"
             )
+
+    fn get(inout self, key: String) raises -> OptionValue:
+        """Returns an option value for `key` in the underlying config.
+
+        Args:
+            key: Key for the underlying config option.
+
+        Returns:
+            An OptionValue.
+
+        Raises:
+            An error for invalid key.
+        """
+        return self.config[key]
+
+    fn set(inout self, key: String, val: OptionValue):
+        """Sets a new value for a given config key. This will overwrite the old
+        value if the key is already present.
+
+        Args:
+            key: A string based key for the underlying config option.
+            val: A new value for a key that already exist.
+        """
+        self.config[key] = val
 
 
 def execute(
@@ -178,9 +156,13 @@ def _generate_text_with_tokenizer[
     inout metrics: Metrics,
 ):
     metrics.begin_timing_prompt()
-    prompt = tokenizer.encode(config.prompt, bos=String("\n<s>\n"))
+    prompt = tokenizer.encode(
+        config.get("prompt")[String], bos=String("\n<s>\n")
+    )
     metrics.set_tokens_in_prompt(prompt.size)
-    sampler = WeightedSampler(config.temperature, config.min_p)
+    sampler = WeightedSampler(
+        config.get("temperature")[Float64], config.get("min-p")[Float64]
+    )
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):
         tokens[Index(0, i)] = prompt[i]
@@ -188,13 +170,14 @@ def _generate_text_with_tokenizer[
     print("Executing...")
     print(tokenizer.decode(prompt), end="")
 
-    kv_cache = KVCache(params, config.max_tokens, config.batch_size)
+    max_tokens = config.get("max-tokens")[Int]
+    kv_cache = KVCache(params, max_tokens, config.get("batch-size")[Int])
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
-    for _ in range(prompt.size, config.max_tokens + 1):
+    for _ in range(prompt.size, max_tokens + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )
@@ -229,12 +212,18 @@ def generate_text(
         print("Using Mojo tokenizer instead.")
         # Fall back to the Mojo tokenizer if setting up the AutoTokenizer
         # fails, for example due to lack of authentication.
-        if not str(config.tokenizer_path):
-            config.tokenizer_path = download_to_cache(
-                "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
+        tokenizer_path_config = config.get("tokenizer-path")[Path]
+        if not str(tokenizer_path_config):
+            config.set(
+                "tokenizer-path",
+                download_to_cache(
+                    "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
+                ),
             )
 
-        mojo_tokenizer = BPETokenizer.from_file(config.tokenizer_path)
+        mojo_tokenizer = BPETokenizer.from_file(
+            config.get("tokenizer-path")[Path]
+        )
         _generate_text_with_tokenizer[BPETokenizer](
             mojo_tokenizer,
             compiled_model,
@@ -247,24 +236,28 @@ def generate_text(
 def run[
     model_type: LoadableModel, encoding: QuantizationEncoding = Float32Encoding
 ](config: Config) -> None:
-    if config.prompt == "I believe the meaning of life is":
+    if config.get("prompt")[String] == "I believe the meaning of life is":
         print("Using default prompt, provide an argument to change it:")
         print('    --prompt "Hello llama3"')
     metrics = Metrics()
     metrics.begin_timing_startup()
     model = Llama2[model_type, encoding](
-        config.model_path,
-        enable_custom_rope_kernel=config.enable_custom_rope_kernel,
+        config.get("model-path")[Path],
+        enable_custom_rope_kernel=config.get("enable-custom-rope-kernel")[Bool],
     )
     params = model.hyperparams()
     graph = model.build_graph("llama_model")
 
     session_options = SessionOptions(
-        cuda_device() if config.use_gpu else cpu_device()
+        cuda_device() if config.get("experimental-use-gpu")[
+            Bool
+        ] else cpu_device()
     )
     session = InferenceSession(session_options)
 
-    compiled_model = compile_graph(session, graph, config.custom_ops_paths)
+    compiled_model = compile_graph(
+        session, graph, config.get("custom-ops-path")[List[Path]]
+    )
     metrics.end_timing_startup()
 
     generate_text(compiled_model, params, config, metrics)
@@ -279,10 +272,11 @@ def outer[
     ) -> None
 ]():
     config = Config()
-    encoding = config.quantization_encoding.lower()
+    encoding = config.get("quantization-encoding")[String].lower()
 
     # If using a `.bin` model skip the quantization logic
-    if config.model_path.suffix() == ".bin":
+    model_path = config.get("model-path")[Path]
+    if model_path.suffix() == ".bin":
         run[LlamaCFile](config)
         return
 
@@ -304,8 +298,9 @@ def outer[
             error += " " + item[]
         raise error
 
-    if not str(config.model_path):
-        config.model_path = download_to_cache(encoding_urls[encoding])
+    model_path_config = config.get("model-path")[Path]
+    if not str(model_path_config):
+        config.set("model-path", download_to_cache(encoding_urls[encoding]))
 
     if encoding == Q4_0Encoding.id():
         inner[GGUFFile, Q4_0Encoding](config)

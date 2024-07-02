@@ -113,9 +113,11 @@ def register_pipeline_configs(
             elif config_registry[curr_arg] == OptionTypeEnum.PATH:
                 cli_config[curr_arg] = Path(args[index + 1])
             elif config_registry[curr_arg] == OptionTypeEnum.PATH_LIST:
+                temp_list = List[Path]()
                 # super hacky, figure out a more elegant way to do this.
-                curr_val = cli_config[curr_arg]
-                temp_list = curr_val[List[Path]]
+                if curr_arg in cli_config:
+                    curr_val = cli_config[curr_arg]
+                    temp_list = curr_val[List[Path]]
                 temp_list.append(Path(args[index + 1]))
                 cli_config[curr_arg] = temp_list
             else:  # String / also acts as a fallback to make them stringly typed.

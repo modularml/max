@@ -58,11 +58,7 @@ struct Config:
     var config: Dict[String, OptionValue]
 
     def __init__(inout self):
-        # Add llama3-specific arguments to config_registry
-        llama3_additional_configs = ConfigRegistryDict()
-        llama3_additional_configs["experimental-use-gpu"] = OptionTypeEnum.BOOL
-
-        config_registry = LlamaConfigRegistry(llama3_additional_configs)
+        config_registry = LlamaConfigRegistry(ConfigRegistryDict())
 
         default_configs = get_llama_base_default_config()
         self.config = register_pipeline_configs(
@@ -201,7 +197,7 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     session = InferenceSession(session_options)
 
     compiled_model = compile_graph(
-        session, graph, config.get("custom-ops-paths")[List[Path]]
+        session, graph, config.get("custom-ops-path")[List[Path]]
     )
     metrics.end_timing_startup()
 
