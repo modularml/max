@@ -112,6 +112,17 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
             w, _ = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
+        # TODO: Remove the following check once KERN-627 is implemented.
+        @parameter
+        if encoding.id() == BFloat16Encoding.id():
+            print(
+                "Note: split KV cache flash attention currently unavailable for"
+                " bfloat16, falling back to naive attention"
+            )
+            use_custom_attention = False
+        else:
+            use_custom_attention = True
+
         layers = List[TransformerBlock[model_dtype]]()
         for layer in range(params.n_layers):
             attention = Attention[model_dtype](
@@ -120,7 +131,7 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
                 head_dim=params.head_dim,
                 dim=params.dims,
                 enable_custom_rope_kernel=False,
-                use_custom_attention=True,
+                use_custom_attention=use_custom_attention,
                 wq=weight("attn_q", layer),
                 wk=weight("attn_k", layer),
                 wv=weight("attn_v", layer),
