@@ -13,14 +13,8 @@
 from pathlib import cwd, Path
 import sys
 
-from max._driver import (
-    Device,
-    AnyTensor,
-    Tensor,
-    cuda_device,
-    cpu_device,
-    ExecutableGraph,
-)
+from max.engine import InferenceSession, Model
+from max._driver import Device, Tensor, AnyTensor, cuda_device, cpu_device
 from utils import StaticTuple
 from max.tensor import TensorSpec
 
@@ -116,8 +110,11 @@ struct ReplitPipeline[dtype: DType]:
     """An instance of cpu device. If chosen device is cpu this will
     be a copy of chosen device."""
 
-    var _executable_graph: ExecutableGraph
-    """Graph compiled, initialized and ready for execution."""
+    var _session: InferenceSession
+    """MAX Engine session that holds and runs the model."""
+
+    var _model: Model
+    """Model compiled, initialized and ready for execution."""
 
     var _tokenizer: AutoTokenizer
     """Tokenizer for encoding/decoding the inputs and outputs."""
@@ -171,12 +168,12 @@ struct ReplitPipeline[dtype: DType]:
         self._device = cuda_device() if use_gpu else cpu_device()
         self._run_on_gpu = use_gpu
         self._cpu_device = cpu_device() if use_gpu else self._device
+        self._session = InferenceSession(self._device)
 
         # Compile and load the graph, which generates the MLIR and runs
         # optimization passes on it.
         print("Compiling...")
-        compiled_graph = self._device.compile(g)
-        self._executable_graph = self._device.load(compiled_graph)
+        self._model = self._session.load(g)
 
         # Set up tokenizer.
         var hf_model_name = "replit/replit-code-v1_5-3b"
@@ -273,7 +270,7 @@ struct ReplitPipeline[dtype: DType]:
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
 
-        results = self._executable_graph(
+        results = self._model._execute(
             self._next_token_tensor.take(),
             self._get_attention_mask(),
             self._k_cache.take(),
