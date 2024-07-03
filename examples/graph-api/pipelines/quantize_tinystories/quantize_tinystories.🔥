@@ -107,7 +107,7 @@ struct TeenyTinyLlama:
             self.hyperparams.n_kv_heads,
             self.hyperparams.head_dim,
         )
-        tokens_type = TensorType(DType.int64, Self.batch_size, Dim.dynamic())
+        tokens_type = TensorType(DType.int64, Self.batch_size, "seq_len")
         llama = Graph(
             "TeenyTinyLlama", List[Type](tokens_type, cache_type, cache_type)
         )
