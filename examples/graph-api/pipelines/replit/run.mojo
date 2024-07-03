@@ -273,8 +273,7 @@ struct ReplitPipeline[dtype: DType]:
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
 
-        results = self._device.execute(
-            self._executable_graph,
+        results = self._executable_graph(
             self._next_token_tensor.take(),
             self._get_attention_mask(),
             self._k_cache.take(),
