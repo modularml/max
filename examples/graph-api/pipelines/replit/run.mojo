@@ -16,6 +16,7 @@ import sys
 from max._driver import (
     Device,
     AnyTensor,
+    Tensor,
     cuda_device,
     cpu_device,
     ExecutableGraph,
@@ -225,9 +226,7 @@ struct ReplitPipeline[dtype: DType]:
         self._v_cache = kv_cache[1].take()
 
         encoded_prompt = self._tokenizer.encode(List(prompt))
-        next_token_tensor = self._cpu_device.allocate(
-            TensorSpec(DType.int64, (1, len(encoded_prompt)))
-        ).to_tensor[DType.int64, 2]()
+        next_token_tensor = Tensor[DType.int64, 2]((1, len(encoded_prompt)))
         for i in range(len(encoded_prompt)):
             next_token_tensor[0, i] = encoded_prompt[i]
         self._set_next_token_tensor(next_token_tensor)
@@ -257,12 +256,7 @@ struct ReplitPipeline[dtype: DType]:
         Result is placed on the chosen device.
         """
 
-        attention_mask_dtensor = self._cpu_device.allocate(
-            TensorSpec(DType.bool, (1, self._cur_seq_len))
-        )
-        attention_mask_tensor = (
-            attention_mask_dtensor^.to_tensor[DType.bool, 2]()
-        )
+        attention_mask_tensor = Tensor[DType.bool, 2]((1, self._cur_seq_len))
         for i in range(self._cur_seq_len):
             attention_mask_tensor[0, i] = True
 
@@ -303,9 +297,7 @@ struct ReplitPipeline[dtype: DType]:
             return None
         self._cur_seq_len += 1
 
-        next_token_tensor = self._cpu_device.allocate(
-            TensorSpec(DType.int64, (1, 1))
-        ).to_tensor[DType.int64, 2]()
+        next_token_tensor = Tensor[DType.int64, 2]((1, 1))
         next_token_tensor[0, 0] = token
         self._set_next_token_tensor(next_token_tensor)
 
