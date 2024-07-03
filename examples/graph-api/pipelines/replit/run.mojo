@@ -40,8 +40,7 @@ from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer
 from ..llama3.metrics import Metrics
 
-# TODO: Expand this back out to 512 once MSDK-305 is fully resolved.
-alias DEFAULT_MAX_SEQ_LEN = 33
+alias DEFAULT_MAX_SEQ_LEN = 512
 
 
 @value
