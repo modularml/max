@@ -13,8 +13,13 @@
 from pathlib import cwd, Path
 import sys
 
-from max._driver import Device, AnyTensor, cuda_device, cpu_device
-from max._driver import ExecutableGraph, compile_graph
+from max._driver import (
+    Device,
+    AnyTensor,
+    cuda_device,
+    cpu_device,
+    ExecutableGraph,
+)
 from utils import StaticTuple
 from max.tensor import TensorSpec
 
@@ -170,8 +175,8 @@ struct ReplitPipeline[dtype: DType]:
         # Compile and load the graph, which generates the MLIR and runs
         # optimization passes on it.
         print("Compiling...")
-        compiled_graph = compile_graph(g, self._device)
-        self._executable_graph = compiled_graph.load()
+        compiled_graph = self._device.compile(g)
+        self._executable_graph = self._device.load(compiled_graph)
 
         # Set up tokenizer.
         var hf_model_name = "replit/replit-code-v1_5-3b"
@@ -275,7 +280,7 @@ struct ReplitPipeline[dtype: DType]:
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
 
-        results = execute(
+        results = self._device.execute(
             self._executable_graph,
             self._next_token_tensor.take(),
             self._get_attention_mask(),
@@ -351,16 +356,6 @@ def dispatch[dtype: DType](config: Config):
     metrics.end_timing()
     print()
     metrics.print()
-
-
-def execute(
-    graph: ExecutableGraph,
-    owned tokens: AnyTensor,
-    owned attention_mask: AnyTensor,
-    owned k_cache: AnyTensor,
-    owned v_cache: AnyTensor,
-) -> List[AnyTensor]:
-    return graph.execute(tokens^, attention_mask^, k_cache^, v_cache^)
 
 
 def replit_run():
