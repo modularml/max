@@ -31,8 +31,19 @@ from ..tokenizer.regex import set_locale_unicode
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
+from ..weights.download import download_to_cache
+from ..configs.llama import get_llama3_model_url
 
-from .run import Config, outer, compile_graph, execute
+from max.graph.quantization import (
+    QuantizationEncoding,
+    BFloat16Encoding,
+    Float32Encoding,
+    Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
+)
+
+from .run import Config, compile_graph, execute
 
 
 struct Llama3InferenceService[
@@ -213,4 +224,24 @@ def serve[EncodingT: QuantizationEncoding](config: Config) -> None:
 
 
 def llama3_serve():
-    outer[serve]()
+    set_locale_unicode()
+
+    config = Config()
+    encoding = config.get("quantization-encoding")[String]
+
+    if not config.get("model-path")[Path]:
+        model_path = download_to_cache(get_llama3_model_url(encoding))
+        config.set("model-path", model_path)
+
+    if encoding == Q4_0Encoding.id():
+        serve[Q4_0Encoding](config)
+    elif encoding == Q4_KEncoding.id():
+        serve[Q4_KEncoding](config)
+    elif encoding == Q6_KEncoding.id():
+        serve[Q6_KEncoding](config)
+    elif encoding == BFloat16Encoding.id():
+        serve[BFloat16Encoding](config)
+    elif encoding == Float32Encoding.id():
+        serve[Float32Encoding](config)
+    else:
+        raise "--quantization-encoding " + encoding + " not supported"
