@@ -13,7 +13,7 @@
 """Evaluates Replit model."""
 from pathlib import cwd, Path
 import sys
-from time import now
+from time import perf_counter_ns
 
 from max.engine import InferenceSession, Model, TensorMap
 from max.tensor import Tensor, TensorShape
@@ -96,15 +96,15 @@ def replit_eval():
 
     # Run evaluation on problems from HumanEval.
     eval_benchmark = HumanEval()
-    start_time = now()
+    start_time = perf_counter_ns()
     problems = eval_benchmark.get_problems()
     for task_id in problems:
         print("Running task ", task_id, "...", sep="", end="")
-        problem_start_time = now()
+        problem_start_time = perf_counter_ns()
         for _ in range(config.get("eval-samples")[Int]):
             completion, num_tokens = generate(problems[task_id]["prompt"])
             eval_benchmark.add_sample(task_id, completion)
-            duration = (now() - problem_start_time) / 1e9
+            duration = (perf_counter_ns() - problem_start_time) / 1e9
             print(
                 " done. Took ",
                 duration,
@@ -116,7 +116,7 @@ def replit_eval():
                 sep="",
             )
 
-    full_duration = (now() - start_time) / 1e9
+    full_duration = (perf_counter_ns() - start_time) / 1e9
     print("All samples finished, took", full_duration, "seconds to generate.")
 
     # Export the output samples which can be executed to get the eval score.
