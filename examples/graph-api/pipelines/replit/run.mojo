@@ -18,13 +18,13 @@ from max._driver import Device, Tensor, AnyTensor, cuda_device, cpu_device
 from utils import StaticTuple
 from max.tensor import TensorSpec
 
+from .config import ReplitConfigRegistry, get_replit_base_default_config
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
 
-from ..configs.registry import ConfigRegistryDict
+from ..configs.registry import ConfigRegistry, ConfigRegistryDict
 from ..configs.parse_args import (
-    OptionTypeEnum,
     OptionValue,
     parse_args,
     register_pipeline_configs,
@@ -42,22 +42,11 @@ struct Config:
     var config: Dict[String, OptionValue]
 
     def __init__(inout self):
-        args = ConfigRegistryDict()
-        args["converted_weights_path"] = OptionTypeEnum.PATH
-        args["prompt"] = OptionTypeEnum.STRING
-        args["max_length"] = OptionTypeEnum.INT
-        args["max_new_tokens"] = OptionTypeEnum.INT
-        args["experimental-use-gpu"] = OptionTypeEnum.BOOL
-        args["dtype"] = OptionTypeEnum.STRING
-
-        default_configs = Dict[String, OptionValue]()
-        default_configs["converted_weights_path"] = Path("")
-        default_configs["prompt"] = str('def hello():\n  print("hello world")')
-        default_configs["experimental-use-gpu"] = False
-        default_configs["dtype"] = str("float32")
+        config_registry = ReplitConfigRegistry(ConfigRegistryDict())
+        default_configs = get_replit_base_default_config()
 
         self.config = register_pipeline_configs(
-            args,
+            config_registry.registry,
             parse_args(),
             default_configs,
         )
@@ -306,13 +295,13 @@ def dispatch[dtype: DType](config: Config):
 
     # Set up the Replit model prepare it for token generation.
     var max_length: Optional[Int] = None
-    if "max_length" in config:
-        max_length = config.get("max_length")[Int]
+    if "max-length" in config:
+        max_length = config.get("max-length")[Int]
     var max_new_tokens: Optional[Int] = None
-    if "max_new_tokens" in config:
-        max_new_tokens = config.get("max_new_tokens")[Int]
+    if "max-new-tokens" in config:
+        max_new_tokens = config.get("max-new-tokens")[Int]
     replit = ReplitPipeline[dtype](
-        config.get("converted_weights_path")[Path],
+        config.get("converted-weights-path")[Path],
         use_gpu=config.get("experimental-use-gpu")[Bool],
         max_length=max_length,
         max_new_tokens=max_new_tokens,
@@ -351,7 +340,7 @@ def replit_run():
     # Finalize parsed arguments.
     dtype = DType.float32
 
-    raw_type = config.get("dtype")[String]
+    raw_type = config.get("quantization-encoding")[String]
     if not sys.info.is_x86() and raw_type == "bfloat16":
         raise "bfloat16 is not supported for ARM architectures."
     if raw_type == "float32":
@@ -359,9 +348,9 @@ def replit_run():
     elif raw_type == "bfloat16":
         dtype = DType.bfloat16
     else:
-        raise "dtype must be 'bfloat16' or 'float32', got" + raw_type
+        raise "quantization-encoding must be 'bfloat16' or 'float32', got" + raw_type
 
-    converted_weights_path = config.get("converted_weights_path")[Path]
+    converted_weights_path = config.get("converted-weights-path")[Path]
     if len(str(converted_weights_path)) == 0:
         if dtype == DType.float32:
             converted_weights_path = cwd().joinpath(
@@ -379,7 +368,7 @@ def replit_run():
                 + raw_type
             )
         print("Using checkpoint at", converted_weights_path)
-        config.set("converted_weights_path", converted_weights_path)
+        config.set("converted-weights-path", converted_weights_path)
 
     @parameter
     if not is_x86():

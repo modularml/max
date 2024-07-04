@@ -66,6 +66,13 @@ pipeline:
 - `--converted-weights-path`: Specifies the path to the converted model
    weights. (Default value: `.cache/replit/converted`)
 - `--prompt`: The text prompt to use for further code generation.
+- `--max-length`: An optional token generation configuration to specify maximum
+   sequence length.
+- `--max-new-tokens`: An optional token generation configuration to specify
+   maximum number of tokens.
+- `--quantization-encoding`: The encoding to use for a datatype that can be
+   quantized to a low bits per weight format. The options for quantized formats
+   will download and cache default weights.
 
 ## Ideas for future extension
 
