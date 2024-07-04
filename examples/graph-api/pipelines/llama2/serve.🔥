@@ -20,7 +20,13 @@ from pathlib import Path
 from max.engine import InferenceSession, Model, TensorMap
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
-from max.graph.quantization import QuantizationEncoding, Float32Encoding
+from max.graph.quantization import (
+    QuantizationEncoding,
+    Float32Encoding,
+    Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
+)
 from max.serve.http import PythonServer, PythonService
 from max.tensor import Tensor, TensorShape, TensorSpec
 
@@ -33,13 +39,13 @@ from ..weights.gguf import GGUFFile
 from ..weights.download import download_to_cache
 from ..weights.llama2checkpoint import LlamaCFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
+from ..configs.llama import get_llama2_model_url
 
 from .run import (
     Config,
     compile_graph,
     execute,
     _generate_text_with_tokenizer,
-    outer,
 )
 
 
@@ -191,7 +197,7 @@ struct Llama2InferenceService[
             handler.wfile.write(json_str)
 
 
-def serve_inner[
+def serve[
     ModelType: LoadableModel,
     EncodingT: QuantizationEncoding,
     TokenizerT: Tokenizer = AutoTokenizer,
@@ -205,12 +211,12 @@ def serve_inner[
     server.serve(service)
 
 
-def serve[
+def setup_tokenizer[
     ModelType: LoadableModel,
     EncodingT: QuantizationEncoding = Float32Encoding,
 ](config: Config) -> None:
     try:
-        serve_inner[ModelType, EncodingT](
+        serve[ModelType, EncodingT](
             config, AutoTokenizer("meta-llama/Llama-2-7b-hf")
         )
     except e:
@@ -226,10 +232,26 @@ def serve[
                     "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin"
                 ),
             )
-        serve_inner[ModelType, EncodingT, BPETokenizer](
+        serve[ModelType, EncodingT, BPETokenizer](
             config, BPETokenizer.from_file(config.get("tokenizer-path")[Path])
         )
 
 
 def llama2_serve():
-    outer[serve]()
+    config = Config()
+    encoding = config.get("quantization-encoding")[String]
+
+    if not config.get("model-path")[Path]:
+        model_path = download_to_cache(get_llama2_model_url(encoding))
+        config.set("model-path", model_path)
+
+    if encoding == Float32Encoding.id():
+        setup_tokenizer[LlamaCFile, Float32Encoding](config)
+    elif encoding == Q4_0Encoding.id():
+        setup_tokenizer[GGUFFile, Q4_0Encoding](config)
+    elif encoding == Q4_KEncoding.id():
+        setup_tokenizer[GGUFFile, Q4_KEncoding](config)
+    elif encoding == Q6_KEncoding.id():
+        setup_tokenizer[GGUFFile, Q6_KEncoding](config)
+    else:
+        raise "--quantization-encoding " + encoding + " not supported"

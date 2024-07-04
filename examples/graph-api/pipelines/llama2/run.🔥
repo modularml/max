@@ -33,6 +33,7 @@ from .model.llama import Llama2
 from ..samplers.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
 from ..configs.llama import (
+    get_llama2_model_url,
     LlamaConfigRegistry,
     get_llama_base_default_config,
 )
@@ -265,50 +266,21 @@ def run[
     metrics.print()
 
 
-# Passing the inner function allows this function to be shared with `serve.🔥`
-def outer[
-    inner: def[model_type: LoadableModel, encoding: QuantizationEncoding] (
-        config: Config
-    ) -> None
-]():
-    config = Config()
-    encoding = config.get("quantization-encoding")[String].lower()
-
-    # If using a `.bin` model skip the quantization logic
-    model_path = config.get("model-path")[Path]
-    if model_path.suffix() == ".bin":
-        run[LlamaCFile](config)
-        return
-
-    encoding_urls = Dict[String, String]()
-    # fmt: off
-    encoding_urls[Q4_0Encoding.id()] = "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_0.gguf"
-    encoding_urls[Q4_KEncoding.id()] = "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q4_K_M.gguf"
-    encoding_urls[Q6_KEncoding.id()] = "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q6_K.gguf"
-    # fmt: on
-
-    # Raise error if encoding is not supported
-    if encoding not in encoding_urls:
-        error = (
-            "--quantization-encoding "
-            + encoding
-            + " is not supported, supported encodings:"
-        )
-        for item in encoding_urls:
-            error += " " + item[]
-        raise error
-
-    model_path_config = config.get("model-path")[Path]
-    if not str(model_path_config):
-        config.set("model-path", download_to_cache(encoding_urls[encoding]))
-
-    if encoding == Q4_0Encoding.id():
-        inner[GGUFFile, Q4_0Encoding](config)
-    elif encoding == Q4_KEncoding.id():
-        inner[GGUFFile, Q4_KEncoding](config)
-    elif encoding == Q6_KEncoding.id():
-        inner[GGUFFile, Q6_KEncoding](config)
-
-
 def llama2_run():
-    outer[run]()
+    config = Config()
+    encoding = config.get("quantization-encoding")[String]
+
+    if not config.get("model-path")[Path]:
+        model_path = download_to_cache(get_llama2_model_url(encoding))
+        config.set("model-path", model_path)
+
+    if encoding == Float32Encoding.id():
+        run[LlamaCFile, Float32Encoding](config)
+    elif encoding == Q4_0Encoding.id():
+        run[GGUFFile, Q4_0Encoding](config)
+    elif encoding == Q4_KEncoding.id():
+        run[GGUFFile, Q4_KEncoding](config)
+    elif encoding == Q6_KEncoding.id():
+        run[GGUFFile, Q6_KEncoding](config)
+    else:
+        raise "--quantization-encoding " + encoding + " not supported"
