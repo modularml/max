@@ -18,106 +18,67 @@ from time import now
 from max.engine import InferenceSession, Model, TensorMap
 from max.tensor import Tensor, TensorShape
 
-from ..benchmarks.human_eval import HumanEval
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
-from ..tokenizer import AutoTokenizer
 from .run import ReplitPipeline
-
-alias DEFAULT_MAX_SEQ_LEN = 512
-alias DEFAULT_EVAL_SAMPLES = 1
+from ..benchmarks.human_eval import HumanEval
+from ..tokenizer import AutoTokenizer
+from ..configs.registry import ConfigRegistry, ConfigRegistryDict
+from ..configs.parse_args import (
+    OptionValue,
+    parse_args,
+    register_pipeline_configs,
+)
 
 
 @value
 struct Config:
     """Configuration for token generation runtime options."""
 
-    var converted_weights_path: Path
-    var max_length: Optional[Int]
-    var max_new_tokens: Optional[Int]
-    var use_gpu: Bool
+    var config: Dict[String, OptionValue]
 
-    var eval_samples: Optional[Int]
-    """The number of times to each task from the evaluation dataset."""
+    def __init__(inout self):
+        # Add Replit eval specific arguments to config_registry
+        replit_additional_configs = ConfigRegistryDict()
+        """The number of times to each task from the evaluation dataset."""
+        replit_additional_configs["eval-samples"] = OptionTypeEnum.INT
+        """Path to write output samples."""
+        # TODO: This should probably be made a Path type.
+        replit_additional_configs["output-path"] = OptionTypeEnum.STRING
 
-    var output_path: String
-    """Path to write output samples."""
+        config_registry = ReplitConfigRegistry(replit_additional_configs)
+        default_configs = get_replit_base_default_config()
+        default_configs["eval-samples"] = 1
+        default_configs["output-path"] = str(cwd().joinpath("samples.jsonl"))
 
-    def __init__(
-        inout self,
-        /,
-        converted_weights_path: Path = "",
-        max_length: Optional[Int] = None,
-        max_new_tokens: Optional[Int] = None,
-        use_gpu: Bool = False,
-        eval_samples: Optional[Int] = None,
-        output_path: String = "",
-    ):
-        self.converted_weights_path = converted_weights_path
-        self.max_length = max_length
-        self.max_new_tokens = max_new_tokens
-        self.use_gpu = use_gpu
-        self.eval_samples = eval_samples
-        self.output_path = output_path
-        self.parse_args()
+        self.config = register_pipeline_configs(
+            config_registry.registry,
+            parse_args(),
+            default_configs,
+        )
 
-    def parse_args(inout self):
-        args = sys.argv()
-
-        @parameter
-        def read_value(index: Int) -> StringRef:
-            if index >= len(args):
-                raise "missing value for parameter `" + str(
-                    args[index - 1]
-                ) + "`"
-            return args[index]
-
-        # Skip the run_pipeline.mojo and replit arguments.
-        i = 2
-
-        while i < len(args):
-            if args[i] == "--converted_weights_path":
-                self.converted_weights_path = Path(read_value(i + 1))
-                i += 2
-            elif args[i] == "--max_length":
-                self.max_length = int(read_value(i + 1))
-                i += 2
-            elif args[i] == "--max_new_tokens":
-                self.max_new_tokens = int(read_value(i + 1))
-                i += 2
-            elif args[i] == "--eval_samples":
-                self.eval_samples = int(read_value(i + 1))
-                i += 2
-            elif args[i] == "--experimental-use-gpu":
-                self.use_gpu = True
-                i += 1
-            else:
-                raise "unsupported CLI argument: " + String(args[i])
-
-        if len(str(self.converted_weights_path)) == 0:
-            self.converted_weights_path = cwd().joinpath(
+        if len(str(self.config["converted-weights-path"])) == 0:
+            self.config["converted-weights-path"] = cwd().joinpath(
                 ".cache/replit/converted"
             )
-        if len(self.output_path) == 0:
-            self.output_path = str(cwd().joinpath("samples.jsonl"))
-
-    def get_eval_samples(self) -> Int:
-        if self.eval_samples:
-            return self.eval_samples.value()
-        else:
-            return DEFAULT_EVAL_SAMPLES
 
 
 def replit_eval():
     config = Config()
 
     # Set up the Replit model prepare it for token generation.
-    var replit = ReplitPipeline(
-        config.converted_weights_path,
-        use_gpu=config.use_gpu,
-        max_length=config.max_length,
-        max_new_tokens=config.max_new_tokens,
+    var max_length: Optional[Int] = None
+    if "max-length" in config:
+        max_length = config.get("max-length")[Int]
+    var max_new_tokens: Optional[Int] = None
+    if "max-new-tokens" in config:
+        max_new_tokens = config.get("max-new-tokens")[Int]
+    replit = ReplitPipeline[dtype](
+        config.get("converted-weights-path")[Path],
+        use_gpu=config.get("experimental-use-gpu")[Bool],
+        max_length=max_length,
+        max_new_tokens=max_new_tokens,
     )
 
     @parameter
@@ -140,7 +101,7 @@ def replit_eval():
     for task_id in problems:
         print("Running task ", task_id, "...", sep="", end="")
         problem_start_time = now()
-        for _ in range(config.get_eval_samples()):
+        for _ in range(config.get("eval-samples")[Int]):
             completion, num_tokens = generate(problems[task_id]["prompt"])
             eval_benchmark.add_sample(task_id, completion)
             duration = (now() - problem_start_time) / 1e9
@@ -159,7 +120,7 @@ def replit_eval():
     print("All samples finished, took", full_duration, "seconds to generate.")
 
     # Export the output samples which can be executed to get the eval score.
-    output_path = config.output_path
+    output_path = config.get("output-path")[String]
     eval_benchmark.write(output_path)
     print(
         "Solution samples written to "
