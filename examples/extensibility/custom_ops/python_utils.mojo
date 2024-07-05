@@ -19,7 +19,7 @@ import python
 fn numpy_data_pointer[
     type: DType
 ](numpy_array: PythonObject) raises -> DTypePointer[type]:
-    return numpy_array.__array_interface__["data"][0]._unsafe_get_as_pointer[
+    return numpy_array.__array_interface__["data"][0].unsafe_get_as_pointer[
         type
     ]()
 
