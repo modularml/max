@@ -20,8 +20,9 @@ from python import Python
 fn numpy_data_pointer[
     type: DType
 ](numpy_array: PythonObject) raises -> DTypePointer[type]:
-    var data_ptr = numpy_array.__array_interface__["data"][0].__index__()
-    return DTypePointer[type](address=data_ptr)
+    return numpy_array.__array_interface__["data"][0]._unsafe_get_as_pointer[
+        type
+    ]()
 
 
 @always_inline
