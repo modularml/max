@@ -22,9 +22,8 @@ The [Discord](https://discord.gg/modular) community is the best place to share
 your experiences and chat with the team and other community members.
 
 In the [examples directory](https://github.com/modularml/max/tree/main/examples),
-you will find code examples for model inference, Jupyter notebooks for an
-interactive experience learning experience and instructions for how to work
-with benchmarking and visualization tooling.
+you will find code examples and Jupyter notebooks that show how to run inference
+with MAX, and demos using the benchmarking and visualization tools.
 
 ## Getting Started
 
