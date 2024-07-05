@@ -25,6 +25,7 @@ __all__ = ["menu", "kill_process", "download_file"]
 def menu():
     st.sidebar.page_link("home.py", label="️Home", icon="⚡️")
     st.sidebar.page_link("pages/llama3.py", label="Llama3", icon="🦙")
+    st.sidebar.page_link("pages/bert.py", label="Bert", icon="👓")
 
 
 def modular_cache_dir() -> Path:
