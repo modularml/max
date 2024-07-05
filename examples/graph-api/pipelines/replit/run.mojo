@@ -229,11 +229,6 @@ struct ReplitPipeline[dtype: DType]:
         """Set the given value as next token tensor. If the chosen
         device is gpu, value will be copied over to the device."""
 
-        if self._run_on_gpu:
-            next_token_tensor = next_token_tensor.to_device_tensor().copy_to(
-                self._device
-            )
-
         self._next_token_tensor = next_token_tensor^
 
     def _get_attention_mask(self) -> AnyTensor:
@@ -244,11 +239,6 @@ struct ReplitPipeline[dtype: DType]:
         attention_mask_tensor = Tensor[DType.bool, 2]((1, self._cur_seq_len))
         for i in range(self._cur_seq_len):
             attention_mask_tensor[0, i] = True
-
-        if self._run_on_gpu:
-            return attention_mask_tensor.to_device_tensor().copy_to(
-                self._device
-            )
 
         return attention_mask_tensor
 
