@@ -61,9 +61,9 @@ struct AutoTokenizer(Tokenizer):
     def _numpy_data_pointer[
         type: DType
     ](numpy_array: PythonObject) -> DTypePointer[type]:
-        return numpy_array.__array_interface__["data"][
-            0
-        ]._unsafe_get_as_pointer[type]()
+        return numpy_array.__array_interface__["data"][0].unsafe_get_as_pointer[
+            type
+        ]()
 
     @always_inline
     @staticmethod
