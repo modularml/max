@@ -126,6 +126,7 @@ def main():
     quantize_dynamic(
         model_onnx_path,
         model_out_path,
+        optimize_model=True,
         per_channel=False,
         weight_type=QuantType.QUInt8,
         extra_options={"WeightSymmetric": False},
