@@ -13,9 +13,9 @@
 
 import os
 import subprocess
+
 import openai
 import streamlit as st
-
 from shared import download_file, kill_process, menu, modular_cache_dir
 
 st.set_page_config("Llama3", page_icon="🦙")
