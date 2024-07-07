@@ -77,37 +77,41 @@ def error(*error):
 
 
 def add_wheels_to_project(wheels: Path, env: str):
-    if wheels.is_dir():
-        engine = ""
-        lib = ""
-        for path in wheels.glob("**/*"):
-            if "cp311" in str(path):
-                engine = path
-            if "max_engine_libs" in str(path):
-                lib = path
+    engine = ""
+    lib = ""
+    for path in wheels.glob("**/*"):
+        if "cp311" in str(path):
+            engine = path
+        if "max_engine_libs" in str(path):
+            lib = path
 
-        with open("pyproject.toml", "r") as file:
-            toml_data = toml.load(file)
-
-        project_optional_dependencies = toml_data.setdefault(
-            "project", {}
-        ).setdefault("optional-dependencies", {})
-        project_optional_dependencies[env] = [
-            f"max-engine @ file://{engine}",
-            f"max-engine-libs @ file://{lib}",
-        ]
-
-        tool_pixi_environments_dev = (
-            toml_data.setdefault("tool", {})
-            .setdefault("pixi", {})
-            .setdefault("environments", {})
-            .setdefault(env, {})
+    if not engine or not lib:
+        raise ImportError(
+            "Could not find correct named wheels in install folder"
         )
-        tool_pixi_environments_dev.setdefault("features", [env])
-        tool_pixi_environments_dev.setdefault("solve-group", env)
 
-        with open("pyproject.toml", "w") as file:
-            toml.dump(toml_data, file)
+    with open("pyproject.toml", "r") as file:
+        toml_data = toml.load(file)
+
+    project_optional_dependencies = toml_data.setdefault(
+        "project", {}
+    ).setdefault("optional-dependencies", {})
+    project_optional_dependencies[env] = [
+        f"max-engine @ file://{engine}",
+        f"max-engine-libs @ file://{lib}",
+    ]
+
+    tool_pixi_environments_dev = (
+        toml_data.setdefault("tool", {})
+        .setdefault("pixi", {})
+        .setdefault("environments", {})
+        .setdefault(env, {})
+    )
+    tool_pixi_environments_dev.setdefault("features", [env])
+    tool_pixi_environments_dev.setdefault("solve-group", env)
+
+    with open("pyproject.toml", "w") as file:
+        toml.dump(toml_data, file)
 
 
 def install_max_release():
@@ -130,15 +134,15 @@ def install_max_release():
     nightly_wheels = pkg_path / "packages.modular.com_nightly_max" / "wheels"
 
     # If only nightly wheels exist, make them default and nightly feature
-    if nightly_wheels and not stable_wheels:
+    if nightly_wheels.is_dir() and not stable_wheels.is_dir():
         add_wheels_to_project(nightly_wheels, "default")
         add_wheels_to_project(stable_wheels, "nightly")
 
-    if stable_wheels:
+    if stable_wheels.is_dir():
         add_wheels_to_project(stable_wheels, "default")
 
-    if nightly_wheels:
-        add_wheels_to_project(stable_wheels, "nightly")
+    if nightly_wheels.is_dir():
+        add_wheels_to_project(nightly_wheels, "nightly")
 
 
 install_max_dev()
