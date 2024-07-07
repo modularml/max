@@ -27,3 +27,5 @@ if st.button("🦙 Llama3"):
     st.switch_page("pages/llama3.py")
 elif st.button("👓 BERT"):
     st.switch_page("pages/bert.py")
+elif st.button("🎨 Stable Diffusion 1.5"):
+    st.switch_page("pages/stable-diffusion.py")

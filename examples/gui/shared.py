@@ -13,27 +13,33 @@
 
 import os
 import time
+import subprocess
 from pathlib import Path
+from typing import List
 
 import psutil
 import requests
 import streamlit as st
-
-__all__ = ["menu", "kill_process", "download_file"]
 
 
 def menu():
     st.sidebar.page_link("home.py", label="️Home", icon="⚡️")
     st.sidebar.page_link("pages/llama3.py", label="Llama3", icon="🦙")
     st.sidebar.page_link("pages/bert.py", label="Bert", icon="👓")
+    st.sidebar.page_link(
+        "pages/stable-diffusion.py", label="Stable Diffusion 1.5", icon="🎨"
+    )
+
+
+def cache_dir() -> Path:
+    cache_folder = os.getenv("XDG_CACHE_PATH")
+    if not cache_folder:
+        return Path.home() / ".cache"
+    return Path(cache_folder)
 
 
 def modular_cache_dir() -> Path:
-    """Follow the convention for caching downloads."""
-    xdg_cache_home = os.getenv("XDG_CACHE_HOME")
-    if xdg_cache_home:
-        return Path(xdg_cache_home) / "modular"
-    return Path.home() / ".cache" / "modular"
+    return cache_dir() / "modular"
 
 
 def kill_process(port: int, model_state=None):
@@ -68,6 +74,55 @@ def format_time(seconds):
         return f"{int(minutes)}m {int(seconds)}s"
     else:
         return f"{int(seconds)}s"
+
+
+def run_subprocess_monitor_download(
+    command: List[str],
+    folder_path: str,
+    total_size_mb: int,
+    post_process_msg: str = "",
+):
+    """Run `command` in a subprocess and monitor `folder_path` will a progress bar
+    for how much of the download has completed.
+    """
+    process = subprocess.Popen(command)
+
+    # All in MB
+    downloaded = 0
+    compiling_models = st.empty()
+    progress_bar = st.progress(
+        0.0,
+        f"(MB) Size: {total_size_mb} Downloaded: 0000 Speed: 0.0 MB/s",
+    )
+    download_start = time.time()
+    resuming_from = -1
+    while process.poll() is None:
+        if downloaded > total_size_mb - 50:
+            progress_bar.progress(1.0, "Downloaded!")
+            if post_process_msg:
+                compiling_models.info(post_process_msg)
+        else:
+            downloaded = 0
+            for dirpath, _, filenames in os.walk(folder_path):
+                for filename in filenames:
+                    file_path = os.path.join(dirpath, filename)
+                    downloaded += os.path.getsize(file_path)
+            # Convert bytes to MB
+            downloaded //= 1024**2
+            if resuming_from == -1:
+                resuming_from = downloaded
+            speed = (downloaded - resuming_from) / (
+                time.time() - download_start
+            )
+            progress_bar.progress(
+                downloaded / total_size_mb,
+                (
+                    f"Size: {total_size_mb} MB Downloaded: {downloaded} MB"
+                    f" Speed: {speed:.2f} MB/s"
+                ),
+            )
+        time.sleep(1)
+    compiling_models.empty()
 
 
 def format_speed(bytes_per_second):

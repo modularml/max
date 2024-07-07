@@ -13,20 +13,19 @@
 
 import os
 import subprocess
-
 import openai
 import streamlit as st
+
 from shared import download_file, kill_process, menu, modular_cache_dir
 
 st.set_page_config("Llama3", page_icon="🦙")
+menu()
 
 """
 # 🦙 Llama3
 
 Select a quantization encoding to download model from a predefined `Model URL`. If the model exists at `Model Path` it won't be downloaded again. You can set a custom `Model URL` or `Model Path` that matches the quantization encoding.
 """
-
-menu()
 
 model_state = st.empty()
 
