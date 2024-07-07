@@ -12,12 +12,19 @@
 # ===----------------------------------------------------------------------=== #
 
 import os
-import subprocess
+
 import streamlit as st
-import select
-from shared import menu
+import torch
+from max import engine
+from shared import menu, modular_cache_dir
+from transformers import (
+    AutoModelForSequenceClassification,
+    BertForMaskedLM,
+    BertTokenizer,
+)
 
 st.set_page_config("Bert", page_icon="👓")
+menu()
 
 """
 # 👓 Bert
@@ -25,176 +32,93 @@ st.set_page_config("Bert", page_icon="👓")
 A basic implementation of Bert using MAX. Type a text string, using `[MASK]` to indicate where you want the model to predict a word.
 """
 
-menu()
+HF_MODEL_NAME = "bert-base-uncased"
+
+
+# If batch, seq_len, or mlm options change, recompile the torchscript.
+@st.cache_data
+def compile_torchscript(batch: int, seq_len: int, mlm: bool):
+    if mlm:
+        model = BertForMaskedLM.from_pretrained(HF_MODEL_NAME)
+    else:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            HF_MODEL_NAME
+        )
+    input_dict = {
+        "input_ids": torch.zeros((batch, seq_len), dtype=torch.int64),
+        "attention_mask": torch.zeros((batch, seq_len), dtype=torch.int64),
+        "token_type_ids": torch.zeros((batch, seq_len), dtype=torch.int64),
+    }
+    model.eval()
+    model.config.return_dict = False
+    with torch.no_grad():
+        traced_model = torch.jit.trace(
+            model, example_kwarg_inputs=dict(input_dict), strict=False
+        )
+    torch.jit.save(traced_model, model_path)
+
 
 model_state = st.empty()
 
+mlm = st.sidebar.checkbox("Masked Language Model", True)
+filename = "bert.torchscript"
+if mlm:
+    filename = "bert-mlm.torchscript"
+model_path = st.sidebar.text_input(
+    "Model Path",
+    os.path.join(modular_cache_dir(), filename),
+)
+batch = st.sidebar.number_input("Batch Size", 1, 64)
+seq_len = st.sidebar.slider("Sequence Length", 128, 1024)
+input_text = st.text_input("Text Input", "Don't [MASK] about it")
 
-def download_model(venv_location, debug=False):
-    venv = venv_location + "/bin/python"
-    venv = os.path.expandvars(venv)
 
-    # set path for simple_inference.py
-    script_path = "../inference/common/bert-torchscript/download-model.py"
+compile_torchscript(batch, seq_len, mlm)
 
-    # call the script.
-    process = subprocess.Popen(
-        [venv, script_path, "-o", model_path, "--mlm"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+
+if st.button("Predict Word"):
+    masks = input_text.split("[MASK]")
+    if len(masks) > 2:
+        st.error("Cannot have more than a single [MASK] in the input text")
+        exit(1)
+    if len(masks) < 2:
+        st.error("Require at least one [MASK] in the input text")
+        exit(1)
+
+    session = engine.InferenceSession()
+    inputs = [
+        torch.zeros((batch, seq_len), dtype=torch.int64),
+        torch.zeros((batch, seq_len), dtype=torch.int64),
+        torch.zeros((batch, seq_len), dtype=torch.int64),
+    ]
+    input_spec_list = [
+        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
+        for tensor in inputs
+    ]
+    model = session.load(model_path, input_specs=input_spec_list)
+    tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
+
+    inputs = tokenizer(
+        input_text,
+        return_tensors="pt",
+        padding="max_length",
+        truncation=True,
+        max_length=seq_len,
     )
 
-    if debug:
-        # Read and display the output and errors in real-time
-        output = ""
-        errors = ""
-
-        # Use select to handle process output in real-time
-        while True:
-            # Wait for any of the streams to have data
-            reads, _, _ = select.select(
-                [process.stdout, process.stderr], [], []
-            )
-
-            for stream in reads:
-                # Read a line from stdout
-                if stream == process.stdout:
-                    output_line = process.stdout.readline()
-                    if output_line:
-                        output += output_line
-                        st.text(output_line.strip())
-
-                # Read a line from stderr
-                elif stream == process.stderr:
-                    error_line = process.stderr.readline()
-                    if error_line:
-                        errors += error_line
-                        st.text(error_line.strip())
-
-            # Check if the process has finished
-            if process.poll() is not None:
-                break
-
-        # Ensure all remaining lines are read
-        remaining_output = process.stdout.read()
-        if remaining_output:
-            output += remaining_output
-            st.text(remaining_output.strip())
-
-        remaining_errors = process.stderr.read()
-        if remaining_errors:
-            errors += remaining_errors
-            st.text(remaining_errors.strip())
-
-
-def simple_inference(text, venv_location, debug=False):
-    if not validate_text(text):
-        return "You must add [MASK] to your text string."
-
-    # Download the model.
-    download_model(venv_location, False)
-
-    venv = venv_location + "/bin/python"
-    venv = os.path.expandvars(venv)
-
-    # set path for simple_inference.py
-    script_path = "../inference/bert-python-torchscript/simple-inference.py"
-
-    # call the script.
-    process = subprocess.Popen(
-        [venv, script_path, "--model-path", model_path, "--text", text],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+    print("Input processed.\n")
+    masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
+        as_tuple=True
+    )[1]
+    outputs = model.execute(**inputs)["result0"]
+    logits = torch.from_numpy(outputs[0, masked_index, :])
+    predicted_token_id = logits.argmax(dim=-1)
+    predicted_tokens = tokenizer.decode(
+        [predicted_token_id],
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=True,
     )
 
-    filled_text_line = None
-    output = ""
-    errors = ""
-
-    # Use select to handle process output in real-time
-    while True:
-        # Wait for any of the streams to have data
-        reads, _, _ = select.select([process.stdout, process.stderr], [], [])
-
-        for stream in reads:
-            # Read a line from stdout
-            if stream == process.stdout:
-                output_line = process.stdout.readline()
-                if output_line:
-                    output += output_line
-                    if debug:
-                        st.text(output_line.strip())
-
-                    # Check if the line starts with "filled text"
-                    if output_line.startswith("filled mask: "):
-                        filled_text_line = output_line.strip()
-
-            # Read a line from stderr
-            elif stream == process.stderr:
-                error_line = process.stderr.readline()
-                if error_line:
-                    errors += error_line
-                    if debug:
-                        st.text(error_line.strip())
-
-        # Check if the process has finished
-        if process.poll() is not None:
-            break
-
-    # Ensure all remaining lines are read
-    remaining_output = process.stdout.read()
-    if remaining_output:
-        output += remaining_output
-        if debug:
-            st.text(remaining_output.strip())
-
-        # Check remaining output for "filled text"
-        if filled_text_line is None:
-            for line in remaining_output.splitlines():
-                if line.startswith("filled mask:"):
-                    filled_text_line = line.strip()
-                    break
-
-    remaining_errors = process.stderr.read()
-    if remaining_errors:
-        errors += remaining_errors
-        if debug:
-            st.text(remaining_errors.strip())
-    return filled_text_line
-
-
-def validate_text(text):
-    return "[MASK]" in text
-
-
-# Streamlit UI
-
-# sidebar
-venv_location = st.sidebar.text_input(
-    "Python environment (venv) location", value="$HOME/max-nightly-venv"
-)
-model_name = st.sidebar.text_input(
-    "Model Filename", value="bert-mlm.torchscript"
-)
-model_path = os.path.join("models", os.path.basename(model_name))
-model_path = os.path.abspath(model_path)
-
-# Initialize session state input text boxes if text doesn't exist
-if "input_text" not in st.session_state:
-    st.session_state.input_text = ""
-
-if "output_text" not in st.session_state:
-    st.session_state.output_text = ""
-
-# Input text box
-st.session_state.input_text = st.text_input(
-    "Input text:", value=st.session_state.input_text
-)
-
-if st.button("Run inference"):
-    filled_text = simple_inference(st.session_state.input_text, venv_location)
-    st.session_state.output_text = filled_text.replace("filled mask: ", "", 1)
-
-st.text_area("Output text:", value=st.session_state.output_text, height=50)
+    st.text_area(
+        "Filled Mask", input_text.replace("[MASK]", predicted_tokens, 40)
+    )
