@@ -54,8 +54,6 @@ def start_llama3(
             str(max_tokens),
             "--model-path",
             model_path,
-            "--prompt",
-            "start",
             "--quantization-encoding",
             quantization,
             "--temperature",
