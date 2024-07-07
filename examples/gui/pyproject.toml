@@ -7,14 +7,19 @@ dependencies = [
     "accelerate",
     "diffusers",
     "ftfy",
+    "networkx",
     "numpy<2.0",
     "openai",
     "optimum[onnxruntime]",
+    "onnxruntime",
+    "onnxslim==0.1.31",
+    "opencv-python",
     "pillow",
     "psutil",
     "streamlit",
     "streamlit-webrtc",
     "torch==2.2.2",
+    "ultralytics",
     "transformers",
 ]
 
@@ -25,6 +30,9 @@ build-backend = "setuptools.build_meta"
 [tool.pixi.project]
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
+
+[tool.pixi.dependencies]
+openblas = "*"
 
 [tool.pixi.tasks]
 gui = "streamlit run home.py"

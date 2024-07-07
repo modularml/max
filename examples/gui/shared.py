@@ -26,6 +26,7 @@ def menu():
     st.sidebar.page_link("home.py", label="️Home", icon="⚡️")
     st.sidebar.page_link("pages/llama3.py", label="Llama3", icon="🦙")
     st.sidebar.page_link("pages/bert.py", label="Bert", icon="👓")
+    st.sidebar.page_link("pages/yolo.py", label="YOLO", icon="🔍")
     st.sidebar.page_link(
         "pages/stable-diffusion.py", label="Stable Diffusion 1.5", icon="🎨"
     )

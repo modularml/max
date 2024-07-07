@@ -29,3 +29,5 @@ elif st.button("👓 BERT"):
     st.switch_page("pages/bert.py")
 elif st.button("🎨 Stable Diffusion 1.5"):
     st.switch_page("pages/stable-diffusion.py")
+elif st.button("🔍 YOLO"):
+    st.switch_page("pages/yolo.py")
