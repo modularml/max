@@ -17,14 +17,12 @@ optimal inference performance via the MAX Engine.
 
 The flexibility provided by MAX Graphs even includes
 [the ability to define custom compute kernels](https://docs.modular.com/max/extensibility/graph-custom-op).
-An example of such a custom operation is present in this pipeline as an
-optional RoPE kernel that can be loaded into the Llama 2 compute graph.
 
 ## Model
 
 [Llama 2](https://llama.meta.com/llama2/) is an open source large language
-model released by Meta. The structure of this implementation of the model was
-inspired by Andrej Karpathy's [llama.c](https://github.com/karpathy/llama2.c),
+model released by Meta. The structure of this implementation was
+inspired by Andrej Karpathy's [llama2.c](https://github.com/karpathy/llama2.c),
 and [originally written in Mojo by Aydyn Tairov](https://github.com/tairov/llama2.mojo).
 
 The text completion demo is compatible with the the official Llama 2
@@ -41,7 +39,22 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
-2. (Optional) Install Python dependencies.
+2. Clone the MAX examples repository:
+
+   If you don't already have a local clone of this repository, create one via:
+
+   ```shell
+   git clone https://github.com/modularml/max.git
+   ```
+
+   The following instructions assume that you're present within this pipeline's
+   directory, and you can change to it after cloning:
+
+   ```shell
+   cd max/examples/graph-api/pipelines/llama2/
+   ```
+
+3. (Optional) Install Python dependencies:
 
    This enables using the HuggingFace
    [transformers](https://github.com/huggingface/transformers) AutoTokenizer.
@@ -51,7 +64,7 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    python3 -m pip install -r requirements.txt
    ```
 
-3. Run the text completion demo:
+4. Run the text completion demo:
 
    **To access the llama models, you need to agree to their license in Huggingface.**
 
@@ -70,21 +83,6 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    mojo ../../run_pipeline.🔥 llama2 --prompt "I believe the meaning of life is"
    ```
 
-4. (Optional) Run with the custom RoPE kernel:
-
-   A custom RoPE kernel has been defined in the `kernels/` directory to
-   demonstrate the extensibility of the MAX graph compiler. To use that within
-   this Llama 2 model, compile the Mojo package for the operation and set the
-   appropriate pipeline flags using the following:
-
-   ```shell
-   source setup-custom-rope.sh && \
-   mojo ../../run_pipeline.🔥 llama2 \
-    --prompt "I believe the meaning of life is" \
-    --custom-ops-path "$CUSTOM_KERNELS/rope.mojopkg" \
-    --enable-custom-rope-kernel
-   ```
-
 ## Options
 
 The following command-line options are available to customize operation of the
@@ -93,11 +91,9 @@ pipeline:
 - `--model-path`: Overrides the default URL, and allows for an
   already-downloaded pretrained weight file to be used with the model.
 - `--custom-ops-path`: The path to a compiled Mojo package containing a custom
-   graph operation to use within the pipeline.
+  graph operation to use within the pipeline.
 - `--tokenizer-path`: The path to the tokenizer library to be used by the
-   pipeline. (Default value: `.cache/tokenizer.bin`)
-- `--enable-custom-rope-kernel`: Enables the use of the custom RoPE kernel
-   within the compute graph.
+  pipeline. (Default value: `.cache/tokenizer.bin`)
 - `--max-tokens`: The maximum number of tokens to generate.
   (Default value: 512)
 - `--min-p`: The starting required percentage for
@@ -120,9 +116,9 @@ There are many ways that this pipeline can be built upon or extended, and
 this is a short list of suggestions for future work:
 
 - Enhance the tokenizer so that it can stand alone as a general-purpose
-tokenizer for multiple text generation pipelines.
+  tokenizer for multiple text generation pipelines.
 - Expand the customizable options for text generation.
 - Incorporate and use weights from other models.
 - Improve the quality of the text generation.
 - Identify performance bottlenecks and further tune time-to-first-token and
-throughput.
+  throughput.
