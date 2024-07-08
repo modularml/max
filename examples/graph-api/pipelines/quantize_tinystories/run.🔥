@@ -14,6 +14,8 @@
 
 from pathlib import cwd
 
+from max.graph.checkpoint import load, current_version, read_version
+
 from .quantize_tinystories import quantize_and_save_tinystories
 from .load_tinystories import load_quantized_tinystories
 
@@ -24,5 +26,33 @@ def quantize_tinystories_run():
     checkpoint_path = cache_path.joinpath("stories15M_quantized.max")
     if not checkpoint_path.exists():
         quantize_and_save_tinystories(checkpoint_path)
+        return
+
+    # Checkpoint exists, make sure that the file version is compatible.
+    try:
+        file_version = read_version(checkpoint_path).major_version
+    except:
+        compatible = False
     else:
+        current = current_version().major_version
+        compatible = file_version <= current
+        # This print is required as a workaround to MOCO-933.
+        print(
+            "Found max checkpoint version ",
+            file_version,
+            " (current version=",
+            current,
+            ").",
+            sep="",
+        )
+
+    if compatible:
         load_quantized_tinystories(checkpoint_path)
+    else:
+        print(
+            "Detected incompatible cached checkpoint at ",
+            checkpoint_path,
+            ". This checkpoint will be overwritten.",
+            sep="",
+        )
+        quantize_and_save_tinystories(checkpoint_path)
