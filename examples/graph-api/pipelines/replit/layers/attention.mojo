@@ -123,25 +123,38 @@ struct GroupedQueryAttention[dtype: DType]:
         batch_size = self.hyperparams.batch_size
         head_dim = d_model // n_heads
 
-        qkv = self.wkqv(input)
-        split = ops.split[3](
-            qkv,
-            sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
-            axis=2,
-        )
-        seq_len = Dim("seq_len")
-        query = split[0].rebind(batch_size, seq_len, d_model)
-        key = split[1].rebind(batch_size, seq_len, kv_n_heads * head_dim)
-        value = split[2].rebind(batch_size, seq_len, kv_n_heads * head_dim)
+        if self.hyperparams.fused_wkqv:
+            qkv = self.wkqv(input)
+            split = ops.split[3](
+                qkv,
+                sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
+                axis=2,
+            )
+            query = split[0]
+            key = split[1]
+            value = split[2]
+        else:
+            split_weights = ops.split[3](
+                self.wkqv.weight,
+                sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
+                axis=0,
+            )
+            query = input @ ops.transpose_matrix(split_weights[0])
+            key = input @ ops.transpose_matrix(split_weights[1])
+            value = input @ ops.transpose_matrix(split_weights[2])
 
         # Apply scaled dot product attention on the query, key and value.
+        seq_len = Dim("seq_len")
+        query = query.rebind(batch_size, seq_len, d_model)
         q = query.reshape(batch_size, seq_len, n_heads, head_dim)
         q = ops.transpose(q, 1, 2)
 
+        key = key.rebind(batch_size, seq_len, kv_n_heads * head_dim)
         k = key.reshape(batch_size, seq_len, kv_n_heads, head_dim)
         k = ops.transpose(k, 1, 2)
         k = ops.transpose(k, 2, 3)
 
+        value = value.rebind(batch_size, seq_len, kv_n_heads * head_dim)
         v = value.reshape(batch_size, seq_len, kv_n_heads, head_dim)
         v = ops.transpose(v, 1, 2)
 
