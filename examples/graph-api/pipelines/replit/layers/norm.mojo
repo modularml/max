@@ -31,9 +31,10 @@ struct LPLayerNorm[dtype: DType]:
 
     def __call__(self, input: Symbol) -> Symbol:
         g = input.graph()
-        beta = g.constant(
-            Tensor[dtype](TensorShape(self.hyperparams.d_model), 0)
-        )
-        out = ops.layer_norm(input, self.weight, beta, self.eps)
+        with g.layer("LPlayerNorm"):
+            beta = g.constant(
+                Tensor[dtype](TensorShape(self.hyperparams.d_model), 0)
+            )
+            out = ops.layer_norm(input, self.weight, beta, self.eps)
 
-        return out
+            return out

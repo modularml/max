@@ -31,7 +31,9 @@ struct MPTMLP:
     var down_proj: Linear
 
     def __call__(self, input: Symbol) -> Symbol:
-        return self.down_proj(ops.gelu(self.up_proj(input)))
+        g = input.graph()
+        with g.layer("MPTMLP"):
+            return self.down_proj(ops.gelu(self.up_proj(input)))
 
 
 struct MPTBlock[dtype: DType]:
@@ -65,17 +67,19 @@ struct MPTBlock[dtype: DType]:
         k_cache: Optional[Symbol] = None,
         v_cache: Optional[Symbol] = None,
     ) -> (Symbol, Symbol, Symbol):
-        a = self.norm_1(input)
-        b, k_cache_update, v_cache_update = self.attn(
-            a, attn_bias, k_cache, v_cache
-        )
-        # Rebind the attention output to the shape of the input to allow the
-        # `add` op to correctly set shapes.
-        b = b.rebind(input.tensor_type().dims)
-        output = input + b
-        m = self.norm_2(output)
-        n = self.ffn(m)
-        return output + n, k_cache_update, v_cache_update
+        g = input.graph()
+        with g.layer("MPTBlock"):
+            a = self.norm_1(input)
+            b, k_cache_update, v_cache_update = self.attn(
+                a, attn_bias, k_cache, v_cache
+            )
+            # Rebind the attention output to the shape of the input to allow the
+            # `add` op to correctly set shapes.
+            b = b.rebind(input.tensor_type().dims)
+            output = input + b
+            m = self.norm_2(output)
+            n = self.ffn(m)
+            return output + n, k_cache_update, v_cache_update
 
     @staticmethod
     def create[

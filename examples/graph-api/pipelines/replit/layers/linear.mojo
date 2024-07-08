@@ -20,4 +20,6 @@ struct Linear:
     var weight: Symbol
 
     def __call__(self, input: Symbol) -> Symbol:
-        return input @ ops.transpose_matrix(self.weight)
+        g = input.graph()
+        with g.layer("Linear"):
+            return input @ ops.transpose_matrix(self.weight)

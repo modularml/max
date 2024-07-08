@@ -91,39 +91,42 @@ struct Replit[T: Checkpoint, dtype: DType]:
     def _attn_bias(
         self, g: Graph, attention_mask: Optional[Symbol] = None
     ) -> Symbol:
-        alibi_bias = ops.cast(
-            g.range[DType.int32](1 - self.hyperparams.seq_len, 1, 1),
-            dtype,
-        )
-        alibi_bias = alibi_bias.reshape(1, 1, 1, self.hyperparams.seq_len)
-        slopes = gen_slopes(
-            g, self.hyperparams.n_heads, self.hyperparams.alibi_bias_max
-        )
-        attn_bias = ops.cast(alibi_bias * slopes, dtype)
-        if attention_mask:
-            mask = attention_mask.value()
-            s_k = ops.shape_of(mask)[-1]
-            out_dims = List[Dim](
-                1, self.hyperparams.n_heads, 1, mask.shape()[-1]
+        with g.layer("_attn_bias"):
+            alibi_bias = ops.cast(
+                g.range[DType.int32](1 - self.hyperparams.seq_len, 1, 1),
+                dtype,
             )
-            attn_bias = attn_bias[:, :, :, -s_k:, out_dims=out_dims]
-            attn_bias_shape = ops.shape_of(attn_bias)
-            broadcast_dims = List[Dim](
-                1, self.hyperparams.n_heads, 1, mask.shape()[1]
+            alibi_bias = alibi_bias.reshape(1, 1, 1, self.hyperparams.seq_len)
+            slopes = gen_slopes(
+                g, self.hyperparams.n_heads, self.hyperparams.alibi_bias_max
             )
-            mask = mask.reshape(mask.shape()[0], 1, 1, mask.shape()[1])
-            mask = g.op(
-                "mo.broadcast_to",
-                List[Symbol](mask, attn_bias_shape),
-                TensorType(mask.tensor_type().dtype, broadcast_dims),
-            )
-            min_val = g.op(
-                "mo.broadcast_to",
-                List[Symbol](g.scalar(min_finite[dtype]()), attn_bias_shape),
-                TensorType(dtype, broadcast_dims),
-            )
-            attn_bias = ops.select(mask, attn_bias, min_val)
-        return attn_bias
+            attn_bias = ops.cast(alibi_bias * slopes, dtype)
+            if attention_mask:
+                mask = attention_mask.value()
+                s_k = ops.shape_of(mask)[-1]
+                out_dims = List[Dim](
+                    1, self.hyperparams.n_heads, 1, mask.shape()[-1]
+                )
+                attn_bias = attn_bias[:, :, :, -s_k:, out_dims=out_dims]
+                attn_bias_shape = ops.shape_of(attn_bias)
+                broadcast_dims = List[Dim](
+                    1, self.hyperparams.n_heads, 1, mask.shape()[1]
+                )
+                mask = mask.reshape(mask.shape()[0], 1, 1, mask.shape()[1])
+                mask = g.op(
+                    "mo.broadcast_to",
+                    List[Symbol](mask, attn_bias_shape),
+                    TensorType(mask.tensor_type().dtype, broadcast_dims),
+                )
+                min_val = g.op(
+                    "mo.broadcast_to",
+                    List[Symbol](
+                        g.scalar(min_finite[dtype]()), attn_bias_shape
+                    ),
+                    TensorType(dtype, broadcast_dims),
+                )
+                attn_bias = ops.select(mask, attn_bias, min_val)
+            return attn_bias
 
     def build_graph(
         self,

@@ -117,131 +117,136 @@ struct GroupedQueryAttention[dtype: DType]:
             Error when `v_cache` is not defined when `k_cache` is defined.
         """
         g = input.graph()
-        n_heads = self.hyperparams.n_heads
-        kv_n_heads = self.hyperparams.kv_n_heads
-        d_model = self.hyperparams.d_model
-        batch_size = self.hyperparams.batch_size
-        head_dim = d_model // n_heads
+        with g.layer("GroupedQueryAttention"):
+            n_heads = self.hyperparams.n_heads
+            kv_n_heads = self.hyperparams.kv_n_heads
+            d_model = self.hyperparams.d_model
+            batch_size = self.hyperparams.batch_size
+            head_dim = d_model // n_heads
 
-        # The Q, K, V can be computed through a fused matmul by calling
-        # `self.wkqv(input)`, but we unfuse it here to prepare for a custom
-        # KV cache implementation.
-        split_weights = ops.split[3](
-            self.wkqv.weight,
-            sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
-            axis=0,
-        )
-        query = input @ ops.transpose_matrix(split_weights[0])
-        key = input @ ops.transpose_matrix(split_weights[1])
-        value = input @ ops.transpose_matrix(split_weights[2])
-
-        # Apply scaled dot product attention on the query, key and value.
-        seq_len = Dim("seq_len")
-        query = query.rebind(batch_size, seq_len, d_model)
-        q = query.reshape(batch_size, seq_len, n_heads, head_dim)
-        q = ops.transpose(q, 1, 2)
-
-        key = key.rebind(batch_size, seq_len, kv_n_heads * head_dim)
-        k = key.reshape(batch_size, seq_len, kv_n_heads, head_dim)
-        k = ops.transpose(k, 1, 2)
-        k = ops.transpose(k, 2, 3)
-
-        value = value.rebind(batch_size, seq_len, kv_n_heads * head_dim)
-        v = value.reshape(batch_size, seq_len, kv_n_heads, head_dim)
-        v = ops.transpose(v, 1, 2)
-
-        full_seq_len = Dim("full_seq_len")
-        if k_cache:
-            k_cache_value = k_cache.value()
-            k = ops.concat(
-                List[Symbol](k_cache_value, k), axis=3, out_dim=full_seq_len
+            # The Q, K, V can be computed through a fused matmul by calling
+            # `self.wkqv(input)`, but we unfuse it here to prepare for a custom
+            # KV cache implementation.
+            split_weights = ops.split[3](
+                self.wkqv.weight,
+                sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
+                axis=0,
             )
-            if not v_cache:
-                raise error(g, "v_cache cannot be None if k_cache is defined.")
-            v_cache_value = v_cache.value()
-            v = ops.concat(
-                List[Symbol](v_cache_value, v), axis=2, out_dim=full_seq_len
+            query = input @ ops.transpose_matrix(split_weights[0])
+            key = input @ ops.transpose_matrix(split_weights[1])
+            value = input @ ops.transpose_matrix(split_weights[2])
+
+            # Apply scaled dot product attention on the query, key and value.
+            seq_len = Dim("seq_len")
+            query = query.rebind(batch_size, seq_len, d_model)
+            q = query.reshape(batch_size, seq_len, n_heads, head_dim)
+            q = ops.transpose(q, 1, 2)
+
+            key = key.rebind(batch_size, seq_len, kv_n_heads * head_dim)
+            k = key.reshape(batch_size, seq_len, kv_n_heads, head_dim)
+            k = ops.transpose(k, 1, 2)
+            k = ops.transpose(k, 2, 3)
+
+            value = value.rebind(batch_size, seq_len, kv_n_heads * head_dim)
+            v = value.reshape(batch_size, seq_len, kv_n_heads, head_dim)
+            v = ops.transpose(v, 1, 2)
+
+            full_seq_len = Dim("full_seq_len")
+            if k_cache:
+                k_cache_value = k_cache.value()
+                k = ops.concat(
+                    List[Symbol](k_cache_value, k), axis=3, out_dim=full_seq_len
+                )
+                if not v_cache:
+                    raise error(
+                        g, "v_cache cannot be None if k_cache is defined."
+                    )
+                v_cache_value = v_cache.value()
+                v = ops.concat(
+                    List[Symbol](v_cache_value, v), axis=2, out_dim=full_seq_len
+                )
+
+            k = k.rebind(batch_size, kv_n_heads, head_dim, full_seq_len)
+            v = v.rebind(batch_size, kv_n_heads, full_seq_len, head_dim)
+
+            # Record the k and v into the cache. An extra dimension is added
+            # so that all cached keys/values can be concatenated on that dimension.
+            k_cache_update = k.reshape(
+                1, batch_size, kv_n_heads, head_dim, full_seq_len
             )
-
-        k = k.rebind(batch_size, kv_n_heads, head_dim, full_seq_len)
-        v = v.rebind(batch_size, kv_n_heads, full_seq_len, head_dim)
-
-        # Record the k and v into the cache. An extra dimension is added
-        # so that all cached keys/values can be concatenated on that dimension.
-        k_cache_update = k.reshape(
-            1, batch_size, kv_n_heads, head_dim, full_seq_len
-        )
-        v_cache_update = v.reshape(
-            1, batch_size, kv_n_heads, full_seq_len, head_dim
-        )
-
-        if kv_n_heads > 1 and kv_n_heads < n_heads:
-            # Repeat interleave k and v to match the number of heads in the
-            # query.
-            n_repeats = n_heads // kv_n_heads
-
-            k = k.reshape(batch_size, kv_n_heads, 1, head_dim, full_seq_len)
-            k = ops.tile(k, List[Int64](1, 1, n_repeats, 1, 1))
-            k = k.reshape(
-                batch_size, kv_n_heads * n_repeats, head_dim, full_seq_len
+            v_cache_update = v.reshape(
+                1, batch_size, kv_n_heads, full_seq_len, head_dim
             )
 
-            v = v.reshape(batch_size, kv_n_heads, 1, full_seq_len, head_dim)
-            v = ops.tile(v, List[Int64](batch_size, 1, n_repeats, 1, 1))
-            v = v.reshape(
-                batch_size, kv_n_heads * n_repeats, full_seq_len, head_dim
-            )
+            if kv_n_heads > 1 and kv_n_heads < n_heads:
+                # Repeat interleave k and v to match the number of heads in the
+                # query.
+                n_repeats = n_heads // kv_n_heads
 
-        softmax_scale = 1 / math.sqrt(d_model / n_heads)
-        attn_weight = (q @ k) * softmax_scale
-        s_q = ops.shape_of(q)[2]
-        s_k = ops.shape_of(k)[-1]
+                k = k.reshape(batch_size, kv_n_heads, 1, head_dim, full_seq_len)
+                k = ops.tile(k, List[Int64](1, 1, n_repeats, 1, 1))
+                k = k.reshape(
+                    batch_size, kv_n_heads * n_repeats, head_dim, full_seq_len
+                )
 
-        if attn_bias:
-            bias = attn_bias.value()
-            out_dims = List[Dim](1, n_heads, 1, full_seq_len)
-            bias = bias[:, :, :, -s_k:, out_dims=out_dims]
-            attn_weight = attn_weight + bias
+                v = v.reshape(batch_size, kv_n_heads, 1, full_seq_len, head_dim)
+                v = ops.tile(v, List[Int64](batch_size, 1, n_repeats, 1, 1))
+                v = v.reshape(
+                    batch_size, kv_n_heads * n_repeats, full_seq_len, head_dim
+                )
 
-        if is_causal and (not q.tensor_type().dims[2] == 1):
-            # Apply a triangular mask to the attention weight so that in the
-            # later matmul, each token in the ouput doesn't involve
-            # information from future positions.
-            s = ops.max(s_q, s_k)
-            causal_mask = g.full[DType.bool](1, List[Symbol](s, s))
-            causal_mask = tril(causal_mask)
-            causal_mask = causal_mask[
-                -s_q:, -s_k:, out_dims = List[Dim](seq_len, full_seq_len)
-            ].reshape(1, 1, s_q, s_k)
+            softmax_scale = 1 / math.sqrt(d_model / n_heads)
+            attn_weight = (q @ k) * softmax_scale
+            s_q = ops.shape_of(q)[2]
+            s_k = ops.shape_of(k)[-1]
 
-            attn_weight_shape = ops.shape_of(attn_weight)
+            if attn_bias:
+                bias = attn_bias.value()
+                out_dims = List[Dim](1, n_heads, 1, full_seq_len)
+                bias = bias[:, :, :, -s_k:, out_dims=out_dims]
+                attn_weight = attn_weight + bias
 
-            min_val = g.op(
-                "mo.broadcast_to",
-                List[Symbol](g.scalar(min_finite[dtype]()), attn_weight_shape),
-                TensorType(
-                    dtype,
-                    batch_size,
-                    n_heads,
-                    seq_len,
-                    full_seq_len,
-                ),
-            )
-            causal_mask = g.op(
-                "mo.broadcast_to",
-                List[Symbol](causal_mask, attn_weight_shape),
-                TensorType(
-                    causal_mask.tensor_type().dtype,
-                    batch_size,
-                    n_heads,
-                    seq_len,
-                    full_seq_len,
-                ),
-            )
-            attn_weight = ops.select(causal_mask, attn_weight, min_val)
+            if is_causal and (not q.tensor_type().dims[2] == 1):
+                # Apply a triangular mask to the attention weight so that in the
+                # later matmul, each token in the ouput doesn't involve
+                # information from future positions.
+                s = ops.max(s_q, s_k)
+                causal_mask = g.full[DType.bool](1, List[Symbol](s, s))
+                causal_mask = tril(causal_mask)
+                causal_mask = causal_mask[
+                    -s_q:, -s_k:, out_dims = List[Dim](seq_len, full_seq_len)
+                ].reshape(1, 1, s_q, s_k)
 
-        attn_weight = ops.softmax(attn_weight)
-        out = attn_weight @ v
-        out = ops.transpose(out, 1, 2)
-        out = out.reshape(batch_size, seq_len, d_model)
-        return self.out_proj(out), k_cache_update, v_cache_update
+                attn_weight_shape = ops.shape_of(attn_weight)
+
+                min_val = g.op(
+                    "mo.broadcast_to",
+                    List[Symbol](
+                        g.scalar(min_finite[dtype]()), attn_weight_shape
+                    ),
+                    TensorType(
+                        dtype,
+                        batch_size,
+                        n_heads,
+                        seq_len,
+                        full_seq_len,
+                    ),
+                )
+                causal_mask = g.op(
+                    "mo.broadcast_to",
+                    List[Symbol](causal_mask, attn_weight_shape),
+                    TensorType(
+                        causal_mask.tensor_type().dtype,
+                        batch_size,
+                        n_heads,
+                        seq_len,
+                        full_seq_len,
+                    ),
+                )
+                attn_weight = ops.select(causal_mask, attn_weight, min_val)
+
+            attn_weight = ops.softmax(attn_weight)
+            out = attn_weight @ v
+            out = ops.transpose(out, 1, 2)
+            out = out.reshape(batch_size, seq_len, d_model)
+            return self.out_proj(out), k_cache_update, v_cache_update
