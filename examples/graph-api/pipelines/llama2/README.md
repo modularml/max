@@ -39,7 +39,22 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
-2. (Optional) Install Python dependencies.
+2. Clone the MAX examples repository:
+
+   If you don't already have a local clone of this repository, create one via:
+
+   ```shell
+   git clone https://github.com/modularml/max.git
+   ```
+
+   The following instructions assume that you're present within this pipeline's
+   directory, and you can change to it after cloning:
+
+   ```shell
+   cd max/examples/graph-api/pipelines/llama2/
+   ```
+
+3. (Optional) Install Python dependencies:
 
    This enables using the HuggingFace
    [transformers](https://github.com/huggingface/transformers) AutoTokenizer.
@@ -49,7 +64,7 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    python3 -m pip install -r requirements.txt
    ```
 
-3. Run the text completion demo:
+4. Run the text completion demo:
 
    **To access the llama models, you need to agree to their license in Huggingface.**
 

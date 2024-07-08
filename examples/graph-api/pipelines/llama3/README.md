@@ -36,7 +36,22 @@ The default settings for this pipeline use the 8B set of pretrained weights in
    [the installation instructions](https://docs.modular.com/max/install)
    to set it up on your system.
 
-2. Run the text completion demo:
+2. Clone the MAX examples repository:
+
+   If you don't already have a local clone of this repository, create one via:
+
+   ```shell
+   git clone https://github.com/modularml/max.git
+   ```
+
+   The following instructions assume that you're present within this pipeline's
+   directory, and you can change to it after cloning:
+
+   ```shell
+   cd max/examples/graph-api/pipelines/llama3/
+   ```
+
+3. Run the text completion demo:
 
    On first execution, the tokenizer library and model weights will be
    downloaded and placed in a local `.cache/` directory in your current path.
