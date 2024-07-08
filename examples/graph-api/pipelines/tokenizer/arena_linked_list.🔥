@@ -32,18 +32,17 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
     - Linked-list ops are done on the arena directly
 
     ```mojo
-    from pipelines.tokenizer.arena_linked_list import ArenaLinkedList
-    from testing import *
+    from pipelines.llama2.tokenizer.arena_linked_list import ArenaLinkedList
     list = ArenaLinkedList[Int]()
     id1 = list.append(0)
     id2 = list.append(1)
-    assert_equal(list[id2], 1)
-    assert_equal(list.next(id1).value(), id2)
-    assert_equal(list.prev(id2).value(), id1)
+    list[id2] == 1
+    list.next(id1).value() == id2
+    list.prev(id2).value() == id1
     list.remove(id1)
-    assert_equal(list._head.value(), id2)
-    assert_false(id1 in list)
-    assert_equal(list[id2], 3)
+    list._head.value() == id2
+    (id1 in list) == False
+    list[id2] = 3
     ```
     """
 
@@ -61,14 +60,14 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
 
     def __contains__(self, id: Self.ID) -> Bool:
         """Checks whether the node is still in the list."""
-        return 0 <= id < len(self._arena) and self.node(id)[]
+        return 0 <= id < len(self._arena) and self.node(id)
 
     def append(inout self, owned value: ElementType) -> Self.ID:
         """Adds a new element to the back of the list."""
         id = len(self._arena)
         node = Node[ElementType](value^, self._tail, None)
         if self._tail:
-            tail = self.node(self._tail.value())
+            tail = Reference(self.node(self._tail.value()))
             tail[].value().next = id
         else:
             self._head = id
@@ -78,17 +77,17 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
 
     def remove(inout self, id: Self.ID):
         """Removes an element from the list."""
-        debug_assert(bool(self.node(id)[]), "removing item not in list")
+        debug_assert(bool(self.node(id)), "removing item not in list")
         debug_assert(bool(self._head), "removing from empty list")
         debug_assert(bool(self._tail), "removing from empty list")
 
-        node = self.node(id)[].value()
-        self.node(id)[] = None
+        node = self.node(id).value()
+        self.node(id) = None
         if node.prev:
-            prev = self.node(node.prev.value())
+            prev = Reference(self.node(node.prev.value()))
             prev[].value().next = node.next
         if node.next:
-            next = self.node(node.next.value())
+            next = Reference(self.node(node.next.value()))
             next[].value().prev = node.prev
         if self._head.value() == id:
             self._head = node.next
@@ -97,17 +96,17 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
 
     def next(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the next item in the list, if any."""
-        debug_assert(bool(self.node(id)[]), "next on item not in list")
-        return self.node(id)[].value().next
+        debug_assert(bool(self.node(id)), "next on item not in list")
+        return self.node(id).value().next
 
     def prev(self, id: Self.ID) -> Optional[Self.ID]:
         """Gets the previous item in the list, if any."""
-        debug_assert(bool(self.node(id)[]), "prev on item not in list")
-        return self.node(id)[].value().prev
+        debug_assert(bool(self.node(id)), "prev on item not in list")
+        return self.node(id).value().prev
 
     def node(
         ref [_]self: Self, id: Self.ID
-    ) -> Reference[Optional[Node[ElementType]], __lifetime_of(self)]:
+    ) -> ref [__lifetime_of(self)] Optional[Node[ElementType]]:
         """Gets a reference to a value in the list."""
         return self._arena[id]
 
@@ -115,6 +114,6 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         ref [_]self: Self, id: Self.ID
     ) -> ref [__lifetime_of(self)] ElementType:
         """Gets a reference to a value in the list."""
-        node_ref = self.node(id)
+        node_ref = Reference(self.node(id))
         debug_assert(bool(node_ref[]), "retrieved removed value")
-        return Reference(node_ref[].value().value)[]
+        return node_ref[].value().value
