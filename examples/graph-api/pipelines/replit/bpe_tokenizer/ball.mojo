@@ -98,7 +98,7 @@ struct Ball[T: CollectionElement]:
     fn _get_node(
         ref [_]self: Self, id: Self.ID
     ) -> ref [__lifetime_of(self)] Node[T]:
-        return self._arena.__get_ref(id)[].value()
+        return self._arena[id].value()
 
     fn __getitem__(
         ref [_]self: Self, id: Self.ID

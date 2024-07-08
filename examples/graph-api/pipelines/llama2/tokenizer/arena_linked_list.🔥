@@ -108,7 +108,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         ref [_]self: Self, id: Self.ID
     ) -> Reference[Optional[Node[ElementType]], __lifetime_of(self)]:
         """Gets a reference to a value in the list."""
-        return self._arena.__get_ref(id)
+        return self._arena[id]
 
     def __getitem__(
         ref [_]self: Self, id: Self.ID
