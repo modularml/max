@@ -194,7 +194,7 @@ struct TestCheckpoint(Checkpoint):
             raise "Could not find key '" + key + "'"
 
 
-fn get_hyperparams(fused_wkqv: Bool = True) -> HyperParams:
+fn get_hyperparams() -> HyperParams:
     return HyperParams(
         batch_size=1,
         seq_len=10,
@@ -206,49 +206,11 @@ fn get_hyperparams(fused_wkqv: Bool = True) -> HyperParams:
         vocab_size=5,
         d_model=8,
         kv_n_heads=2,
-        fused_wkqv=fused_wkqv,
     )
 
 fn test_attention() raises:
     var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams(fused_wkqv=True)
-
-    var g = Graph(
-        List[Type](TensorType(DType.float32, 1, 8, 8)),
-    )
-
-    var attn = GroupedQueryAttention[DType.float32](
-        nano_params,
-        Linear(g.constant(params.get[DType.float32]("transformer.blocks.0.attn.Wqkv.weight"))),
-        Linear(g.constant(params.get[DType.float32]("transformer.blocks.0.attn.out_proj.weight")))
-    )
-    g.output(attn(g[0])[0])
-    var input = Tensor[DType.float32](TensorShape(1, 8, 8),
-        2.0151, -0.3334, -0.4256, -0.1741,  1.2037, -0.8116, -1.1967, -0.2774,
-        -1.8925,  1.7477,  0.6883,  0.1850, -0.8403, -0.0448, -0.1820,  0.3386,
-        -0.5880,  2.0923,  1.2860, -0.4784, -0.4392, -0.4871, -0.7330, -0.6527,
-         2.0151, -0.3334, -0.4256, -0.1741,  1.2037, -0.8116, -1.1967, -0.2774,
-         0.2181,  0.5272, -0.1138,  0.3204,  1.0776, -1.1188, -1.9934,  1.0827,
-        -0.8331, -1.6811,  0.9493,  1.3706, -0.2184, -0.2707, -0.4784,  1.1619,
-         0.2181,  0.5272, -0.1138,  0.3204,  1.0776, -1.1188, -1.9934,  1.0827,
-        -0.5880,  2.0923,  1.2860, -0.4784, -0.4392, -0.4871, -0.7330, -0.6527)
-
-    var expected = Tensor[DType.float32](TensorShape(1, 8, 8),
-        -0.0907,  0.3197, -0.0206, -0.1600, -0.0087,  0.1185, -0.0902,  0.0044,
-         0.0639,  0.0013,  0.2308,  0.0490,  0.0904,  0.1417,  0.1224, -0.0594,
-        -0.0181, -0.0317,  0.3169,  0.0102,  0.1237,  0.2282,  0.1946, -0.0931,
-        -0.0245,  0.0890,  0.2498, -0.0354,  0.1130,  0.2140,  0.0853, -0.0684,
-         0.0820,  0.1211,  0.3137, -0.0132,  0.1657,  0.2035,  0.0426, -0.0523,
-         0.0799,  0.0347,  0.2080,  0.0472,  0.1135,  0.1163,  0.0250, -0.0465,
-         0.1290,  0.1221,  0.2316,  0.0458,  0.1065,  0.1555,  0.0463, -0.0507,
-         0.0959,  0.0927,  0.2632,  0.0381,  0.1015,  0.1742,  0.0997, -0.0487)
-    var actual = _testing.execute_unary(g, input)
-    _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
-
-fn test_attention_unfused_matmul() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams(fused_wkqv=False)
+    var nano_params = get_hyperparams()
 
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
@@ -324,7 +286,6 @@ fn test_attention_with_bias() raises:
          0.0996,  0.0751,  0.2700,  0.0461,  0.0993,  0.1702,  0.1142, -0.0468)
     var actual = _testing.execute_binary(g, input, bias)
     _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
 
 
 fn test_mpt_block() raises:
@@ -642,7 +603,6 @@ fn execute_replit(
 
 fn main() raises:
     test_attention()
-    test_attention_unfused_matmul()
     test_attention_with_bias()
     test_mpt_block()
     test_mpt_mlp()

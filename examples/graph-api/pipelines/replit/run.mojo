@@ -146,9 +146,7 @@ struct ReplitPipeline[dtype: DType]:
         """Builds and compiles a Replit model to get ready for execution."""
         # Generate a graph that does a single forward pass of the replit model.
         print("Building model...")
-        self._replit = Replit[ReplitCheckpoint, dtype](
-            get_default(fused_wkqv=not use_gpu)
-        )
+        self._replit = Replit[ReplitCheckpoint, dtype](get_default())
         g = self._replit.build_graph(
             "replit",
             ReplitCheckpoint(checkpoint_file),

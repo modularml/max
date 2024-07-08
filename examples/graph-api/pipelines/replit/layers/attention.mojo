@@ -123,25 +123,17 @@ struct GroupedQueryAttention[dtype: DType]:
         batch_size = self.hyperparams.batch_size
         head_dim = d_model // n_heads
 
-        if self.hyperparams.fused_wkqv:
-            qkv = self.wkqv(input)
-            split = ops.split[3](
-                qkv,
-                sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
-                axis=2,
-            )
-            query = split[0]
-            key = split[1]
-            value = split[2]
-        else:
-            split_weights = ops.split[3](
-                self.wkqv.weight,
-                sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
-                axis=0,
-            )
-            query = input @ ops.transpose_matrix(split_weights[0])
-            key = input @ ops.transpose_matrix(split_weights[1])
-            value = input @ ops.transpose_matrix(split_weights[2])
+        # The Q, K, V can be computed through a fused matmul by calling
+        # `self.wkqv(input)`, but we unfuse it here to prepare for a custom
+        # KV cache implementation.
+        split_weights = ops.split[3](
+            self.wkqv.weight,
+            sizes=(d_model, kv_n_heads * head_dim, kv_n_heads * head_dim),
+            axis=0,
+        )
+        query = input @ ops.transpose_matrix(split_weights[0])
+        key = input @ ops.transpose_matrix(split_weights[1])
+        value = input @ ops.transpose_matrix(split_weights[2])
 
         # Apply scaled dot product attention on the query, key and value.
         seq_len = Dim("seq_len")

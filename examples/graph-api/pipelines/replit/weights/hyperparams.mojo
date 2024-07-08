@@ -23,14 +23,8 @@ struct HyperParams:
     var d_model: Int
     var kv_n_heads: Int
 
-    var fused_wkqv: Bool
-    """Whether to used the fused matmul for computing the query, key and value
-    in the attention layer. This value is True by default, and set to False
-    when running on GPU.
-    """
 
-
-def get_default(fused_wkqv=True) -> HyperParams:
+def get_default() -> HyperParams:
     return HyperParams(
         batch_size=1,
         seq_len=4096,
@@ -42,5 +36,4 @@ def get_default(fused_wkqv=True) -> HyperParams:
         vocab_size=32768,
         d_model=3072,
         kv_n_heads=8,
-        fused_wkqv=fused_wkqv,
     )
