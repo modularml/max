@@ -41,16 +41,58 @@ alias DEFAULT_MAX_SEQ_LEN = 512
 @value
 struct Config:
     var config: Dict[String, OptionValue]
+    var dtype: DType
 
-    def __init__(inout self):
-        config_registry = ReplitConfigRegistry(ConfigRegistryDict())
+    def __init__(
+        inout self,
+        additional_pipeline_args: Optional[ConfigRegistryDict] = None,
+        additional_defaults: Optional[Dict[String, OptionValue]] = None,
+    ):
+        config_registry = ReplitConfigRegistry(additional_pipeline_args)
         default_configs = get_replit_base_default_config()
+        if additional_defaults:
+            default_configs.update(additional_defaults.value())
 
         self.config = register_pipeline_configs(
             config_registry.registry,
             parse_args(),
             default_configs,
         )
+
+        # Finalize parsed arguments.
+        self.dtype = DType.float32
+
+        _raw_type = self.config["quantization-encoding"]
+        raw_type = _raw_type[String]
+        if not sys.info.is_x86() and raw_type == "bfloat16":
+            raise "bfloat16 is not supported for ARM architectures."
+        if raw_type == "float32":
+            self.dtype = DType.float32
+        elif raw_type == "bfloat16":
+            self.dtype = DType.bfloat16
+        else:
+            raise "quantization-encoding must be 'bfloat16' or 'float32', got" + raw_type
+
+        _converted_weights_path = self.config["converted-weights-path"]
+        converted_weights_path = _converted_weights_path[Path]
+        if not converted_weights_path:
+            if self.dtype == DType.float32:
+                converted_weights_path = (
+                    cwd() / ".cache/replit/converted_float32"
+                )
+            else:  # DType.bfloat16
+                converted_weights_path = (
+                    cwd() / ".cache/replit/converted_bfloat16"
+                )
+            if not converted_weights_path.exists():
+                raise (
+                    "Unable to find checkpoint at "
+                    + str(converted_weights_path)
+                    + ". Please run: setup.sh "
+                    + raw_type
+                )
+            print("Using checkpoint at", converted_weights_path)
+            self.config["converted-weights-path"] = converted_weights_path
 
     def __contains__(self, key: String):
         return key in self.config
@@ -67,7 +109,10 @@ struct Config:
         Raises:
             An error for invalid key.
         """
-        return self.config[key]
+        try:
+            return self.config[key]
+        except:
+            raise "KeyError: " + key
 
     fn set(inout self, key: String, val: OptionValue):
         """Sets a new value for a given config key. This will overwrite the old
@@ -331,44 +376,10 @@ def dispatch[dtype: DType](config: Config):
 def replit_run():
     config = Config()
 
-    # Finalize parsed arguments.
-    dtype = DType.float32
-
-    raw_type = config.get("quantization-encoding")[String]
-    if not sys.info.is_x86() and raw_type == "bfloat16":
-        raise "bfloat16 is not supported for ARM architectures."
-    if raw_type == "float32":
-        dtype = DType.float32
-    elif raw_type == "bfloat16":
-        dtype = DType.bfloat16
-    else:
-        raise "quantization-encoding must be 'bfloat16' or 'float32', got" + raw_type
-
-    converted_weights_path = config.get("converted-weights-path")[Path]
-    if len(str(converted_weights_path)) == 0:
-        if dtype == DType.float32:
-            converted_weights_path = cwd().joinpath(
-                ".cache/replit/converted_float32"
-            )
-        else:  # DType.bfloat16
-            converted_weights_path = cwd().joinpath(
-                ".cache/replit/converted_bfloat16"
-            )
-        if not converted_weights_path.exists():
-            raise (
-                "Unable to find checkpoint at "
-                + str(converted_weights_path)
-                + ". Please run: setup.sh "
-                + raw_type
-            )
-        print("Using checkpoint at", converted_weights_path)
-        config.set("converted-weights-path", converted_weights_path)
-
-    @parameter
     if not is_x86():
         dispatch[DType.float32](config)
     else:
-        if dtype == DType.bfloat16:
+        if config.dtype == DType.bfloat16:
             dispatch[DType.bfloat16](config)
         else:
             dispatch[DType.float32](config)

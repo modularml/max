@@ -42,7 +42,7 @@ struct ReplitConfigRegistry(ConfigRegistry):
 
     def __init__(
         inout self,
-        additional_pipeline_args: ConfigRegistryDict = ConfigRegistryDict(),
+        additional_pipeline_args: Optional[ConfigRegistryDict] = None,
     ):
         """
         This constructor instantiates Replit config keys and their
@@ -56,8 +56,8 @@ struct ReplitConfigRegistry(ConfigRegistry):
         self.registry["max-new-tokens"] = OptionTypeEnum.INT
         self.registry["experimental-use-gpu"] = OptionTypeEnum.BOOL
         self.registry["quantization-encoding"] = OptionTypeEnum.STRING
-
-        self.registry.update(additional_pipeline_args)
+        if additional_pipeline_args:
+            self.registry.update(additional_pipeline_args.value())
 
     def register(self, key: String, option_type: OptionType):
         self.registry[key] = option_type
