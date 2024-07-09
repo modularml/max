@@ -12,8 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 
 import os
-import time
 import subprocess
+import time
 from pathlib import Path
 from typing import List
 
@@ -40,7 +40,9 @@ def cache_dir() -> Path:
 
 
 def modular_cache_dir() -> Path:
-    return cache_dir() / "modular"
+    modular_dir = cache_dir() / "modular"
+    os.makedirs(modular_dir, exist_ok=True)
+    return modular_dir
 
 
 def kill_process(port: int, model_state=None):

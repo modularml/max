@@ -13,7 +13,6 @@
 
 """Find where max-engine is and install it"""
 
-import glob
 import os
 import sys
 from pathlib import Path
@@ -86,9 +85,7 @@ def add_wheels_to_project(wheels: Path, env: str):
             lib = path
 
     if not engine or not lib:
-        raise ImportError(
-            "Could not find correct named wheels in install folder"
-        )
+        return
 
     with open("pyproject.toml", "r") as file:
         toml_data = toml.load(file)
