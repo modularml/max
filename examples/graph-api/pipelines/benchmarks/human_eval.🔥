@@ -68,5 +68,7 @@ struct HumanEval:
         sample["completion"] = PythonObject(completion)
         self._generated_samples.append(sample)
 
-    def write(self, file_path: String):
-        self._human_eval_module.write_jsonl(file_path, self._generated_samples)
+    def write[PathLike: PathLike](self, file_path: PathLike):
+        self._human_eval_module.write_jsonl(
+            file_path.__fspath__(), self._generated_samples
+        )

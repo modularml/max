@@ -21,51 +21,20 @@ from max.tensor import Tensor, TensorShape
 from .model.replit import Replit
 from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
-from .run import ReplitPipeline
+from .run import ReplitPipeline, Config
 from ..benchmarks.human_eval import HumanEval
 from ..tokenizer import AutoTokenizer
 from ..configs.registry import ConfigRegistry, ConfigRegistryDict
 from ..configs.parse_args import (
+    OptionTypeEnum,
     OptionValue,
     parse_args,
     register_pipeline_configs,
 )
 
 
-@value
-struct Config:
-    """Configuration for token generation runtime options."""
-
-    var config: Dict[String, OptionValue]
-
-    def __init__(inout self):
-        # Add Replit eval specific arguments to config_registry
-        replit_additional_configs = ConfigRegistryDict()
-        """The number of times to each task from the evaluation dataset."""
-        replit_additional_configs["eval-samples"] = OptionTypeEnum.INT
-        """Path to write output samples."""
-        # TODO: This should probably be made a Path type.
-        replit_additional_configs["output-path"] = OptionTypeEnum.STRING
-
-        config_registry = ReplitConfigRegistry(replit_additional_configs)
-        default_configs = get_replit_base_default_config()
-        default_configs["eval-samples"] = 1
-        default_configs["output-path"] = str(cwd().joinpath("samples.jsonl"))
-
-        self.config = register_pipeline_configs(
-            config_registry.registry,
-            parse_args(),
-            default_configs,
-        )
-
-        if len(str(self.config["converted-weights-path"])) == 0:
-            self.config["converted-weights-path"] = cwd().joinpath(
-                ".cache/replit/converted"
-            )
-
-
-def replit_eval():
-    config = Config()
+def dispatch[dtype: DType](config: Config):
+    """Dispatches token generation for a model."""
 
     # Set up the Replit model prepare it for token generation.
     var max_length: Optional[Int] = None
@@ -83,7 +52,7 @@ def replit_eval():
 
     @parameter
     def generate(prompt: String) -> Tuple[String, Int]:
-        replit.reset(prompt)
+        _ = replit.reset(prompt)
         output = str("")
         num_tokens = 0
         while True:
@@ -120,16 +89,35 @@ def replit_eval():
     print("All samples finished, took", full_duration, "seconds to generate.")
 
     # Export the output samples which can be executed to get the eval score.
-    output_path = config.get("output-path")[String]
+    output_path = config.get("output-path")[Path]
     eval_benchmark.write(output_path)
     print(
         "Solution samples written to "
-        + output_path
+        + output_path.__fspath__()
         + ".\n\nRun `evaluate_functional_correctness "
-        + output_path
+        + output_path.__fspath__()
         + "` to get the"
         " evaluation scores. If this is your first run, you will need to"
         " uncomment the `exec` line in human_eval/execution.py."
     )
 
     _ = replit^
+
+
+def replit_eval():
+    additional_args = ConfigRegistryDict()
+    additional_args["eval-samples"] = OptionTypeEnum.INT
+    additional_args["output-path"] = OptionTypeEnum.STRING
+    additional_defaults = Dict[String, OptionValue]()
+    additional_defaults["eval-samples"] = 1
+    additional_defaults["output-path"] = cwd().joinpath("samples.jsonl")
+    config = Config(additional_args, additional_defaults)
+
+    @parameter
+    if not is_x86():
+        dispatch[DType.float32](config)
+    else:
+        if config.dtype == DType.bfloat16:
+            dispatch[DType.bfloat16](config)
+        else:
+            dispatch[DType.float32](config)
