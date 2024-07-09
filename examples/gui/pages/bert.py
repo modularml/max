@@ -11,17 +11,19 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+
 import os
+import time
 
 import streamlit as st
 import torch
 from max import engine
-from shared import menu, modular_cache_dir
 from transformers import (
     AutoModelForSequenceClassification,
     BertForMaskedLM,
     BertTokenizer,
 )
+from shared import menu, modular_cache_dir
 
 st.set_page_config("Bert", page_icon="👓")
 menu()
@@ -58,6 +60,28 @@ def compile_torchscript(batch: int, seq_len: int, mlm: bool):
     torch.jit.save(traced_model, model_path)
 
 
+@st.cache_resource(show_spinner="Starting MAX Bert Inference Session")
+def max_bert_session(model_path: str, batch: int, seq_len: int):
+    # Wait short time for spinner to start correctly
+    time.sleep(1)
+    session = engine.InferenceSession()
+    inputs = [
+        torch.zeros((batch, seq_len), dtype=torch.int64),
+        torch.zeros((batch, seq_len), dtype=torch.int64),
+        torch.zeros((batch, seq_len), dtype=torch.int64),
+    ]
+    input_spec_list = [
+        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
+        for tensor in inputs
+    ]
+    return session.load(model_path, input_specs=input_spec_list)
+
+
+@st.cache_data()
+def get_tokenizer():
+    return BertTokenizer.from_pretrained(HF_MODEL_NAME)
+
+
 model_state = st.empty()
 
 mlm = st.sidebar.checkbox("Masked Language Model", True)
@@ -85,19 +109,9 @@ if st.button("Predict Word"):
         st.error("Require at least one [MASK] in the input text")
         exit(1)
 
-    session = engine.InferenceSession()
-    inputs = [
-        torch.zeros((batch, seq_len), dtype=torch.int64),
-        torch.zeros((batch, seq_len), dtype=torch.int64),
-        torch.zeros((batch, seq_len), dtype=torch.int64),
-    ]
-    input_spec_list = [
-        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
-        for tensor in inputs
-    ]
-    model = session.load(model_path, input_specs=input_spec_list)
-    tokenizer = BertTokenizer.from_pretrained(HF_MODEL_NAME)
+    model = max_bert_session(model_path, batch, seq_len)
 
+    tokenizer = get_tokenizer()
     inputs = tokenizer(
         input_text,
         return_tensors="pt",
@@ -106,10 +120,10 @@ if st.button("Predict Word"):
         max_length=seq_len,
     )
 
-    print("Input processed.\n")
     masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
         as_tuple=True
     )[1]
+
     outputs = model.execute(**inputs)["result0"]
     logits = torch.from_numpy(outputs[0, masked_index, :])
     predicted_token_id = logits.argmax(dim=-1)
