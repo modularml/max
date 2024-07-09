@@ -1,8 +1,8 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-open_clip_torch
-Pillow
-requests
+open_clip_torch >= 2.20
+Pillow >= 9.3
+requests >= 2.28
 onnx==1.16.0
-onnxruntime==1.17.3
+onnxruntime==1.15.1
 torch==2.2.2
