@@ -376,6 +376,7 @@ def dispatch[dtype: DType](config: Config):
 def replit_run():
     config = Config()
 
+    @parameter
     if not is_x86():
         dispatch[DType.float32](config)
     else:
