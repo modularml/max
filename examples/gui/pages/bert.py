@@ -17,6 +17,7 @@ import time
 
 import streamlit as st
 import torch
+import pandas as pd
 from max import engine
 from transformers import (
     AutoModelForSequenceClassification,
@@ -82,6 +83,11 @@ def get_tokenizer():
     return BertTokenizer.from_pretrained(HF_MODEL_NAME)
 
 
+def softmax(logits):
+    exp_logits = torch.exp(logits - torch.max(logits))
+    return exp_logits / exp_logits.sum(dim=-1, keepdim=True)
+
+
 model_state = st.empty()
 
 mlm = st.sidebar.checkbox("Masked Language Model", True)
@@ -95,10 +101,9 @@ model_path = st.sidebar.text_input(
 batch = st.sidebar.number_input("Batch Size", 1, 64)
 seq_len = st.sidebar.slider("Sequence Length", 128, 1024)
 input_text = st.text_input("Text Input", "Don't [MASK] about it")
-
+show_predictions = st.sidebar.checkbox("Show top 5 predictions")
 
 compile_torchscript(batch, seq_len, mlm)
-
 
 if st.button("Predict Word"):
     masks = input_text.split("[MASK]")
@@ -125,7 +130,9 @@ if st.button("Predict Word"):
     )[1]
 
     outputs = model.execute(**inputs)["result0"]
+
     logits = torch.from_numpy(outputs[0, masked_index, :])
+
     predicted_token_id = logits.argmax(dim=-1)
     predicted_tokens = tokenizer.decode(
         [predicted_token_id],
@@ -136,3 +143,21 @@ if st.button("Predict Word"):
     st.text_area(
         "Filled Mask", input_text.replace("[MASK]", predicted_tokens, 40)
     )
+
+    if show_predictions:
+        # Get top N predictions for the [MASK] token
+        top_n = 5
+        mask_logits = logits.squeeze(0)  # Remove batch dimension
+        top_n_probs, top_n_indices = torch.topk(softmax(mask_logits), top_n)
+
+        top_n_tokens = tokenizer.convert_ids_to_tokens(top_n_indices.tolist())
+        top_n_probs_percent = [prob * 100 for prob in top_n_probs.tolist()]
+
+        # Create a dictionary for the bar chart data
+        data = {"Token": top_n_tokens, "Probability (%)": top_n_probs_percent}
+
+        # Create a DataFrame for the table
+        top_n_df = pd.DataFrame(data)
+
+        st.write("Top N predictions for [MASK]:")
+        st.bar_chart(top_n_df.set_index("Token"))  # Display bar chart!
