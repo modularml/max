@@ -61,9 +61,7 @@ fn llvm_regexec(
 
 
 fn llvm_regfree(ptr: UnsafePointer[_CRegex]):
-    return MLIR_func["llvm_regfree", fn (UnsafePointer[_CRegex]) -> NoneType]()(
-        ptr
-    )
+    return MLIR_func["llvm_regfree", fn (UnsafePointer[_CRegex]) -> None]()(ptr)
 
 
 fn llvm_regerror(
