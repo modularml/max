@@ -188,7 +188,7 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     )
 
     print("Building model...")
-    graph = model.build_graph("llama_model")
+    graph = model.build_graph("llama3")
 
     session_options = SessionOptions(
         cuda_device() if config.get("experimental-use-gpu")[

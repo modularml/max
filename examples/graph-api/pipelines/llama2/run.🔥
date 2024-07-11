@@ -247,7 +247,7 @@ def run[
         enable_custom_rope_kernel=config.get("enable-custom-rope-kernel")[Bool],
     )
     params = model.hyperparams()
-    graph = model.build_graph("llama_model")
+    graph = model.build_graph("llama2")
 
     session_options = SessionOptions(
         cuda_device() if config.get("experimental-use-gpu")[
