@@ -378,11 +378,11 @@ def replit_run():
     @parameter
     if not is_x86():
         dispatch[DType.float32](config)
-
-    encoding = config.get("quantization-encoding")[String]
-    if encoding == BFloat16Encoding.id():
-        dispatch[DType.bfloat16](config)
-    elif encoding == Float32Encoding.id():
-        dispatch[DType.float32](config)
     else:
-        raise "--quantization-encoding must be 'bfloat16' or 'float32', got" + encoding
+        encoding = config.get("quantization-encoding")[String]
+        if encoding == BFloat16Encoding.id():
+            dispatch[DType.bfloat16](config)
+        elif encoding == Float32Encoding.id():
+            dispatch[DType.float32](config)
+        else:
+            raise "--quantization-encoding must be 'bfloat16' or 'float32', got" + encoding
