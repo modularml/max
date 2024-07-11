@@ -13,6 +13,12 @@
 from pathlib import cwd, Path
 import sys
 
+from max.graph.quantization import (
+    BFloat16Encoding,
+    Float32Encoding,
+    QuantizationEncoding,
+)
+from ..configs.common import check_url_exists
 from ..configs.registry import ConfigRegistry, ConfigRegistryDict
 from ..configs.parse_args import (
     OptionType,
@@ -25,11 +31,21 @@ from ..configs.parse_args import (
 
 def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config = Dict[String, OptionValue]()
-    default_config["converted-weights-path"] = Path("")
+    default_config["model-path"] = Path("")
     default_config["prompt"] = str('def hello():\n  print("hello world")')
     default_config["experimental-use-gpu"] = False
     default_config["quantization-encoding"] = str("float32")
     return default_config
+
+
+# fmt: off
+def get_replit_model_url(encoding: String) -> String:
+    urls = Dict[String, String]()
+    urls[BFloat16Encoding.id()] = "https://huggingface.co/tzhenghao/replit-code-v1_5-3b-bf16.gguf/resolve/main/replit-code-v1_5-3b-bf16.gguf"
+    urls[Float32Encoding.id()] = "https://huggingface.co/tzhenghao/replit-code-v1_5-3b-f32.gguf/resolve/main/replit-code-v1_5-3b-f32.gguf"
+    check_url_exists(urls, encoding)
+    return urls[encoding]
+# fmt: on
 
 
 @value
@@ -50,7 +66,7 @@ struct ReplitConfigRegistry(ConfigRegistry):
         for use if a specific pipeline has additional arguments.
         """
         self.registry = ConfigRegistryDict()
-        self.registry["converted-weights-path"] = OptionTypeEnum.PATH
+        self.registry["model-path"] = OptionTypeEnum.PATH
         self.registry["prompt"] = OptionTypeEnum.STRING
         self.registry["max-length"] = OptionTypeEnum.INT
         self.registry["max-new-tokens"] = OptionTypeEnum.INT

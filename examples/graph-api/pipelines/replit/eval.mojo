@@ -18,8 +18,12 @@ from time import perf_counter_ns
 from max.engine import InferenceSession, Model, TensorMap
 from max.tensor import Tensor, TensorShape
 
+from .config import (
+    ReplitConfigRegistry,
+    get_replit_base_default_config,
+    get_replit_model_url,
+)
 from .model.replit import Replit
-from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
 from .run import ReplitPipeline, Config
 from ..benchmarks.human_eval import HumanEval
@@ -44,7 +48,7 @@ def dispatch[dtype: DType](config: Config):
     if "max-new-tokens" in config:
         max_new_tokens = config.get("max-new-tokens")[Int]
     replit = ReplitPipeline[dtype](
-        config.get("converted-weights-path")[Path],
+        config.get("model-path")[Path],
         use_gpu=config.get("experimental-use-gpu")[Bool],
         max_length=max_length,
         max_new_tokens=max_new_tokens,

@@ -35,6 +35,12 @@ struct LPLayerNorm[dtype: DType]:
             beta = g.constant(
                 Tensor[dtype](TensorShape(self.hyperparams.d_model), 0)
             )
-            out = ops.layer_norm(input, self.weight, beta, self.eps)
-
+            # Since norm weights are float32, cast to input dtype to avoid
+            # promoting the result to float32 when the input is float16.
+            out = ops.layer_norm(
+                input,
+                ops.cast(self.weight, input.tensor_type().dtype),
+                beta,
+                self.eps,
+            )
             return out
