@@ -15,7 +15,6 @@
 from pathlib import cwd
 
 from max.graph.checkpoint import load, current_version, read_version
-
 from .quantize_tinystories import quantize_and_save_tinystories
 from .load_tinystories import load_quantized_tinystories
 

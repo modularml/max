@@ -18,18 +18,17 @@ from max.graph import _testing, Graph, TensorType, Symbol, Type
 from max.tensor import Tensor, TensorShape
 from max._driver import cpu_device
 
-from pipelines.replit.weights.replit_checkpoint import Checkpoint
-from pipelines.replit.weights.hyperparams import HyperParams
-from pipelines.replit.model.replit import Replit
 from pipelines.replit.layers.embedding import SharedEmbedding
 from pipelines.replit.layers.attention import GroupedQueryAttention
 from pipelines.replit.layers.linear import Linear
 from pipelines.replit.layers.block import MPTBlock, MPTMLP
 from pipelines.replit.layers.norm import LPLayerNorm
-
+from pipelines.replit.model.replit import Replit
+from pipelines.replit.weights.hyperparams import HyperParams
+from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
 
 # fmt: off
-struct TestCheckpoint(Checkpoint):
+struct TestCheckpoint(LoadableModel):
     var weights: Dict[String, Tensor[DType.float32]]
 
     def __init__(inout self, path: Path):
@@ -39,7 +38,7 @@ struct TestCheckpoint(Checkpoint):
             path: Filepath to the model's weights file (unused for testing).
         """
         self.weights = Dict[String, Tensor[DType.float32]]()
-        self.weights["transformer.wte.weight"] = Tensor[DType.float32](
+        self.weights["token_embd.weight"] = Tensor[DType.float32](
             TensorShape(5, 8),
             -0.8603, -1.7125,  0.9310,  1.3544, -0.2425, -0.2951, -0.5038,  1.1447,
             0.9180, -0.8026, -0.8702, -0.6859,  0.3235, -1.1530, -1.4351, -0.7616,
@@ -47,12 +46,12 @@ struct TestCheckpoint(Checkpoint):
             -2.5224,  2.1028,  0.7568,  0.1173, -1.1854, -0.1747, -0.3490,  0.3125,
             -0.1004,  0.1079, -0.3241, -0.0315,  0.4788, -1.0013, -1.5907,  0.4822
         )
-        self.weights["transformer.blocks.0.norm_1.weight"] = Tensor[
+        self.weights["blk.0.attn_norm.weight"] = Tensor[
             DType.float32
         ](
             TensorShape(8), 1., 1., 1., 1., 1., 1., 1., 1.
         )
-        self.weights["transformer.blocks.0.attn.Wqkv.weight"] = Tensor[
+        self.weights["blk.0.attn_qkv.weight"] = Tensor[
             DType.float32
         ](
             TensorShape(16, 8), -0.0476,  0.1592, -0.0171,  0.0771, -0.2696,  0.2452, -0.0100,  0.0429,
@@ -72,7 +71,7 @@ struct TestCheckpoint(Checkpoint):
             0.1986,  0.1852,  0.1488, -0.0134,  0.0679, -0.3049,  0.3002,  0.2837,
             0.2976, -0.3123,  0.2904, -0.2719, -0.2982,  0.1556,  0.2095,  0.0821
         )
-        self.weights["transformer.blocks.0.attn.out_proj.weight"] = Tensor[
+        self.weights["blk.0.attn_output.weight"] = Tensor[
             DType.float32
         ](
             TensorShape(8, 8), -0.1500,  0.1223, -0.3066,  0.2595,  0.0450, -0.2745, -0.2210, -0.0438,
@@ -84,12 +83,12 @@ struct TestCheckpoint(Checkpoint):
             -0.0262,  0.3524,  0.2530, -0.2841,  0.2843,  0.2771, -0.0985, -0.3345,
             0.2181, -0.1528, -0.3129,  0.1160, -0.1667, -0.2000, -0.1734,  0.1843
         )
-        self.weights["transformer.blocks.0.norm_2.weight"] = Tensor[
+        self.weights["blk.0.ffn_norm.weight"] = Tensor[
             DType.float32
         ](
             TensorShape(8), 1., 1., 1., 1., 1., 1., 1., 1.
         )
-        self.weights["transformer.blocks.0.ffn.up_proj.weight"] = Tensor[
+        self.weights["blk.0.ffn_up.weight"] = Tensor[
             DType.float32
         ](
             TensorShape(32, 8), 0.0665,  0.2052,  0.3166, -0.1223, -0.1712,  0.1736,  0.3021, -0.0108,
@@ -125,7 +124,7 @@ struct TestCheckpoint(Checkpoint):
             -0.2399, -0.2877,  0.1236, -0.3511, -0.2893, -0.1304, -0.3163, -0.1136,
             -0.0301,  0.0615,  0.0875, -0.1741,  0.2771,  0.0759,  0.2323,  0.2653
         )
-        self.weights["transformer.blocks.0.ffn.down_proj.weight"] = Tensor[
+        self.weights["blk.0.ffn_down.weight"] = Tensor[
             DType.float32
         ](
             TensorShape(8, 32), -0.1707,  0.0402,  0.1564, -0.0002, -0.1555,  0.1180, -0.0956, -0.0517,
@@ -161,7 +160,7 @@ struct TestCheckpoint(Checkpoint):
             -0.0576,  0.1284, -0.0444,  0.1576, -0.0531,  0.0660, -0.0335, -0.1493,
             0.0805, -0.0785, -0.0232,  0.1084, -0.1117,  0.0011,  0.0100, -0.0175
         )
-        self.weights["transformer.norm_f.weight"] = Tensor[DType.float32](
+        self.weights["output_norm.weight"] = Tensor[DType.float32](
             TensorShape(8), 1., 1., 1., 1., 1., 1., 1., 1.
         )
 
@@ -171,13 +170,19 @@ struct TestCheckpoint(Checkpoint):
     fn __copyinit__(inout self, existing: Self):
         self.weights = existing.weights
 
-    def get[type: DType](self, key: String) -> Tensor[type]:
-        """Returns a tensor for `key` at layer `layer_idx`, possibly seeking the file.
+    fn get[
+        type: DType
+    ](
+        inout self, key: String, layer_idx: Optional[Int] = None
+    ) raises -> Tensor[type]:
+        """Returns a tensor for `key` at a given layer `layer_idx`, possibly
+        seeking the file.
 
         `self` is `inout` here due to implementations that seek a file pointer.
 
         Args:
             key: Used to look up the tensor in the weights file.
+            layer_idx: Optional index for the specified layer.
 
         Returns:
             A tensor corresponding to `key` and `layer_idx` and containing a
@@ -187,12 +192,33 @@ struct TestCheckpoint(Checkpoint):
             An error for invalid key arguments.
         """
         constrained[type is DType.float32, "Type must be float32."]()
-        var found = self.weights.find(key)
+        var full_key = key + ".weight"
+        if layer_idx:
+            full_key = "blk." + str(layer_idx.value()) + "." + full_key
+        var found = self.weights.find(full_key)
         if found:
             return found.value().astype[type]()
         else:
             raise "Could not find key '" + key + "'"
 
+    fn hyperparams(self) raises -> LlamaHParams:
+        """Retrieves model-specific hyperparameters.
+
+        Returns:
+            Hyperparameters for the model corresponding to this weights file.
+        """
+        # This is incorrect but isn't used. We're just implementing it to satisfy
+        # the LoadableModel trait.
+        return LlamaHParams(
+            dims=1,
+            n_layers=1,
+            n_heads=1,
+            norm_eps=1.0,
+            n_kv_heads=1,
+            vocab_size=1,
+            head_dim=1,
+            n_rep=1,
+        )
 
 fn get_hyperparams() -> HyperParams:
     return HyperParams(
@@ -218,8 +244,8 @@ fn test_attention() raises:
 
     var attn = GroupedQueryAttention[DType.float32](
         nano_params,
-        Linear(g.constant(params.get[DType.float32]("transformer.blocks.0.attn.Wqkv.weight"))),
-        Linear(g.constant(params.get[DType.float32]("transformer.blocks.0.attn.out_proj.weight")))
+        Linear(g.constant(params.get[DType.float32]("attn_qkv", 0))),
+        Linear(g.constant(params.get[DType.float32]("attn_output", 0)))
     )
     g.output(attn(g[0])[0])
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
@@ -255,8 +281,8 @@ fn test_attention_with_bias() raises:
 
     var attn = GroupedQueryAttention[DType.float32](
         nano_params,
-        Linear(g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.attn.Wqkv.weight"))),
-        Linear(g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.attn.out_proj.weight")))
+        Linear(g.constant[DType.float32](params.get[DType.float32]("attn_qkv", 0))),
+        Linear(g.constant[DType.float32](params.get[DType.float32]("attn_output", 0)))
     )
     g.output(attn(g[0], g[1])[0])
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
@@ -291,12 +317,11 @@ fn test_attention_with_bias() raises:
 fn test_mpt_block() raises:
     var params = TestCheckpoint(Path(""))
     var nano_params = get_hyperparams()
-    var block_prefix = "transformer.blocks.0."
 
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
-    var block = MPTBlock[DType.float32].create(params, block_prefix, g, nano_params)
+    var block = MPTBlock[TestCheckpoint, DType.float32](params, 0, g, nano_params)
     g.output(block(g[0])[0])
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
         0.9180, -0.8026, -0.8702, -0.6859,  0.3235, -1.1530, -1.4351, -0.7616,
@@ -327,8 +352,8 @@ fn test_mpt_mlp() raises:
     )
 
     var layer = MPTMLP(
-        Linear(g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.ffn.up_proj.weight"))),
-        Linear(g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.ffn.down_proj.weight"))))
+        Linear(g.constant[DType.float32](params.get[DType.float32]("ffn_up", 0))),
+        Linear(g.constant[DType.float32](params.get[DType.float32]("ffn_down", 0))))
     g.output(layer(g[0]))
 
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
@@ -364,7 +389,7 @@ fn test_shared_embedding() raises:
     var g = Graph(
         List[Type](TensorType(DType.int32, 1, 8)),
     )
-    var w = g.constant[DType.float32](params.get[DType.float32]("transformer.wte.weight"))
+    var w = g.constant[DType.float32](params.get[DType.float32]("token_embd"))
     var layer = SharedEmbedding(w)
     g.output(layer(g[0]))
     var input = Tensor[DType.int32](TensorShape(1, 8),
@@ -387,7 +412,7 @@ fn test_shared_embedding_unembed() raises:
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
-    var w = g.constant[DType.float32](params.get[DType.float32]("transformer.wte.weight"))
+    var w = g.constant[DType.float32](params.get[DType.float32]("token_embd"))
     var layer = SharedEmbedding(w)
     g.output(layer(g[0], True))
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
@@ -415,7 +440,7 @@ fn test_norm() raises:
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
-    var w = g.constant[DType.float32](params.get[DType.float32]("transformer.norm_f.weight"))
+    var w = g.constant[DType.float32](params.get[DType.float32]("output_norm"))
     var layer = LPLayerNorm[DType.float32](w, nano_params)
     g.output(layer(g[0]))
 
@@ -447,7 +472,7 @@ fn test_linear() raises:
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
-    var w = g.constant[DType.float32](params.get[DType.float32]("transformer.blocks.0.attn.Wqkv.weight"))
+    var w = g.constant[DType.float32](params.get[DType.float32]("attn_qkv", 0))
     var layer = Linear(w)
     g.output(layer(g[0]))
 
@@ -495,8 +520,8 @@ fn test_replit_logits() raises:
     var nano_params = get_hyperparams()
     var replit = Replit[TestCheckpoint, DType.float32](nano_params)
     var g = replit.build_graph(
-        "Nano Replit",
         params,
+        "Nano Replit",
         with_attention_mask=True,
         use_cache=True
     )
@@ -536,8 +561,8 @@ fn test_replit_logits_with_prev_cache() raises:
     var nano_params = get_hyperparams()
     var replit = Replit[TestCheckpoint, DType.float32](nano_params)
     var g = replit.build_graph(
-        "Nano Replit",
         params,
+        "Nano Replit",
         with_attention_mask=True,
         use_cache=True
     )

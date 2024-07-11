@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from pathlib import Path
+from .common import check_url_exists
 from .parse_args import OptionType, OptionTypeEnum, OptionValue
 from .registry import ConfigRegistry, ConfigRegistryDict
 from max.graph.quantization import (
@@ -37,19 +38,6 @@ def get_llama_base_default_config() -> Dict[String, OptionValue]:
     default_config["temperature"] = 0.5
     default_config["min-p"] = 0.05
     return default_config
-
-
-def check_url_exists(urls: Dict[String, String], encoding: String):
-    # Raise error if encoding has no pre-defined URL.
-    if encoding not in urls:
-        error = (
-            "encoding: "
-            + encoding
-            + " has no pre-defined URL, choose from encodings:"
-        )
-        for item in urls:
-            error += " " + item[]
-        raise error
 
 
 # fmt: off

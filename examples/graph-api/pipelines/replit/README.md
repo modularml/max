@@ -47,23 +47,11 @@ implementation, and weights are
    cd max/examples/graph-api/pipelines/replit/
    ```
 
-3. Download and convert the model weights:
+3. Run the code completion demo:
 
-   Before the first execution of the pipeline, weights need to be downloaded
-   and converted into the correct format for use by this model. This weight
-   conversion process requires the use of PyTorch, which currently is only
-   compatible with Python 3.11 or older on macOS. PyTorch and all
-   dependencies will be automatically installed, and weights will be
-   downloaded and converted by running the following script:
-
-   ```shell
-   source setup.sh
-   ```
-
-4. Run the code completion demo:
-
-   Invoking the pipeline will cause the model graph to be compiled and code
-   generation will begin from the specified prompt.
+   On first execution, the model weights will be downloaded and placed in a
+   local `.cache/` directory in your current path. The model will then be
+   compiled and code completion will begin from the specified prompt.
 
    All of the pipelines have been configured to use a common driver, located
    in the directory hosting all MAX Graph examples. Assuming you're starting
@@ -78,8 +66,8 @@ implementation, and weights are
 The following command-line options are available to customize operation of the
 pipeline:
 
-- `--converted-weights-path`: Specifies the path to the converted model
-   weights. (Default value: `.cache/replit/converted`)
+- `--model-path`: Overrides the default model weights, and allows for an
+  already-downloaded pretrained weight file to be used with the model.
 - `--prompt`: The text prompt to use for further code generation.
 - `--max-length`: An optional token generation configuration to specify maximum
    sequence length.

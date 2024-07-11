@@ -15,13 +15,22 @@ import sys
 from os import setenv
 
 from max.engine import InferenceSession, Model
-from max._driver import Device, Tensor, AnyTensor, cuda_device, cpu_device
-from utils import StaticTuple
+from max.graph.quantization import (
+    BFloat16Encoding,
+    Float32Encoding,
+    QuantizationEncoding,
+)
 from max.tensor import TensorSpec
+from max._driver import Device, Tensor, AnyTensor, cuda_device, cpu_device
+from pipelines.weights.gguf import GGUFFile
+from utils import StaticTuple
 
-from .config import ReplitConfigRegistry, get_replit_base_default_config
+from .config import (
+    ReplitConfigRegistry,
+    get_replit_base_default_config,
+    get_replit_model_url,
+)
 from .model.replit import Replit
-from .weights.replit_checkpoint import ReplitCheckpoint
 from .weights.hyperparams import get_default
 
 from ..configs.registry import ConfigRegistry, ConfigRegistryDict
@@ -34,6 +43,7 @@ from ..samplers.token_sampler import TokenSampler
 from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer
 from ..llama3.metrics import Metrics
+from ..weights.download import download_to_cache
 
 alias DEFAULT_MAX_SEQ_LEN = 512
 
@@ -73,26 +83,14 @@ struct Config:
         else:
             raise "quantization-encoding must be 'bfloat16' or 'float32', got" + raw_type
 
-        _converted_weights_path = self.config["converted-weights-path"]
-        converted_weights_path = _converted_weights_path[Path]
-        if not converted_weights_path:
-            if self.dtype == DType.float32:
-                converted_weights_path = (
-                    cwd() / ".cache/replit/converted_float32"
-                )
-            else:  # DType.bfloat16
-                converted_weights_path = (
-                    cwd() / ".cache/replit/converted_bfloat16"
-                )
-            if not converted_weights_path.exists():
-                raise (
-                    "Unable to find checkpoint at "
-                    + str(converted_weights_path)
-                    + ". Please run: setup.sh "
-                    + raw_type
-                )
-            print("Using checkpoint at", converted_weights_path)
-            self.config["converted-weights-path"] = converted_weights_path
+        _model_path = self.config["model-path"]
+        model_path = _model_path[Path]
+        if not model_path:
+            model_path = download_to_cache(get_replit_model_url(raw_type))
+            print("Using checkpoint at", model_path)
+            self.config["model-path"] = model_path
+        if not model_path.exists():
+            raise ("Unable to find checkpoint at " + str(model_path))
 
     def __contains__(self, key: String):
         return key in self.config
@@ -132,7 +130,7 @@ struct ReplitPipeline[dtype: DType]:
         dtype: The DType of the weights and inputs to this model.
     """
 
-    var _replit: Replit[ReplitCheckpoint, dtype]
+    var _replit: Replit[GGUFFile, dtype]
     """Class that builds the Replit model graph."""
 
     var _device: Device
@@ -184,7 +182,7 @@ struct ReplitPipeline[dtype: DType]:
 
     def __init__(
         inout self,
-        checkpoint_file: Path,
+        model_path: Path,
         use_gpu: Bool = False,
         max_length: Optional[Int] = None,
         max_new_tokens: Optional[Int] = None,
@@ -195,10 +193,11 @@ struct ReplitPipeline[dtype: DType]:
             _ = setenv("TMP_ALLOCATE_ON_DEVICE", "1")
         # Generate a graph that does a single forward pass of the replit model.
         print("Building model...")
-        self._replit = Replit[ReplitCheckpoint, dtype](get_default())
+        self._replit = Replit[GGUFFile, dtype](get_default())
+        model = GGUFFile(model_path)
         g = self._replit.build_graph(
+            model,
             "replit",
-            ReplitCheckpoint(checkpoint_file),
             with_attention_mask=True,
             use_cache=True,
         )
@@ -340,7 +339,7 @@ def dispatch[dtype: DType](config: Config):
     if "max-new-tokens" in config:
         max_new_tokens = config.get("max-new-tokens")[Int]
     replit = ReplitPipeline[dtype](
-        config.get("converted-weights-path")[Path],
+        config.get("model-path")[Path],
         use_gpu=config.get("experimental-use-gpu")[Bool],
         max_length=max_length,
         max_new_tokens=max_new_tokens,
@@ -379,8 +378,11 @@ def replit_run():
     @parameter
     if not is_x86():
         dispatch[DType.float32](config)
+
+    encoding = config.get("quantization-encoding")[String]
+    if encoding == BFloat16Encoding.id():
+        dispatch[DType.bfloat16](config)
+    elif encoding == Float32Encoding.id():
+        dispatch[DType.float32](config)
     else:
-        if config.dtype == DType.bfloat16:
-            dispatch[DType.bfloat16](config)
-        else:
-            dispatch[DType.float32](config)
+        raise "--quantization-encoding must be 'bfloat16' or 'float32', got" + encoding

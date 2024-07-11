@@ -11,17 +11,19 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 import math
-from utils.numerics import min_finite
 from collections import Optional, List
+from pathlib import Path
+from utils.numerics import min_finite
 
 from max.graph import ops, Dim, TensorType, Symbol, Graph, Type
 from max.tensor import TensorSpec
 from max._driver import AnyTensor, Device
+from pipelines.weights.gguf import GGUFFile
+from pipelines.weights.loadable_model import LoadableModel
 
 from ..layers.embedding import SharedEmbedding
 from ..layers.block import MPTBlock
 from ..layers.norm import LPLayerNorm
-from ..weights.replit_checkpoint import Checkpoint
 from ..weights.hyperparams import HyperParams
 
 
@@ -46,11 +48,11 @@ def gen_slopes(g: Graph, n_heads: Int32, alibi_bias_max: Int32 = 8) -> Symbol:
     return slopes.reshape(1, int(n_heads), 1, 1)
 
 
-struct Replit[T: Checkpoint, dtype: DType]:
+struct Replit[T: LoadableModel, dtype: DType]:
     """Replit model implementation.
 
     Parameters:
-        T: Checkpoint used to load weights for this model.
+        T: LoadableModel class for loading model weights.
         dtype: The DType of the weights and inputs to this model.
     """
 
@@ -130,8 +132,8 @@ struct Replit[T: Checkpoint, dtype: DType]:
 
     def build_graph(
         self,
+        inout params: T,
         name: String,
-        params: T,
         with_attention_mask: Bool = False,
         use_cache: Bool = False,
     ) -> Graph:
@@ -141,8 +143,8 @@ struct Replit[T: Checkpoint, dtype: DType]:
         logits.
 
         Args:
+            params: LoadableModel class for loading model weights.
             name: Name of the graph.
-            params: Checkpoint class that loads parameter values.
             with_attention_mask: Whether to build the graph with an attention
               mask input.
             use_cache: Whether to build the graph with a key and value cache.
@@ -196,10 +198,12 @@ struct Replit[T: Checkpoint, dtype: DType]:
         )
 
         @parameter
-        def weight(name: String) -> Symbol:
-            return g.constant(params.get[dtype](name))
+        def weight[
+            weight_type: DType = dtype
+        ](name: String, layer: Optional[Int] = None) -> Symbol:
+            return g.constant(params.get[weight_type](name, layer))
 
-        wte = SharedEmbedding(weight("transformer.wte.weight"))
+        wte = SharedEmbedding(weight("token_embd"))
         x = wte(g[0])
         if with_attention_mask:
             attn_bias = self._attn_bias(g, g[1])
@@ -213,10 +217,7 @@ struct Replit[T: Checkpoint, dtype: DType]:
         v_cache_updates = List[Symbol]()
 
         for i in range(self.hyperparams.num_blocks):
-            block_prefix = "transformer.blocks." + str(i) + "."
-            block = MPTBlock[dtype].create(
-                params, block_prefix, g, self.hyperparams
-            )
+            block = MPTBlock[T, dtype](params, i, g, self.hyperparams)
             if use_cache:
                 k_cache = g[cache_input_idx][i]
                 v_cache = g[cache_input_idx + 1][i]
@@ -229,7 +230,9 @@ struct Replit[T: Checkpoint, dtype: DType]:
                 x = block(x, attn_bias)[0]
 
         norm_f = LPLayerNorm[dtype](
-            weight("transformer.norm_f.weight"), self.hyperparams
+            # GGUF always stores these as float32.
+            weight[DType.float32]("output_norm"),
+            self.hyperparams,
         )
         x = norm_f(x)
         # Generate output tokens using the same SharedEmbedding layer created
