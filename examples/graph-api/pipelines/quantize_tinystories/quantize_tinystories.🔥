@@ -167,7 +167,6 @@ struct TeenyTinyLlama:
                     n_kv_heads=self.hyperparams.n_kv_heads,
                     head_dim=self.hyperparams.head_dim,
                     dim=self.hyperparams.dims,
-                    enable_custom_rope_kernel=False,
                     use_custom_attention=True,
                     # Quantize all QKV and output projection matrices in the
                     # attention layer.

@@ -57,13 +57,9 @@ struct Llama2[
     alias batch_size = 1
 
     var model: model_type
-    var enable_custom_rope_kernel: Bool
 
-    def __init__(
-        inout self, model_path: Path, enable_custom_rope_kernel: Bool = False
-    ):
+    def __init__(inout self, model_path: Path):
         self.model = model_type(model_path)
-        self.enable_custom_rope_kernel = enable_custom_rope_kernel
 
     def build_graph(inout self, name: String) -> Graph:
         params = self.model.hyperparams()
@@ -122,7 +118,6 @@ struct Llama2[
                 n_kv_heads=params.n_kv_heads,
                 head_dim=params.head_dim,
                 dim=params.dims,
-                enable_custom_rope_kernel=self.enable_custom_rope_kernel,
                 use_custom_attention=True,
                 wq=weight("attn_q", layer),
                 wk=weight("attn_k", layer),

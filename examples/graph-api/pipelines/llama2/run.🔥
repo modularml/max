@@ -58,16 +58,9 @@ struct Config:
     var config: Dict[String, OptionValue]
 
     def __init__(inout self):
-        # Add llama2-specific arguments to config_registry
-        llama2_additional_configs = ConfigRegistryDict()
-        llama2_additional_configs[
-            "enable-custom-rope-kernel"
-        ] = OptionTypeEnum.BOOL
-
-        config_registry = LlamaConfigRegistry(llama2_additional_configs)
+        config_registry = LlamaConfigRegistry(ConfigRegistryDict())
 
         default_configs = get_llama_base_default_config()
-        default_configs["enable-custom-rope-kernel"] = False
         self.config = register_pipeline_configs(
             config_registry.registry,
             parse_args(),
@@ -75,15 +68,8 @@ struct Config:
         )
 
         # Check for invalid config
-        enable_custom_rope_kernel = self.config["enable-custom-rope-kernel"]
-        custom_ops_paths = self.config["custom-ops-path"]
         model_path = self.config["model-path"]
         quantization_encoding = self.config["quantization-encoding"]
-        if (
-            enable_custom_rope_kernel[Bool]
-            and len(custom_ops_paths[List[Path]]) == 0
-        ):
-            raise "--custom-ops-path argument is required when --enable-custom-rope-kernel is set"
         if (
             model_path[Path].suffix() != ".gguf"
             and not quantization_encoding[String]
@@ -244,7 +230,6 @@ def run[
     metrics.begin_timing_startup()
     model = Llama2[model_type, encoding](
         config.get("model-path")[Path],
-        enable_custom_rope_kernel=config.get("enable-custom-rope-kernel")[Bool],
     )
     params = model.hyperparams()
     graph = model.build_graph("llama2")

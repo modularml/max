@@ -120,7 +120,6 @@ struct NanoLlama(LoadableModel):
             n_kv_heads=params.n_kv_heads,
             head_dim=params.head_dim,
             dim=params.dims,
-            enable_custom_rope_kernel=False,
             use_custom_attention=False,
             wq=self.weight(graph, "attn_q").swapaxes(-1, -2),
             wk=self.weight(graph, "attn_k").swapaxes(-1, -2),

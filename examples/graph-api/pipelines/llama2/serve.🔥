@@ -79,9 +79,6 @@ struct Llama2InferenceService[
         print("Building model...")
         self._model = Llama2[ModelType, EncodingT](
             self._config.get("model-path")[Path],
-            enable_custom_rope_kernel=self._config.get(
-                "enable-custom-rope-kernel"
-            )[Bool],
         )
         self._graph = self._model.build_graph("llama_model")
         self._compiled_model = self._session.load(
