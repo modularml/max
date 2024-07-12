@@ -47,7 +47,16 @@ implementation, and weights are
    cd max/examples/graph-api/pipelines/replit/
    ```
 
-3. Run the code completion demo:
+3. Install Python dependencies:
+
+   You'll need numpy and the Transformers library as we will be using its tokenizers.
+   You can do this by running:
+
+   ```shell
+   pip install numpy transformers
+   ```
+
+4. Run the code completion demo:
 
    On first execution, the model weights will be downloaded and placed in a
    local `.cache/` directory in your current path. The model will then be
