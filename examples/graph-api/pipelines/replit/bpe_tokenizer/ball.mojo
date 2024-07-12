@@ -76,7 +76,7 @@ struct Ball[T: CollectionElement]:
 
     fn remove(inout self, id: Self.ID):
         """Removes an element from the list."""
-        var node = self._arena[id]._value_copy()
+        var node = self._arena[id].value()
         self._arena[id] = None
         if node.prev:
             self._get_node(node.prev.value()).next = node.next
