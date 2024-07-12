@@ -244,7 +244,6 @@ fn test_attention() raises:
         n_kv_heads=n_kv_heads,
         head_dim=head_dim,
         dim=dim,
-        enable_custom_rope_kernel=False,
         use_custom_attention=False,
         wq=g.constant(
             Tensor[DType.float32](
@@ -402,7 +401,6 @@ fn test_transformer_block() raises:
         n_kv_heads=n_kv_heads,
         head_dim=head_dim,
         dim=dim,
-        enable_custom_rope_kernel=False,
         use_custom_attention=False,
         wq=g.constant(
             Tensor[DType.float32](

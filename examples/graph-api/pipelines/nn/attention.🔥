@@ -96,7 +96,6 @@ struct Attention[model_dtype: DType = DType.float32]:
     var n_kv_heads: Int
     var head_dim: Int
     var dim: Int
-    var enable_custom_rope_kernel: Bool
     var use_custom_attention: Bool
     """Use a custom flash attention kernel if set."""
 
