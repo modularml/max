@@ -44,7 +44,7 @@ Other types expose a `.destroy()` method simply to facilitate this.
 from collections import List, Optional
 from memory.unsafe import DTypePointer
 from pathlib import Path
-from utils import StaticTuple, Variant
+from utils import InlineArray, Variant
 
 from max.tensor import Tensor, TensorShape
 
@@ -448,14 +448,13 @@ struct GGUFKV:
 
 
 @value
-@register_passable("trivial")
 struct GGUFHeader:
     # Magic number to announce that this is a GGUF file.
     # Must be `GGUF` at the byte level: `0x47` `0x47` `0x55` `0x46`.
     # Your executor might do little-endian byte order, so it might be
     # checking for 0x46554747 and letting the endianness cancel out.
     # Consider being *very* explicit about the byte order here.
-    var magic: StaticTuple[UInt8, 4]
+    var magic: InlineArray[UInt8, 4]
     # The version of the format implemented.
     # Must be `3` for version described in this spec, which introduces big-endian support.
     #
@@ -470,7 +469,7 @@ struct GGUFHeader:
     var n_kv: UInt64
 
     fn __init__(inout self):
-        self.magic = StaticTuple[UInt8, 4](
+        self.magic = InlineArray[UInt8, 4](
             ord("N"), ord("U"), ord("L"), ord("L")
         )
         self.version = 0
@@ -489,7 +488,6 @@ struct GGUFHeader:
 
 
 @value
-@register_passable("trivial")
 struct GGUFTensorInfo:
     alias GGML_MAX_DIMS: Int = 4
 
@@ -499,7 +497,7 @@ struct GGUFTensorInfo:
     # The number of dimensions in the tensor.
     # Currently at most 4, but this may change in the future.
     var n_dims: UInt32
-    var ne: StaticTuple[UInt64, Self.GGML_MAX_DIMS]
+    var ne: InlineArray[UInt64, Self.GGML_MAX_DIMS]
 
     var type: GGMLType
 
@@ -703,9 +701,7 @@ struct GGUFReader:
         var name = self.gguf_string()
         var n_dims = self.dtype_element[DType.uint32]()
 
-        var ne = StaticTuple[UInt64, GGUFTensorInfo.GGML_MAX_DIMS]()
-        for i in range(GGUFTensorInfo.GGML_MAX_DIMS):
-            ne[i] = 1
+        var ne = InlineArray[UInt64, GGUFTensorInfo.GGML_MAX_DIMS](fill=1)
 
         for i in range(int(n_dims)):
             ne[i] = self.dtype_element[DType.uint64]()
@@ -759,7 +755,7 @@ struct GGUFFile(LoadableModel):
 
         # Read the header.
         var magic: Tensor[DType.uint8] = reader.read_bytes(
-            sizeof[StaticTuple[Int8, 4]]()
+            sizeof[InlineArray[Int8, 4]]()
         )
         for i in range(magic.num_elements()):
             if magic[i] != Scalar.load(GGUFFile.GGUF_MAGIC.unsafe_ptr(), i):
@@ -773,7 +769,7 @@ struct GGUFFile(LoadableModel):
         var n_kv = int(reader.dtype_element[DType.uint64]())
 
         self.header = GGUFHeader(
-            StaticTuple[UInt8, 4](magic[0], magic[1], magic[2], magic[3]),
+            InlineArray[UInt8, 4](magic[0], magic[1], magic[2], magic[3]),
             version,
             n_tensors,
             n_kv,
