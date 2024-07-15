@@ -228,7 +228,7 @@ struct GGUFString(Stringable):
     # The string as a UTF-8 non-null-terminated string.
     # Note: this matches GGUF spec but
     # is unsafe to be used without proper initialization.
-    var data: DTypePointer[DType.uint8]
+    var data: UnsafePointer[UInt8]
 
     @always_inline
     fn destroy(owned self):
@@ -639,7 +639,9 @@ struct GGUFReader:
     fn gguf_string(inout self) raises -> GGUFString:
         var n = int(self.dtype_element[DType.uint64]())
         var key_data: Tensor[DType.uint8] = self.read_bytes(n)
-        return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
+        return GGUFString(
+            n, key_data._steal_ptr().bitcast[DType.uint8]().address
+        )
 
     fn gguf_kv(inout self) raises -> GGUFKV:
         @always_inline
@@ -660,7 +662,7 @@ struct GGUFReader:
 
         var key = self.gguf_string()
         if (
-            StringRef(key.data.bitcast[DType.uint8](), int(key.n))
+            StringRef(key.data.bitcast[UInt8](), int(key.n))
             == "general.alignment"
         ):
             raise "don't support specifying alignment"
@@ -760,7 +762,7 @@ struct GGUFFile(LoadableModel):
             sizeof[StaticTuple[Int8, 4]]()
         )
         for i in range(magic.num_elements()):
-            if magic[i] != Scalar.load(GGUFFile.GGUF_MAGIC.as_uint8_ptr(), i):
+            if magic[i] != Scalar.load(GGUFFile.GGUF_MAGIC.unsafe_ptr(), i):
                 raise "invalid magic character"
 
         var version = reader.dtype_element[DType.uint32]()
