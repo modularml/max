@@ -48,8 +48,16 @@ struct KVCache:
         #   self.values[self.sequence_length:self.sequence_length + seqlen, ...] = values
         start_pos = self._offset(self.sequence_length)
         update_size = self._offset(seqlen)
-        memcpy(self.keys.unsafe_ptr() + start_pos, keys.data, update_size)
-        memcpy(self.values.unsafe_ptr() + start_pos, values.data, update_size)
+        memcpy(
+            self.keys.unsafe_ptr().address + start_pos,
+            keys.data.address,
+            update_size,
+        )
+        memcpy(
+            self.values.unsafe_ptr().address + start_pos,
+            values.data.address,
+            update_size,
+        )
         self.sequence_length += seqlen
 
     def keys_view(self) -> EngineTensorView:
