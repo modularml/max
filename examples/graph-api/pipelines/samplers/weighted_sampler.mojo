@@ -148,7 +148,7 @@ struct WeightedSampler(TokenSampler):
                         DType.float32
                     ]()
                     SIMD.store(p_buf + i, v)
-                    largest = largest.max(v)
+                    largest = max(largest, v)
 
                 return largest.reduce_max()
 
