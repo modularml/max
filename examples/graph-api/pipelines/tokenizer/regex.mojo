@@ -36,10 +36,7 @@ struct CompileOption:
 
 
 fn llvm_regcomp(ptr: UnsafePointer[_CRegex], pattern: String, mode: Int) -> Int:
-    return MLIR_func[
-        "llvm_regcomp",
-        fn (UnsafePointer[_CRegex], UnsafePointer[UInt8], Int) -> Int,
-    ]()(ptr, pattern.unsafe_ptr(), mode)
+    return MLIR_func["llvm_regcomp", Int](ptr, pattern.unsafe_ptr(), mode)
 
 
 fn llvm_regexec(
@@ -48,20 +45,13 @@ fn llvm_regexec(
     inout pmatch: List[_CRegexMatch],
     mode: Int,
 ) -> Int:
-    return MLIR_func[
-        "llvm_regexec",
-        fn (
-            UnsafePointer[_CRegex],
-            UnsafePointer[UInt8],
-            Int,
-            UnsafePointer[_CRegexMatch],
-            Int,
-        ) -> Int,
-    ]()(ptr, string.unsafe_ptr(), len(pmatch), pmatch.unsafe_ptr(), mode)
+    return MLIR_func["llvm_regexec", Int](
+        ptr, string.unsafe_ptr(), len(pmatch), pmatch.unsafe_ptr(), mode
+    )
 
 
 fn llvm_regfree(ptr: UnsafePointer[_CRegex]):
-    return MLIR_func["llvm_regfree", fn (UnsafePointer[_CRegex]) -> None]()(ptr)
+    return MLIR_func["llvm_regfree", NoneType._mlir_type](ptr)
 
 
 fn llvm_regerror(
@@ -70,10 +60,7 @@ fn llvm_regerror(
     message: UnsafePointer[UInt8],
     max_size: Int,
 ) -> Int:
-    return MLIR_func[
-        "llvm_regerror",
-        fn (Int, UnsafePointer[_CRegex], UnsafePointer[UInt8], Int) -> Int,
-    ]()(error, ptr, message, max_size)
+    return MLIR_func["llvm_regerror", Int](error, ptr, message, max_size)
 
 
 struct _CRegex:
