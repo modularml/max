@@ -15,7 +15,7 @@
 from math import rsqrt
 from max.tensor import Tensor, TensorShape
 
-from max.graph import ops, Dim, Symbol, TensorType
+from max.graph import Graph, ops, Dim, Symbol, TensorType
 from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import Linear
@@ -52,19 +52,13 @@ def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
 
 
 def attention_mask(
-    start_pos: Symbol, seq_len: Symbol, activation_dtype: DType
+    g: Graph, start_pos: Dim, seq_len: Dim, activation_dtype: DType
 ) -> Symbol:
-    g = start_pos.graph()
-
-    seq_len = seq_len.reshape()
-    start_pos = start_pos.reshape()
-
     # Mask out current sequence elements [i, j] where j > i with an
     # upper-triangular matrix filled with -inf.
     mask_val = ops.cast(
-        g.full(Scalar[DType.float32].MIN, List[Symbol](seq_len, seq_len)),
-        activation_dtype,
-    ).rebind("seq_len", "seq_len")
+        g.full(Scalar[DType.float32].MIN, seq_len, seq_len), activation_dtype
+    )
     mask = ops.band_part(
         mask_val,
         g.scalar[DType.int64](-1),
@@ -80,9 +74,9 @@ def attention_mask(
     return ops.concat(
         List[Symbol](
             ops.cast(
-                g.full[DType.float32](0, List(seq_len, start_pos)),
+                g.full[DType.float32](0, seq_len, start_pos),
                 activation_dtype,
-            ).rebind("seq_len", "start_pos"),
+            ),
             mask,
         ),
         axis=1,
@@ -129,35 +123,16 @@ struct Attention[model_dtype: DType = DType.float32]:
         the flash attention kernel.
         """
         g = xq.graph()
-        prev_seq_len = ops.shape_of(k_cache)[0]
-        seq_len = ops.shape_of(xq)[1]
+        prev_seq_len = k_cache.shape()[0]
+        seq_len = xq.shape()[1]
 
-        attn_mask = attention_mask(prev_seq_len, seq_len, model_dtype)
+        attn_mask = attention_mask(g, prev_seq_len, seq_len, model_dtype)
 
         # Broadcast the attention mask across all attention heads.
-        attn_shape = ops.shape_of(attn_mask)
-        attn_shape = ops.concat(
-            List(
-                g.scalar(Int64(1), rank=1),
-                g.scalar(Int64(32), rank=1),
-                attn_shape[0].reshape(1),
-                attn_shape[1].reshape(1),
-            )
-        )
-        attn_mask_bcast = g.op(
-            "mo.broadcast_to",
-            List(
-                ops.unsqueeze(ops.unsqueeze(attn_mask, axis=0), axis=0),
-                attn_shape,
-            ),
-            TensorType(
-                model_dtype,
-                1,
-                self.n_heads,
-                attn_mask.shape()[0],
-                attn_mask.shape()[1],
-            ),
-        )
+        attn_shape = attn_mask.shape()
+        attn_mask_bcast = ops.unsqueeze(
+            ops.unsqueeze(attn_mask, axis=0), axis=0
+        ).broadcast_to(1, self.n_heads, attn_shape[0], attn_shape[1])
 
         # Transpose operands to their expected layouts:
         # q and v: BHSD
@@ -188,8 +163,8 @@ struct Attention[model_dtype: DType = DType.float32]:
         v_cache: Symbol,
     ) -> Symbol:
         head_dim = xq.graph().scalar(self.head_dim, model_dtype)
-        prev_seq_len = ops.shape_of(k_cache)[0]
-        seq_len = ops.shape_of(xq)[1]
+        prev_seq_len = k_cache.shape()[0]
+        seq_len = xq.shape()[1]
 
         full_seq_len = Dim("full_seq_len")
         keys = ops.concat(
@@ -208,7 +183,9 @@ struct Attention[model_dtype: DType = DType.float32]:
         values = values.swapaxes(1, 2)
 
         scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + attention_mask(prev_seq_len, seq_len, model_dtype)
+        scores = scores + attention_mask(
+            xq.graph(), prev_seq_len, seq_len, model_dtype
+        )
         output = ops.softmax(scores) @ values
         return output
 

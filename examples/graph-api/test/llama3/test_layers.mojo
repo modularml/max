@@ -379,31 +379,28 @@ fn test_rms_norm() raises:
 
 
 fn test_attention_mask() raises:
-    var g = Graph(
-        List[Type](TensorType(DType.int64, 1), TensorType(DType.int64, 1))
-    )
-    _ = g.output(attention_mask(g[0], g[1], DType.float32))
+    var g = Graph(TensorType(DType.int64, "prev_seq_len", "seq_len"))
+    var shape = g[0].shape()
+    var prev_seq_len = shape[0]
+    var seq_len = shape[1]
+    _ = g.output(attention_mask(g, prev_seq_len, seq_len, DType.float32))
 
-    var start_pos = Tensor[DType.int64](TensorShape(1), 0)
-    var seq_len = Tensor[DType.int64](TensorShape(1), 2)
-    var actual = _testing.execute_binary[outtype = DType.float32](
-        g, start_pos, seq_len
-    )
+    var input = Tensor[DType.int64](TensorShape(0, 2), 0)
+    var actual = _testing.execute_unary[outtype = DType.float32](g, input)
 
     _testing.assert_tensors_almost_equal(
         actual,
-        Tensor[DType.float32](TensorShape(2, 2),
-            0, Float32.MIN,
-            0, 0,
+        Tensor[DType.float32](
+            TensorShape(2, 2),
+            0,
+            Float32.MIN,
+            0,
+            0,
         ),
     )
 
-    start_pos = Tensor[DType.int64](TensorShape(1), 2)
-    seq_len = Tensor[DType.int64](TensorShape(1), 1)
-
-    actual = _testing.execute_binary[outtype = DType.float32](
-        g, start_pos, seq_len
-    )
+    input = Tensor[DType.int64](TensorShape(2, 1), 0)
+    actual = _testing.execute_unary[outtype = DType.float32](g, input)
 
     _testing.assert_tensors_almost_equal(
         actual,
@@ -411,19 +408,12 @@ fn test_attention_mask() raises:
     )
 
     # Test the uncommon case with non-zero prev_seq_len and curr_seq_len > 1.
-    start_pos = Tensor[DType.int64](TensorShape(1), 1)
-    seq_len = Tensor[DType.int64](TensorShape(1), 2)
-
-    actual = _testing.execute_binary[outtype = DType.float32](
-        g, start_pos, seq_len
-    )
+    input = Tensor[DType.int64](TensorShape(1, 2), 0)
+    actual = _testing.execute_unary[outtype = DType.float32](g, input)
 
     _testing.assert_tensors_almost_equal(
         actual,
-        Tensor[DType.float32](TensorShape(2, 3),
-            0, 0, Float32.MIN,
-            0, 0, 0,
-        ),
+        Tensor[DType.float32](TensorShape(2, 3), 0, 0, Float32.MIN, 0, 0, 0),
     )
 
 

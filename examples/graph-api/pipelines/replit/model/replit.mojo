@@ -115,18 +115,8 @@ struct Replit[T: LoadableModel, dtype: DType]:
                     1, self.hyperparams.n_heads, 1, mask.shape()[1]
                 )
                 mask = mask.reshape(mask.shape()[0], 1, 1, mask.shape()[1])
-                mask = g.op(
-                    "mo.broadcast_to",
-                    List[Symbol](mask, attn_bias_shape),
-                    TensorType(mask.tensor_type().dtype, broadcast_dims),
-                )
-                min_val = g.op(
-                    "mo.broadcast_to",
-                    List[Symbol](
-                        g.scalar(min_finite[dtype]()), attn_bias_shape
-                    ),
-                    TensorType(dtype, broadcast_dims),
-                )
+                mask = mask.broadcast_to(broadcast_dims)
+                min_val = g.full(min_finite[dtype](), broadcast_dims)
                 attn_bias = ops.select(mask, attn_bias, min_val)
             return attn_bias
 
