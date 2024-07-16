@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 from max.tensor import Tensor
-from utils import StaticTuple
 import max._driver as driver
 
 

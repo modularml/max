@@ -30,7 +30,6 @@ from max._driver import (
     AnyMemory,
 )
 from pipelines.weights.gguf import GGUFFile
-from utils import StaticTuple
 
 from .config import (
     ReplitConfigRegistry,
