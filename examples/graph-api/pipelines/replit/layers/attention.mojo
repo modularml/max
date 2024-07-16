@@ -210,39 +210,13 @@ struct GroupedQueryAttention[dtype: DType]:
                 # Apply a triangular mask to the attention weight so that in the
                 # later matmul, each token in the ouput doesn't involve
                 # information from future positions.
-                s = ops.max(s_q, s_k)
-                causal_mask = g.full[DType.bool](1, List[Symbol](s, s))
+                causal_mask = g.full[DType.bool](1, full_seq_len, full_seq_len)
                 causal_mask = tril(causal_mask)
                 causal_mask = causal_mask[
                     -s_q:, -s_k:, out_dims = List[Dim](seq_len, full_seq_len)
-                ].reshape(1, 1, s_q, s_k)
-
-                attn_weight_shape = ops.shape_of(attn_weight)
-
-                min_val = g.op(
-                    "mo.broadcast_to",
-                    List[Symbol](
-                        g.scalar(min_finite[dtype]()), attn_weight_shape
-                    ),
-                    TensorType(
-                        dtype,
-                        batch_size,
-                        n_heads,
-                        seq_len,
-                        full_seq_len,
-                    ),
-                )
-                causal_mask = g.op(
-                    "mo.broadcast_to",
-                    List[Symbol](causal_mask, attn_weight_shape),
-                    TensorType(
-                        causal_mask.tensor_type().dtype,
-                        batch_size,
-                        n_heads,
-                        seq_len,
-                        full_seq_len,
-                    ),
-                )
+                ].reshape(1, 1, seq_len, full_seq_len)
+                min_val = g.full(min_finite[dtype](), attn_weight.shape())
+                causal_mask = causal_mask.broadcast_to(attn_weight.shape())
                 attn_weight = ops.select(causal_mask, attn_weight, min_val)
 
             attn_weight = ops.softmax(attn_weight)

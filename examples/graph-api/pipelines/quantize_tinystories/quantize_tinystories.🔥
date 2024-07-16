@@ -101,7 +101,7 @@ struct TeenyTinyLlama:
         # Set the KV cache and tokens input types.
         cache_type = TensorType(
             DType.float32,
-            Dim.dynamic(),
+            "past_seq_len",
             self.hyperparams.n_layers,
             Self.batch_size,
             self.hyperparams.n_kv_heads,
