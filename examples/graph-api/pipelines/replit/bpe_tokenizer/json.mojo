@@ -147,7 +147,7 @@ struct TokenType(EqualityComparable, Stringable, KeyElement):
             return "end"
         return "unknown type"
 
-    fn __hash__(self) -> Int:
+    fn __hash__(self) -> UInt:
         """Return a 64-bit hash of the type's data."""
         return self.kind
 
