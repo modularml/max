@@ -68,16 +68,14 @@ def tri(rows: Symbol, cols: Symbol, k: Symbol) -> Symbol:
     int_dtype = rows.tensor_type().dtype
     step = g.scalar(1, int_dtype)
 
-    row = (
-        ops.range_fill(start=g.scalar(0, int_dtype), limit=rows, step=step)
-        .rebind("rows")
-        .reshape(-1, 1)
+    row = g.range(
+        start=g.scalar(0, int_dtype), stop=rows, step=step, out_dim="rows"
+    ).reshape(-1, 1)
+
+    col = g.range(start=-k, stop=(cols - k), step=step, out_dim="cols").reshape(
+        1, -1
     )
-    col = (
-        ops.range_fill(start=-k, limit=(cols - k), step=step)
-        .rebind("cols")
-        .reshape(1, -1)
-    )
+
     return ops.greater_equal(row, col)
 
 
