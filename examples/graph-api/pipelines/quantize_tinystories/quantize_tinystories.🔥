@@ -231,12 +231,12 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
         "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
     )
 
-    weights_path = download_to_cache(
+    model_path = download_to_cache(
         "https://huggingface.co/karpathy/tinyllamas/resolve/main/stories15M.bin"
     )
 
     # Stage the Llama model graph.
-    llama_builder = TeenyTinyLlama(weights_path)
+    llama_builder = TeenyTinyLlama(model_path)
     llama = llama_builder.build()
 
     save(
@@ -251,6 +251,7 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
 
     config = Config()
     config.set("tokenizer-path", tokenizer_path)
+    config.set("model-path", model_path)
     generate_text(
         compile_graph(session, llama),
         llama_builder.hyperparams,
