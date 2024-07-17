@@ -49,7 +49,7 @@ struct StringPair(KeyElement):
         self.left = existing.left
         self.right = existing.right
 
-    fn __hash__(self) -> Int:
+    fn __hash__(self) -> UInt:
         return hash(self.left) * 12345 + hash(self.right)
 
 
