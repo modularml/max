@@ -49,13 +49,13 @@ struct KVCache:
         start_pos = self._offset(self.sequence_length)
         update_size = self._offset(seqlen)
         memcpy(
-            self.keys.unsafe_ptr().address + start_pos,
-            keys.data.address,
+            self.keys.unsafe_ptr() + start_pos,
+            keys.data,
             update_size,
         )
         memcpy(
-            self.values.unsafe_ptr().address + start_pos,
-            values.data.address,
+            self.values.unsafe_ptr() + start_pos,
+            values.data,
             update_size,
         )
         self.sequence_length += seqlen
