@@ -69,7 +69,7 @@ struct AutoTokenizer(Tokenizer):
     @staticmethod
     def _memcpy_to_numpy(array: PythonObject, tokens: List[Int64]):
         dst = AutoTokenizer._numpy_data_pointer[DType.int64](array)
-        memcpy(dst.address, tokens.unsafe_ptr().address, len(tokens))
+        memcpy(dst.address, tokens.unsafe_ptr(), len(tokens))
 
     @always_inline
     @staticmethod
