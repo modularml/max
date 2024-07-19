@@ -213,8 +213,7 @@ struct GroupedQueryAttention[dtype: DType]:
                 causal_mask = causal_mask[
                     -s_q:, -s_k:, out_dims = List[Dim](seq_len, full_seq_len)
                 ].reshape(1, 1, seq_len, full_seq_len)
-                min_val = g.full(min_finite[dtype](), attn_weight.shape())
-                causal_mask = causal_mask.broadcast_to(attn_weight.shape())
+                min_val = g.scalar(min_finite[dtype]())
                 attn_weight = ops.select(causal_mask, attn_weight, min_val)
 
             attn_weight = ops.softmax(attn_weight)
