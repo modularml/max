@@ -21,6 +21,16 @@ dependencies = [
     "torch==2.2.2",
     "ultralytics",
     "transformers",
+    "chromadb==0.5.3",
+    "watchdog",
+    "fastembed==0.3.2",
+    "llama-index==0.10.52",
+    "protobuf==3.20.3",
+    "nbconvert",
+    "docx2txt",
+    "html2text",
+    "EbookLib",
+    "ipython",
 ]
 
 [build-system]
