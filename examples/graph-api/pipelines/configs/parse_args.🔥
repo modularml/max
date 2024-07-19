@@ -38,20 +38,28 @@ struct OptionTypeEnum:
 alias OptionValue = Variant[Int, Float64, Path, List[Path], Bool, String]
 
 
-def parse_args() -> List[StringRef]:
+def parse_args() -> List[String]:
     """
     This helper function trims the first two run_pipeline.mojo and <pipeline_name> arguments.
     It then returns the remaining list of user arguments.
     """
 
     args = sys.argv()
-    user_args = List[StringRef]()
+    user_args = List[String]()
     # We start parsing from index 2 because index 0 and 1 are run_pipeline.mojo
     # and <pipeline name> respectively that are already consumed by the caller.
     index = 2
     while index < len(args):
-        user_args.append(args[index])
+        # To accomodate for the scenario in which a '=' is passed in a valid argument
+        # we must only split when the argument string starts with a '--' and a '=' is provided
+        # this indicates that both a key and value are provided and must be split
+        # we then split, at most once, seperating the key from the value.
+        if "=" in args[index] and args[index].startswith("--"):
+            user_args.extend(str(args[index]).split("=", 1))
+        else:
+            user_args.append(String(args[index]))
         index += 1
+
     return user_args
 
 
@@ -60,7 +68,7 @@ def parse_args() -> List[StringRef]:
 # and values. We just pass in the underlying dict for now.
 def register_pipeline_configs(
     config_registry: ConfigRegistryDict,
-    args: List[StringRef],
+    args: List[String],
     default_config: Dict[String, OptionValue],
 ) -> Dict[String, OptionValue]:
     """
@@ -94,7 +102,7 @@ def register_pipeline_configs(
 
         # Trim leading "--" from user provided arg.
         # For example, "--temperature" will become "temperature".
-        curr_arg = String(args[index])[2:]
+        curr_arg = args[index][2:]
 
         if curr_arg not in config_registry:
             raise "Unsupported CLI argument: " + String(args[index])
@@ -121,7 +129,7 @@ def register_pipeline_configs(
                 temp_list.append(Path(args[index + 1]))
                 cli_config[curr_arg] = temp_list
             else:  # String / also acts as a fallback to make them stringly typed.
-                cli_config[curr_arg] = String(args[index + 1])
+                cli_config[curr_arg] = args[index + 1]
             index += 1
         index += 1
 

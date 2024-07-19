@@ -62,7 +62,7 @@ def get_dummy_default_config() -> Dict[String, OptionValue]:
 
 def test_register_pipeline_configs_no_defaults():
     config_registry = DummyConfigRegistry()
-    test_args = List[StringRef]("--one", "1", "--two", "", "--five", "5")
+    test_args = List[String]("--one", "1", "--two", "", "--five", "5")
 
     # empty default config dict.
     default_configs = Dict[String, OptionValue]()
@@ -83,7 +83,7 @@ def test_register_pipeline_configs_additional_configs():
 
     config_registry = DummyConfigRegistry(config_registry_dict)
 
-    test_args = List[StringRef](
+    test_args = List[String](
         "--one", "1", "--two", "", "--five", "5", "--additional-flag"
     )
     # empty default config dict.
@@ -101,7 +101,7 @@ def test_register_pipeline_configs_additional_configs():
 
 def test_register_pipeline_configs_overridden_configs():
     config_registry = DummyConfigRegistry()
-    test_args = List[StringRef](
+    test_args = List[String](
         "--one", "1", "--four", "four-updated", "--five", "5"
     )
 
@@ -132,7 +132,7 @@ def test_register_pipeline_configs_overridden_configs():
 
 def test_register_pipeline_configs_missing_value_config():
     config_registry = DummyConfigRegistry()
-    invalid_test_args = List[StringRef]("--one")
+    invalid_test_args = List[String]("--one")
 
     # empty default config dict.
     default_configs = Dict[String, OptionValue]()
@@ -147,7 +147,7 @@ def test_register_pipeline_configs_missing_value_config():
 
 def test_register_pipeline_configs_invalid_arg_config():
     config_registry = DummyConfigRegistry()
-    invalid_test_args = List[StringRef]("-one")
+    invalid_test_args = List[String]("-one")
 
     # empty default config dict.
     default_configs = Dict[String, OptionValue]()
