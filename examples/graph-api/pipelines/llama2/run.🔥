@@ -148,7 +148,8 @@ def _generate_text_with_tokenizer[
     )
     metrics.set_tokens_in_prompt(prompt.size)
     sampler = WeightedSampler(
-        config.get("temperature")[Float64], config.get("min-p")[Float64]
+        config.get("temperature")[Float64].cast[DType.float32](),
+        config.get("min-p")[Float64].cast[DType.float32](),
     )
     tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
     for i in range(len(prompt)):

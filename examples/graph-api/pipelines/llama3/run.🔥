@@ -141,7 +141,8 @@ def generate_text(
 
     prompt = tokenizer.encode(config.get("prompt")[String])
     sampler = WeightedSampler(
-        config.get("temperature")[Float64], config.get("min-p")[Float64]
+        config.get("temperature")[Float64].cast[DType.float32](),
+        config.get("min-p")[Float64].cast[DType.float32](),
     )
     metrics.set_tokens_in_prompt(prompt.size)
 

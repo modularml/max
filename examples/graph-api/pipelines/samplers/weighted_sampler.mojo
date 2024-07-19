@@ -105,7 +105,7 @@ struct WeightedSampler(TokenSampler):
 
                 cdf += retained_p[i] / normalization
 
-                if cdf > u:
+                if cdf.cast[DType.float64]() > u:
                     return SamplerResult(retained_idx[i], options)
 
             return SamplerResult(retained_idx[len(retained_idx) - 1], options)
@@ -213,7 +213,7 @@ struct WeightedSampler(TokenSampler):
 
                 cdf += retained_p[i] / normalization
 
-                if cdf > u:
+                if cdf.cast[DType.float64]() > u:
                     return SamplerResult(retained_idx[i], options)
 
             return SamplerResult(retained_idx[len(retained_idx) - 1], options)
