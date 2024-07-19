@@ -361,7 +361,10 @@ def dispatch[dtype: DType](config: Config):
     # Run code generation.
     metrics.begin_timing_prompt()
     tokens_in_prompt = replit.reset(prompt)
-    sampler = WeightedSampler(0.5)
+    sampler = WeightedSampler(
+        config.get("temperature")[Float64].cast[DType.float32](),
+        config.get("min-p")[Float64].cast[DType.float32](),
+    )
 
     metrics.set_tokens_in_prompt(tokens_in_prompt)
 

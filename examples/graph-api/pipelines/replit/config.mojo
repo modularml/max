@@ -35,6 +35,8 @@ def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config["prompt"] = str('def hello():\n  print("hello world")')
     default_config["experimental-use-gpu"] = False
     default_config["quantization-encoding"] = str("float32")
+    default_config["temperature"] = 0.5
+    default_config["min-p"] = 0.05
     return default_config
 
 
@@ -72,6 +74,8 @@ struct ReplitConfigRegistry(ConfigRegistry):
         self.registry["max-new-tokens"] = OptionTypeEnum.INT
         self.registry["experimental-use-gpu"] = OptionTypeEnum.BOOL
         self.registry["quantization-encoding"] = OptionTypeEnum.STRING
+        self.registry["temperature"] = OptionTypeEnum.FLOAT
+        self.registry["min-p"] = OptionTypeEnum.FLOAT
         if additional_pipeline_args:
             self.registry.update(additional_pipeline_args.value())
 
