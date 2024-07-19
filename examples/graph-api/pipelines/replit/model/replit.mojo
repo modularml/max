@@ -110,13 +110,8 @@ struct Replit[T: LoadableModel, dtype: DType]:
                     1, self.hyperparams.n_heads, 1, mask.shape()[-1]
                 )
                 attn_bias = attn_bias[:, :, :, -s_k:, out_dims=out_dims]
-                attn_bias_shape = ops.shape_of(attn_bias)
-                broadcast_dims = List[Dim](
-                    1, self.hyperparams.n_heads, 1, mask.shape()[1]
-                )
                 mask = mask.reshape(mask.shape()[0], 1, 1, mask.shape()[1])
-                mask = mask.broadcast_to(broadcast_dims)
-                min_val = g.full(min_finite[dtype](), broadcast_dims)
+                min_val = g.scalar(min_finite[dtype]())
                 attn_bias = ops.select(mask, attn_bias, min_val)
             return attn_bias
 
