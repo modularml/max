@@ -355,7 +355,7 @@ struct GGUFValue:
         @parameter
         if type is DType.bool:
             # Treat `Bool` as an exception since it isn't `Scalar[DType.bool]`.
-            return Self(Bool(value))
+            return Self(bool(value))
         else:
             return Self(value)
 
