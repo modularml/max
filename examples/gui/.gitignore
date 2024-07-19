@@ -1,2 +1,3 @@
 .pixi
 app.log
+*.lock

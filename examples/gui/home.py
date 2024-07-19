@@ -25,6 +25,8 @@ Welcome to MAX! Select an example to get started:
 
 if st.button("🦙 Llama3"):
     st.switch_page("pages/llama3.py")
+elif st.button("📄 RAG with Llama3"):
+    st.switch_page("pages/rag.py")
 elif st.button("👓 BERT"):
     st.switch_page("pages/bert.py")
 elif st.button("🎨 Stable Diffusion 1.5"):
