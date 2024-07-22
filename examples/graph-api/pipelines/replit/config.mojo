@@ -32,6 +32,7 @@ from ..configs.parse_args import (
 def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config = Dict[String, OptionValue]()
     default_config["model-path"] = Path("")
+    default_config["custom-ops-path"] = List[Path]()
     default_config["prompt"] = str('def hello():\n  print("hello world")')
     default_config["experimental-use-gpu"] = False
     default_config["quantization-encoding"] = str("float32")
@@ -69,6 +70,7 @@ struct ReplitConfigRegistry(ConfigRegistry):
         """
         self.registry = ConfigRegistryDict()
         self.registry["model-path"] = OptionTypeEnum.PATH
+        self.registry["custom-ops-path"] = OptionTypeEnum.PATH_LIST
         self.registry["prompt"] = OptionTypeEnum.STRING
         self.registry["max-length"] = OptionTypeEnum.INT
         self.registry["max-new-tokens"] = OptionTypeEnum.INT
