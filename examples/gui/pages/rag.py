@@ -92,7 +92,7 @@ model_state.success("Data is indexed", icon="✅")
 @st.cache_resource(show_spinner=False)
 def start_llama3(
     temperature,
-    max_tokens,
+    max_length,
     min_p,
     custom_ops_path,
     tokenizer_path,
@@ -108,8 +108,8 @@ def start_llama3(
             "run",
             "../graph-api/serve_pipeline.🔥",
             "llama3",
-            "--max-tokens",
-            str(max_tokens),
+            "--max-length",
+            str(max_length),
             "--model-path",
             model_path,
             "--prompt",

@@ -28,7 +28,8 @@ from max.graph.quantization import (
 def get_llama_base_default_config() -> Dict[String, OptionValue]:
     default_config = Dict[String, OptionValue]()
     default_config["batch-size"] = 1
-    default_config["max-tokens"] = 512
+    default_config["max-length"] = 512
+    default_config["max-new-tokens"] = -1
     default_config["model-path"] = Path("")
     default_config["custom-ops-path"] = List[Path]()
     default_config["tokenizer-path"] = Path("")
@@ -83,7 +84,8 @@ struct LlamaConfigRegistry(ConfigRegistry):
         """
         self.registry = ConfigRegistryDict()
         self.registry["batch-size"] = OptionTypeEnum.INT
-        self.registry["max-tokens"] = OptionTypeEnum.INT
+        self.registry["max-length"] = OptionTypeEnum.INT
+        self.registry["max-new-tokens"] = OptionTypeEnum.INT
         self.registry["model-path"] = OptionTypeEnum.PATH
         self.registry["custom-ops-path"] = OptionTypeEnum.PATH_LIST
         self.registry["tokenizer-path"] = OptionTypeEnum.PATH

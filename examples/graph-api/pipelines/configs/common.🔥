@@ -12,6 +12,16 @@
 # ===----------------------------------------------------------------------=== #
 
 
+def get_max_tokens_to_generate(
+    prompt_len: Int, max_length: Int, max_new_tokens: Int
+) -> Int:
+    """Returns the max number of tokens to generate (including the prompt)."""
+    if max_new_tokens < 0:
+        return max_length
+
+    return min(max_new_tokens + prompt_len, max_length)
+
+
 def check_url_exists(urls: Dict[String, String], encoding: String):
     """
     This helper function takes in a dictionary of encoding to pre-defined URLs
