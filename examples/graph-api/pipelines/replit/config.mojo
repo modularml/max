@@ -38,6 +38,7 @@ def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config["quantization-encoding"] = str("float32")
     default_config["temperature"] = 0.5
     default_config["min-p"] = 0.05
+    default_config["warmup-pipeline"] = False
     return default_config
 
 
@@ -78,6 +79,7 @@ struct ReplitConfigRegistry(ConfigRegistry):
         self.registry["quantization-encoding"] = OptionTypeEnum.STRING
         self.registry["temperature"] = OptionTypeEnum.FLOAT
         self.registry["min-p"] = OptionTypeEnum.FLOAT
+        self.registry["warmup-pipeline"] = OptionTypeEnum.BOOL
         if additional_pipeline_args:
             self.registry.update(additional_pipeline_args.value())
 

@@ -22,6 +22,8 @@ struct Metrics:
     var start_startup: Optional[Int]
     var end_startup: Optional[Int]
     var start_time_before_prompt: Optional[Int]
+    var start_time_before_warmup: Optional[Int]
+    var end_warmup: Optional[Int]
     var start_time_before_generation: Optional[Int]
     var start_time_before_context: Optional[Int]
     var end_time: Optional[Int]
@@ -34,6 +36,8 @@ struct Metrics:
         self.start_startup = None
         self.end_startup = None
         self.start_time_before_prompt = None
+        self.start_time_before_warmup = None
+        self.end_warmup = None
         self.start_time_before_generation = None
         self.start_time_before_context = None
         self.end_time = None
@@ -63,6 +67,14 @@ struct Metrics:
     def begin_timing_prompt(inout self):
         """Begins timing from before prompt processing."""
         self.start_time_before_prompt = now()
+
+    def begin_timing_warmup(inout self):
+        """Begins timing from before an optional warmup run."""
+        self.start_time_before_warmup = now()
+
+    def end_timing_warmup(inout self):
+        """Ends measurement of an optional warmup run."""
+        self.end_warmup = now()
 
     def begin_timing_generation(inout self):
         """Begins timing from the first generated token."""
@@ -129,11 +141,31 @@ struct Metrics:
                 (self.end_startup.value() - self.start_startup.value()) * 1e-6,
                 "ms",
             )
-        print(
-            "Time to first token:",
-            (start_context - start_inc_prompt) * 1e-6,
-            "ms",
-        )
+        if self.start_time_before_warmup and self.end_warmup:
+            print(
+                "Warmup time:",
+                (
+                    self.end_warmup.value()
+                    - self.start_time_before_warmup.value()
+                )
+                * 1e-6,
+                "ms",
+            )
+            print(
+                "Time to first token:",
+                (
+                    (start_context - self.end_warmup.value())
+                    + (self.start_time_before_warmup.value() - start_inc_prompt)
+                )
+                * 1e-6,
+                "ms",
+            )
+        else:
+            print(
+                "Time to first token:",
+                (start_context - start_inc_prompt) * 1e-6,
+                "ms",
+            )
         print(
             "Prompt eval throughput (context-encoding):",
             tokens_in_prompt / (start_context - start) * 1e9,
