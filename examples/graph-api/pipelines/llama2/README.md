@@ -94,8 +94,11 @@ pipeline:
    graph operation to use within the pipeline.
 - `--tokenizer-path`: The path to the tokenizer library to be used by the
    pipeline. (Default value: `.cache/tokenizer.bin`)
-- `--max-tokens`: The maximum number of tokens to generate.
+- `--max-length`: The context length of the model.
   (Default value: 512)
+- `--max-new-tokens`: The maximum number of new tokens to generate. If a -1
+  value is provided, the model will continue to generate tokens for the entire
+  context length. (Default value: -1)
 - `--min-p`: The starting required percentage for
   [Min P sampling](https://github.com/ggerganov/llama.cpp/pull/3841).
   (Default value: 0.05)

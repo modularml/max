@@ -34,6 +34,7 @@ from .metrics import Metrics
 from .model.llama import Llama3
 from ..tokenizer.tiktoken import TikTokenEncoder
 from ..tokenizer.regex import set_locale_unicode
+from ..configs.common import get_max_tokens_to_generate
 from ..configs.llama import (
     LlamaConfigRegistry,
     get_llama_base_default_config,
@@ -155,14 +156,19 @@ def generate_text(
         print(tokenizer.decode(token[]), end="")
 
     kv_cache = KVCache(
-        params, config.get("max-tokens")[Int], config.get("batch-size")[Int]
+        params, config.get("max-length")[Int], config.get("batch-size")[Int]
     )
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
-    for _ in range(prompt.size, config.get("max-tokens")[Int] + 1):
+    max_tokens = get_max_tokens_to_generate(
+        prompt.size,
+        config.get("max-length")[Int],
+        config.get("max-new-tokens")[Int],
+    )
+    for _ in range(prompt.size, max_tokens + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
         )

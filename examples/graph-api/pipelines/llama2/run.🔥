@@ -32,6 +32,7 @@ from ..llama3.metrics import Metrics
 from .model.llama import Llama2
 from ..samplers.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
+from ..configs.common import get_max_tokens_to_generate
 from ..configs.llama import (
     get_llama2_model_url,
     LlamaConfigRegistry,
@@ -158,13 +159,18 @@ def _generate_text_with_tokenizer[
     print("Executing...")
     print(tokenizer.decode(prompt), end="")
 
-    max_tokens = config.get("max-tokens")[Int]
-    kv_cache = KVCache(params, max_tokens, config.get("batch-size")[Int])
+    max_length = config.get("max-length")[Int]
+    kv_cache = KVCache(params, max_length, config.get("batch-size")[Int])
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
+    max_tokens = get_max_tokens_to_generate(
+        prompt.size,
+        config.get("max-length")[Int],
+        config.get("max-new-tokens")[Int],
+    )
     for _ in range(prompt.size, max_tokens + 1):
         logits = execute(
             compiled_model._session, compiled_model, tokens, kv_cache
