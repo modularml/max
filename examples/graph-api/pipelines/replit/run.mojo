@@ -364,12 +364,22 @@ def dispatch[dtype: DType](config: Config):
 
     # Run code generation.
     metrics.begin_timing_prompt()
-    tokens_in_prompt = replit.reset(prompt)
     sampler = WeightedSampler(
         config.get("temperature")[Float64].cast[DType.float32](),
         config.get("min-p")[Float64].cast[DType.float32](),
     )
 
+    # If a pipeline warmup is needed, run a single token completion after the
+    # prompt, get a token after that, and reset.
+    if config.get("warmup-pipeline")[Bool]:
+        print("Warming up pipeline...")
+        metrics.begin_timing_warmup()
+        _ = replit.reset(prompt)
+        _ = replit.next_token(sampler)
+        _ = replit.next_token(sampler)
+        metrics.end_timing_warmup()
+
+    tokens_in_prompt = replit.reset(prompt)
     metrics.set_tokens_in_prompt(tokens_in_prompt)
 
     print("Output:")

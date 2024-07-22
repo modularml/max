@@ -151,6 +151,26 @@ def generate_text(
     for i in range(len(prompt)):
         tokens[Index(0, i)] = prompt[i]
 
+    # If a pipeline warmup is needed, create a throwaway KV cache and generate
+    # a single output token from the model to exercise the graph.
+    if config.get("warmup-pipeline")[Bool]:
+        print("Warming up pipeline...")
+        metrics.begin_timing_warmup()
+        warmup_kv_cache = KVCache(
+            params, config.get("max-tokens")[Int], config.get("batch-size")[Int]
+        )
+        _ = execute(
+            compiled_model._session, compiled_model, tokens, warmup_kv_cache
+        )
+        warmup_token = Tensor(TensorShape(1, 1), Int64(123))
+        _ = execute(
+            compiled_model._session,
+            compiled_model,
+            warmup_token,
+            warmup_kv_cache,
+        )
+        metrics.end_timing_warmup()
+
     print("Executing...")
     for token in prompt:
         print(tokenizer.decode(token[]), end="")

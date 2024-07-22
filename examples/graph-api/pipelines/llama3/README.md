@@ -95,3 +95,5 @@ pipeline:
   (Default value: `q4_k`).
 - `--temperature`: The temperature for sampling, on a scale from 0.0 - 1.0,
   with 0.0 being greedy sampling. (Default value: 0.5)
+- `--warmup-pipeline`: Performs a warmup run of the pipeline before text
+  generation.

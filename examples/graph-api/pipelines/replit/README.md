@@ -85,6 +85,8 @@ pipeline:
 - `--quantization-encoding`: The encoding to use for a datatype that can be
    quantized to a low bits per weight format. The options for quantized formats
    will download and cache default weights.
+- `--warmup-pipeline`: Performs a warmup run of the pipeline before text
+   generation.
 
 ## Ideas for future extension
 
