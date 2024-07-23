@@ -19,7 +19,7 @@ from python import Python
 @always_inline
 fn numpy_data_pointer[
     type: DType
-](numpy_array: PythonObject) raises -> DTypePointer[type]:
+](numpy_array: PythonObject) raises -> UnsafePointer[Scalar[type]]:
     return numpy_array.__array_interface__["data"][0].unsafe_get_as_pointer[
         type
     ]()
@@ -75,6 +75,6 @@ fn numpy_to_tensor[
 ](inout np_array: PythonObject) raises -> Tensor[dtype]:
     var view = EngineNumpyView(np_array)
     var size = view.spec().num_elements()
-    var ptr = DTypePointer[dtype].alloc(size)
+    var ptr = UnsafePointer[Scalar[dtype]].alloc(size)
     memcpy(ptr.address, view.unsafe_ptr().bitcast[dtype]().address, size)
     return Tensor[dtype](view.spec(), ptr)

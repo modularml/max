@@ -70,7 +70,7 @@ struct KVCache:
 
     def _view(self, tensor: Tensor[DType.float32]) -> EngineTensorView:
         spec = self._spec(self.sequence_length)
-        data = tensor.unsafe_ptr().bitcast[DType.invalid]()
+        data = tensor.unsafe_ptr().bitcast[NoneType]()
         return EngineTensorView(spec, data, DType.float32)
 
     def _spec(self, size: Int) -> TensorSpec:

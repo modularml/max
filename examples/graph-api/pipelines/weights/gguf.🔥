@@ -42,7 +42,6 @@ Other types expose a `.destroy()` method simply to facilitate this.
 """
 
 from collections import List, Optional
-from memory.unsafe import DTypePointer
 from pathlib import Path
 from utils import InlineArray, Variant
 
@@ -512,7 +511,7 @@ struct GGUFTensorInfo:
     var offset: UInt64
 
     # For writing API.
-    var data: DTypePointer[DType.invalid]
+    var data: UnsafePointer[NoneType]
     var size: Int
 
     # Padding for aligning columns when printing tensor info
@@ -637,9 +636,7 @@ struct GGUFReader:
     fn gguf_string(inout self) raises -> GGUFString:
         var n = int(self.dtype_element[DType.uint64]())
         var key_data: Tensor[DType.uint8] = self.read_bytes(n)
-        return GGUFString(
-            n, key_data._steal_ptr().bitcast[DType.uint8]().address
-        )
+        return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
 
     fn gguf_kv(inout self) raises -> GGUFKV:
         @always_inline
@@ -715,7 +712,7 @@ struct GGUFReader:
             ne,
             type,
             offset,
-            data=DTypePointer[DType.invalid](),
+            data=UnsafePointer[NoneType](),
             size=0,
         )
 
