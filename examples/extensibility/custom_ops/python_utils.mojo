@@ -18,7 +18,7 @@ import python
 @always_inline
 fn numpy_data_pointer[
     type: DType
-](numpy_array: PythonObject) raises -> DTypePointer[type]:
+](numpy_array: PythonObject) raises -> UnsafePointer[Scalar[type]]:
     return numpy_array.__array_interface__["data"][0].unsafe_get_as_pointer[
         type
     ]()

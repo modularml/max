@@ -131,7 +131,7 @@ struct WeightedSampler(TokenSampler):
             alias simd_width = simdwidthof[dtype]()
             var aligned_length = length & ~(simd_width - 1)
 
-            var p_buf = DTypePointer[DType.float32].alloc(length)
+            var p_buf = UnsafePointer[Float32].alloc(length)
 
             # Overflow mitigation.
             # p_i = exp(logit_i / T) / (sum_j exp(logit_j / T))

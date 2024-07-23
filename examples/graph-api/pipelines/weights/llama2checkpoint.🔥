@@ -37,7 +37,7 @@ struct Config:
 @value
 struct TensorRef[type: DType]:
     # Not owned by this `TensorRef`.
-    var offset: DTypePointer[type]
+    var offset: UnsafePointer[Scalar[type]]
     var shape: TensorShape
 
     @always_inline
@@ -58,7 +58,7 @@ struct LlamaCFile(LoadableModel):
     """
 
     var config: Config
-    var weights_ptr: DTypePointer[DType.uint8]
+    var weights_ptr: UnsafePointer[UInt8]
 
     fn __init__(inout self, model_path: Path) raises:
         with open(model_path, "r") as f:
@@ -234,11 +234,11 @@ struct LlamaCFile(LoadableModel):
         else:
             raise "key not found"
 
-        var ptr = DTypePointer[type].alloc(tensor_ref.nelems())
+        var ptr = UnsafePointer[Scalar[type]].alloc(tensor_ref.nelems())
         var layer_offset = layer_idx.value() * tensor_ref.nelems() if layer_idx else 0
         memcpy(
-            ptr.address,
-            tensor_ref.offset.address + layer_offset,
+            ptr,
+            tensor_ref.offset + layer_offset,
             tensor_ref.nelems(),
         )
 
