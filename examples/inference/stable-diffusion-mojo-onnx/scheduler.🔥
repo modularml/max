@@ -72,7 +72,7 @@ struct Scheduler:
             var beta = start + (end - start) * (i / Self.training_steps)
             var alpha = 1.0 - (beta**2)
             cumprod *= alpha
-            self.alphas_cumprod.append(cumprod)
+            self.alphas_cumprod.append(cumprod.cast[DType.float32]())
 
     def step(
         inout self,
