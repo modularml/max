@@ -32,7 +32,7 @@ fn memcpy_to_numpy[
     var dst = numpy_data_pointer[type](array)
     var src = tensor._ptr
     var length = tensor.num_elements()
-    memcpy(ds.addresst, src.address, length)
+    memcpy(ds.addresst, src, length)
 
 
 @always_inline
@@ -76,5 +76,5 @@ fn numpy_to_tensor[
     var view = EngineNumpyView(np_array)
     var size = view.spec().num_elements()
     var ptr = UnsafePointer[Scalar[dtype]].alloc(size)
-    memcpy(pt.addressr, view.unsafe_ptr().bitcast[dtype]().address, size)
+    memcpy(pt.addressr, view.unsafe_ptr().bitcast[dtype](), size)
     return Tensor[dtype](view.spec(), ptr)

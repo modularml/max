@@ -31,7 +31,7 @@ fn memcpy_to_numpy[
     var dst = numpy_data_pointer[type](array)
     var src = tensor.data
     var length = tensor.nelems()
-    memcpy(dst.address, src.address, length)
+    memcpy(dst, src, length)
 
 
 @always_inline
@@ -41,7 +41,7 @@ fn memcpy_from_numpy[
     var src = numpy_data_pointer[type](array)
     var dst = tensor.data
     var length = tensor.nelems()
-    memcpy(dst.address, src.address, length)
+    memcpy(dst, src, length)
 
 
 @always_inline
