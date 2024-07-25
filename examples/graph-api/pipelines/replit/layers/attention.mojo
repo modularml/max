@@ -24,61 +24,6 @@ from ..weights.hyperparams import HyperParams
 from ..layers.linear import Linear
 
 
-@always_inline
-def tril(input: Symbol, k: Int = 0) -> Symbol:
-    """Gets the bottom triangle of the input.
-
-    The upper triangle above the kth diagnoal is zero'd out.
-
-    Args:
-        input: The input tensor.
-        k: The diagonal at which values at and below are True, and values
-          above are False.
-
-    Returns:
-        A Dtype.bool matrix.
-
-    Raises:
-        If the input has rank < 2.
-    """
-    g = input.graph()
-    if input.tensor_type().rank() < 2:
-        raise "Can't get tril of Tensor with rank < 2"
-    input_shape = ops.shape_of(input)
-    N = input_shape[-2]  # Number of rows
-    M = input_shape[-1]  # number of columns
-    mask = tri(N, M, g.scalar(Int64(k)))
-    return input.rebind("rows", "cols") * mask
-
-
-def tri(rows: Symbol, cols: Symbol, k: Symbol) -> Symbol:
-    """Returns a triangular mask matrix.
-
-    Args:
-        rows: Number of rows in the returned matrix.
-        cols: Number of columns in the returned matrix.
-        k: The diagonal at which values at and below are True, and values
-          above are False.
-
-    Returns:
-        A Dtype.bool matrix.
-    """
-    g = rows.graph()
-
-    int_dtype = rows.tensor_type().dtype
-    step = g.scalar(1, int_dtype)
-
-    row = g.range(
-        start=g.scalar(0, int_dtype), stop=rows, step=step, out_dim="rows"
-    ).reshape(-1, 1)
-
-    col = g.range(start=-k, stop=(cols - k), step=step, out_dim="cols").reshape(
-        1, -1
-    )
-
-    return ops.greater_equal(row, col)
-
-
 @value
 struct GroupedQueryAttention[dtype: DType]:
     """An attention layer that uses an intermediate number of key-value heads.
@@ -208,8 +153,12 @@ struct GroupedQueryAttention[dtype: DType]:
                 # Apply a triangular mask to the attention weight so that in the
                 # later matmul, each token in the ouput doesn't involve
                 # information from future positions.
-                causal_mask = g.full[DType.bool](1, full_seq_len, full_seq_len)
-                causal_mask = tril(causal_mask)
+                causal_mask = ops.band_part(
+                    g.full[DType.bool](1, full_seq_len, full_seq_len),
+                    g.scalar[DType.int64](-1),
+                    num_upper=g.scalar[DType.int64](0),
+                    exclude=False,
+                )
                 causal_mask = causal_mask[
                     -s_q:, -s_k:, out_dims = List[Dim](seq_len, full_seq_len)
                 ].reshape(1, 1, seq_len, full_seq_len)
