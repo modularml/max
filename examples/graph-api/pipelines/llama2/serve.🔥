@@ -45,6 +45,8 @@ from .run import (
     Config,
     compile_graph,
     execute,
+    get_max_tokens_to_generate,
+    compile_graph,
     _generate_text_with_tokenizer,
 )
 
@@ -69,19 +71,20 @@ struct Llama2InferenceService[
         inout self,
         owned config: Config,
         owned tokenizer: TokenizerT,
-        owned session: InferenceSession,
     ) raises:
         self._config = config^
         self._tokenizer = tokenizer^
-        self._session = session^
         self._json_module = Python.import_module("json")
-
-        print("Building model...")
         self._model = Llama2[ModelType, EncodingT](
             self._config.get("model-path")[Path],
         )
-        self._graph = self._model.build_graph("llama_model")
-        self._compiled_model = self._session.load(
+
+        print("Building model...")
+        self._graph = self._model.build_graph("llama2")
+        self._session = InferenceSession()
+
+        self._compiled_model = compile_graph(
+            self._session,
             self._graph,
             custom_ops_paths=self._config.get("custom-ops-path")[List[Path]],
         )
@@ -105,19 +108,30 @@ struct Llama2InferenceService[
 
         var prompt = self._tokenizer.encode(raw_prompt, bos=String("\n<s>\n"))
         var sampler = WeightedSampler(
-            self._config.get("temperature")[Float64],
-            self._config.get("min-p")[Float64],
+            self._config.get("temperature")[Float64].cast[DType.float32](),
+            self._config.get("min-p")[Float64].cast[DType.float32](),
         )
         var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
         for i in range(len(prompt)):
             tokens[Index(0, i)] = prompt[i]
 
         var outputs = List[String]()
+
+        print("Executing...")
+        print(self._tokenizer.decode(prompt), end="")
+
         var kv_cache = KVCache(
             self._model.model.hyperparams(),
-            self._config.get("max-tokens")[Int],
+            self._config.get("max-length")[Int],
             self._config.get("batch-size")[Int],
         )
+
+        var max_tokens = get_max_tokens_to_generate(
+            prompt.size,
+            self._config.get("max-length")[Int],
+            self._config.get("max-new-tokens")[Int],
+        )
+
         if stream:
             handler.send_response(200)
             handler.send_header("Content-type", "text/event-stream")
@@ -126,7 +140,7 @@ struct Llama2InferenceService[
         # The first iteration caches the entire prompt and all subsequent
         # iterations generate one token.
         # Avoid overrunning the cache by setting the trip count accordingly.
-        for _ in range(prompt.size, self._config.get("max-tokens")[Int] + 1):
+        for _ in range(prompt.size, max_tokens + 1):
             var logits = execute(
                 self._session, self._compiled_model, tokens, kv_cache
             )
@@ -199,9 +213,8 @@ def serve[
     EncodingT: QuantizationEncoding,
     TokenizerT: Tokenizer = AutoTokenizer,
 ](owned config: Config, owned tokenizer: TokenizerT):
-    session = InferenceSession()
     service = Llama2InferenceService[ModelType, EncodingT, TokenizerT](
-        config^, tokenizer^, session
+        config^, tokenizer^
     )
     server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
@@ -212,6 +225,7 @@ def setup_tokenizer[
     ModelType: LoadableModel,
     EncodingT: QuantizationEncoding = Float32Encoding,
 ](config: Config) -> None:
+    print("Loading tokenizer...")
     try:
         serve[ModelType, EncodingT](
             config, AutoTokenizer("meta-llama/Llama-2-7b-hf")
