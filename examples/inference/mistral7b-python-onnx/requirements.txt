@@ -8,3 +8,4 @@ onnxruntime==1.17.3
 optimum==1.19.1
 setuptools==69.5.1
 numpy<2.0
+huggingface_hub[cli]==0.23.0
