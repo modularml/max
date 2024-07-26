@@ -76,6 +76,12 @@ Check out the [notebooks examples](./examples/notebooks/) for using MAX Engine
 - [Mistral-7B](./examples/notebooks/mistral7b-python-onnx.ipynb)
 - [Roberta-pytorch](./examples/notebooks/roberta-python-pytorch.ipynb)
 
+### Tutorials
+
+The [tutorials](./tutorials/) directory contains the "finished" code for
+tutorials you can read at
+[docs.modular.com/max/tutorials](https://docs.modular.com/max/tutorials).
+
 ### FAQ
 
 Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
