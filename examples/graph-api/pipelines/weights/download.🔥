@@ -32,8 +32,16 @@ def download_to_cache(url: String) -> Path:
     os.makedirs(cache_path, exist_ok=True)
     last_component = url.split("/")[-1]
     destination = cache_path.joinpath(last_component)
+
     if not destination.is_file():
-        curl_command = "curl " + url + " -L -J -o " + str(destination)
-        external_call["system", NoneType](curl_command.unsafe_ptr())
-        _ = curl_command^
+        tmp_destination = str(destination) + ".tmp"
+        curl_command = str("curl {} -L -J -o {}").format(url, tmp_destination)
+        external_call["system", NoneType](
+            Reference(curl_command.as_bytes_slice()[0])
+        )
+
+        # Once finished, mv the file so we hit the cache next time
+        cmd = str("mv {} {}").format(tmp_destination, destination)
+        external_call["system", NoneType](Reference(cmd.as_bytes_slice()[0]))
+
     return destination
