@@ -39,6 +39,7 @@ from ..configs.llama import (
     LlamaConfigRegistry,
     get_llama_base_default_config,
     get_llama3_model_url,
+    get_llama3_1_model_url,
 )
 from ..configs.registry import ConfigRegistryDict
 from ..configs.parse_args import (
@@ -60,9 +61,12 @@ struct Config:
     var config: Dict[String, OptionValue]
 
     def __init__(inout self):
-        config_registry = LlamaConfigRegistry(ConfigRegistryDict())
+        additional_arguments = ConfigRegistryDict()
+        additional_arguments["version"] = OptionTypeEnum.STRING
+        config_registry = LlamaConfigRegistry(additional_arguments)
 
         default_configs = get_llama_base_default_config()
+        default_configs["version"] = String("3.1")
         self.config = register_pipeline_configs(
             config_registry.registry,
             parse_args(),
@@ -241,7 +245,10 @@ def llama3_run():
     encoding = config.get("quantization-encoding")[String]
 
     if not config.get("model-path")[Path]:
-        model_path = download_to_cache(get_llama3_model_url(encoding))
+        if config.get("version")[String] == "3.0":
+            model_path = download_to_cache(get_llama3_model_url(encoding))
+        else:
+            model_path = download_to_cache(get_llama3_1_model_url(encoding))
         config.set("model-path", model_path)
 
     if encoding == Q4_0Encoding.id():

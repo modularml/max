@@ -1,11 +1,11 @@
-# Llama 3
+# Llama 3.1
 
 **Language:** Mojo 🔥
 
 **API**: MAX Graph
 
 This pipeline demonstrates text completion from an initial prompt using the
-Llama 3 large language model. The model itself has been constructed from
+Llama 3.1 large language model. The model itself has been constructed from
 end to end in [the Mojo language](https://docs.modular.com/mojo/) using the
 [MAX Graph API](https://docs.modular.com/engine/graph).
 
@@ -17,7 +17,7 @@ optimal inference performance via the MAX Engine.
 
 ## Model
 
-[Llama 3](https://llama.meta.com/llama3/) is an open source large language
+[Llama 3.1](https://llama.meta.com/llama3/) is an open source large language
 model released by Meta. The structure of this implementation was inspired by
 Andrej Karpathy's [llama2.c](https://github.com/karpathy/llama2.c) and its [Mojo
 port by Aydyn Tairov](https://github.com/tairov/llama2.mojo).
@@ -95,5 +95,8 @@ pipeline:
   (Default value: `q4_k`).
 - `--temperature`: The temperature for sampling, on a scale from 0.0 - 1.0,
   with 0.0 being greedy sampling. (Default value: 0.5)
+- `--version`: Selects which version in the Llama 3 family to use.
+  Valid values: `3.0`, `3.1`.
+  (Default value: `3.1`)
 - `--warmup-pipeline`: Performs a warmup run of the pipeline before text
   generation.

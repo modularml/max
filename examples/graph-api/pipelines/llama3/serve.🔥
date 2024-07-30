@@ -32,7 +32,7 @@ from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 from ..weights.download import download_to_cache
-from ..configs.llama import get_llama3_model_url
+from ..configs.llama import get_llama3_model_url, get_llama3_1_model_url
 
 from max.graph.quantization import (
     QuantizationEncoding,
@@ -257,7 +257,10 @@ def llama3_serve():
     encoding = config.get("quantization-encoding")[String]
 
     if not config.get("model-path")[Path]:
-        model_path = download_to_cache(get_llama3_model_url(encoding))
+        if config.get("version")[String] == "3.0":
+            model_path = download_to_cache(get_llama3_model_url(encoding))
+        else:
+            model_path = download_to_cache(get_llama3_1_model_url(encoding))
         config.set("model-path", model_path)
 
     if encoding == Q4_0Encoding.id():

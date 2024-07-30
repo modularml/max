@@ -151,6 +151,15 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
                 )
             )
 
+        # Llama 3.1 introduces a RoPE scaling factor, which will be present in
+        # the GGUF weights for that model.
+        try:
+            rope_scaling = Optional[Symbol](
+                weight[Float32Encoding]("rope_freqs", transpose=False)[0]
+            )
+        except:
+            rope_scaling = None
+
         embedding = Embedding(weight("token_embd", transpose=False))
         model = Transformer(
             dim=params.dims,
@@ -160,6 +169,7 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
             norm=norm("output_norm"),
             output=weight("output"),
             theta=500000.0,
+            rope_scaling=rope_scaling,
         )
 
         # outputs (logits, k_cache, v_cache)
