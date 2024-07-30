@@ -77,6 +77,27 @@ struct Transformer[model_dtype: DType = DType.float32]:
     var norm: RMSNorm
     var output: Linear
     var theta: Float64
+    var rope_scaling: Optional[Symbol]
+
+    def __init__(
+        inout self,
+        dim: Int,
+        n_heads: Int,
+        embedding: Embedding,
+        layers: List[TransformerBlock[model_dtype]],
+        norm: RMSNorm,
+        output: Linear,
+        theta: Float64,
+        rope_scaling: Optional[Symbol] = None,
+    ):
+        self.dim = dim
+        self.n_heads = n_heads
+        self.embedding = embedding
+        self.layers = layers
+        self.norm = norm
+        self.output = output
+        self.theta = theta
+        self.rope_scaling = rope_scaling
 
     def freqs_cis(
         self, start_pos: Symbol, seq_len: Symbol, seq_len_dim: Dim
@@ -98,6 +119,8 @@ struct Transformer[model_dtype: DType = DType.float32]:
         g = start_pos.graph()
         n = self.dim // self.n_heads
         iota = g.range[DType.float32](0, n - 1, 2)
+        if self.rope_scaling:
+            iota = iota * self.rope_scaling.value()
         freqs = 1.0 / (self.theta ** (iota / n))
         t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)

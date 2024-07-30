@@ -197,6 +197,12 @@ struct LlamaCFile(LoadableModel):
             TensorShape(self.config.vocab_size, self.config.dim),
         )
 
+    fn rope_freqs[type: DType](self) -> TensorRef[type]:
+        return TensorRef[type](
+            self.weights_ptr.bitcast[type](),
+            TensorShape(self.config.dim / self.config.n_heads // 2),
+        )
+
     fn get[
         type: DType
     ](
@@ -231,6 +237,8 @@ struct LlamaCFile(LoadableModel):
             tensor_ref = self.rms_att[type]()
         elif key == "ffn_norm":
             tensor_ref = self.rms_ffn[type]()
+        elif key == "rope_freqs":
+            tensor_ref = self.rope_freqs[type]()
         else:
             raise "key not found"
 
