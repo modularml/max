@@ -69,9 +69,9 @@ struct LlamaCFile(LoadableModel):
                 var bytes_tensor = Tensor[DType.uint8](
                     f.read_bytes(sizeof[Int32]())
                 )
-                var result = Scalar.load(
-                    bytes_tensor.unsafe_ptr().bitcast[DType.int32]()
-                )
+                var result = bytes_tensor.unsafe_ptr().bitcast[
+                    DType.int32
+                ]().load()
                 _ = bytes_tensor^
                 return result
 
