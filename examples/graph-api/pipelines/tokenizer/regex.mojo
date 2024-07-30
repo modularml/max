@@ -12,6 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 """POSIX 2 regular expressions via regcomp/regexec."""
 
+from collections import Optional
+from memory import Arc
+from utils import Span, StringSlice
 from sys.info import os_is_macos
 from _mlir._c.ffi import MLIR_func
 

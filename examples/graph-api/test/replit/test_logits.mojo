@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from collections import Dict
+from collections import Dict, Optional
 from pathlib import Path
 
 from max.engine import InferenceSession, TensorMap

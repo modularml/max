@@ -12,6 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 """Module containing a trait for generic tokenizers."""
 
+from collections import Optional, List
+
 
 trait Tokenizer(Movable):
     def is_end_of_text(self, val: Int64) -> Bool:

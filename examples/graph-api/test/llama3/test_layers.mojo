@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from collections import List, Dict, Optional
 from pathlib import Path
 from max.tensor import Tensor, TensorShape
 
