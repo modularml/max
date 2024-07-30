@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from .parse_args import OptionType
+from collections import Dict
 
 
 alias ConfigRegistryDict = Dict[String, OptionType]

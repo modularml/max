@@ -12,7 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 
 import sys
+from collections import Dict
 from pathlib import Path
+from utils import Variant
 
 from .registry import ConfigRegistryDict
 
