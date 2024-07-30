@@ -144,10 +144,10 @@ struct WeightedSampler(TokenSampler):
                 var logits_ptr = logits.unsafe_ptr()
 
                 for i in range(start, end, simd_width):
-                    var v = SIMD[size=simd_width].load(logits_ptr + i).cast[
+                    var v = (logits_ptr + i).load[width=simd_width]().cast[
                         DType.float32
                     ]()
-                    SIMD.store(p_buf + i, v)
+                    (p_buf + i).store(v)
                     largest = max(largest, v)
 
                 return largest.reduce_max()
@@ -168,10 +168,10 @@ struct WeightedSampler(TokenSampler):
 
                 for i in range(start, end, simd_width):
                     var intermediate = (
-                        SIMD[size=simd_width].load(p_buf + i) - largest
+                        (p_buf + i).load[width=simd_width]() - largest
                     ) / temp_modified
                     var p = math.exp(intermediate)
-                    SIMD.store(p_buf + i, p)
+                    (p_buf + i).store(p)
                     normalization += p
 
                 return normalization.reduce_add()
