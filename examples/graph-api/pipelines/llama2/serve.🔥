@@ -18,6 +18,7 @@ from utils.index import Index
 from pathlib import Path
 
 from max.engine import InferenceSession, Model, TensorMap
+from max._driver import cpu_device, cuda_device, Tensor
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import (
@@ -28,9 +29,9 @@ from max.graph.quantization import (
     Q6_KEncoding,
 )
 from max.serve.http import PythonServer, PythonService
-from max.tensor import Tensor, TensorShape, TensorSpec
+from max.tensor import TensorShape, TensorSpec
 
-from .kv_cache import KVCache
+from ..llama3.kv_cache import KVCache
 from .model.llama import Llama2
 from .tokenizer.bpe import BPETokenizer
 from ..samplers.weighted_sampler import WeightedSampler
@@ -44,7 +45,6 @@ from ..configs.llama import get_llama2_model_url
 from .run import (
     Config,
     compile_graph,
-    execute,
     get_max_tokens_to_generate,
     compile_graph,
     _generate_text_with_tokenizer,
@@ -97,6 +97,10 @@ struct Llama2InferenceService[
             handler.end_headers()
             return
 
+        # TODO: Support GPU workflow in the serving case.
+        var use_gpu = self._config.get("experimental-use-gpu")[Bool]
+        var cpu_device = cpu_device()
+
         var stream = False
         if body.get("stream") is not None and body["stream"]:
             stream = True
@@ -111,9 +115,9 @@ struct Llama2InferenceService[
             self._config.get("temperature")[Float64].cast[DType.float32](),
             self._config.get("min-p")[Float64].cast[DType.float32](),
         )
-        var tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+        var tokens = Tensor[DType.int64, rank=2]((1, len(prompt)), cpu_device)
         for i in range(len(prompt)):
-            tokens[Index(0, i)] = prompt[i]
+            tokens[0, i] = prompt[i]
 
         var outputs = List[String]()
 
@@ -124,6 +128,7 @@ struct Llama2InferenceService[
             self._model.model.hyperparams(),
             self._config.get("max-length")[Int],
             self._config.get("batch-size")[Int],
+            cpu_device,
         )
 
         var max_tokens = get_max_tokens_to_generate(
@@ -141,15 +146,23 @@ struct Llama2InferenceService[
         # iterations generate one token.
         # Avoid overrunning the cache by setting the trip count accordingly.
         for _ in range(prompt.size, max_tokens + 1):
-            var logits = execute(
-                self._session, self._compiled_model, tokens, kv_cache
+            var results = self._compiled_model._execute(
+                tokens^,
+                kv_cache.keys_view(cpu_device),
+                kv_cache.values_view(cpu_device),
             )
-            var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
-            tokens = Tensor(TensorShape(1, 1), token)
 
-            if self._tokenizer.is_end_of_text(
-                tokens[Index(0, tokens.shape()[1] - 1)]
-            ):
+            kv_cache.update(results[1].take(), results[2].take())
+
+            var logits = results[0].take().to_device_tensor()
+            logits = logits.move_to(cpu_device)
+            var logits_tensor = logits.to_tensor[DType.float32, rank=2]()
+            var token = Int64(sampler._sample(logits_tensor^).selected)
+
+            tokens = Tensor[DType.int64, rank=2]((1, 1), cpu_device)
+            tokens[0, 0] = token
+
+            if self._tokenizer.is_end_of_text(token):
                 break
 
             var next_token = self._tokenizer.decode(token)

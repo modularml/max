@@ -14,6 +14,7 @@
 
 from pathlib import cwd, Path
 
+from max._driver import cpu_device
 from max.graph import Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import save, TensorDict
 from max.graph.quantization import Q4_0Encoding
@@ -257,6 +258,8 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
         llama_builder.hyperparams,
         config,
         metrics,
+        use_gpu=False,
+        execution_device=cpu_device(),
     )
     print()
     metrics.print()
