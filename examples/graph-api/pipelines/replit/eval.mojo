@@ -15,7 +15,6 @@ from pathlib import cwd, Path
 import sys
 from time import perf_counter_ns
 
-from max.engine import InferenceSession, Model, TensorMap
 from max.tensor import Tensor, TensorShape
 
 from .config import (

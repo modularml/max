@@ -216,4 +216,10 @@ struct WeightedSampler(TokenSampler):
                 if cdf.cast[DType.float64]() > u:
                     return SamplerResult(retained_idx[i], options)
 
+            if len(retained_idx) == 0:
+                # TODO: This should raise to avoid a segfault in the next line,
+                # but fails to compile if you do raise an error.
+                print("no viable logits provided to sampler")
+                return SamplerResult(0, options)
+
             return SamplerResult(retained_idx[len(retained_idx) - 1], options)

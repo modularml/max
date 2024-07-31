@@ -12,11 +12,17 @@
 # ===----------------------------------------------------------------------=== #
 
 import sys
+from os import setenv
 from pathlib import Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, SessionOptions
-from max._driver import cpu_device, cuda_device
+from max._driver import (
+    Device,
+    Tensor,
+    cuda_device,
+    cpu_device,
+)
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
@@ -25,9 +31,8 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
-from max.tensor import Tensor, TensorShape
 
-from .kv_cache import KVCache
+from ..llama3.kv_cache import KVCache
 from ..llama3.metrics import Metrics
 from .model.llama import Llama2
 from ..samplers.weighted_sampler import WeightedSampler
@@ -105,25 +110,6 @@ struct Config:
         self.config[key] = val
 
 
-def execute(
-    session: InferenceSession,
-    model: Model,
-    tokens: Tensor[DType.int64],
-    inout kv_cache: KVCache,
-) -> Tensor[DType.float32]:
-    """Execute the model predicting one new token."""
-    input_map = session.new_tensor_map()
-    input_map.borrow("input0", tokens)
-    input_map.borrow("input1", kv_cache.keys_view())
-    input_map.borrow("input2", kv_cache.values_view())
-    results = model.execute(input_map)
-    kv_cache.update(
-        results.buffer[DType.float32]("output1"),
-        results.buffer[DType.float32]("output2"),
-    )
-    return results.get[DType.float32]("output0")
-
-
 def compile_graph(
     session: InferenceSession,
     graph: Graph,
@@ -142,7 +128,11 @@ def _generate_text_with_tokenizer[
     params: LlamaHParams,
     config: Config,
     inout metrics: Metrics,
+    execution_device: Device,
+    use_gpu: Bool,
 ):
+    host_device = cpu_device() if use_gpu else execution_device
+
     metrics.begin_timing_prompt()
     prompt = tokenizer.encode(
         config.get("prompt")[String], bos=String("\n<s>\n")
@@ -152,15 +142,19 @@ def _generate_text_with_tokenizer[
         config.get("temperature")[Float64].cast[DType.float32](),
         config.get("min-p")[Float64].cast[DType.float32](),
     )
-    tokens = Tensor[DType.int64](TensorShape(1, len(prompt)))
+    tokens = Tensor[DType.int64, rank=2]((1, len(prompt)), host_device)
     for i in range(len(prompt)):
-        tokens[Index(0, i)] = prompt[i]
+        tokens[0, i] = prompt[i]
 
     print("Executing...")
     print(tokenizer.decode(prompt), end="")
 
-    max_length = config.get("max-length")[Int]
-    kv_cache = KVCache(params, max_length, config.get("batch-size")[Int])
+    kv_cache = KVCache(
+        params,
+        config.get("max-length")[Int],
+        config.get("batch-size")[Int],
+        host_device,
+    )
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
@@ -172,11 +166,22 @@ def _generate_text_with_tokenizer[
         config.get("max-new-tokens")[Int],
     )
     for _ in range(prompt.size, max_tokens + 1):
-        logits = execute(
-            compiled_model._session, compiled_model, tokens, kv_cache
+        results = compiled_model._execute(
+            tokens.to_device_tensor().move_to(execution_device),
+            kv_cache.keys_view(execution_device),
+            kv_cache.values_view(execution_device),
         )
-        var token: SIMD[DType.int64, 1] = sampler.sample(logits).selected
-        tokens = Tensor(TensorShape(1, 1), token)
+
+        kv_cache.update(results[1].take(), results[2].take())
+
+        logits = results[0].take().to_device_tensor()
+        logits = logits.move_to(host_device)
+        logits_tensor = logits.to_tensor[DType.float32, rank=2]()
+        token = Int64(sampler._sample(logits_tensor^).selected)
+
+        tokens = Tensor[DType.int64, rank=2]((1, 1), host_device)
+        tokens[0, 0] = token
+
         metrics.new_token()
         print(tokenizer.decode(token), end="")
     print()
@@ -188,6 +193,8 @@ def generate_text(
     params: LlamaHParams,
     config: Config,
     inout metrics: Metrics,
+    execution_device: Device,
+    use_gpu: Bool,
 ):
     """Generates text by applying the compiled model to the provided prompt."""
 
@@ -200,6 +207,8 @@ def generate_text(
             params,
             config,
             metrics,
+            execution_device,
+            use_gpu,
         )
     except e:
         print("Unable to initialize AutoTokenizer:", e)
@@ -224,6 +233,8 @@ def generate_text(
             params,
             config,
             metrics,
+            execution_device,
+            use_gpu,
         )
 
 
@@ -241,11 +252,13 @@ def run[
     params = model.hyperparams()
     graph = model.build_graph("llama2")
 
-    session_options = SessionOptions(
-        cuda_device() if config.get("experimental-use-gpu")[
-            Bool
-        ] else cpu_device()
-    )
+    use_gpu = config.get("experimental-use-gpu")[Bool]
+    # TODO (MSDK-465): Remove env var
+    if use_gpu:
+        _ = setenv("TMP_ALLOCATE_ON_DEVICE", "1")
+
+    execution_device = cuda_device() if use_gpu else cpu_device()
+    session_options = SessionOptions(execution_device)
     session = InferenceSession(session_options)
 
     compiled_model = compile_graph(
@@ -253,7 +266,9 @@ def run[
     )
     metrics.end_timing_startup()
 
-    generate_text(compiled_model, params, config, metrics)
+    generate_text(
+        compiled_model, params, config, metrics, execution_device, use_gpu
+    )
     print()
     metrics.print()
 

@@ -20,6 +20,7 @@ pipeline.
 
 from pathlib import cwd, Path
 
+from max._driver import cpu_device
 from max.engine import InferenceSession
 from max.graph import ops, Dim, Graph, Symbol, TensorType, Type
 from max.graph.checkpoint import load, TensorDict
@@ -213,6 +214,8 @@ def load_quantized_tinystories(checkpoint_path: Path):
         llama_builder.hyperparams,
         config,
         metrics,
+        use_gpu=False,
+        execution_device=cpu_device(),
     )
     print()
     metrics.print()
