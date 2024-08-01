@@ -194,9 +194,6 @@ struct ReplitPipeline[dtype: DType]:
         max_new_tokens: Optional[Int] = None,
     ):
         """Builds and compiles a Replit model to get ready for execution."""
-        # TODO (MSDK-465): Remove env var
-        if use_gpu:
-            _ = setenv("TMP_ALLOCATE_ON_DEVICE", "1")
         # Generate a graph that does a single forward pass of the replit model.
         print("Building model...")
         self._replit = Replit[GGUFFile, dtype](get_default())
