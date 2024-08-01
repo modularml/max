@@ -178,7 +178,7 @@ def _generate_text_with_tokenizer[
         logits = results[0].take().to_device_tensor()
         logits = logits.move_to(host_device)
         logits_tensor = logits.to_tensor[DType.float32, rank=2]()
-        token = Int64(sampler._sample(logits_tensor^).selected)
+        token = Int64(sampler.sample(logits_tensor^).selected)
 
         tokens = Tensor[DType.int64, rank=2]((1, 1), host_device)
         tokens[0, 0] = token
