@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """Pipeline for quantizing a Llama model trained on TinyStories."""
 
+from collections import Optional
 from pathlib import cwd, Path
 
 from max._driver import cpu_device

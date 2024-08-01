@@ -12,8 +12,10 @@
 # ===----------------------------------------------------------------------=== #
 """A tokenizer that leverages the Hugging Face transformers library."""
 
+from collections import Optional
 from math import ceildiv
-from python import Python
+from memory import memcpy
+from python import Python, PythonObject
 from random import randint
 from max.tensor import Tensor, TensorShape
 from utils import Index

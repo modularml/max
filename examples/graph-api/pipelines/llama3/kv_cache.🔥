@@ -15,6 +15,10 @@
 from buffer import Buffer
 from max._driver import AnyMemory, Device, DeviceTensor
 from max.tensor import TensorSpec, TensorShape
+from memory import memcpy
+from max.tensor import Tensor, TensorSpec, TensorShape
+
+from max.engine import EngineTensorView
 
 from ..weights.loadable_model import LlamaHParams
 

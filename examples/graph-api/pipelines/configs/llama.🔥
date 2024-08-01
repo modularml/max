@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from collections import Dict
 from pathlib import Path
 from .common import check_url_exists
 from .parse_args import OptionType, OptionTypeEnum, OptionValue

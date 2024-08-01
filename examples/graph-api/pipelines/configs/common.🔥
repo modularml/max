@@ -11,6 +11,8 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from collections import Dict
+
 
 def get_max_tokens_to_generate(
     prompt_len: Int, max_length: Int, max_new_tokens: Int

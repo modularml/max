@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 from pathlib import cwd, Path
+from collections import Dict, Optional
 import sys
 from os import setenv
 
@@ -396,7 +397,7 @@ def replit_run():
     config = Config()
 
     @parameter
-    if not is_x86():
+    if not sys.info.is_x86():
         dispatch[DType.float32](config)
     else:
         encoding = config.get("quantization-encoding")[String]

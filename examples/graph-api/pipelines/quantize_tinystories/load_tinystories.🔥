@@ -18,6 +18,7 @@ already-quantized weights from the MAX checkpoint saved by the first run of the
 pipeline.
 """
 
+from collections import Optional
 from pathlib import cwd, Path
 
 from max._driver import cpu_device
