@@ -59,11 +59,7 @@ trait TokenSampler:
     """A generic token sampler that takes in a list of logits and samples
     an element based on the associated likelihoods."""
 
-    def sample[dtype: DType](self, logits: Tensor[dtype]) -> SamplerResult:
-        ...
-
-    # TODO (MSDK-491): Unify these and delete the other.
-    def _sample[
+    def sample[
         dtype: DType, rank: Int
     ](self, owned logits: driver.Tensor[dtype, rank]) -> SamplerResult:
         ...

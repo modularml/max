@@ -183,7 +183,7 @@ struct Llama3InferenceService[
             var logits = results[0].take().to_device_tensor()
             logits = logits.move_to(cpu_device)
             var logits_tensor = logits.to_tensor[DType.float32, rank=2]()
-            var token = Int64(sampler._sample(logits_tensor^).selected)
+            var token = Int64(sampler.sample(logits_tensor^).selected)
 
             tokens = Tensor[DType.int64, rank=2]((1, 1), cpu_device)
             tokens[0, 0] = token
