@@ -253,9 +253,6 @@ def run[
     graph = model.build_graph("llama2")
 
     use_gpu = config.get("experimental-use-gpu")[Bool]
-    # TODO (MSDK-465): Remove env var
-    if use_gpu:
-        _ = setenv("TMP_ALLOCATE_ON_DEVICE", "1")
 
     execution_device = cuda_device() if use_gpu else cpu_device()
     session_options = SessionOptions(execution_device)
