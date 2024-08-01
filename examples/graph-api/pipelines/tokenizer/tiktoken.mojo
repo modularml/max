@@ -13,8 +13,9 @@
 """TikToken implementation."""
 
 from base64 import b64decode
-from collections import Dict
+from collections import Dict, Optional
 from pathlib import Path
+from utils import Span
 from .bpe import BPETokenizer
 from .regex import Match, Regex, CompileOption
 from ..weights.gguf import GGUFArray, GGUFString

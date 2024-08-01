@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """Common benchmarks and metrics for the Llama models."""
 
+from collections import List, Optional
 from time import now
 from runtime.tracing import Trace, TraceLevel
 

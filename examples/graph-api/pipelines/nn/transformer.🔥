@@ -18,6 +18,8 @@ from max.graph.quantization import Float32Encoding, QuantizationEncoding
 
 from pipelines.nn import Attention, Embedding, Linear, RMSNorm
 
+from collections import Optional
+
 
 @value
 struct FeedForward:

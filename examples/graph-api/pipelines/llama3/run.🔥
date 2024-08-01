@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from collections import Dict
 import sys
 from os import setenv
 from pathlib import Path
