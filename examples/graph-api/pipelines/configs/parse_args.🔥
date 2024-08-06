@@ -107,7 +107,7 @@ def register_pipeline_configs(
         curr_arg = args[index][2:]
 
         if curr_arg not in config_registry:
-            raise "Unsupported CLI argument: " + String(args[index])
+            raise "Unsupported CLI argument: " + str(args[index])
 
         if config_registry[curr_arg] == OptionTypeEnum.BOOL:
             cli_config[curr_arg] = True
