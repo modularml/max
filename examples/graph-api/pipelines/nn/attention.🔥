@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """The attention mechanism used within the model."""
 
-from math import rsqrt
+from math import isqrt
 from max.tensor import Tensor, TensorShape
 
 from max.graph import Graph, ops, Dim, Symbol, TensorType
@@ -148,7 +148,7 @@ struct Attention[model_dtype: DType = DType.float32]:
                 v_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
                 attn_mask_bcast,
                 g.constant(
-                    Tensor(TensorShape(), rsqrt(Float32(self.head_dim)))
+                    Tensor(TensorShape(), isqrt(Float32(self.head_dim)))
                 ),
             ),
             TensorType(model_dtype, 1, self.n_heads, "seq_len", self.head_dim),
