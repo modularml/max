@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """GGML quantized type definitions."""
 
-from utils import InlineArray
+from collections import InlineArray
 
 
 @value

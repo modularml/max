@@ -41,9 +41,9 @@ destructor.
 Other types expose a `.destroy()` method simply to facilitate this.
 """
 
-from collections import List, Optional
+from collections import List, Optional, InlineArray
 from pathlib import Path
-from utils import InlineArray, Variant
+from utils import Variant
 
 from max.tensor import Tensor, TensorShape
 
