@@ -56,10 +56,12 @@ def execute(model: Model, text: String, transformers: PythonObject) -> String:
             mask_idx = i
 
     predicted_token_id = logits.argmax()[mask_idx]
-    return tokenizer.decode(
-        predicted_token_id,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=True,
+    return str(
+        tokenizer.decode(
+            predicted_token_id,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        )
     )
 
 
