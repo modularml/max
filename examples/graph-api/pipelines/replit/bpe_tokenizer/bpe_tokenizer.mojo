@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 from pathlib import Path
-from collections import Dict
+from collections import Dict, Optional
 
 from utils.variant import Variant
 
