@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import python
+from python import Python, PythonObject
 from memory import memcpy
 from collections import List
 
@@ -49,7 +49,7 @@ fn memcpy_from_numpy[
 
 @always_inline
 fn shape_to_python_list(shape: TensorShape) raises -> PythonObject:
-    var python_list = python.Python.evaluate("list()")
+    var python_list = Python.evaluate("list()")
     for i in range(shape.rank()):
         _ = python_list.append(shape[i])
     return python_list^
