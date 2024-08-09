@@ -13,7 +13,7 @@
 
 """Module containing layers related to linear transformations."""
 
-from max.graph import ops, Symbol
+from max.graph import ops, Symbol, TensorType, Dim
 from max.graph.quantization import (
     Float32Encoding,
     BFloat16Encoding,
@@ -22,6 +22,46 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
+
+
+def linear_op(lhs: Symbol, rhs: Symbol) -> Symbol:
+    g = lhs.graph()
+    lhs_type = lhs.tensor_type()
+    rhs_type = rhs.tensor_type()
+    if rhs_type.rank() != 2:
+        raise "rhs must be a matrix"
+
+    # Compute shapes.
+    lhs_shape = ops.shape_of(lhs)
+    rhs_shape = ops.shape_of(rhs)
+    last_lhs_axis = lhs_type.rank() - 1
+    reshape_shape = ops.stack(
+        List(g.scalar(Int64(-1)), lhs_shape[last_lhs_axis])
+    )
+    final_shape = ops.concat(List(lhs_shape[:last_lhs_axis], rhs_shape[0:1]))
+
+    # Compute dims for reshape and matmul result types.
+    final_dims = List[Dim]()
+    for i in range(lhs_type.rank() - 1):
+        final_dims.append(lhs_type.dim(i))
+    final_dims.append(rhs_type.dim(0))
+
+    matmul_dims = List[Dim]()
+    matmul_dims.append(Dim.dynamic())
+    matmul_dims.append(lhs_type.dim(-1))
+
+    # Reshape LHS to a matrix, which is expected by the custom op.
+    lhs_matrix = ops.reshape(lhs, reshape_shape, matmul_dims)
+
+    matmul_out = ops.custom["linear_op"](
+        List[Symbol](lhs_matrix, rhs),
+        TensorType(
+            lhs_matrix.tensor_type().dtype, Dim.dynamic(), Dim.dynamic()
+        ),
+    )
+
+    # Reshape matmul output to restore the original rank(lhs) - 1 dimensions.
+    return ops.reshape(matmul_out, final_shape, final_dims)
 
 
 @value
@@ -50,7 +90,10 @@ struct Linear:
             self.encoding_id == Float32Encoding.id()
             or self.encoding_id == BFloat16Encoding.id()
         ):
-            return x @ self.w
+            if self.w.tensor_type().dtype == DType.bfloat16:
+                return linear_op(x, ops.transpose_matrix(self.w))
+            else:
+                return x @ self.w
 
         raise "unsupported quantization encoding in Linear: " + self.encoding_id
 
