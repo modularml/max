@@ -51,13 +51,28 @@ def rope(x: Symbol, freqs_cis: Symbol) -> Symbol:
     return ops.reshape_like(rope_complex, x)
 
 
-def attention_mask(
-    g: Graph, start_pos: Dim, seq_len: Dim, activation_dtype: DType
+def expand_attention_mask(
+    g: Graph,
+    in_mask: Symbol,
+    start_pos: Dim,
+    seq_len: Dim,
+    activation_dtype: DType,
 ) -> Symbol:
+    """
+    Given an input attention mask of shape [batch, full_seq_len], do the following:
+      - Broadcast to [batch, seq_len, full_seq_len].
+      - Merge with upper-triangular [seq_len, seq_len] causal mask.
+    """
     # Mask out current sequence elements [i, j] where j > i with an
-    # upper-triangular matrix filled with -inf.
+    # upper-triangular matrix filled with -10000.
+    #
+    # FIXME (KERN-782): It would be cleaner to use -INF as the min_val here, but
+    # in some cases we may have a full row of padding (after second mask below).
+    # In these cases, the softmax kernel currently generates a row of NANs and
+    # we want to avoid that, so use -10,000 instead.
     mask_val = ops.cast(
-        g.full(Scalar[DType.float32].MIN, seq_len, seq_len), activation_dtype
+        g.full(Scalar[DType.float32](-10000), seq_len, seq_len),
+        activation_dtype,
     )
     mask = ops.band_part(
         mask_val,
@@ -71,7 +86,7 @@ def attention_mask(
     # Hence for a matrix of scores of size (seqlen, cache_len + seqlen),
     # the only masked entries are (i, j) for j > cache_len + i, since row i
     # corresponds to token cache_len + i.
-    return ops.concat(
+    extended_mask = ops.concat(
         List[Symbol](
             ops.cast(
                 g.full[DType.float32](0, seq_len, start_pos),
@@ -82,6 +97,15 @@ def attention_mask(
         axis=1,
         out_dim=Dim("full_seq_len"),
     )
+
+    # Reshape in_mask to [batch, 1, full_seq_len]
+    in_mask = ops.unsqueeze(in_mask, 1)
+    # Reshape causal mask to [1, seq_len, full_seq_len]
+    extended_mask = ops.unsqueeze(extended_mask, 0)
+    # FIXME (KERN-782): It would be cleaner to use -INF as the min_val here.
+    min_val = ops.cast(g.scalar[DType.float32](-10000), activation_dtype)
+    # Merge input & causal masks
+    return ops.select(in_mask, extended_mask, min_val)
 
 
 @value
@@ -112,6 +136,7 @@ struct Attention[model_dtype: DType = DType.float32]:
         xq: Symbol,
         xk: Symbol,
         xv: Symbol,
+        attention_mask: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> Symbol:
@@ -126,13 +151,15 @@ struct Attention[model_dtype: DType = DType.float32]:
         prev_seq_len = k_cache.shape()[0]
         seq_len = xq.shape()[1]
 
-        attn_mask = attention_mask(g, prev_seq_len, seq_len, model_dtype)
+        attn_mask = expand_attention_mask(
+            g, attention_mask, prev_seq_len, seq_len, model_dtype
+        )
 
         # Broadcast the attention mask across all attention heads.
         attn_shape = attn_mask.shape()
-        attn_mask_bcast = ops.unsqueeze(
-            ops.unsqueeze(attn_mask, axis=0), axis=0
-        ).broadcast_to(1, self.n_heads, attn_shape[0], attn_shape[1])
+        attn_mask_bcast = ops.unsqueeze(attn_mask, axis=1).broadcast_to(
+            attn_shape[0], self.n_heads, attn_shape[1], attn_shape[2]
+        )
 
         # Transpose operands to their expected layouts:
         # q and v: BHSD
@@ -159,6 +186,7 @@ struct Attention[model_dtype: DType = DType.float32]:
         xq: Symbol,
         xk: Symbol,
         xv: Symbol,
+        attention_mask: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> Symbol:
@@ -183,9 +211,12 @@ struct Attention[model_dtype: DType = DType.float32]:
         values = values.swapaxes(1, 2)
 
         scores = (xq @ keys.swapaxes(2, 3)) * ops.rsqrt(head_dim)
-        scores = scores + attention_mask(
-            xq.graph(), prev_seq_len, seq_len, model_dtype
+        expanded_mask = expand_attention_mask(
+            xq.graph(), attention_mask, prev_seq_len, seq_len, model_dtype
         )
+        # Reshape expanded mask to [batch, 1, seq_len, full_seq_len]
+        # This implicitly broadcasts across n_heads.
+        scores = scores + ops.unsqueeze(expanded_mask, 1)
         output = ops.softmax(scores) @ values
         return output
 
@@ -194,16 +225,20 @@ struct Attention[model_dtype: DType = DType.float32]:
         xq: Symbol,
         xk: Symbol,
         xv: Symbol,
+        attention_mask: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> Symbol:
         if self.use_custom_attention:
-            return self.flash_attention(xq, xk, xv, k_cache, v_cache)
+            return self.flash_attention(
+                xq, xk, xv, attention_mask, k_cache, v_cache
+            )
         else:
             return self.naive_attention(
                 xq,
                 xk,
                 xv,
+                attention_mask,
                 # Squeeze because naive_attention expects rank = 4 {k,v}_cache.
                 ops.squeeze(k_cache, axis=1),
                 ops.squeeze(v_cache, axis=1),
@@ -213,6 +248,7 @@ struct Attention[model_dtype: DType = DType.float32]:
         self,
         input: Symbol,
         freqs_cis: Symbol,
+        attention_mask: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> (Symbol, Symbol, Symbol):
@@ -222,6 +258,7 @@ struct Attention[model_dtype: DType = DType.float32]:
             input: Activations with shape (batch, seq_len, dim).
             freqs_cis: Positional frequencies tensor with shape
                 (seq_len, head_dim // 2, 2).
+            attention_mask: Boolean tensor indicating which elements to attend.
             k_cache: Previously computed keys with shape
                 (prev_seq_len, 1, batch, n_kv_heads, head_dim).
             v_cache: Previously computed values with shape
@@ -244,8 +281,29 @@ struct Attention[model_dtype: DType = DType.float32]:
         xq = rope(xq, freqs_cis)
         xk = rope(xk, freqs_cis)
 
-        output = self.attention(xq, xk, xv, k_cache, v_cache)
+        output = self.attention(xq, xk, xv, attention_mask, k_cache, v_cache)
 
         output = output.swapaxes(1, 2).reshape(batch, seq_len, -1)
 
         return output @ self.wo, xk, xv
+
+    def __call__(
+        self,
+        input: Symbol,
+        freqs_cis: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
+    ) -> (Symbol, Symbol, Symbol):
+        """Computes attention on the input, with default attention mask."""
+        g = input.graph()
+        seq_len = input.shape()[1]
+        prev_seq_len = k_cache.shape()[0]
+        # FIXME (MSDK-765): Currently, there's no way to create a [1 x Dim+Dim]
+        # node directly. Instead, we create two separate nodes and concat them
+        # together as a workaround.
+        attn_mask = ops.concat(
+            List(g.full(True, 1, prev_seq_len), g.full(True, 1, seq_len)),
+            axis=1,
+            out_dim=Dim("full_seq_len"),
+        )
+        return self(input, freqs_cis, attn_mask, k_cache, v_cache)

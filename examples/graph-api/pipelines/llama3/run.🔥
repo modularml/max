@@ -13,12 +13,15 @@
 
 from collections import Dict
 import sys
+from math import align_up
+from memory import memcpy
 from os import setenv
 from pathlib import Path
 from utils.index import Index
 
 from max.engine import InferenceSession, Model, SessionOptions
 from max._driver import (
+    AnyTensor,
     Device,
     Tensor,
     cuda_device,
@@ -119,6 +122,16 @@ def compile_graph(
     return session.load(graph, custom_ops_paths=custom_ops_paths)
 
 
+def _get_attention_mask(
+    prompt_mask: Tensor[DType.bool, 2], n: Int, host_device: Device
+) -> AnyTensor:
+    mask = Tensor[DType.bool, rank=2]((1, n), host_device)
+    memcpy(mask.unsafe_ptr(), prompt_mask.unsafe_ptr(), prompt_mask.spec()[1])
+    for i in range(prompt_mask.spec()[1], n):
+        mask[0, i] = True
+    return mask
+
+
 def generate_text(
     tokenizer: TikTokenEncoder,
     compiled_model: Model,
@@ -135,15 +148,21 @@ def generate_text(
     metrics.begin_timing_prompt()
 
     prompt = tokenizer.encode(config.get("prompt")[String])
+    padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
+    n_pad_tokens = padded_size - prompt.size
     sampler = WeightedSampler(
         config.get("temperature")[Float64].cast[DType.float32](),
         config.get("min-p")[Float64].cast[DType.float32](),
     )
-    metrics.set_tokens_in_prompt(prompt.size)
+    metrics.set_tokens_in_prompt(padded_size)
 
-    tokens = Tensor[DType.int64, rank=2]((1, len(prompt)), host_device)
-    for i in range(len(prompt)):
-        tokens[0, i] = prompt[i]
+    # Allocate input & attention mask tensors, then initialize them.
+    # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
+    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
+    prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
+    for i in range(padded_size):
+        tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
+        prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
 
     # If a pipeline warmup is needed, create a throwaway KV cache and generate
     # a single output token from the model to exercise the graph.
@@ -151,10 +170,10 @@ def generate_text(
         print("Warming up pipeline...")
         metrics.begin_timing_warmup()
         warmup_tokens = Tensor[DType.int64, rank=2](
-            (1, len(prompt)), host_device
+            (1, padded_size), host_device
         )
-        for i in range(len(prompt)):
-            warmup_tokens[0, i] = prompt[i]
+        for i in range(padded_size):
+            warmup_tokens[0, i] = tokens[0, i]
         warmup_kv_cache = KVCache(
             params,
             config.get("max-length")[Int],
@@ -163,14 +182,20 @@ def generate_text(
         )
         _ = compiled_model._execute(
             warmup_tokens.to_device_tensor().move_to(execution_device),
+            _get_attention_mask(prompt_attn_mask, padded_size, host_device)
+            .to_device_tensor()
+            .move_to(execution_device),
             warmup_kv_cache.keys_view(execution_device),
             warmup_kv_cache.values_view(execution_device),
         )
 
         warmup_token = Tensor[DType.int64, rank=2]((1, 1))
+        warmup_mask = Tensor[DType.int64, rank=2]((1, 1))
         warmup_token[0, 0] = Int64(123)
+        warmup_mask[0, 0] = True
         _ = compiled_model._execute(
             warmup_token.to_device_tensor().move_to(execution_device),
+            warmup_mask.to_device_tensor().move_to(execution_device),
             warmup_kv_cache.keys_view(execution_device),
             warmup_kv_cache.values_view(execution_device),
         )
@@ -192,13 +217,16 @@ def generate_text(
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
     max_tokens = get_max_tokens_to_generate(
-        prompt.size,
+        padded_size,
         config.get("max-length")[Int],
         config.get("max-new-tokens")[Int],
     )
-    for _ in range(prompt.size, max_tokens + 1):
+    for i in range(padded_size, max_tokens + 1):
         results = compiled_model._execute(
             tokens.to_device_tensor().move_to(execution_device),
+            _get_attention_mask(prompt_attn_mask, i, host_device)
+            .to_device_tensor()
+            .move_to(execution_device),
             kv_cache.keys_view(execution_device),
             kv_cache.values_view(execution_device),
         )

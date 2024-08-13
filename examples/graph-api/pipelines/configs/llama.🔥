@@ -40,6 +40,7 @@ def get_llama_base_default_config() -> Dict[String, OptionValue]:
     default_config["temperature"] = 0.5
     default_config["min-p"] = 0.05
     default_config["warmup-pipeline"] = False
+    default_config["pad-to-multiple-of"] = 1
     return default_config
 
 
@@ -107,6 +108,7 @@ struct LlamaConfigRegistry(ConfigRegistry):
         self.registry["min-p"] = OptionTypeEnum.FLOAT
         self.registry["experimental-use-gpu"] = OptionTypeEnum.BOOL
         self.registry["warmup-pipeline"] = OptionTypeEnum.BOOL
+        self.registry["pad-to-multiple-of"] = OptionTypeEnum.INT
 
         self.registry.update(additional_pipeline_args)
 
