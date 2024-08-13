@@ -18,6 +18,8 @@ from memory import memcpy
 from os import setenv
 from pathlib import Path
 from utils.index import Index
+from time import perf_counter_ns
+
 
 from max.engine import InferenceSession, Model, SessionOptions
 from max._driver import (
@@ -264,7 +266,11 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     )
 
     print("Building model...")
+    # We still need to build the graph since we are creating the cache
+    # inside the call here.
+    var start_build = perf_counter_ns()
     graph = model.build_graph("llama3")
+    var end_build = perf_counter_ns()
 
     use_gpu = config.get("experimental-use-gpu")[Bool]
 
@@ -272,10 +278,35 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     session_options = SessionOptions(execution_device)
     session = InferenceSession(session_options)
 
-    compiled_model = compile_graph(
-        session, graph, config.get("custom-ops-path")[List[Path]]
-    )
+    var start_load = perf_counter_ns()
+    if len(config.get("experimental-load-graph")[String]) > 0:
+        print(
+            "Loading graph from ", config.get("experimental-load-graph")[String]
+        )
+        compiled_model = session.load(
+            config.get("experimental-load-graph")[String]
+        )
+    else:
+        compiled_model = compile_graph(
+            session, graph, config.get("custom-ops-path")[List[Path]]
+        )
+    var end_load = perf_counter_ns()
+
+    if len(config.get("experimental-save-graph")[String]) > 0:
+        print("Saving graph to ", config.get("experimental-save-graph")[String])
+        compiled_model.export_compiled_model(
+            config.get("experimental-save-graph")[String]
+        )
+
     metrics.end_timing_startup()
+    print(
+        "Build graph time, ",
+        (end_build - start_build) / 1_000_000,
+        " ms",
+        "Load/compile model, ",
+        (end_load - start_load) / 1_000_000,
+        " ms",
+    )
 
     generate_text(
         tokenizer,
