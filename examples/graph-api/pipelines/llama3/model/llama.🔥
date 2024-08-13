@@ -72,7 +72,11 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
             params.head_dim,
         )
         tokens_type = TensorType(DType.int64, self.batch_size, "seq_len")
-        g = Graph(name, List[Type](tokens_type, cache_type, cache_type))
+        attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
+        g = Graph(
+            name,
+            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
+        )
 
         @parameter
         def weight[
@@ -177,8 +181,9 @@ struct Llama3[encoding: QuantizationEncoding = Float32Encoding]:
         # inputs and outputs to convert model <-> cache datatypes.
         outputs = model(
             tokens=g[0],
-            k_cache=ops.cast(g[1], model_dtype),
-            v_cache=ops.cast(g[2], model_dtype),
+            attention_mask=g[1],
+            k_cache=ops.cast(g[2], model_dtype),
+            v_cache=ops.cast(g[3], model_dtype),
         )
         logits = outputs[0]
         g.output(

@@ -52,11 +52,16 @@ struct TransformerBlock[model_dtype: DType = DType.float32](CollectionElement):
         self,
         input: Symbol,
         freqs_cis: Symbol,
+        attention_mask: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
     ) -> (Symbol, Symbol, Symbol):
         attention_out, k_cache_update, v_cache_update = self.attention(
-            self.attention_norm(input), freqs_cis, k_cache, v_cache
+            self.attention_norm(input),
+            freqs_cis,
+            attention_mask,
+            k_cache,
+            v_cache,
         )
         h = input + attention_out
         h = h + self.feed_forward(self.ffn_norm(h))
@@ -136,13 +141,18 @@ struct Transformer[model_dtype: DType = DType.float32]:
         )
 
     def __call__(
-        self, tokens: Symbol, k_cache: Symbol, v_cache: Symbol
+        self,
+        tokens: Symbol,
+        attention_mask: Symbol,
+        k_cache: Symbol,
+        v_cache: Symbol,
     ) -> (Symbol, Symbol, Symbol):
         """
         Forward pass through transformer model.
 
         Args:
             tokens: input data represented in tokens
+            attention_mask: boolean tensor indicating which elements to attend
             k_cache: cache of computed attention keys for previous tokens
             v_cache: cache of computed attention values for previous tokens
 
@@ -163,6 +173,7 @@ struct Transformer[model_dtype: DType = DType.float32]:
             h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
                 h,
                 freqs_cis,
+                attention_mask,
                 k_cache[i, axis=1, keep_dims=True],
                 v_cache[i, axis=1, keep_dims=True],
             )

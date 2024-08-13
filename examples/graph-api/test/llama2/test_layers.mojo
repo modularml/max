@@ -28,7 +28,7 @@ from pipelines.nn import (
     Transformer,
     TransformerBlock,
 )
-from pipelines.nn.attention import attention_mask
+from pipelines.nn.attention import expand_attention_mask
 
 
 fn test_freqs_cis() raises:
@@ -166,41 +166,51 @@ fn test_rms_norm() raises:
 
 
 fn test_attention_mask() raises:
-    var g = Graph(TensorType(DType.int64, "prev_seq_len", "seq_len"))
+    var g = Graph(
+        List[Type](
+            TensorType(DType.int64, "prev_seq_len", "seq_len"),
+            TensorType(DType.bool, 1, "full_seq_len"),
+        )
+    )
     var shape = g[0].shape()
     var prev_seq_len = shape[0]
     var seq_len = shape[1]
-    _ = g.output(attention_mask(g, prev_seq_len, seq_len, DType.float32))
+    _ = g.output(
+        expand_attention_mask(g, g[1], prev_seq_len, seq_len, DType.float32)
+    )
 
     var input = Tensor[DType.int64](TensorShape(0, 2), 0)
-    var actual = execute_unary[outtype = DType.float32](g, input)
+    var input_mask = Tensor[DType.bool](TensorShape(1, 2), True)
+    var actual = execute_binary[outtype = DType.float32](g, input, input_mask)
 
     assert_tensors_almost_equal(
         actual,
         Tensor[DType.float32](
-            TensorShape(2, 2),
+            TensorShape(1, 2, 2),
             0,
-            Float32.MIN,
+            -10000,
             0,
             0,
         ),
     )
 
     input = Tensor[DType.int64](TensorShape(2, 1), 0)
-    actual = execute_unary[outtype = DType.float32](g, input)
+    input_mask = Tensor[DType.bool](TensorShape(1, 3), True)
+    actual = execute_binary[outtype = DType.float32](g, input, input_mask)
 
     assert_tensors_almost_equal(
         actual,
-        Tensor[DType.float32](TensorShape(1, 3), 0, 0, 0),
+        Tensor[DType.float32](TensorShape(1, 1, 3), 0, 0, 0),
     )
 
     # Test the uncommon case with non-zero prev_seq_len and curr_seq_len > 1.
     input = Tensor[DType.int64](TensorShape(1, 2), 0)
-    actual = execute_unary[outtype = DType.float32](g, input)
+    input_mask = Tensor[DType.bool](TensorShape(1, 3), True)
+    actual = execute_binary[outtype = DType.float32](g, input, input_mask)
 
     assert_tensors_almost_equal(
         actual,
-        Tensor[DType.float32](TensorShape(2, 3), 0, 0, Float32.MIN, 0, 0, 0),
+        Tensor[DType.float32](TensorShape(1, 2, 3), 0, 0, -10000, 0, 0, 0),
     )
 
 
@@ -213,10 +223,12 @@ fn test_attention() raises:
     var batch = "batch"
     var seq_len = "seq_len"
     var prev_seq_len = "prev_seq_len"
+    var full_seq_len = "full_seq_len"
     var g = Graph(
         List[Type](
             TensorType(DType.float32, batch, seq_len, dim),
             TensorType(DType.float32, seq_len, 1, 2),
+            TensorType(DType.bool, batch, full_seq_len),
             TensorType(
                 DType.float32,
                 prev_seq_len,
@@ -278,7 +290,7 @@ fn test_attention() raises:
             )
         ),
     )
-    var out = layer(g[0], g[1], g[2], g[3])
+    var out = layer(g[0], g[1], g[2], g[3], g[4])
     _ = g.output(List[Symbol](out[0], out[1], out[2]))
 
     var input = Tensor[DType.float32](
@@ -292,6 +304,7 @@ fn test_attention() raises:
         1.1287,
         1.7699,
     )
+    var attn_mask = Tensor[DType.bool](TensorShape(2, 2), True)
     # This is a complex tensor of shape (2, 1); we use the last dim as
     # (real, imag).
     # These values generated from the correct freqs_cis given Llama hyperparams.
@@ -338,7 +351,9 @@ fn test_attention() raises:
         -0.0266,
     )
 
-    var actuals = execute_n_args(g, input, freq_cis, k_cache, v_cache)
+    var actuals = execute_n_args(
+        g, input, freq_cis, attn_mask, k_cache, v_cache
+    )
 
     assert_tensors_almost_equal(
         actuals.get[DType.float32]("output0"),
@@ -370,10 +385,12 @@ fn test_transformer_block() raises:
     var batch = "batch"
     var seq_len = "seq_len"
     var prev_seq_len = "prev_seq_len"
+    var full_seq_len = "full_seq_len"
     var g = Graph(
         List[Type](
             TensorType(DType.float32, batch, seq_len, dim),
             TensorType(DType.float32, seq_len, 1, 2),
+            TensorType(DType.bool, batch, full_seq_len),
             TensorType(
                 DType.float32,
                 prev_seq_len,
@@ -466,7 +483,7 @@ fn test_transformer_block() raises:
         attention_norm=attention_norm,
         ffn_norm=ffn_norm,
     )
-    var out = layer(g[0], g[1], g[2], g[3])
+    var out = layer(g[0], g[1], g[2], g[3], g[4])
     _ = g.output(List[Symbol](out[0], out[1], out[2]))
 
     var input = Tensor[DType.float32](
@@ -480,6 +497,8 @@ fn test_transformer_block() raises:
         1.1287,
         1.7699,
     )
+    var attn_mask = Tensor[DType.bool](TensorShape(2, 2), True)
+
     # This is a complex tensor of shape (2, 1); we use the last dim as
     # (real, imag).
     # These values generated from the correct freqs_cis given Llama hyperparams.
@@ -526,7 +545,9 @@ fn test_transformer_block() raises:
         0.0410,
     )
 
-    var actuals = execute_n_args(g, input, freq_cis, k_cache, v_cache)
+    var actuals = execute_n_args(
+        g, input, freq_cis, attn_mask, k_cache, v_cache
+    )
 
     assert_tensors_almost_equal(
         actuals.get[DType.float32]("output0"),

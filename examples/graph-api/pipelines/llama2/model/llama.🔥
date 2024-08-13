@@ -72,7 +72,11 @@ struct Llama2[
             params.head_dim,
         )
         tokens_type = TensorType(DType.int64, self.batch_size, "seq_len")
-        g = Graph(name, List[Type](tokens_type, cache_type, cache_type))
+        attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
+        g = Graph(
+            name,
+            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
+        )
 
         @parameter
         def weight[
@@ -151,7 +155,9 @@ struct Llama2[
         )
 
         # outputs (logits, k_cache, v_cache)
-        outputs = model(tokens=g[0], k_cache=g[1], v_cache=g[2])
+        outputs = model(
+            tokens=g[0], attention_mask=g[1], k_cache=g[2], v_cache=g[3]
+        )
         logits = outputs[0]
         g.output(List(logits[-1, axis=1], outputs[1], outputs[2]))
         return g

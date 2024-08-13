@@ -98,8 +98,10 @@ struct TeenyTinyLlama:
             self.hyperparams.head_dim,
         )
         tokens_type = TensorType(DType.int64, Self.batch_size, "seq_len")
+        attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
         llama = Graph(
-            "TeenyTinyLlama", List[Type](tokens_type, cache_type, cache_type)
+            "TeenyTinyLlama",
+            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
         )
 
         @parameter
@@ -166,8 +168,6 @@ struct TeenyTinyLlama:
 
         # Stage the Llama 2 transformer model.
         var logits: Symbol
-        k_cache = llama[1]
-        v_cache = llama[2]
         logits, k_cache, v_cache = Transformer(
             dim=self.hyperparams.dims,
             n_heads=self.hyperparams.n_heads,
@@ -178,7 +178,12 @@ struct TeenyTinyLlama:
             # So reuse the token embeddings for the output layer.
             output=quantized_weight("token_embd"),
             theta=10000.0,
-        )(tokens=llama[0], k_cache=k_cache, v_cache=v_cache)
+        )(
+            tokens=llama[0],
+            attention_mask=llama[1],
+            k_cache=llama[2],
+            v_cache=llama[3],
+        )
 
         # Stage an output op for the computed logits and updated KV cache.
         llama.output(

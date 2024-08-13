@@ -18,7 +18,7 @@ from max.tensor import Tensor, TensorShape
 from max.graph import _testing, Type, Dim, Graph, TensorType, Symbol, ops
 
 from pipelines.llama3.model import Llama3
-from pipelines.nn.attention import attention_mask, rope
+from pipelines.nn.attention import expand_attention_mask, rope
 from pipelines.nn import (
     Attention,
     Embedding,
@@ -380,41 +380,47 @@ fn test_rms_norm() raises:
 
 
 fn test_attention_mask() raises:
-    var g = Graph(TensorType(DType.int64, "prev_seq_len", "seq_len"))
+    var g = Graph(List[Type](
+        TensorType(DType.int64, "prev_seq_len", "seq_len"),
+        TensorType(DType.bool, "batch", "full_seq_len")
+    ))
     var shape = g[0].shape()
     var prev_seq_len = shape[0]
     var seq_len = shape[1]
-    _ = g.output(attention_mask(g, prev_seq_len, seq_len, DType.float32))
+    _ = g.output(expand_attention_mask(g, g[1], prev_seq_len, seq_len, DType.float32))
 
     var input = Tensor[DType.int64](TensorShape(0, 2), 0)
-    var actual = _testing.execute_unary[outtype = DType.float32](g, input)
+    var input_mask = Tensor[DType.bool](TensorShape(1, 2), True)
+    var actual = _testing.execute_binary[outtype = DType.float32](g, input, input_mask)
 
     _testing.assert_tensors_almost_equal(
         actual,
         Tensor[DType.float32](
-            TensorShape(2, 2),
+            TensorShape(1, 2, 2),
             0,
-            Float32.MIN,
+            -10000,
             0,
             0,
         ),
     )
 
     input = Tensor[DType.int64](TensorShape(2, 1), 0)
-    actual = _testing.execute_unary[outtype = DType.float32](g, input)
+    input_mask = Tensor[DType.bool](TensorShape(1, 3), True)
+    actual = _testing.execute_binary[outtype = DType.float32](g, input, input_mask)
 
     _testing.assert_tensors_almost_equal(
         actual,
-        Tensor[DType.float32](TensorShape(1, 3), 0, 0, 0),
+        Tensor[DType.float32](TensorShape(1, 1, 3), 0, 0, 0),
     )
 
     # Test the uncommon case with non-zero prev_seq_len and curr_seq_len > 1.
     input = Tensor[DType.int64](TensorShape(1, 2), 0)
-    actual = _testing.execute_unary[outtype = DType.float32](g, input)
+    input_mask = Tensor[DType.bool](TensorShape(1, 3), True)
+    actual = _testing.execute_binary[outtype = DType.float32](g, input, input_mask)
 
     _testing.assert_tensors_almost_equal(
         actual,
-        Tensor[DType.float32](TensorShape(2, 3), 0, 0, Float32.MIN, 0, 0, 0),
+        Tensor[DType.float32](TensorShape(1, 2, 3), 0, 0, -10000, 0, 0, 0),
     )
 
 
@@ -428,11 +434,13 @@ def test_attention() -> None:
     batch = "batch"
     seq_len = "seq_len"
     start_pos = "start_pos"
+    full_seq_len = "full_seq_len"
 
     g = Graph(
         List[Type](
             TensorType(DType.float32, batch, seq_len, dim),
             TensorType(DType.float32, seq_len, 1, 2),
+            TensorType(DType.bool, batch, full_seq_len),
             TensorType(DType.float32, start_pos, 1, batch, n_kv_heads, head_dim),
             TensorType(DType.float32, start_pos, 1, batch, n_kv_heads, head_dim),
         )
@@ -440,7 +448,7 @@ def test_attention() -> None:
 
     llama = NanoLlama()
     layer = llama.attention(g)
-    out = layer(g[0], g[1], g[2], g[3])
+    out = layer(g[0], g[1], g[2], g[3], g[4])
     _ = g.output(List[Symbol](out[0], out[1], out[2]))
 
     input = Tensor[DType.float32](TensorShape(2, 2, dim),
@@ -449,6 +457,7 @@ def test_attention() -> None:
         -0.0088, -1.1315,
          1.1287,  1.7699,
     )
+    attn_mask = Tensor[DType.bool](TensorShape(2, 2), True)
     # This is a complex tensor of shape (2, 1); we use the last dim as
     # (real, imag).
     # These values generated from the correct freqs_cis given Llama hyperparams.
@@ -481,7 +490,7 @@ def test_attention() -> None:
     )
 
     actuals = _testing.execute_n_args(
-        g, input, freq_cis, k_cache, v_cache
+        g, input, freq_cis, attn_mask, k_cache, v_cache
     )
 
     _testing.assert_tensors_almost_equal(
@@ -514,12 +523,14 @@ def test_transformer_block() -> None:
     batch = "batch"
     seq_len = "seq_len"
     prev_seq_len = "prev_seq_len"
+    full_seq_len = "full_seq_len"
     cache_type = TensorType(DType.float32, prev_seq_len, 1, batch, n_kv_heads, head_dim)
 
     g = Graph(
         List[Type](
             TensorType(DType.float32, batch, seq_len, dim),
             TensorType(DType.float32, seq_len, 1, 2),
+            TensorType(DType.bool, batch, full_seq_len),
             cache_type,
             cache_type,
         )
@@ -541,7 +552,7 @@ def test_transformer_block() -> None:
         attention_norm=attention_norm,
         ffn_norm=ffn_norm,
     )
-    out = layer(g[0], g[1], g[2], g[3])
+    out = layer(g[0], g[1], g[2], g[3], g[4])
     _ = g.output(List[Symbol](out[0], out[1], out[2]))
 
     input = Tensor[DType.float32](TensorShape(2, 2, dim),
@@ -551,6 +562,8 @@ def test_transformer_block() -> None:
         -0.0088, -1.1315,
          1.1287,  1.7699,
     )
+    var attn_mask = Tensor[DType.bool](TensorShape(2, 2), True)
+
     # This is a complex tensor of shape (2, 1); we use the last dim as
     # (real, imag).
     # These values generated from the correct freqs_cis given Llama hyperparams.
@@ -583,7 +596,7 @@ def test_transformer_block() -> None:
     )
 
     actuals = _testing.execute_n_args(
-        g, input, freq_cis, k_cache, v_cache
+        g, input, freq_cis, attn_mask, k_cache, v_cache
     )
 
     _testing.assert_tensors_almost_equal(
@@ -613,23 +626,26 @@ def test_model() -> None:
     alias head_dim = 2
     alias hidden_dim = 2
 
-    batch_size = "batch_size"
+    batch_size = "batch"
     seq_len = "seq_len"
-    total_len = "total_len"
+    prev_seq_len = "prev_seq_len"
+    full_seq_len = "full_seq_len"
 
     token_type = TensorType(DType.uint64, batch_size, seq_len)
-    cache_type = TensorType(DType.float32, total_len, layers, batch_size, n_kv_heads, head_dim)
+    amask_type = TensorType(DType.bool, batch_size, full_seq_len)
+    cache_type = TensorType(DType.float32, prev_seq_len, layers, batch_size, n_kv_heads, head_dim)
     llama = NanoLlama()
-    g = Graph(List[Type](token_type, cache_type, cache_type))
+    g = Graph(List[Type](token_type, amask_type, cache_type, cache_type))
     layer = llama.transformer(g)
-    outputs = layer(g[0], g[1], g[2])
+    outputs = layer(g[0], g[1], g[2], g[3])
     g.output(List(outputs[0], outputs[1], outputs[2]))
 
     tokens = Tensor[DType.int64](TensorShape(2, 2), 2, 0, 1, 2)
+    mask = Tensor[DType.bool](TensorShape(2, 2), True)
     k_cache = Tensor[DType.int64](TensorShape(0, 1, 2, 1, 2))
     v_cache = Tensor[DType.int64](TensorShape(0, 1, 2, 1, 2))
 
-    actuals = _testing.execute_n_args(g, tokens, k_cache, v_cache)
+    actuals = _testing.execute_n_args(g, tokens, mask, k_cache, v_cache)
 
     expected_tokens = Tensor[DType.float32](TensorShape(2, 2, 4),
         -0.2158, -0.6037, -0.6346,  1.0045,
