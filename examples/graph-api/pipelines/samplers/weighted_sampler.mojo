@@ -18,6 +18,7 @@ import math
 from utils.numerics import min_finite
 import max._driver as driver
 from runtime.tracing import Trace, TraceLevel
+from sys import simdwidthof
 
 
 @value

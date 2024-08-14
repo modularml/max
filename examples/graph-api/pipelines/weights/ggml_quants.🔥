@@ -13,6 +13,7 @@
 """GGML quantized type definitions."""
 
 from collections import InlineArray
+from sys import sizeof
 
 
 @value

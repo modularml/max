@@ -15,6 +15,7 @@
 from memory import memcpy
 from collections import Optional
 from pathlib import Path
+from sys import sizeof
 
 from max.tensor import Tensor, TensorShape
 
