@@ -16,6 +16,7 @@ from base64 import b64decode
 from collections import Dict, List, Optional
 from pathlib import Path
 from utils import Span, StringSlice
+from sys import sizeof
 
 from max.tensor import Tensor
 
