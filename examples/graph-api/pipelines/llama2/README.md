@@ -15,9 +15,6 @@ Engine's advanced graph compiler. This pipeline showcases how a large language
 model can be fully defined using Mojo and MAX Graphs and then compiled for
 optimal inference performance via the MAX Engine.
 
-The flexibility provided by MAX Graphs even includes
-[the ability to define custom compute kernels](https://docs.modular.com/max/extensibility/graph-custom-op).
-
 ## Model
 
 [Llama 2](https://llama.meta.com/llama2/) is an open source large language
