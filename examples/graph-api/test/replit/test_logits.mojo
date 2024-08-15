@@ -16,7 +16,7 @@ from pathlib import Path
 from max.engine import InferenceSession, TensorMap
 from max.graph import _testing, Graph, TensorType, Symbol, Type
 from max.tensor import Tensor, TensorShape
-from max._driver import cpu_device
+from max.driver import cpu_device
 
 from pipelines.replit.layers.embedding import SharedEmbedding
 from pipelines.replit.layers.attention import GroupedQueryAttention

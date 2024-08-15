@@ -16,7 +16,7 @@ from max.tensor import Tensor
 from random import random_float64
 import math
 from utils.numerics import min_finite
-import max._driver as driver
+import max.driver as driver
 from runtime.tracing import Trace, TraceLevel
 from sys import simdwidthof
 
