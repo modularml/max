@@ -16,7 +16,15 @@ set -e
 
 # Allow user to override MAX_PKG_DIR in environment to support nightly version
 # but default to standard release
-MAX_PKG_DIR="${MAX_PKG_DIR:-$(modular config max.path)}"
+
+# If CONDA_PREFIX is set, use it as the default value for MAX_PKG_DIR
+if [[ -n "$CONDA_PREFIX" ]]; then
+  MAX_PKG_DIR="${MAX_PKG_DIR:-$CONDA_PREFIX}"
+else
+  # Otherwise, use the value from the modular CLI
+  MAX_PKG_DIR="${MAX_PKG_DIR:-$(modular config max.path)}"
+fi
+
 export MAX_PKG_DIR
 
 CURRENT_DIR=$(dirname "$0")
