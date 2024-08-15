@@ -8,7 +8,7 @@ platforms = ["osx-arm64","linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
-max = ">=2024.8.1405"
+max = "==2024.8.1405"
 pip = ">=24.0,<25"
 pytorch = "~=2.2.2"
 transformers = "*"
