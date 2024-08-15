@@ -22,7 +22,7 @@ from time import perf_counter_ns
 
 
 from max.engine import InferenceSession, Model, SessionOptions
-from max._driver import (
+from max.driver import (
     AnyTensor,
     Device,
     Tensor,
@@ -182,7 +182,7 @@ def generate_text(
             config.get("batch-size")[Int],
             host_device,
         )
-        _ = compiled_model._execute(
+        _ = compiled_model.execute(
             warmup_tokens.to_device_tensor().move_to(execution_device),
             _get_attention_mask(prompt_attn_mask, padded_size, host_device)
             .to_device_tensor()
@@ -195,7 +195,7 @@ def generate_text(
         warmup_mask = Tensor[DType.int64, rank=2]((1, 1))
         warmup_token[0, 0] = Int64(123)
         warmup_mask[0, 0] = True
-        _ = compiled_model._execute(
+        _ = compiled_model.execute(
             warmup_token.to_device_tensor().move_to(execution_device),
             warmup_mask.to_device_tensor().move_to(execution_device),
             warmup_kv_cache.keys_view(execution_device),
@@ -224,7 +224,7 @@ def generate_text(
         config.get("max-new-tokens")[Int],
     )
     for i in range(padded_size, max_tokens + 1):
-        results = compiled_model._execute(
+        results = compiled_model.execute(
             tokens.to_device_tensor().move_to(execution_device),
             _get_attention_mask(prompt_attn_mask, i, host_device)
             .to_device_tensor()

@@ -13,7 +13,7 @@
 """KV cache for the Transformer."""
 
 from buffer import Buffer
-from max._driver import AnyMemory, Device, DeviceTensor
+from max.driver import AnyMemory, Device, DeviceTensor
 from max.tensor import TensorSpec, TensorShape
 from memory import memcpy
 from max.tensor import Tensor, TensorSpec, TensorShape

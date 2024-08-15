@@ -17,7 +17,7 @@ from utils.numerics import min_finite
 
 from max.graph import ops, Dim, TensorType, Symbol, Graph, Type
 from max.tensor import TensorSpec
-from max._driver import AnyTensor, Device
+from max.driver import AnyTensor, Device
 from pipelines.weights.gguf import GGUFFile
 from pipelines.weights.loadable_model import LoadableModel
 

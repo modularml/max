@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from max.tensor import Tensor
-import max._driver as driver
+import max.driver as driver
 
 
 @value

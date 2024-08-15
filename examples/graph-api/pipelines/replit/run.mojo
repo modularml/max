@@ -22,7 +22,7 @@ from max.graph.quantization import (
     QuantizationEncoding,
 )
 from max.tensor import TensorSpec
-from max._driver import (
+from max.driver import (
     Device,
     Tensor,
     AnyTensor,
@@ -305,7 +305,7 @@ struct ReplitPipeline[dtype: DType]:
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
 
-        results = self._model._execute(
+        results = self._model.execute(
             self._next_token_tensor.take(),
             self._get_attention_mask(),
             self._k_cache.take(),

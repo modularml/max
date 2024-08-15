@@ -18,7 +18,7 @@ from utils.index import Index
 from pathlib import Path
 
 from max.engine import InferenceSession, Model, TensorMap
-from max._driver import cpu_device, cuda_device, Tensor
+from max.driver import cpu_device, cuda_device, Tensor
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import (
@@ -146,7 +146,7 @@ struct Llama2InferenceService[
         # iterations generate one token.
         # Avoid overrunning the cache by setting the trip count accordingly.
         for _ in range(prompt.size, max_tokens + 1):
-            var results = self._compiled_model._execute(
+            var results = self._compiled_model.execute(
                 tokens^,
                 kv_cache.keys_view(cpu_device),
                 kv_cache.values_view(cpu_device),
