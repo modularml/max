@@ -18,8 +18,6 @@ python3 -m pip install -r requirements.txt
 python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
 # Run the MAX Engine example
 bash run.sh
-# Run the MAX Serving example
-bash deploy.sh
 ```
 
 ## Scripts included
@@ -33,16 +31,4 @@ model, and generates the filled mask.
 
     ```sh
     python3 simple-inference.py --text "Paris is the [MASK] of France."
-    ```
-
-- `triton-inference.py`: Predicts the masked words in the input text using MAX
-Serving. The script launches a Triton container, prepares an example input,
-executes the model by calling HTTP inference endpoint, and returns the filled
-mask.
-
-    You can use the `--text` CLI flag to specify an input example.
-    For example:
-
-    ```sh
-    python3 triton-inference.py --text "Paris is the [MASK] of France."
     ```
