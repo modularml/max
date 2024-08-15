@@ -15,12 +15,12 @@ MAX has the power to accelerate existing PyTorch and ONNX models directly, and
 provides Python, Mojo, and C APIs for this. These examples showcase common
 models from these frameworks and how to run them even faster via MAX.
 
-## [MAX Engine extensibility](extensibility/)
+## MAX Engine extensibility
 
-MAX can be extended through the definition of custom operations, either
-through [defining them for PyTorch and ONNX models](https://docs.modular.com/max/extensibility/custom-op)
-or [introducing them into MAX Graphs](https://docs.modular.com/max/extensibility/graph-custom-op).
-Several different examples demonstrate how to define custom ops in Mojo.
+We removed the extensibility API in v24.5 and are working to replace it with a
+better version very soon. Because MAX is still a developer preview, we don't
+want to leave any APIs in the platform that we have no intention to support. Stay
+tuned for an improved extensibility API that works on CPUs and GPUs.
 
 ## [Jupyter notebooks](notebooks/)
 
