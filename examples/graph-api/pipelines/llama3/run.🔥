@@ -26,9 +26,9 @@ from max.driver import (
     AnyTensor,
     Device,
     Tensor,
-    cuda_device,
     cpu_device,
 )
+from max.driver._cuda import cuda_device
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,

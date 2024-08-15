@@ -16,7 +16,8 @@ from utils.index import Index
 from pathlib import Path
 
 from max.engine import InferenceSession, Model, SessionOptions
-from max.driver import cpu_device, cuda_device, Tensor
+from max.driver import cpu_device, Tensor
+from max.driver._cuda import cuda_device
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import QuantizationEncoding

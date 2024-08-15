@@ -26,10 +26,10 @@ from max.driver import (
     Device,
     Tensor,
     AnyTensor,
-    cuda_device,
     cpu_device,
     AnyMemory,
 )
+from max.driver._cuda import cuda_device
 from pipelines.weights.gguf import GGUFFile
 
 from .config import (
