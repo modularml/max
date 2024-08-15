@@ -36,7 +36,6 @@ print(js.get('data', '1')) --> Node(type=string, value="b")
 
 from collections import List, Dict, Set
 
-var WS = Set[String](" ", "\n", "\t")
 alias COLON = ":"
 alias COMMA = ","
 alias OBJECT_OPEN = "{"
@@ -49,16 +48,6 @@ alias TRUE = "true"
 alias FALSE = "false"
 alias ESCAPE = "\\"
 alias NULL_END = "\n"
-var NUMBER_CHARS = Set[String](
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "E", "e", ".", "-"
-)
-
-# Create a separate set without the "e" so the `get_next_token` function can
-# easily differentiate between a number and "true"/"false" literals (when
-# searching from right-to-left, "true"/"false" start with "e")
-var INITIAL_NUMBER_CHARS = Set[String](
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-"
-)
 
 
 @value
@@ -169,11 +158,6 @@ struct TokenType(EqualityComparable, Stringable, KeyElement):
         raise "Cannot convert token type " + str(self) + " into a NodeType."
 
 
-var VALUE_TYPES = Set[TokenType](
-    TokenType.bool, TokenType.number, TokenType.null, TokenType.string
-)
-
-
 def get_next_token(inout s: StringRef) -> (StringRef, TokenType):
     """Gets the next token within the limits and returns the unscanned indices.
 
@@ -188,6 +172,8 @@ def get_next_token(inout s: StringRef) -> (StringRef, TokenType):
     """
 
     # Skip the white spaces.
+    # TODO(RUNP-326): lift this out of function
+    var WS = Set[String](" ", "\n", "\t")
     while True:
         if s.empty():
             return StringRef(), TokenType.end
@@ -206,6 +192,16 @@ def get_next_token(inout s: StringRef) -> (StringRef, TokenType):
     # TODO: Why doesn't StringRef have a normal getitem?
     var c = String(s[0])
 
+    # TODO(RUNP-326): lift this out of function
+    var NUMBER_CHARS = Set[String](
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "E", "e", ".", "-"
+    )
+    # Create a separate set without the "e" so the `get_next_token` function can
+    # easily differentiate between a number and "true"/"false" literals (when
+    # searching from right-to-left, "true"/"false" start with "e")
+    var INITIAL_NUMBER_CHARS = Set[String](
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-"
+    )
     # Detect which type of token this is.
     if c == OBJECT_OPEN:
         token_type = TokenType.object_open
