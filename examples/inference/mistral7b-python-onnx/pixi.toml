@@ -1,0 +1,18 @@
+[project]
+name = "Mistral7b Python Onnx"
+version = "1.0.0"
+description = "MAX Examples"
+authors = ["Modular <hello@modular.com>"]
+channels = ["conda-forge", "anaconda", "pytorch", "https://token:ldCjjn5d1qs8zK3S@conda.cloudsmith.io/modular/max-conda-test/"]
+platforms = ["osx-arm64","linux-64"]
+
+[dependencies]
+python = ">=3.9,<3.13"
+max = "==2024.8.1405"
+pip = ">=24.0,<25"
+diffusers = "0.29.2"
+ftfy = ">6.1"
+onnx = "~=1.16.0"
+onnxruntime = "~=1.17.3"
+optimum = "~=1.19.1"
+pytorch = {version = "~=2.2.2", channel = "pytorch"}
