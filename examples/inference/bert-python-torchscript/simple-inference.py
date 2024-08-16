@@ -11,16 +11,15 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from max import engine
-
-from argparse import ArgumentParser
-
-import signal
-import torch
-from transformers import BertTokenizer
-
 # suppress extraneous logging
 import os
+import signal
+from argparse import ArgumentParser
+
+import torch
+from max import engine
+from max.dtype import DType
+from transformers import BertTokenizer
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -35,7 +34,7 @@ HF_MODEL_NAME = "bert-base-uncased"
 def execute(model_path, text, input_dict):
     session = engine.InferenceSession()
     input_spec_list = [
-        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
+        engine.TorchInputSpec(shape=tensor.size(), dtype=DType.int64)
         for tensor in input_dict.values()
     ]
     model = session.load(model_path, input_specs=input_spec_list)

@@ -15,16 +15,17 @@
 import os
 import time
 
+import pandas as pd
 import streamlit as st
 import torch
-import pandas as pd
 from max import engine
+from max.dtype import DType
+from shared import menu, modular_cache_dir
 from transformers import (
     AutoModelForSequenceClassification,
     BertForMaskedLM,
     BertTokenizer,
 )
-from shared import menu, modular_cache_dir
 
 st.set_page_config("Bert", page_icon="👓")
 menu()
@@ -72,7 +73,7 @@ def max_bert_session(model_path: str, batch: int, seq_len: int):
         torch.zeros((batch, seq_len), dtype=torch.int64),
     ]
     input_spec_list = [
-        engine.TorchInputSpec(shape=tensor.size(), dtype=engine.DType.int64)
+        engine.TorchInputSpec(shape=tensor.size(), dtype=DType.int64)
         for tensor in inputs
     ]
     return session.load(model_path, input_specs=input_spec_list)
