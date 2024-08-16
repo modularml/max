@@ -11,17 +11,16 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from max import engine
-
-from argparse import ArgumentParser
-
-import signal
-import numpy as np
-from PIL import Image
-from transformers import AutoImageProcessor, AutoModelForImageClassification
-
 # suppress extraneous logging
 import os
+import signal
+from argparse import ArgumentParser
+
+import numpy as np
+from max import engine
+from max.dtype import DType
+from PIL import Image
+from transformers import AutoImageProcessor, AutoModelForImageClassification
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -34,9 +33,7 @@ HF_MODEL_NAME = "microsoft/resnet-50"
 def execute(model_path, inputs):
     session = engine.InferenceSession()
     input_spec_list = [
-        engine.TorchInputSpec(
-            shape=(1, 3, 224, 224), dtype=engine.DType.float32
-        )
+        engine.TorchInputSpec(shape=(1, 3, 224, 224), dtype=DType.float32)
     ]
 
     print("Loading and compiling model...")
