@@ -74,10 +74,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         return top
 
     fn _swap(inout self, i1: Int, i2: Int):
-        # TODO: Swap syntax doesn't support non-register-passable types
-        var tmp = self.heap[i1]
-        self.heap[i1] = self.heap[i2]
-        self.heap[i2] = tmp
+        self.heap.swap_elements(i1, i2)
 
     fn _bubble_up(inout self, idx: Int):
         if idx == self.begin_idx:

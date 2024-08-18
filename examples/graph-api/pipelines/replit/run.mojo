@@ -208,7 +208,9 @@ struct ReplitPipeline[dtype: DType]:
 
         self._device = cuda_device() if use_gpu else cpu_device()
         self._run_on_gpu = use_gpu
-        self._cpu_device = cpu_device() if use_gpu else self._device
+        # TODO(field sensitive lifetimes): Remove tmp_device.
+        var tmp_device = cpu_device() if use_gpu else self._device
+        self._cpu_device = tmp_device^
         self._session = InferenceSession(self._device)
 
         # Compile and load the graph, which generates the MLIR and runs
