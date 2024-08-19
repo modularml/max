@@ -193,6 +193,8 @@ struct ReplitPipeline[dtype: DType]:
         use_gpu: Bool = False,
         max_length: Optional[Int] = None,
         max_new_tokens: Optional[Int] = None,
+        experimental_load_graph: String = "",
+        experimental_store_graph: String = "",
     ):
         """Builds and compiles a Replit model to get ready for execution."""
         # Generate a graph that does a single forward pass of the replit model.
@@ -216,7 +218,12 @@ struct ReplitPipeline[dtype: DType]:
         # Compile and load the graph, which generates the MLIR and runs
         # optimization passes on it.
         print("Compiling...")
-        self._model = self._session.load(g)
+        if experimental_load_graph != "":
+            self._model = self._session.load(experimental_load_graph)
+        else:
+            self._model = self._session.load(g)
+        if experimental_store_graph:
+            self._model.export_compiled_model(experimental_store_graph)
 
         # Set up tokenizer.
         var hf_model_name = "replit/replit-code-v1_5-3b"
@@ -351,6 +358,8 @@ def dispatch[dtype: DType](config: Config):
         use_gpu=config.get("experimental-use-gpu")[Bool],
         max_length=max_length,
         max_new_tokens=max_new_tokens,
+        experimental_load_graph=config.get("experimental-load-graph")[String],
+        experimental_store_graph=config.get("experimental-store-graph")[String],
     )
     metrics.end_timing_startup()
 
