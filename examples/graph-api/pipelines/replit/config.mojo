@@ -40,6 +40,8 @@ def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config["temperature"] = 0.5
     default_config["min-p"] = 0.05
     default_config["warmup-pipeline"] = False
+    default_config["experimental-store-graph"] = str("")
+    default_config["experimental-load-graph"] = str("")
     return default_config
 
 
@@ -81,6 +83,8 @@ struct ReplitConfigRegistry(ConfigRegistry):
         self.registry["temperature"] = OptionTypeEnum.FLOAT
         self.registry["min-p"] = OptionTypeEnum.FLOAT
         self.registry["warmup-pipeline"] = OptionTypeEnum.BOOL
+        self.registry["experimental-store-graph"] = OptionTypeEnum.STRING
+        self.registry["experimental-load-graph"] = OptionTypeEnum.STRING
         if additional_pipeline_args:
             self.registry.update(additional_pipeline_args.value())
 
