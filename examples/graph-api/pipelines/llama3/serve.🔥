@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from python import Python
+from python import Python, PythonObject
 from utils.index import Index
 from pathlib import Path
 
@@ -123,7 +123,7 @@ struct Llama3InferenceService[
             prompt += self._tokenizer.encode(str(node["role"]), bos=None)
             prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
             prompt += self._tokenizer.encode(
-                str("\n\n") + node["content"], bos=None
+                str("\n\n") + str(node["content"]), bos=None
             )
             prompt.append(self._tokenizer.encode_special("<|eot_id|>"))
             # Only add a newline after "system" to follow the prompt format exactly at:
