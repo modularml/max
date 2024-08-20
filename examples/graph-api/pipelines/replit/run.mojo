@@ -200,13 +200,6 @@ struct ReplitPipeline[dtype: DType]:
         # Generate a graph that does a single forward pass of the replit model.
         print("Building model...")
         self._replit = Replit[GGUFFile, dtype](get_default())
-        model = GGUFFile(model_path)
-        g = self._replit.build_graph(
-            model,
-            "replit",
-            with_attention_mask=True,
-            use_cache=True,
-        )
 
         self._device = cuda_device() if use_gpu else cpu_device()
         self._run_on_gpu = use_gpu
@@ -221,6 +214,13 @@ struct ReplitPipeline[dtype: DType]:
         if experimental_load_graph != "":
             self._model = self._session.load(experimental_load_graph)
         else:
+            model = GGUFFile(model_path)
+            g = self._replit.build_graph(
+                model,
+                "replit",
+                with_attention_mask=True,
+                use_cache=True,
+            )
             self._model = self._session.load(g)
         if experimental_store_graph:
             self._model.export_compiled_model(experimental_store_graph)
