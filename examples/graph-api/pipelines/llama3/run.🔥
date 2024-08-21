@@ -269,7 +269,11 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     # We still need to build the graph since we are creating the cache
     # inside the call here.
     var start_build = perf_counter_ns()
-    graph = model.build_graph("llama3")
+    if config.get("version")[String] == "3.0":
+        model_name = "llama3"
+    else:
+        model_name = "llama3_1"
+    graph = model.build_graph(model_name)
     var end_build = perf_counter_ns()
 
     use_gpu = config.get("experimental-use-gpu")[Bool]
