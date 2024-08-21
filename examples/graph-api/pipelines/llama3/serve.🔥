@@ -83,7 +83,11 @@ struct Llama3InferenceService[
         )
 
         print("Building model...")
-        self._graph = self._model.build_graph("llama3")
+        if self._config.get("version")[String] == "3.0":
+            model_name = "llama3"
+        else:
+            model_name = "llama3_1"
+        self._graph = self._model.build_graph(model_name)
         var session_options = SessionOptions(
             cuda_device() if self._config.get("experimental-use-gpu")[
                 Bool
