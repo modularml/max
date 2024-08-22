@@ -13,15 +13,13 @@
 # ===----------------------------------------------------------------------=== #
 
 import signal
-
-from max.engine import InferenceSession
+from argparse import ArgumentParser
 
 import numpy as np
-
-from argparse import ArgumentParser
 from diffusers import PNDMScheduler
-from transformers import CLIPTokenizer
+from max.engine import InferenceSession
 from PIL import Image
+from transformers import CLIPTokenizer
 
 DEFAULT_MODEL_DIR = "../../models/stable-diffusion-onnx"
 DESCRIPTION = "Generate an image based on the given prompt."
@@ -107,7 +105,9 @@ def main():
         max_length=tokenizer.model_max_length,
     )
 
-    input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids))
+    input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids)).astype(
+        np.int32
+    )
     encoder_hidden_states = txt_encoder.execute(input_ids=input_ids)[
         "last_hidden_state"
     ]
