@@ -17,10 +17,10 @@ models from these frameworks and how to run them even faster via MAX.
 
 ## MAX Engine extensibility
 
-We removed the extensibility API in v24.5 and are working to replace it with a
-better version very soon. Because MAX is still a developer preview, we don't
-want to leave any APIs in the platform that we have no intention to support. Stay
-tuned for an improved extensibility API that works on CPUs and GPUs.
+We removed the extensibility API in v24.5 (it was added in v24.3) and we're
+replacing it with a better version soon. Because MAX is still a preview, we
+don't want to leave APIs in the platform that we have no intention to support.
+Stay tuned for an improved extensibility API that works on both CPUs and GPUs.
 
 ## [Jupyter notebooks](notebooks/)
 
