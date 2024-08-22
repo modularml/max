@@ -9,7 +9,7 @@ Llama 2 large language model. The model itself has been constructed from
 end to end in [the Mojo language](https://docs.modular.com/mojo/) using the
 [MAX Graph API](https://docs.modular.com/max/graph).
 
-The MAX Graph API provides an accessible Mojo interface to the contruction of
+The MAX Graph API provides an accessible Mojo interface to the construction of
 flexible accelerated compute graphs, which are then optimized by the MAX
 Engine's advanced graph compiler. This pipeline showcases how a large language
 model can be fully defined using Mojo and MAX Graphs and then compiled for
@@ -56,7 +56,7 @@ The default settings for this pipeline use the 7B set of pretrained weights in
 
 3. (Optional) Install Python dependencies:
 
-   This enables using the HuggingFace
+   This enables using the Hugging Face
    [transformers](https://github.com/huggingface/transformers) AutoTokenizer.
    If `transformers` isn't found, a Mojo tokenizer implementation is used.
 
