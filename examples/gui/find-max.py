@@ -27,7 +27,7 @@ def install_max_dev():
         return
 
     pyproject_path = (
-        Path(derived_path) / "build" / "SDK" / "lib" / "EngineAPI" / "python"
+        Path(derived_path) / "build" / "SDK" / "lib" / "API" / "python"
     )
 
     if not pyproject_path.is_dir():
