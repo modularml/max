@@ -3,14 +3,10 @@ name = "BERT Python Torchscript"
 version = "1.0.0"
 description = "MAX Examples"
 authors = ["Modular <hello@modular.com>"]
-channels = ["pytorch", "conda-forge", "anaconda", "https://token:ldCjjn5d1qs8zK3S@conda.cloudsmith.io/modular/max-conda-test/"]
-platforms = ["osx-arm64","linux-64"]
+channels = ["conda-forge", "anaconda", "https://token:ldCjjn5d1qs8zK3S@conda.cloudsmith.io/modular/max-conda-test/"]
+platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
-max = "==2024.8.1517"
+max = "==2024.8.1905"
 pip = ">=24.0,<25"
-onnxruntime = "~=1.17.3"
-pytorch = "~=2.2.2"
-tritonclient = ">=2.44.0"
-transformers = "*"
