@@ -38,4 +38,4 @@ def main():
     elif pipeline_name == "quantize-tinystories":
         quantize_tinystories_run()
     else:
-        print("Unrecognized pipeline: " + str(pipeline_name))
+        raise "Unrecognized pipeline: " + str(pipeline_name)
