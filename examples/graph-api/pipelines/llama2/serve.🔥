@@ -31,9 +31,12 @@ from max.graph.quantization import (
 )
 from max.serve.http import PythonServer, PythonService
 from max.tensor import TensorShape, TensorSpec
-
+from max.serve.kv_cache.types import (
+    KVCacheLayout,
+    KVCacheStaticParams,
+)
 from ..llama3.kv_cache import KVCache
-from .model.llama import Llama2
+from .model import Llama2
 from .tokenizer.bpe import BPETokenizer
 from ..samplers.weighted_sampler import WeightedSampler
 from ..tokenizer import AutoTokenizer, Tokenizer
@@ -54,6 +57,7 @@ from .run import (
 
 struct Llama2InferenceService[
     ModelType: LoadableModel,
+    kv_params: KVCacheStaticParams,
     EncodingT: QuantizationEncoding = Float32Encoding,
     TokenizerT: Tokenizer = AutoTokenizer,
 ](PythonService):
@@ -62,7 +66,7 @@ struct Llama2InferenceService[
     var _config: Config
     var _tokenizer: TokenizerT
     var _session: InferenceSession
-    var _model: Llama2[ModelType, EncodingT]
+    var _model: Llama2[ModelType, kv_params, EncodingT]
     var _graph: Graph
     var _compiled_model: Model
 
@@ -76,7 +80,7 @@ struct Llama2InferenceService[
         self._config = config^
         self._tokenizer = tokenizer^
         self._json_module = Python.import_module("json")
-        self._model = Llama2[ModelType, EncodingT](
+        self._model = Llama2[ModelType, kv_params, EncodingT](
             self._config.get("model-path")[Path],
         )
 
@@ -85,8 +89,8 @@ struct Llama2InferenceService[
         self._session = InferenceSession()
 
         self._compiled_model = compile_graph(
-            self._session,
             self._graph,
+            cpu_device(),
             custom_ops_paths=self._config.get("custom-ops-path")[List[Path]],
         )
 
@@ -227,9 +231,12 @@ def serve[
     EncodingT: QuantizationEncoding,
     TokenizerT: Tokenizer = AutoTokenizer,
 ](owned config: Config, owned tokenizer: TokenizerT):
-    service = Llama2InferenceService[ModelType, EncodingT, TokenizerT](
-        config^, tokenizer^
+    alias kv_params = KVCacheStaticParams(
+        num_heads=6, head_size=48, layout=KVCacheLayout.BHSD
     )
+    service = Llama2InferenceService[
+        ModelType, kv_params, EncodingT, TokenizerT
+    ](config^, tokenizer^)
     server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
     server.serve(service)

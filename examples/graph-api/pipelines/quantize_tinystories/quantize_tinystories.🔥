@@ -16,21 +16,32 @@ from collections import Optional
 from pathlib import cwd, Path
 
 from max.driver import cpu_device
-from max.graph import Dim, Graph, Symbol, TensorType, Type
+from max.graph import Dim, Graph, Symbol, TensorType, Type, ops
 from max.graph.checkpoint import save, TensorDict
-from max.graph.quantization import Q4_0Encoding
+from max.graph.quantization import (
+    Float32Encoding,
+    Q4_0Encoding,
+    QuantizationEncoding,
+)
 from max.tensor import Tensor, TensorShape
 from max.engine import InferenceSession
+from max.graph import _OpaqueType as OpaqueType
+
+from kv_cache.types import (
+    KVCacheLayout,
+    KVCacheStaticParams,
+    ContiguousKVCacheCollection,
+)
 
 from pipelines.llama2.run import compile_graph, generate_text, Config
 from pipelines.llama3.metrics import Metrics
 from pipelines.nn import (
-    Attention,
     Embedding,
     FeedForward,
     RMSNorm,
-    Transformer,
-    TransformerBlock,
+    KVCacheOptimizedTransformerBlock,
+    KVCacheOptimizedTransformer,
+    KVCacheOptimizedAttention,
 )
 from pipelines.weights.download import download_to_cache
 from pipelines.weights.llama2checkpoint import LlamaCFile
@@ -73,7 +84,10 @@ def add_hyperparams_to_dict(
     )
 
 
-struct TeenyTinyLlama:
+struct TeenyTinyLlama[
+    kv_params: KVCacheStaticParams,
+    encoding: QuantizationEncoding,
+]:
     """Builder for a teeny tiny Llama 2 model trained on TinyStories."""
 
     alias batch_size = 1
@@ -101,19 +115,16 @@ struct TeenyTinyLlama:
     def build(inout self) -> Graph:
         """Build the Llama 2 graph, quantizing its weights by construction."""
         # Set the KV cache and tokens input types.
-        cache_type = TensorType(
-            DType.float32,
-            "past_seq_len",
-            self.hyperparams.n_layers,
-            Self.batch_size,
-            self.hyperparams.n_kv_heads,
-            self.hyperparams.head_dim,
+        params = self.params_file.hyperparams()
+        cache_type = OpaqueType(
+            ContiguousKVCacheCollection[DType.float32, kv_params].id()
         )
+
         tokens_type = TensorType(DType.int64, Self.batch_size, "seq_len")
         attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
-        llama = Graph(
+        g = Graph(
             "TeenyTinyLlama",
-            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
+            List[Type](tokens_type, attn_mask_type, cache_type),
         )
 
         @parameter
@@ -142,10 +153,12 @@ struct TeenyTinyLlama:
             )
 
             # 3. Stage the quantized constant op.
-            return llama.constant(q4_0_param), Q4_0Encoding.id()
+            return g.constant(q4_0_param), Q4_0Encoding.id()
 
         @parameter
-        def weight(name: String, layer_idx: Optional[Int] = None) -> Symbol:
+        def weight[
+            weight_type: QuantizationEncoding = encoding
+        ](name: String, layer_idx: Optional[Int] = None) -> Symbol:
             """Stages a float32 parameter as a constant op in the graph."""
             # Load a float32 parameter from the Llama 2 checkpoint.
             float32_param = self.params_file.get[DType.float32](name, layer_idx)
@@ -154,81 +167,68 @@ struct TeenyTinyLlama:
             )
 
             # Stage a float32 constant op in the graph.
-            return llama.constant(float32_param)
+            return g.constant(float32_param)
+
+        def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
+            w = weight[Float32Encoding](name, layer)
+            return RMSNorm(params.norm_eps, w)
 
         # Stage all of the transformer blocks in the stories15M Llama.
-        transformer_blocks = List[TransformerBlock[DType.float32]]()
-        for layer_idx in range(self.hyperparams.n_layers):
+        layers = List[KVCacheOptimizedTransformerBlock[kv_params]]()
+        for layer in range(self.hyperparams.n_layers):
             # Stage a transformer block with quantized weights.
             # Read in float32 weights and quantize them before staging the op.
             # In the process, save references to the quantized tensors in the
             # parameter dictionary.
             # Doing so enables saving the checkpoint after building the graph,
             # complete with quantized weights.
-            block = TransformerBlock(
-                attention=Attention(
-                    n_heads=self.hyperparams.n_heads,
-                    n_kv_heads=self.hyperparams.n_kv_heads,
-                    head_dim=self.hyperparams.head_dim,
-                    dim=self.hyperparams.dims,
-                    use_custom_attention=True,
-                    # Quantize all QKV and output projection matrices in the
-                    # attention layer.
-                    wq=quantize("attn_q", layer_idx),
-                    wk=quantize("attn_k", layer_idx),
-                    wv=quantize("attn_v", layer_idx),
-                    wo=quantize("attn_output", layer_idx),
-                ),
-                feed_forward=FeedForward(
-                    # Also quantize the feedforward gate/down/up matrices.
-                    w1=quantize("ffn_gate", layer_idx),
-                    w2=quantize("ffn_down", layer_idx),
-                    w3=quantize("ffn_up", layer_idx),
-                ),
-                attention_norm=RMSNorm(
-                    # Use float32 norm weights rather than quantizing them
-                    # since they are bias vectors and therefore small.
-                    self.hyperparams.norm_eps,
-                    weight("attn_norm", layer_idx),
-                ),
-                ffn_norm=RMSNorm(
-                    self.hyperparams.norm_eps,
-                    # Also save feedforward layer norm weights as float32.
-                    weight("ffn_norm", layer_idx),
-                ),
+
+            # KVCacheOptimizedAttention uses a fused qkv kernel
+            # Setting wq/wk/wv to just use the Symbol, will compile
+            # and return nans at the kernel level.
+            # TODO: MSDK-842 is filed to build a workaround
+            wq = quantize("attn_q", layer)[0]
+            wk = quantize("attn_k", layer)[0]
+            wv = quantize("attn_v", layer)[0]
+            wqkv = ops.concat(List[Symbol](wq, wk, wv), axis=1)
+            attention = KVCacheOptimizedAttention[kv_params](
+                n_heads=params.n_heads,
+                dim=params.dims,
+                wqkv=wqkv.swapaxes(0, 1),
+                wo=quantize("attn_output", layer),
             )
-            transformer_blocks.append(block)
+
+            feed_forward = FeedForward(
+                w1=quantize("ffn_gate", layer),
+                w2=quantize("ffn_down", layer),
+                w3=quantize("ffn_up", layer),
+            )
+
+            layers.append(
+                KVCacheOptimizedTransformerBlock[kv_params](
+                    attention=attention,
+                    feed_forward=feed_forward,
+                    attention_norm=norm("attn_norm", layer),
+                    ffn_norm=norm("ffn_norm", layer),
+                )
+            )
 
         # Stage the Llama 2 transformer model.
-        var logits: Symbol
-        logits, k_cache, v_cache = Transformer(
-            dim=self.hyperparams.dims,
-            n_heads=self.hyperparams.n_heads,
-            embedding=Embedding(quantize("token_embd")),
-            layers=transformer_blocks,
-            norm=RMSNorm(self.hyperparams.norm_eps, weight("output_norm")),
-            # For stories15M, output and token embeddings are shared.
-            # So reuse the token embeddings for the output layer.
+        embedding = Embedding(quantize("token_embd"))
+        model = KVCacheOptimizedTransformer[kv_params](
+            dim=params.dims,
+            n_heads=params.n_heads,
+            embedding=embedding,
+            layers=layers,
+            norm=norm("output_norm"),
             output=quantize("token_embd"),
             theta=10000.0,
-        )(
-            tokens=llama[0],
-            attention_mask=llama[1],
-            k_cache=llama[2],
-            v_cache=llama[3],
         )
 
-        # Stage an output op for the computed logits and updated KV cache.
-        llama.output(
-            List[Symbol](
-                logits[-1, axis=1].reshape(Self.batch_size, -1),
-                k_cache,
-                v_cache,
-            )
-        )
-
-        # Return the constructed quantized Llama 2.
-        return llama
+        outputs = model(tokens=g[0], mask=g[1], kv_cache=g[2])
+        logits = outputs[0]
+        g.output(List[Symbol](logits[-1, axis=1], outputs[1]))
+        return g
 
 
 def quantize_and_save_tinystories(checkpoint_path: Path):
@@ -243,7 +243,11 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
     )
 
     # Stage the Llama model graph.
-    llama_builder = TeenyTinyLlama(model_path)
+    alias layout = KVCacheLayout.BHSD
+    alias kv_params = KVCacheStaticParams(
+        num_heads=6, head_size=48, layout=layout
+    )
+    llama_builder = TeenyTinyLlama[kv_params, Q4_0Encoding](model_path)
     llama = llama_builder.build()
 
     save(
@@ -259,12 +263,14 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
     config = Config()
     config.set("tokenizer-path", tokenizer_path)
     config.set("model-path", model_path)
-    generate_text(
-        compile_graph(session, llama),
+    execution_device = cpu_device()
+    generate_text[layout](
+        compile_graph(
+            llama, execution_device, config.get("custom-ops-path")[List[Path]]
+        ),
         llama_builder.hyperparams,
-        config,
-        metrics,
-        use_gpu=False,
+        config=config,
+        metrics=metrics,
         execution_device=cpu_device(),
     )
     print()
