@@ -115,9 +115,10 @@ the team and other community members.
 
 ## License
 
-The Mojo examples and notebooks in this repository are licensed
-under the Apache License v2.0 with LLVM Exceptions
-(see the LLVM [License](https://llvm.org/LICENSE.txt)).
+This repository and its contributions are licensed under the Apache License
+v2.0 with LLVM Exceptions (see the LLVM [License](https://llvm.org/LICENSE.txt)).
+MAX and Mojo usage and distribution are licensed under the
+[MAX & Mojo Community License](https://www.modular.com/legal/max-mojo-license).
 
 ### Third Party Licenses
 
