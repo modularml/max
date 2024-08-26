@@ -1,0 +1,19 @@
+[project]
+name = "Mojo Graph API Examples"
+version = "1.0.0"
+description = "MAX Examples"
+authors = ["Modular <hello@modular.com>"]
+channels = ["conda-forge", "anaconda", "https://token:ldCjjn5d1qs8zK3S@conda.cloudsmith.io/modular/max-conda-test/"]
+platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
+
+[tasks]
+llama2 = "mojo run_pipeline.🔥 llama2"
+llama3 = "mojo run_pipeline.🔥 llama3"
+replit = "mojo run_pipeline.🔥 replit"
+quantize-tinystories = "mojo run_pipeline.🔥 quantize-tinystories"
+basic = "mojo basics/basic.🔥"
+inspect-guff = "mojo inspect-guff.🔥"
+
+[dependencies]
+python = ">=3.9,<3.13"
+max = "*"
