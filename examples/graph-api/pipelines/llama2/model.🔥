@@ -16,6 +16,7 @@ from collections import List, Optional
 from pathlib import Path
 from sys.intrinsics import _type_is_eq
 
+from max.graph import _OpaqueType as OpaqueType
 from max.graph import ops, Dim, Graph, TensorType, Type, Symbol
 from max.graph.quantization import (
     Float32Encoding,
@@ -25,13 +26,18 @@ from max.graph.quantization import (
     Q6_KEncoding,
 )
 
+from max.serve.kv_cache.types import (
+    KVCacheStaticParams,
+    ContiguousKVCacheCollection,
+)
+
 from pipelines.nn import (
-    Attention,
     Embedding,
     FeedForward,
     RMSNorm,
-    Transformer,
-    TransformerBlock,
+    KVCacheOptimizedTransformerBlock,
+    KVCacheOptimizedTransformer,
+    KVCacheOptimizedAttention,
 )
 from pipelines.weights.gguf import GGMLType, GGUFFile
 from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
@@ -52,31 +58,27 @@ def encoding_id_from_ggml_type(ggml_type: GGMLType) -> String:
 
 
 struct Llama2[
-    model_type: LoadableModel, encoding: QuantizationEncoding = Float32Encoding
+    model_type: LoadableModel,
+    kv_params: KVCacheStaticParams,
+    encoding: QuantizationEncoding = Float32Encoding,
 ]:
     alias batch_size = 1
 
     var model: model_type
 
-    def __init__(inout self, model_path: Path):
-        self.model = model_type(model_path)
+    def __init__(inout self, owned model: model_type):
+        self.model = model^
 
     def build_graph(inout self, name: String) -> Graph:
         params = self.model.hyperparams()
-        cache_type = TensorType(
-            DType.float32,
-            "prev_seq_len",
-            params.n_layers,
-            Self.batch_size,
-            params.n_kv_heads,
-            params.head_dim,
+
+        cache_type = OpaqueType(
+            ContiguousKVCacheCollection[DType.float32, kv_params].id()
         )
+
         tokens_type = TensorType(DType.int64, self.batch_size, "seq_len")
-        attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
-        g = Graph(
-            name,
-            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
-        )
+        mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
+        g = Graph(name, List[Type](tokens_type, mask_type, cache_type))
 
         @parameter
         def weight[
@@ -115,19 +117,19 @@ struct Llama2[
             w, _ = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
-        layers = List[TransformerBlock[DType.float32]]()
+        layers = List[KVCacheOptimizedTransformerBlock[kv_params]]()
         for layer in range(params.n_layers):
-            attention = Attention(
+            wq = weight("attn_q", layer)[0]
+            wk = weight("attn_k", layer)[0]
+            wv = weight("attn_v", layer)[0]
+            wqkv = ops.concat(List[Symbol](wq, wk, wv), axis=1)
+            attention = KVCacheOptimizedAttention[kv_params](
                 n_heads=params.n_heads,
-                n_kv_heads=params.n_kv_heads,
-                head_dim=params.head_dim,
                 dim=params.dims,
-                use_custom_attention=True,
-                wq=weight("attn_q", layer),
-                wk=weight("attn_k", layer),
-                wv=weight("attn_v", layer),
+                wqkv=wqkv.swapaxes(0, 1),
                 wo=weight("attn_output", layer),
             )
+
             feed_forward = FeedForward(
                 w1=weight("ffn_gate", layer),
                 w2=weight("ffn_down", layer),
@@ -135,7 +137,7 @@ struct Llama2[
             )
 
             layers.append(
-                TransformerBlock(
+                KVCacheOptimizedTransformerBlock[kv_params](
                     attention=attention,
                     feed_forward=feed_forward,
                     attention_norm=norm("attn_norm", layer),
@@ -144,7 +146,7 @@ struct Llama2[
             )
 
         embedding = Embedding(weight("token_embd", transpose=False))
-        model = Transformer(
+        model = KVCacheOptimizedTransformer[kv_params](
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,
@@ -154,12 +156,9 @@ struct Llama2[
             theta=10000.0,
         )
 
-        # outputs (logits, k_cache, v_cache)
-        outputs = model(
-            tokens=g[0], attention_mask=g[1], k_cache=g[2], v_cache=g[3]
-        )
+        outputs = model(tokens=g[0], mask=g[1], kv_cache=g[2])
         logits = outputs[0]
-        g.output(List(logits[-1, axis=1], outputs[1], outputs[2]))
+        g.output(List[Symbol](logits[-1, axis=1], outputs[1]))
         return g
 
     def hyperparams(self) -> LlamaHParams:

@@ -18,3 +18,8 @@ from .embedding import Embedding
 from .linear import Linear
 from .normalization import RMSNorm
 from .transformer import FeedForward, Transformer, TransformerBlock
+from .kv_attention import KVCacheOptimizedAttention
+from .kv_transformer import (
+    KVCacheOptimizedTransformer,
+    KVCacheOptimizedTransformerBlock,
+)
