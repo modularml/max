@@ -8,5 +8,5 @@ platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
-max = "==2024.8.1905"
+max = "*"
 pip = ">=24.0,<25"
