@@ -323,7 +323,10 @@ def run[
 
 def llama2_run():
     config = Config()
-    encoding = config.get("quantization-encoding")[String]
+    # TODO: Fix Quantization
+    # For now, hardcode to float32
+    # encoding = config.get("quantization-encoding")[String]
+    encoding = Float32Encoding.id()
 
     if not config.get("model-path")[Path]:
         model_path = download_to_cache(get_llama2_model_url(encoding))
