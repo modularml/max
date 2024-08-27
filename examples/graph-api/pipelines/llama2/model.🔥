@@ -32,6 +32,9 @@ from max.serve.kv_cache.types import (
 )
 
 from pipelines.nn import (
+    Attention,
+    Transformer,
+    TransformerBlock,
     Embedding,
     FeedForward,
     RMSNorm,
@@ -55,6 +58,120 @@ def encoding_id_from_ggml_type(ggml_type: GGMLType) -> String:
         return Q6_KEncoding.id()
 
     raise "unknown GGML type:" + str(ggml_type)
+
+
+struct QuantizedLlama2[
+    model_type: LoadableModel,
+    encoding: QuantizationEncoding = Float32Encoding,
+]:
+    alias batch_size = 1
+    var model: model_type
+
+    def __init__(inout self, owned model: model_type):
+        self.model = model^
+
+    def build_graph(inout self, name: String) -> Graph:
+        params = self.hyperparams()
+        cache_type = TensorType(
+            DType.float32,
+            "prev_seq_len",
+            params.n_layers,
+            Self.batch_size,
+            params.n_kv_heads,
+            params.head_dim,
+        )
+        tokens_type = TensorType(DType.int64, self.batch_size, "seq_len")
+        attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
+        g = Graph(
+            name,
+            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
+        )
+
+        @parameter
+        def weight[
+            weight_type: QuantizationEncoding = encoding
+        ](
+            name: String,
+            layer: Optional[Int] = None,
+            # Torch models store weights in a transposed format, and transpose again at use.
+            # The q4_0 format transposes the weights compared with the fp32 formats.
+            transpose: Bool = (weight_type.id() == Float32Encoding.id()),
+        ) -> (Symbol, String):
+            """Stages a constant op according to the quantization encoding."""
+
+            # Set uint8 dtype if quantized and float32 otherwise, since all
+            # quantization encodings currently have uint8 dtype.
+            alias dtype = DType.float32 if weight_type.id() == Float32Encoding.id() else DType.uint8
+
+            weight = g.constant(self.model.get[dtype](name, layer))
+            if transpose:
+                weight = weight.swapaxes(-1, -2)
+
+            if _type_is_eq[model_type, GGUFFile]():
+                # If this is a GGUF file, use the encoding ID from the GGML type.
+                encoding_id = encoding_id_from_ggml_type(
+                    rebind[UnsafePointer[GGUFFile]](
+                        UnsafePointer.address_of(self.model)
+                    )[].ggml_type(name, layer)
+                )
+                return weight, encoding_id
+
+            # Otherwise, default to the parametric encoding `weight_type`.
+            return weight, weight_type.id()
+
+        def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
+            w, _ = weight[Float32Encoding](name, layer, transpose=False)
+            return RMSNorm(params.norm_eps, w)
+
+        layers = List[TransformerBlock[DType.float32]]()
+        for layer in range(params.n_layers):
+            attention = Attention(
+                n_heads=params.n_heads,
+                n_kv_heads=params.n_kv_heads,
+                head_dim=params.head_dim,
+                dim=params.dims,
+                use_custom_attention=True,
+                wq=weight("attn_q", layer),
+                wk=weight("attn_k", layer),
+                wv=weight("attn_v", layer),
+                wo=weight("attn_output", layer),
+            )
+            feed_forward = FeedForward(
+                w1=weight("ffn_gate", layer),
+                w2=weight("ffn_down", layer),
+                w3=weight("ffn_up", layer),
+            )
+
+            layers.append(
+                TransformerBlock(
+                    attention=attention,
+                    feed_forward=feed_forward,
+                    attention_norm=norm("attn_norm", layer),
+                    ffn_norm=norm("ffn_norm", layer),
+                )
+            )
+
+        embedding = Embedding(weight("token_embd", transpose=False))
+        model = Transformer(
+            dim=params.dims,
+            n_heads=params.n_heads,
+            embedding=embedding,
+            layers=layers,
+            norm=norm("output_norm"),
+            output=weight("output"),
+            theta=10000.0,
+        )
+
+        outputs = model(
+            tokens=g[0], attention_mask=g[1], k_cache=g[2], v_cache=g[3]
+        )
+        logits = outputs[0]
+        g.output(List(logits[-1, axis=1], outputs[1], outputs[2]))
+        return g
+
+    def hyperparams(self) -> LlamaHParams:
+        """Returns hyperparameters corresponding to this Llama 2 model."""
+        return self.model.hyperparams()
 
 
 struct Llama2[
