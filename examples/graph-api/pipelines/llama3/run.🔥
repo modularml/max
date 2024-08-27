@@ -281,13 +281,16 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     print("Building model...")
 
     var start_load = perf_counter_ns()
-    if len(config.get("experimental-load-graph")[String]) > 0:
-        print(
-            "Loading graph from ", config.get("experimental-load-graph")[String]
-        )
-        compiled_model = session.load(
-            config.get("experimental-load-graph")[String]
-        )
+    store_mef = True
+    # mef_use_or_gen_path specifies the path that should be used to load
+    # the model if it exists, otherwise the model will be built and then
+    # saved to the specified path.
+    var mef_use_or_gen_path = config.get("mef-use-or-gen-path")[String]
+    if mef_use_or_gen_path != "" and Path(mef_use_or_gen_path).exists():
+        # path is specified and exists, so load it
+        print(", loading from ", mef_use_or_gen_path)
+        compiled_model = session.load(mef_use_or_gen_path)
+        store_mef = False
     else:
         start_build = perf_counter_ns()
         graph = model.build_graph(model_name)
@@ -298,11 +301,10 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
 
     var end_load = perf_counter_ns()
 
-    if len(config.get("experimental-save-graph")[String]) > 0:
-        print("Saving graph to ", config.get("experimental-save-graph")[String])
-        compiled_model.export_compiled_model(
-            config.get("experimental-save-graph")[String]
-        )
+    # if the path is specified and did not exist, write the mef.
+    if mef_use_or_gen_path != "" and store_mef:
+        print("Writing mef to ", mef_use_or_gen_path)
+        compiled_model.export_compiled_model(mef_use_or_gen_path)
 
     metrics.end_timing_startup()
     print(
