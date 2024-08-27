@@ -101,7 +101,8 @@ int main(int argc, char **argv) {
   CHECK(status);
 
   logInfo("Initializing Model");
-  M_AsyncModel *model = M_initModel(context, compiledModel, status);
+  M_AsyncModel *model =
+      M_initModel(context, compiledModel, /*weightsRegistry=*/NULL, status);
   CHECK(status);
 
   logInfo("Waiting for model compilation to finish");
