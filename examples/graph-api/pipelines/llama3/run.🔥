@@ -28,6 +28,7 @@ from max.driver import (
     Tensor,
     cpu_device,
 )
+from max.tensor import TensorShape
 from max.driver._cuda import cuda_device
 from max.graph import Graph
 from max.graph.quantization import (
@@ -127,7 +128,7 @@ def compile_graph(
 def _get_attention_mask(
     prompt_mask: Tensor[DType.bool, 2], n: Int, host_device: Device
 ) -> AnyTensor:
-    mask = Tensor[DType.bool, rank=2]((1, n), host_device)
+    mask = Tensor[DType.bool, rank=2](TensorShape(1, n), host_device)
     memcpy(mask.unsafe_ptr(), prompt_mask.unsafe_ptr(), prompt_mask.spec()[1])
     for i in range(prompt_mask.spec()[1], n):
         mask[0, i] = True
@@ -160,7 +161,9 @@ def generate_text(
 
     # Allocate input & attention mask tensors, then initialize them.
     # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
-    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
+    tokens = Tensor[DType.int64, rank=2](
+        TensorShape(1, padded_size), host_device
+    )
     prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
     for i in range(padded_size):
         tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
@@ -172,7 +175,7 @@ def generate_text(
         print("Warming up pipeline...")
         metrics.begin_timing_warmup()
         warmup_tokens = Tensor[DType.int64, rank=2](
-            (1, padded_size), host_device
+            TensorShape(1, padded_size), host_device
         )
         for i in range(padded_size):
             warmup_tokens[0, i] = tokens[0, i]
@@ -191,8 +194,8 @@ def generate_text(
             warmup_kv_cache.values_view(execution_device),
         )
 
-        warmup_token = Tensor[DType.int64, rank=2]((1, 1))
-        warmup_mask = Tensor[DType.int64, rank=2]((1, 1))
+        warmup_token = Tensor[DType.int64, rank=2](TensorShape(1, 1))
+        warmup_mask = Tensor[DType.int64, rank=2](TensorShape(1, 1))
         warmup_token[0, 0] = Int64(123)
         warmup_mask[0, 0] = True
         _ = compiled_model.execute(
