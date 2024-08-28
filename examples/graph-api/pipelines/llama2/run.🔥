@@ -27,6 +27,7 @@ from max.driver import (
     Tensor,
     cpu_device,
 )
+from max.tensor import TensorShape
 from max.driver._cuda import cuda_device
 from max.graph import Graph
 from max.graph.quantization import (
@@ -137,7 +138,7 @@ def compile_graph(
 def _get_attention_mask(
     prompt_mask: Tensor[DType.bool, 2], n: Int, host_device: Device
 ) -> AnyTensor:
-    mask = Tensor[DType.bool, rank=2]((1, n), host_device)
+    mask = Tensor[DType.bool, rank=2](TensorShape(1, n), host_device)
     memcpy(mask.unsafe_ptr(), prompt_mask.unsafe_ptr(), prompt_mask.spec()[1])
     for i in range(prompt_mask.spec()[1], n):
         mask[0, i] = True
@@ -170,8 +171,12 @@ def _generate_q_text_with_tokenizer[
 
     # Allocate input & attention mask tensors, then initialize them.
     # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
-    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
-    prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
+    tokens = Tensor[DType.int64, rank=2](
+        TensorShape(1, padded_size), host_device
+    )
+    prompt_attn_mask = Tensor[DType.bool, rank=2](
+        TensorShape(1, padded_size), host_device
+    )
     for i in range(padded_size):
         tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
         prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
@@ -212,7 +217,7 @@ def _generate_q_text_with_tokenizer[
         logits_tensor = logits.to_tensor[DType.float32, rank=2]()
         token = Int64(sampler.sample(logits_tensor^).selected)
 
-        tokens = Tensor[DType.int64, rank=2]((1, 1), host_device)
+        tokens = Tensor[DType.int64, rank=2](TensorShape(1, 1), host_device)
         tokens[0, 0] = token
 
         metrics.new_token()
@@ -246,8 +251,12 @@ def _generate_text_with_tokenizer[
 
     # Allocate input & attention mask tensors, then initialize them.
     # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
-    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
-    prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
+    tokens = Tensor[DType.int64, rank=2](
+        TensorShape(1, padded_size), host_device
+    )
+    prompt_attn_mask = Tensor[DType.bool, rank=2](
+        TensorShape(1, padded_size), host_device
+    )
     for i in range(padded_size):
         tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
         prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
