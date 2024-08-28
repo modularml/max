@@ -24,24 +24,21 @@ from max.graph.quantization import (
     QuantizationEncoding,
 )
 from max.tensor import Tensor, TensorShape
-from max.engine import InferenceSession
-from max.graph import _OpaqueType as OpaqueType
 
-from kv_cache.types import (
-    KVCacheLayout,
-    KVCacheStaticParams,
-    ContiguousKVCacheCollection,
+from pipelines.llama2.tokenizer.bpe import BPETokenizer
+from pipelines.llama2.run import (
+    compile_graph,
+    _generate_q_text_with_tokenizer,
+    Config,
 )
-
-from pipelines.llama2.run import compile_graph, generate_text, Config
 from pipelines.llama3.metrics import Metrics
 from pipelines.nn import (
     Embedding,
     FeedForward,
     RMSNorm,
-    KVCacheOptimizedTransformerBlock,
-    KVCacheOptimizedTransformer,
-    KVCacheOptimizedAttention,
+    Attention,
+    TransformerBlock,
+    Transformer,
 )
 from pipelines.weights.download import download_to_cache
 from pipelines.weights.llama2checkpoint import LlamaCFile
@@ -85,7 +82,6 @@ def add_hyperparams_to_dict(
 
 
 struct TeenyTinyLlama[
-    kv_params: KVCacheStaticParams,
     encoding: QuantizationEncoding,
 ]:
     """Builder for a teeny tiny Llama 2 model trained on TinyStories."""
@@ -116,15 +112,19 @@ struct TeenyTinyLlama[
         """Build the Llama 2 graph, quantizing its weights by construction."""
         # Set the KV cache and tokens input types.
         params = self.params_file.hyperparams()
-        cache_type = OpaqueType(
-            ContiguousKVCacheCollection[DType.float32, kv_params].id()
+        cache_type = TensorType(
+            DType.float32,
+            "prev_seq_len",
+            params.n_layers,
+            Self.batch_size,
+            params.n_kv_heads,
+            params.head_dim,
         )
-
         tokens_type = TensorType(DType.int64, Self.batch_size, "seq_len")
         attn_mask_type = TensorType(DType.bool, self.batch_size, "full_seq_len")
         g = Graph(
             "TeenyTinyLlama",
-            List[Type](tokens_type, attn_mask_type, cache_type),
+            List[Type](tokens_type, attn_mask_type, cache_type, cache_type),
         )
 
         @parameter
@@ -174,7 +174,7 @@ struct TeenyTinyLlama[
             return RMSNorm(params.norm_eps, w)
 
         # Stage all of the transformer blocks in the stories15M Llama.
-        layers = List[KVCacheOptimizedTransformerBlock[kv_params]]()
+        layers = List[TransformerBlock[DType.float32]]()
         for layer in range(self.hyperparams.n_layers):
             # Stage a transformer block with quantized weights.
             # Read in float32 weights and quantize them before staging the op.
@@ -187,14 +187,15 @@ struct TeenyTinyLlama[
             # Setting wq/wk/wv to just use the Symbol, will compile
             # and return nans at the kernel level.
             # TODO: MSDK-842 is filed to build a workaround
-            wq = quantize("attn_q", layer)[0]
-            wk = quantize("attn_k", layer)[0]
-            wv = quantize("attn_v", layer)[0]
-            wqkv = ops.concat(List[Symbol](wq, wk, wv), axis=1)
-            attention = KVCacheOptimizedAttention[kv_params](
+            attention = Attention(
                 n_heads=params.n_heads,
+                n_kv_heads=params.n_kv_heads,
+                head_dim=params.head_dim,
                 dim=params.dims,
-                wqkv=wqkv.swapaxes(0, 1),
+                use_custom_attention=True,
+                wq=quantize("attn_q", layer),
+                wk=quantize("attn_k", layer),
+                wv=quantize("attn_v", layer),
                 wo=quantize("attn_output", layer),
             )
 
@@ -205,7 +206,7 @@ struct TeenyTinyLlama[
             )
 
             layers.append(
-                KVCacheOptimizedTransformerBlock[kv_params](
+                TransformerBlock(
                     attention=attention,
                     feed_forward=feed_forward,
                     attention_norm=norm("attn_norm", layer),
@@ -215,7 +216,7 @@ struct TeenyTinyLlama[
 
         # Stage the Llama 2 transformer model.
         embedding = Embedding(quantize("token_embd"))
-        model = KVCacheOptimizedTransformer[kv_params](
+        model = Transformer(
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,
@@ -225,9 +226,11 @@ struct TeenyTinyLlama[
             theta=10000.0,
         )
 
-        outputs = model(tokens=g[0], mask=g[1], kv_cache=g[2])
+        outputs = model(
+            tokens=g[0], attention_mask=g[1], k_cache=g[2], v_cache=g[3]
+        )
         logits = outputs[0]
-        g.output(List[Symbol](logits[-1, axis=1], outputs[1]))
+        g.output(List[Symbol](logits[-1, axis=1], outputs[1], outputs[2]))
         return g
 
 
@@ -243,35 +246,38 @@ def quantize_and_save_tinystories(checkpoint_path: Path):
     )
 
     # Stage the Llama model graph.
-    alias layout = KVCacheLayout.BHSD
-    alias kv_params = KVCacheStaticParams(
-        num_heads=6, head_size=48, layout=layout
-    )
-    llama_builder = TeenyTinyLlama[kv_params, Q4_0Encoding](model_path)
-    llama = llama_builder.build()
+    model = TeenyTinyLlama[Q4_0Encoding](model_path)
+    graph = model.build()
 
     save(
-        llama_builder.quantized_params,
+        model.quantized_params,
         checkpoint_path,
     )
+
+    params = model.hyperparams
 
     # Generate text using the quantized Llama model and the provided prompt.
     metrics = Metrics()
 
-    session = InferenceSession()
+    execution_device = cpu_device()
 
     config = Config()
     config.set("tokenizer-path", tokenizer_path)
     config.set("model-path", model_path)
-    execution_device = cpu_device()
-    generate_text[layout](
-        compile_graph(
-            llama, execution_device, config.get("custom-ops-path")[List[Path]]
-        ),
-        llama_builder.hyperparams,
-        config=config,
-        metrics=metrics,
-        execution_device=cpu_device(),
+
+    compiled_model = compile_graph(
+        graph, execution_device, config.get("custom-ops-path")[List[Path]]
     )
+
+    mojo_tokenizer = BPETokenizer.from_file(config.get("tokenizer-path")[Path])
+    _generate_q_text_with_tokenizer[BPETokenizer](
+        mojo_tokenizer,
+        compiled_model,
+        params,
+        config=config,
+        execution_device=execution_device,
+        metrics=metrics,
+    )
+
     print()
     metrics.print()
