@@ -92,6 +92,7 @@ def softmax(logits):
 model_state = st.empty()
 
 mlm = st.sidebar.checkbox("Masked Language Model", True)
+show_predictions = st.sidebar.checkbox("Show top 5 predictions", True)
 filename = "bert.torchscript"
 if mlm:
     filename = "bert-mlm.torchscript"
@@ -102,7 +103,6 @@ model_path = st.sidebar.text_input(
 batch = st.sidebar.number_input("Batch Size", 1, 64)
 seq_len = st.sidebar.slider("Sequence Length", 128, 1024)
 input_text = st.text_input("Text Input", "Don't [MASK] about it")
-show_predictions = st.sidebar.checkbox("Show top 5 predictions")
 
 compile_torchscript(batch, seq_len, mlm)
 

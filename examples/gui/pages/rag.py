@@ -10,16 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from pathlib import Path
 import os
 import subprocess
+from pathlib import Path
 
+import chromadb
 import openai
 import streamlit as st
-import chromadb
 from fastembed import TextEmbedding
 from llama_index.core import SimpleDirectoryReader
-
 from shared import download_file, kill_process, menu, modular_cache_dir
 
 st.set_page_config("RAG with Llama3", page_icon="🗣️ 📄")
@@ -153,11 +152,11 @@ quantization = st.sidebar.selectbox(
 )
 
 if quantization == "q4_0":
-    model_url = "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF/resolve/main/Meta-Llama-3-8B.Q4_0.gguf"
+    model_url = "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct.Q4_0.gguf"
 elif quantization == "q4_k":
-    model_url = "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf"
+    model_url = "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
 elif quantization == "q6_k":
-    model_url = "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf"
+    model_url = "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q6_K.gguf"
 
 model_url = st.sidebar.text_input("Model URL", value=model_url)
 os.makedirs(modular_cache_dir(), exist_ok=True)
