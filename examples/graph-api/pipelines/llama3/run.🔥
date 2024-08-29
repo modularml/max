@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from collections import Dict
+from collections import Dict, List
 import sys
 from math import align_up
 from memory import memcpy
@@ -27,6 +27,7 @@ from max.driver import (
     Device,
     Tensor,
     cpu_device,
+    AnyMojoValue,
 )
 from max.tensor import TensorShape
 from max.driver._cuda import cuda_device
@@ -39,10 +40,18 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
-
+from max.serve.kv_cache.types import ContiguousKVCacheManager
 from .kv_cache import KVCache
+from kv_cache.types import (
+    ContiguousKVCache,
+    ContiguousKVCacheCollection,
+    KVCacheStaticParams,
+    KVCacheLayout,
+)
+
 from .metrics import Metrics
 from .model.llama import Llama3
+from .model.llama import Llama3_NaiveKVCache
 from ..tokenizer.tiktoken import TikTokenEncoder
 from ..tokenizer.regex import set_locale_unicode
 from ..configs.common import get_max_tokens_to_generate
@@ -135,7 +144,81 @@ def _get_attention_mask(
     return mask
 
 
-def generate_text(
+def _generation_loop[
+    kv_params: KVCacheStaticParams
+](
+    inout kv_manager: ContiguousKVCacheManager,
+    inout metrics: Metrics,
+    compiled_model: Model,
+    sampler: WeightedSampler,
+    tokenizer: TikTokenEncoder,
+    prompt: List[Int64],
+    config: Config,
+    host_device: Device,
+    execution_device: Device,
+    new_tokens: Int,
+    padded_size: Int,
+    is_warmup: Bool,
+):
+    n_pad_tokens = padded_size - prompt.size
+
+    # Allocate input & attention mask tensors, then initialize them.
+    # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
+    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
+    prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
+    for i in range(padded_size):
+        tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
+        prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
+
+    kv_collection = kv_manager.claim(config.get("batch-size")[Int])
+    for i in range(padded_size, new_tokens + 1):
+        tokens_shape = tokens._spec.shape
+        if i == padded_size:
+            valid_lengths = List[Int](padded_size)
+        else:
+            valid_lengths = List[Int](1)
+
+        # Update Mask
+        mask = Tensor[DType.bool, rank=2]((1, i), host_device)
+        memcpy(
+            mask.unsafe_ptr(),
+            prompt_attn_mask.unsafe_ptr(),
+            prompt_attn_mask.spec()[1],
+        )
+        for j in range(prompt_attn_mask.spec()[1], i):
+            mask[0, j] = True
+
+        result = compiled_model.execute(
+            tokens.move_to(execution_device),
+            mask.move_to(execution_device),
+            AnyMojoValue(kv_collection^),
+        )
+
+        logits = (
+            result[0]
+            .take()
+            .to_device_tensor()
+            .move_to(host_device)
+            .to_tensor[DType.float32, 2]()
+        )
+
+        kv_collection = result[1].take().to[kv_manager.CollectionType]()
+
+        kv_manager.step(valid_lengths, kv_collection)
+
+        token = SIMD[DType.int64, 1](sampler.sample(logits).selected)
+        tokens = Tensor[DType.int64, rank=2]((1, 1), host_device)
+        tokens[0, 0] = token
+
+        if not is_warmup:
+            metrics.new_token()
+            print(tokenizer.decode(token), end="")
+
+    for seq_id in kv_collection.get_seq_ids():
+        kv_manager.release(seq_id[])
+
+
+def generate_text_naive(
     tokenizer: TikTokenEncoder,
     compiled_model: Model,
     params: LlamaHParams,
@@ -161,9 +244,7 @@ def generate_text(
 
     # Allocate input & attention mask tensors, then initialize them.
     # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
-    tokens = Tensor[DType.int64, rank=2](
-        TensorShape(1, padded_size), host_device
-    )
+    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
     prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
     for i in range(padded_size):
         tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
@@ -175,7 +256,7 @@ def generate_text(
         print("Warming up pipeline...")
         metrics.begin_timing_warmup()
         warmup_tokens = Tensor[DType.int64, rank=2](
-            TensorShape(1, padded_size), host_device
+            (1, padded_size), host_device
         )
         for i in range(padded_size):
             warmup_tokens[0, i] = tokens[0, i]
@@ -194,8 +275,8 @@ def generate_text(
             warmup_kv_cache.values_view(execution_device),
         )
 
-        warmup_token = Tensor[DType.int64, rank=2](TensorShape(1, 1))
-        warmup_mask = Tensor[DType.int64, rank=2](TensorShape(1, 1))
+        warmup_token = Tensor[DType.int64, rank=2]((1, 1), host_device)
+        warmup_mask = Tensor[DType.int64, rank=2]((1, 1), host_device)
         warmup_token[0, 0] = Int64(123)
         warmup_mask[0, 0] = True
         _ = compiled_model.execute(
@@ -254,13 +335,107 @@ def generate_text(
     metrics.end_timing()
 
 
-def run[encoding: QuantizationEncoding](config: Config) -> None:
+def generate_text[
+    kv_params: KVCacheStaticParams
+](
+    tokenizer: TikTokenEncoder,
+    compiled_model: Model,
+    params: LlamaHParams,
+    config: Config,
+    inout metrics: Metrics,
+    execution_device: Device,
+    use_gpu: Bool,
+):
+    """Generates text by applying the compiled model to the provided prompt."""
+
+    host_device = cpu_device() if use_gpu else execution_device
+
+    metrics.begin_timing_prompt()
+
+    prompt = tokenizer.encode(config.get("prompt")[String])
+    sampler = WeightedSampler(
+        config.get("temperature")[Float64].cast[DType.float32](),
+        config.get("min-p")[Float64].cast[DType.float32](),
+    )
+
+    padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
+    metrics.set_tokens_in_prompt(padded_size)
+
+    max_tokens = get_max_tokens_to_generate(
+        padded_size,
+        config.get("max-length")[Int],
+        config.get("max-new-tokens")[Int],
+    )
+
+    kv_manager = ContiguousKVCacheManager[DType.float32, kv_params](
+        config.get("batch-size")[Int],
+        config.get("max-length")[Int],
+        params.n_layers,
+        execution_device,
+        host_device,
+    )
+
+    # If a pipeline warmup is needed, create a throwaway KV cache and generate
+    # a single output token from the model to exercise the graph.
+    # TODO temporarily removing warmup for debug cycles
+    if config.get("warmup-pipeline")[Bool]:
+        print("Warming up pipeline...")
+        metrics.begin_timing_warmup()
+        _generation_loop[kv_params](
+            kv_manager,
+            metrics,
+            compiled_model,
+            sampler,
+            tokenizer,
+            prompt,
+            config,
+            host_device,
+            execution_device,
+            padded_size + 2,
+            padded_size,
+            is_warmup=True,
+        )
+        metrics.end_timing_warmup()
+
+    print("Executing...")
+    for token in prompt:
+        print(tokenizer.decode(token[]), end="")
+
+    # The first iteration caches the entire prompt and all subsequent
+    # iterations generate one token.
+    # Avoid overrunning the cache by setting the trip count accordingly.
+    metrics.begin_timing_generation()
+
+    _generation_loop[kv_params](
+        kv_manager,
+        metrics,
+        compiled_model,
+        sampler,
+        tokenizer,
+        prompt,
+        config,
+        host_device,
+        execution_device,
+        max_tokens,
+        padded_size,
+        is_warmup=False,
+    )
+
+    print()
+    metrics.end_timing()
+
+    _ = kv_manager^
+
+
+def run[
+    kv_params: KVCacheStaticParams, encoding: QuantizationEncoding
+](config: Config) -> None:
     if config.get("prompt")[String] == "I believe the meaning of life is":
         print("Using default prompt, provide an argument to change it:")
         print('    --prompt "Hello llama3"')
     metrics = Metrics()
     metrics.begin_timing_startup()
-    model = Llama3[encoding](config.get("model-path")[Path])
+    model = Llama3[kv_params, encoding](config.get("model-path")[Path])
     params = model.hyperparams()
 
     print("Loading tokenizer...")
@@ -319,7 +494,7 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
         " ms",
     )
 
-    generate_text(
+    generate_text[kv_params](
         tokenizer,
         compiled_model,
         params,
@@ -332,10 +507,85 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
     metrics.print()
 
 
-def llama3_run():
-    set_locale_unicode()
+def run_naive[encoding: QuantizationEncoding](config: Config) -> None:
+    if config.get("prompt")[String] == "I believe the meaning of life is":
+        print("Using default prompt, provide an argument to change it:")
+        print('    --prompt "Hello llama3"')
+    metrics = Metrics()
+    metrics.begin_timing_startup()
+    model = Llama3_NaiveKVCache[encoding](config.get("model-path")[Path])
+    params = model.hyperparams()
 
-    config = Config()
+    print("Loading tokenizer...")
+    tokenizer = TikTokenEncoder.cl100k_base_llama3(
+        model.model["tokenizer.ggml.tokens"]._value.unsafe_get[GGUFArray]()[]
+    )
+
+    if config.get("version")[String] == "3.0":
+        model_name = "llama3"
+    else:
+        model_name = "llama3_1"
+
+    use_gpu = config.get("experimental-use-gpu")[Bool]
+
+    execution_device = cuda_device() if use_gpu else cpu_device()
+    session_options = SessionOptions(execution_device)
+    session = InferenceSession(session_options)
+
+    var start_build = 0
+    var end_build = 0
+    print("Building model...")
+
+    var start_load = perf_counter_ns()
+    store_mef = True
+    # mef_use_or_gen_path specifies the path that should be used to load
+    # the model if it exists, otherwise the model will be built and then
+    # saved to the specified path.
+    var mef_use_or_gen_path = config.get("mef-use-or-gen-path")[String]
+    if mef_use_or_gen_path != "" and Path(mef_use_or_gen_path).exists():
+        # path is specified and exists, so load it
+        print(", loading from ", mef_use_or_gen_path)
+        compiled_model = session.load(mef_use_or_gen_path)
+        store_mef = False
+    else:
+        start_build = perf_counter_ns()
+        graph = model.build_graph(model_name)
+        end_build = perf_counter_ns()
+        compiled_model = compile_graph(
+            session, graph, config.get("custom-ops-path")[List[Path]]
+        )
+
+    var end_load = perf_counter_ns()
+
+    # if the path is specified and did not exist, write the mef.
+    if mef_use_or_gen_path != "" and store_mef:
+        print("Writing mef to ", mef_use_or_gen_path)
+        compiled_model.export_compiled_model(mef_use_or_gen_path)
+
+    metrics.end_timing_startup()
+    print(
+        "Build graph time, ",
+        (end_build - start_build) / 1_000_000,
+        " ms",
+        "Load/compile model, ",
+        (end_load - start_load) / 1_000_000,
+        " ms",
+    )
+
+    generate_text_naive(
+        tokenizer,
+        compiled_model,
+        params,
+        config,
+        metrics,
+        execution_device,
+        use_gpu,
+    )
+    print()
+    metrics.print()
+
+
+def run_dispatch[kv_params: KVCacheStaticParams](config: Config):
     encoding = config.get("quantization-encoding")[String]
 
     if not config.get("model-path")[Path]:
@@ -346,14 +596,36 @@ def llama3_run():
         config.set("model-path", model_path)
 
     if encoding == Q4_0Encoding.id():
-        run[Q4_0Encoding](config)
+        run_naive[Q4_0Encoding](config)
     elif encoding == Q4_KEncoding.id():
-        run[Q4_KEncoding](config)
+        run_naive[Q4_KEncoding](config)
     elif encoding == Q6_KEncoding.id():
-        run[Q6_KEncoding](config)
+        run_naive[Q6_KEncoding](config)
     elif encoding == BFloat16Encoding.id():
-        run[BFloat16Encoding](config)
+        run[kv_params, BFloat16Encoding](config)
     elif encoding == Float32Encoding.id():
-        run[Float32Encoding](config)
+        run[
+            kv_params,
+            Float32Encoding,
+        ](config)
     else:
         raise "--quantization-encoding " + encoding + " not supported"
+
+
+def llama3_run():
+    set_locale_unicode()
+
+    config = Config()
+    if config.get("experimental-use-gpu")[Bool]:
+        run_dispatch[
+            KVCacheStaticParams(
+                num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
+            )
+        ](config)
+
+    else:
+        run_dispatch[
+            KVCacheStaticParams(
+                num_heads=8, head_size=128, layout=KVCacheLayout.BHSD
+            )
+        ](config)

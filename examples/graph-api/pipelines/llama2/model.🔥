@@ -271,6 +271,7 @@ struct Llama2[
             norm=norm("output_norm"),
             output=weight("output"),
             theta=10000.0,
+            rope_scaling=None,
         )
 
         outputs = model(tokens=g[0], mask=g[1], kv_cache=g[2])

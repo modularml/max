@@ -224,6 +224,7 @@ struct TeenyTinyLlama[
             norm=norm("output_norm"),
             output=quantize("token_embd"),
             theta=10000.0,
+            rope_scaling=None,
         )
 
         outputs = model(

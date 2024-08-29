@@ -24,8 +24,9 @@ from max.graph.quantization import QuantizationEncoding
 from max.serve.http import PythonServer, PythonService
 from max.tensor import TensorShape, TensorSpec
 
+from kv_cache.types import KVCacheLayout, KVCacheStaticParams
 from .kv_cache import KVCache
-from .model.llama import Llama3
+from .model.llama import Llama3, Llama3_NaiveKVCache
 from ..tokenizer.tiktoken import TikTokenEncoder
 from ..tokenizer.bpe import TokenWithID
 from ..tokenizer.regex import set_locale_unicode
@@ -54,6 +55,7 @@ from .run import (
 
 
 struct Llama3InferenceService[
+    kv_params: KVCacheStaticParams,
     EncodingT: QuantizationEncoding,
 ](PythonService):
     """Inference service for Llama3."""
@@ -62,7 +64,7 @@ struct Llama3InferenceService[
     var _tokenizer: TikTokenEncoder
     var _session: InferenceSession
 
-    var _model: Llama3[EncodingT]
+    var _model: Llama3_NaiveKVCache[EncodingT]
     var _compiled_model: Model
 
     var _json_module: PythonObject
@@ -73,7 +75,9 @@ struct Llama3InferenceService[
     ) raises:
         self._config = config^
         self._json_module = Python.import_module("json")
-        self._model = Llama3[EncodingT](self._config.get("model-path")[Path])
+        self._model = Llama3_NaiveKVCache[EncodingT](
+            self._config.get("model-path")[Path]
+        )
 
         print("Loading tokenizer...")
         self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
@@ -262,17 +266,19 @@ struct Llama3InferenceService[
             handler.wfile.write(json_str)
 
 
-def serve[EncodingT: QuantizationEncoding](config: Config) -> None:
-    service = Llama3InferenceService[EncodingT](config)
+def serve[
+    layout: KVCacheLayout, EncodingT: QuantizationEncoding
+](config: Config) -> None:
+    alias kv_params = KVCacheStaticParams(
+        num_heads=8, head_size=128, layout=layout
+    )
+    service = Llama3InferenceService[kv_params, EncodingT](config)
     server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
     server.serve(service)
 
 
-def llama3_serve():
-    set_locale_unicode()
-
-    config = Config()
+def llama3_serve_dispatch[layout: KVCacheLayout](config: Config):
     encoding = config.get("quantization-encoding")[String]
 
     if not config.get("model-path")[Path]:
@@ -283,14 +289,24 @@ def llama3_serve():
         config.set("model-path", model_path)
 
     if encoding == Q4_0Encoding.id():
-        serve[Q4_0Encoding](config)
+        serve[layout, Q4_0Encoding](config)
     elif encoding == Q4_KEncoding.id():
-        serve[Q4_KEncoding](config)
+        serve[layout, Q4_KEncoding](config)
     elif encoding == Q6_KEncoding.id():
-        serve[Q6_KEncoding](config)
+        serve[layout, Q6_KEncoding](config)
     elif encoding == BFloat16Encoding.id():
-        serve[BFloat16Encoding](config)
+        serve[layout, BFloat16Encoding](config)
     elif encoding == Float32Encoding.id():
-        serve[Float32Encoding](config)
+        serve[layout, Float32Encoding](config)
     else:
         raise "--quantization-encoding " + encoding + " not supported"
+
+
+def llama3_serve():
+    set_locale_unicode()
+
+    config = Config()
+    if config.get("experimental-use-gpu")[Bool]:
+        llama3_serve_dispatch[KVCacheLayout.BSHD](config)
+    else:
+        llama3_serve_dispatch[KVCacheLayout.BHSD](config)
