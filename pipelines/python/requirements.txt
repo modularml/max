@@ -1,0 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+click >= 8.1.7
+gguf >= 0.10.0
+sentencepiece >= 0.2.0
+requests >= 2.32.3
+tokenizers >= 0.19.1
+transformers >= 4.44.2
