@@ -14,10 +14,10 @@
 from python import Python, PythonObject
 from utils.index import Index
 from pathlib import Path
+from math import align_up
 
 from max.engine import InferenceSession, Model, SessionOptions
 from max.driver import cpu_device, Tensor
-from max.driver._cuda import cuda_device
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import QuantizationEncoding
@@ -49,6 +49,7 @@ from .run import (
     compile_graph,
     get_max_tokens_to_generate,
     compile_graph,
+    _get_attention_mask,
 )
 
 
@@ -62,7 +63,6 @@ struct Llama3InferenceService[
     var _session: InferenceSession
 
     var _model: Llama3[EncodingT]
-    var _graph: Graph
     var _compiled_model: Model
 
     var _json_module: PythonObject
@@ -87,17 +87,11 @@ struct Llama3InferenceService[
             model_name = "llama3"
         else:
             model_name = "llama3_1"
-        self._graph = self._model.build_graph(model_name)
-        var session_options = SessionOptions(
-            cuda_device() if self._config.get("experimental-use-gpu")[
-                Bool
-            ] else cpu_device()
-        )
-        self._session = InferenceSession(session_options)
+        self._session = InferenceSession(SessionOptions(cpu_device()))
 
         self._compiled_model = compile_graph(
             self._session,
-            self._graph,
+            self._model.build_graph(model_name),
             self._config.get("custom-ops-path")[List[Path]],
         )
 
@@ -109,16 +103,14 @@ struct Llama3InferenceService[
             handler.end_headers()
             return
 
-        # TODO: Support GPU workflow in the serving case.
-        var use_gpu = self._config.get("experimental-use-gpu")[Bool]
-        var cpu_device = cpu_device()
+        cpu_device = cpu_device()
 
-        var stream = False
+        stream = False
         if body.get("stream") is not None and body["stream"]:
             stream = True
 
         # Tokenize prompt and message contents.
-        var prompt = List[Int64](
+        prompt = List[Int64](
             self._tokenizer.encode_special("<|begin_of_text|>")
         )
 
@@ -139,13 +131,25 @@ struct Llama3InferenceService[
         prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
         prompt += self._tokenizer.encode(String("\n"), bos=None)
 
-        var sampler = WeightedSampler(
+        sampler = WeightedSampler(
             self._config.get("temperature")[Float64].cast[DType.float32](),
             self._config.get("min-p")[Float64].cast[DType.float32](),
         )
-        var tokens = Tensor[DType.int64, rank=2]((1, len(prompt)), cpu_device)
-        for i in range(len(prompt)):
-            tokens[0, i] = prompt[i]
+
+        padded_size = align_up(
+            prompt.size, self._config.get("pad-to-multiple-of")[Int]
+        )
+        n_pad_tokens = padded_size - prompt.size
+
+        tokens = Tensor[DType.int64, rank=2](
+            TensorShape(1, padded_size), cpu_device
+        )
+        prompt_attn_mask = Tensor[DType.bool, rank=2](
+            (1, padded_size), cpu_device
+        )
+        for i in range(padded_size):
+            tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
+            prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
 
         print("--Prompt Received--")
         for token in prompt:
@@ -153,15 +157,15 @@ struct Llama3InferenceService[
 
         print("Executing...")
 
-        var kv_cache = KVCache(
+        kv_cache = KVCache(
             self._model.model.hyperparams(),
             self._config.get("max-length")[Int],
             self._config.get("batch-size")[Int],
             cpu_device,
         )
 
-        var max_tokens = get_max_tokens_to_generate(
-            prompt.size,
+        max_tokens = get_max_tokens_to_generate(
+            padded_size,
             self._config.get("max-length")[Int],
             self._config.get("max-new-tokens")[Int],
         )
@@ -174,21 +178,24 @@ struct Llama3InferenceService[
         # The first iteration caches the entire prompt and all subsequent
         # iterations generate one token.
         # Avoid overrunning the cache by setting the trip count accordingly.
-        var outputs = List[String]()
+        outputs = List[String]()
 
-        for _ in range(prompt.size, max_tokens + 1):
-            var results = self._compiled_model.execute(
-                tokens^,
+        for i in range(padded_size, max_tokens + 1):
+            results = self._compiled_model.execute(
+                tokens.to_device_tensor().move_to(cpu_device),
+                _get_attention_mask(prompt_attn_mask, i, cpu_device)
+                .to_device_tensor()
+                .move_to(cpu_device),
                 kv_cache.keys_view(cpu_device),
                 kv_cache.values_view(cpu_device),
             )
 
             kv_cache.update(results[1].take(), results[2].take())
 
-            var logits = results[0].take().to_device_tensor()
+            logits = results[0].take().to_device_tensor()
             logits = logits.move_to(cpu_device)
-            var logits_tensor = logits.to_tensor[DType.float32, rank=2]()
-            var token = Int64(sampler.sample(logits_tensor^).selected)
+            logits_tensor = logits.to_tensor[DType.float32, rank=2]()
+            token = Int64(sampler.sample(logits_tensor^).selected)
 
             tokens = Tensor[DType.int64, rank=2]((1, 1), cpu_device)
             tokens[0, 0] = token
@@ -198,7 +205,7 @@ struct Llama3InferenceService[
                 break
 
             # HACK: Check after decoding the token.
-            var next_token = self._tokenizer.decode(Int64(token))
+            next_token = self._tokenizer.decode(Int64(token))
             if next_token == "<|eot_id|>":
                 break
 
@@ -206,17 +213,17 @@ struct Llama3InferenceService[
                 outputs.append(next_token)
             else:
                 # Write chunk response if streaming.
-                var chunk = Python.dict()
-                var choices = Python.list()
-                var choice = Python.dict()
-                var delta = Python.dict()
+                chunk = Python.dict()
+                choices = Python.list()
+                choice = Python.dict()
+                delta = Python.dict()
                 delta["content"] = next_token
                 choice["delta"] = delta
                 choices.append(choice)
                 chunk["choices"] = choices
                 chunk["object"] = "chat.completion.chunk"
 
-                var json_str = self._json_module.dumps(chunk).encode(
+                json_str = self._json_module.dumps(chunk).encode(
                     encoding="utf_8"
                 )
                 try:
@@ -232,24 +239,22 @@ struct Llama3InferenceService[
             handler.wfile.write(PythonObject("data: [DONE]\n").encode("utf-8"))
             handler.wfile.flush()
         else:
-            var raw_message: String = ""
+            raw_message = String()
             for output in outputs:
                 raw_message += output[]
 
-            var choice = Python.dict()
-            var message = Python.dict()
+            choice = Python.dict()
+            message = Python.dict()
             message["role"] = "assistant"
             message["content"] = raw_message
             choice["index"] = 0
             choice["message"] = message
 
-            var choices = Python.list()
+            choices = Python.list()
             choices.append(choice)
-            var resp = Python.dict()
+            resp = Python.dict()
             resp["choices"] = choices
-            var json_str = self._json_module.dumps(resp).encode(
-                encoding="utf_8"
-            )
+            json_str = self._json_module.dumps(resp).encode(encoding="utf_8")
             handler.send_response(200)
             handler.send_header("Content-type", "text/json")
             handler.end_headers()
