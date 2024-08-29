@@ -9,8 +9,39 @@ within MAX.
 
 End-to-end pipelines that demonstrate the power of
 [MAX](https://docs.modular.com/max/) for accelerating common AI workloads, and
-more. A common Mojo driver file for executing these pipelines is found in this
-directory and can be invoked in a manner similar to the following:
+more.
+
+We created a common Mojo driver file to execute these pipelines and you can
+use it to execute the pipelines as follows.
+
+### Magic instructions
+
+If you have [`magic`](https://docs.modular.com/magic), you can run the
+following commands:
+
+```sh
+magic run llama2 --prompt "what is the meaning of life"
+magic run llama3 --prompt "what is the meaning of life"
+magic run quantize-tinystories --prompt "what is the meaning of life"
+magic run replit --prompt "what is the meaning of life"
+magic run basic
+magic run mojo run_pipeline.🔥 [pipeline] [options]
+```
+
+### Conda instructions
+
+```sh
+# Create a Conda environment if you don't have one
+conda create -n max-repo
+# Update the environment with the environment.yml file
+conda env update -n max-repo -f environment.yml --prune
+# Run the example
+conda activate max-repo
+
+mojo run_pipeline.🔥 [pipeline] [options] mojo run_pipeline.🔥 [pipeline] [options]
+
+conda deactivate
+```
 
 ```shell
 mojo run_pipeline.🔥 [pipeline] [options]
