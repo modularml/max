@@ -29,10 +29,10 @@ from pipelines.nn.attention import rope
 
 
 @value
-struct KVCacheOptimizedAttention[kv_params: KVCacheStaticParams]:
+struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
     """Attention block that supports the specialized ContiguousKVCache type."""
 
-    alias _kernel_names = _kv_cache_kernel_names[DType.float32, kv_params]()
+    alias _kernel_names = _kv_cache_kernel_names[type, kv_params]()
 
     # hyperparams
     var n_heads: Int
@@ -68,18 +68,14 @@ struct KVCacheOptimizedAttention[kv_params: KVCacheStaticParams]:
 
         # extract shape characteristics of the input
         batch_size, seq_len = input.shape()[0], input.shape()[1]
-        head_dim = g.scalar[DType.float32](kv_params.head_size)
+        head_dim = g.scalar[type](kv_params.head_size)
 
         # define opaque types for custom op outputs
         # TODO give these guys actual values for num_kv_head and head_size
         # We only use these types to get `id()`, and the actual value of this
         # string is not used.
-        var k_cache_type = OpaqueType(
-            ContiguousKVCache[DType.float32, kv_params].id()
-        )
-        var v_cache_type = OpaqueType(
-            ContiguousKVCache[DType.float32, kv_params].id()
-        )
+        var k_cache_type = OpaqueType(ContiguousKVCache[type, kv_params].id())
+        var v_cache_type = OpaqueType(ContiguousKVCache[type, kv_params].id())
 
         # reshape our rope positional frequencies
         f_shape = ops.shape_of(freqs_cis)
@@ -106,9 +102,7 @@ struct KVCacheOptimizedAttention[kv_params: KVCacheStaticParams]:
 
         # do flash attention
         seq_len_sym = ops.shape_of(input)[1]
-        var attn_mask = attention_mask(
-            mask, start_pos, seq_len_sym, DType.float32
-        )
+        var attn_mask = attention_mask[type](mask, start_pos, seq_len_sym, type)
         var output_type = xq.type()
         attn_out = ops.custom[self._kernel_names.flash_attention_kernel](
             List[Symbol](xq, k_cache, v_cache, attn_mask, ops.rsqrt(head_dim)),
@@ -127,7 +121,9 @@ struct KVCacheOptimizedAttention[kv_params: KVCacheStaticParams]:
         return attn_out @ self.wo, k_cache, v_cache
 
 
-def attention_mask(
+def attention_mask[
+    type: DType
+](
     mask: Symbol, start_pos: Symbol, seq_len: Symbol, activation_dtype: DType
 ) -> Symbol:
     g = start_pos.graph()
@@ -141,11 +137,11 @@ def attention_mask(
         g.op(
             "rmo.mo.broadcast_to",
             List(
-                g.scalar(-10000, DType.float32),
+                g.scalar(-10000, activation_dtype),
                 ops.stack(List[Symbol](seq_len, seq_len)),
             ),
             TensorType(
-                DType.float32,
+                activation_dtype,
                 "seq_len",
                 "seq_len",
             ),
@@ -194,6 +190,6 @@ def attention_mask(
         TensorType(DType.bool, "seq_len", full_seq_len),
     )
 
-    y = g.full[DType.float32](-10000.0, x.shape())
+    y = g.full[type](-10000.0, x.shape())
 
     return ops.select(select_mask, x, y)
