@@ -93,9 +93,9 @@ python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engi
 
 in your local python environment. Note that `max` can also be available in your `PATH`
 
-### MAX Serving Docker Container
+### Docker Container
 
-For MAX Serving, you can pull our Docker Container from the the public ECR here:
+To deploy MAX on AWS, you can pull our Docker Container from the the public ECR here:
 [https://gallery.ecr.aws/modular/max-serving](https://gallery.ecr.aws/modular/max-serving)
 
 ```public.ecr.aws/modular/max-serving```
