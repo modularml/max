@@ -1,3 +1,3 @@
-.pixi
 app.log
-*.lock
+magic.lock
+.magic
