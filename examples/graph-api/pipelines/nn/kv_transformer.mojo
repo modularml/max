@@ -10,6 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+from collections import Optional
+
 from max.graph import ops, Symbol, _OpaqueType, TensorType, Type, Dim
 from max.graph.quantization import Float32Encoding, QuantizationEncoding
 from max.tensor import Tensor, TensorShape
@@ -177,6 +179,7 @@ struct KVCacheOptimizedTransformer[kv_params: KVCacheStaticParams]:
     var norm: RMSNorm
     var output: Linear
     var theta: Float64
+    var rope_scaling: Optional[Symbol]
 
     def freqs_cis(
         self, start_pos: Symbol, seq_len: Symbol, seq_len_dim: Dim
@@ -185,6 +188,8 @@ struct KVCacheOptimizedTransformer[kv_params: KVCacheStaticParams]:
         g = start_pos.graph()
         n = self.dim // self.n_heads
         iota = g.range[DType.float32](0, n - 1, 2)
+        if self.rope_scaling:
+            iota = iota * self.rope_scaling.value()
         freqs = 1.0 / (self.theta ** (iota / n))
         t = g.range[DType.float32](0, Self.max_seq_len * 2.0, 1)
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)

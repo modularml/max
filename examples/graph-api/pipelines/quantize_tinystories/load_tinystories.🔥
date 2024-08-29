@@ -188,6 +188,7 @@ struct TeenyTinyLlama[encoding: QuantizationEncoding]:
             norm=norm("output_norm"),
             output=quantize("token_embd"),
             theta=10000.0,
+            rope_scaling=None,
         )
         outputs = model(
             tokens=g[0], attention_mask=g[1], k_cache=g[2], v_cache=g[3]
