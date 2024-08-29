@@ -5,19 +5,32 @@ Engine Python API to predict the masked words in a sentence.
 
 ## Quickstart
 
-First, install MAX as per the [MAX Engine get started
-guide](https://docs.modular.com/engine/get-started/).
+### Magic instructions
 
-Then you can install the package requirements and run this example:
+If you have [`magic`](https://docs.modular.com/magic), you can run the
+following command:
 
 ```sh
-python3 -m venv venv && source venv/bin/activate
-python3 -m pip install --upgrade pip setuptools
-python3 -m pip install -r requirements.txt
-# Install the MAX Engine Python package
-python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
 # Run the MAX Engine example
-bash run.sh
+magic run run.sh
+# Run the MAX Serving example
+magic run deploy.sh
+```
+
+### Conda instructions
+
+Create a Conda environment, activate that environment, and install the
+requirements:
+
+```sh
+# Create a Conda environment if you don't have one
+conda create -n max-repo
+# Update the environment with the environment.yml file
+conda env update -n max-repo -f environment.yml --prune
+# Run the example
+conda run -n max-repo --live-stream bash run.sh
+# Run the MAX Serving example
+conda run -n max-repo --live-stream bash deploy.sh
 ```
 
 ## Scripts included
