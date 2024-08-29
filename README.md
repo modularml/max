@@ -23,7 +23,7 @@ your experiences and chat with the team and other community members.
 
 In the [examples directory](https://github.com/modularml/max/tree/main/examples),
 you will find code examples and Jupyter notebooks that show how to run inference
-with MAX, and demos using the benchmarking and visualization tools.
+with MAX.
 
 ## Getting Started
 
@@ -60,12 +60,8 @@ that they can be customized, built upon, or learned from.
 ### Examples
 
 In addition to the end-to-end pipelines, there are many [examples](./examples/)
-that exercise various aspects of MAX, from
-[performing inference using PyTorch and ONNX models](./examples/inference/) to
-[demonstrating command-line tooling capabilities](./examples/tools/).
-
-You can follow the instructions in the README for each example,
-notebook or tool you want to run.
+that exercise various aspects of MAX. You can follow the instructions in the
+README for each example or notebook you want to run.
 
 ### Notebooks
 

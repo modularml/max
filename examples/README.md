@@ -26,13 +26,3 @@ Stay tuned for an improved extensibility API that works on both CPUs and GPUs.
 
 Jupyter notebooks that showcase PyTorch and ONNX models being accelerated
 through MAX.
-
-## [Performance showcase](performance-showcase/)
-
-A head-to-head benchmark of inference performance for common models that
-demonstrates the advantages of running them with MAX.
-
-## [Command-line tools](tools/)
-
-MAX provides useful command-line tooling, and these examples demonstrate the
-capabilities of these tools.
