@@ -26,6 +26,22 @@ implementation, and weights are
 
 ## Usage
 
+The easiest way to try out this pipeline is with our Magic command-line tool.
+[Follow the instructions to install Magic](https://docs.modular.com/magic).
+Once installed, you can try out code generation using Replit Code with the
+following command:
+
+```sh
+magic run replit --prompt 'def hello():\n  print("hello world")'
+```
+
+On first execution, the tokenizer library and model weights will be
+downloaded and placed in a `.cache/modular` subdirectory within your home
+directory. The model will then be compiled and text completion will begin from
+the specified prompt.
+
+To modify or build upon the pipeline code, you can use the following steps:
+
 1. Install MAX:
 
    If MAX is not already installed, follow
@@ -57,10 +73,6 @@ implementation, and weights are
    ```
 
 4. Run the code completion demo:
-
-   On first execution, the model weights will be downloaded and placed in a
-   local `.cache/` directory in your current path. The model will then be
-   compiled and code completion will begin from the specified prompt.
 
    All of the pipelines have been configured to use a common driver, located
    in the directory hosting all MAX Graph examples. Assuming you're starting

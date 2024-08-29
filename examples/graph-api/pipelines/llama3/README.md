@@ -30,6 +30,22 @@ The default settings for this pipeline use the 8B set of pretrained weights in
 
 ## Usage
 
+The easiest way to try out this pipeline is with our Magic command-line tool.
+[Follow the instructions to install Magic](https://docs.modular.com/magic).
+Once installed, you can try out text generation using Llama 3.1 with the
+following command:
+
+```sh
+magic run llama3 --prompt "I believe the meaning of life is"
+```
+
+On first execution, the tokenizer library and model weights will be
+downloaded and placed in a `.cache/modular` subdirectory within your home
+directory. The model will then be compiled and text completion will begin from
+the specified prompt.
+
+To modify or build upon the pipeline code, you can use the following steps:
+
 1. Install MAX:
 
    If MAX is not already installed, follow
@@ -52,11 +68,6 @@ The default settings for this pipeline use the 8B set of pretrained weights in
    ```
 
 3. Run the text completion demo:
-
-   On first execution, the tokenizer library and model weights will be
-   downloaded and placed in a local `.cache/` directory in your current path.
-   The model will then be compiled and text completion will begin from the
-   specified prompt.
 
    All of the pipelines have been configured to use a common driver, located
    in the directory hosting all MAX Graph examples. Assuming you're starting

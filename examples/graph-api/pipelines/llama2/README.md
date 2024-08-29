@@ -26,9 +26,25 @@ The text completion demo is compatible with the the official Llama 2
 [text completion demo](https://github.com/facebookresearch/llama/blob/ef351e9cd9496c579bf9f2bb036ef11bdc5ca3d2/example_text_completion.py).
 
 The default settings for this pipeline use the 7B set of pretrained weights in
-`q4_0` quantized encodings.
+`q4_k` quantized encodings.
 
 ## Usage
+
+The easiest way to try out this pipeline is with our Magic command-line tool.
+[Follow the instructions to install Magic](https://docs.modular.com/magic).
+Once installed, you can try out text generation using Llama 2 with the
+following command:
+
+```sh
+magic run llama2 --prompt "I believe the meaning of life is"
+```
+
+On first execution, the tokenizer library and model weights will be
+downloaded and placed in a `.cache/modular` subdirectory within your home
+directory. The model will then be compiled and text completion will begin from
+the specified prompt.
+
+To modify or build upon the pipeline code, you can use the following steps:
 
 1. Install MAX:
 
@@ -66,11 +82,6 @@ The default settings for this pipeline use the 7B set of pretrained weights in
    **To access the llama models, you need to agree to their license in Huggingface.**
 
    License is located here [Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)
-
-   On first execution, the tokenizer library and model weights will be
-   downloaded and placed in a local `.cache/` directory in your current path.
-   The model will then be compiled and text completion will begin from the
-   specified prompt.
 
    All of the pipelines have been configured to use a common driver, located
    in the directory hosting all MAX Graph examples. Assuming you're starting
