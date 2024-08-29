@@ -120,7 +120,9 @@ if st.button("Generate Image"):
             padding="max_length",
             max_length=tokenizer.model_max_length,
         )
-        input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids))
+        input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids)).astype(
+            np.int32
+        )
         encoder_hidden_states = txt_encoder.execute(input_ids=input_ids)[
             "last_hidden_state"
         ]
