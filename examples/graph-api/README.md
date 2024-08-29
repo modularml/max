@@ -16,7 +16,7 @@ use it to execute the pipelines as follows.
 
 ### Magic instructions
 
-If you have [`magic`](https://docs.modular.com/magic), you can run the
+If you have [`magic`](https://docs.modular.com/magic), you can run any of the
 following commands:
 
 ```sh
@@ -38,13 +38,9 @@ conda env update -n max-repo -f environment.yml --prune
 # Run the example
 conda activate max-repo
 
-mojo run_pipeline.🔥 [pipeline] [options] mojo run_pipeline.🔥 [pipeline] [options]
+mojo run_pipeline.🔥 [pipeline] [options]
 
 conda deactivate
-```
-
-```shell
-mojo run_pipeline.🔥 [pipeline] [options]
 ```
 
 Explore each specific pipeline and follow the detailed instructions provided
