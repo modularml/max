@@ -22,6 +22,11 @@ MODEL_PATH="../../models/resnet50.torchscript"
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
 
+# If CONDA_PREFIX is set, install requirements
+if [[ -n "$CONDA_PREFIX" ]]; then
+    pip install -r requirements.txt
+fi
+
 # Download model from HuggingFace
 python3 download-model.py -o "$MODEL_PATH"
 

@@ -1,14 +1,12 @@
 [project]
-name = "BERT Mojo Torchscript"
+name = "BERT C Torchscript"
 version = "1.0.0"
 description = "MAX Examples"
 authors = ["Modular <hello@modular.com>"]
-channels = ["pytorch", "conda-forge", "https://conda.modular.com/max-nightly"]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
 platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
 max = "*"
-numpy = "<2.0"
-pytorch = "==2.4"
-transformers = ">=4.44.2,<5"
+pip = ">=24.0,<25"

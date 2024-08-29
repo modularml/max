@@ -3,16 +3,10 @@ name = "Stable Diffusion Mojo Onnx"
 version = "1.0.0"
 description = "MAX Examples"
 authors = ["Modular <hello@modular.com>"]
-channels = ["conda-forge", "https://conda.modular.com/max-nightly"]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
 platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
 max = "*"
-numpy = "<2.0"
-
-[pypi-dependencies]
-transformers = "==4.40.1"
-diffusers = "==0.27.2"
-ftfy = "==6.2.0"
-pillow = "==10.3.0"
+pip = ">=24.0,<25"
