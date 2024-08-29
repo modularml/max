@@ -17,7 +17,7 @@ remote machine where you've installed MAX.
 
 All you need is MAX (via Magic) and the Jupyter VS Code extension:
 
-1. [Install Magic](https://docs.modular.com/magic).
+1. [Install Magic](https://developer.modular.com/magic).
 
 2. Install [Visual Studio Code](https://code.visualstudio.com/) and the
    [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
@@ -39,13 +39,11 @@ You can use either Magic or conda.
 #### Using Magic
 
 If you have [`magic`](https://docs.modular.com/magic) you can run the following
-command to launch JupyterLab from this directory:
+command to install and launch JupyterLab:
 
 ```sh
 magic run jupyter lab
 ```
-
-After a moment, it will open a browser window with JupterLab running.
 
 #### Using conda
 
@@ -60,9 +58,6 @@ conda env update -n max-repo -f environment.yml --prune
 conda run -n max-repo jupyter lab
 ```
 
-After a moment, it will open a browser window with JupterLab running.
-
 ### 2. Run the .ipynb notebooks
 
-The left nav bar should show all the notebooks in this directory.
-Open any `.ipynb` file and start running the code.
+Open any `.ipynb` file in this repo and start running the code.

@@ -2,11 +2,11 @@
 name = "Stable Diffusion Mojo Onnx"
 version = "1.0.0"
 description = "MAX Examples"
-authors = [ "Modular <hello@modular.com>",]
-channels = [ "conda-forge", "https://conda.modular.com/max/",]
-platforms = [ "osx-arm64", "linux-aarch64", "linux-64",]
+authors = ["Modular <hello@modular.com>"]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
+platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
-max = ">=24.5.0a,<24.6"
+max = "*"
 pip = ">=24.0,<25"

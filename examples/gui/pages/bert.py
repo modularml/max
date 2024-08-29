@@ -21,7 +21,11 @@ import torch
 from max import engine
 from max.dtype import DType
 from shared import menu, modular_cache_dir
-from transformers import BertForMaskedLM, BertTokenizer
+from transformers import (
+    AutoModelForSequenceClassification,
+    BertForMaskedLM,
+    BertTokenizer,
+)
 
 st.set_page_config("Bert", page_icon="👓")
 menu()
@@ -37,8 +41,13 @@ HF_MODEL_NAME = "bert-base-uncased"
 
 # If batch, seq_len, or mlm options change, recompile the torchscript.
 @st.cache_data
-def compile_torchscript(batch: int, seq_len: int):
-    model = BertForMaskedLM.from_pretrained(HF_MODEL_NAME)
+def compile_torchscript(batch: int, seq_len: int, mlm: bool):
+    if mlm:
+        model = BertForMaskedLM.from_pretrained(HF_MODEL_NAME)
+    else:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            HF_MODEL_NAME
+        )
     input_dict = {
         "input_ids": torch.zeros((batch, seq_len), dtype=torch.int64),
         "attention_mask": torch.zeros((batch, seq_len), dtype=torch.int64),
@@ -82,16 +91,20 @@ def softmax(logits):
 
 model_state = st.empty()
 
+mlm = st.sidebar.checkbox("Masked Language Model", True)
 show_predictions = st.sidebar.checkbox("Show top 5 predictions", True)
+filename = "bert.torchscript"
+if mlm:
+    filename = "bert-mlm.torchscript"
 model_path = st.sidebar.text_input(
     "Model Path",
-    os.path.join(modular_cache_dir(), "bert-mlm.torchscript"),
+    os.path.join(modular_cache_dir(), filename),
 )
 batch = st.sidebar.number_input("Batch Size", 1, 64)
 seq_len = st.sidebar.slider("Sequence Length", 128, 1024)
 input_text = st.text_input("Text Input", "Don't [MASK] about it")
 
-compile_torchscript(batch, seq_len)
+compile_torchscript(batch, seq_len, mlm)
 
 if st.button("Predict Word"):
     masks = input_text.split("[MASK]")

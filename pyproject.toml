@@ -1,8 +1,5 @@
-[project]
-requires-python = ">=3.8"
-
 [tool.black]
-include = "\\.pyi?$"
+include = '\.pyi?$'
 line-length = 80
 preview = true
 fast = true
@@ -10,3 +7,6 @@ fast = true
 [tool.pyright]
 typeCheckingMode = "off"
 reportMissingImports = false
+
+[project]
+requires-python = ">=3.8"

@@ -1,2 +1,3 @@
 app.log
-!magic.lock
+magic.lock
+.magic

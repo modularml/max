@@ -1,9 +1,0 @@
-name: max-repo
-channels:
-  - conda-forge
-  - https://conda.modular.com/max/
-dependencies:
-  - python>=3.9,<3.13
-  - max>=24.5.0a0,<24.6
-  - jupyterlab>=4.2.3,<4.3
-  - nb_conda_kernels

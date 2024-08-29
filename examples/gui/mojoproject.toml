@@ -1,49 +1,40 @@
 [project]
 name = "gui"
 version = "1.0.0"
-channels = [ "conda-forge", "https://conda.modular.com/max/",]
-platforms = [ "osx-arm64", "linux-aarch64", "linux-64",]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
+platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 max = "*"
-numpy = "1.25.2"
+numpy = "==1.26.4"
 
 [pypi-dependencies]
-huggingface_hub = "*"
-ipython = "*"
-networkx = "*"
-openai = "*"
-streamlit-webrtc = "*"
-watchdog = "*"
-
-accelerate = "<=0.34.2"
-diffusers = "<=0.30.3"
-gguf = "<=0.10.0"
-onnxruntime = "<=1.18.1"
-onnxslim = "<=0.1.34"
-opencv-python = "<=4.10.0.84"
-pillow = "<=10.4.0"
-protobuf = "<=4.25.3"
-sentencepiece = "<=0.2.0"
-streamlit = "<=1.38.0"
-tokenizers = "<=0.20.0"
-torch = "<=2.4.1"
-transformers = "<=4.45.1"
-ultralytics = "<=8.2.103"
-
-# RAG specific packages
-chromadb = "<=0.4.17"
-docx2txt = "<=0.8"
-EbookLib = "<=0.18"
-fastembed = "<=0.3.6"
-ftfy = "<=6.2.3"
-html2text = "<=2024.2.26"
-llama-index = "<=0.11.14"
-nbconvert = "<=7.16.4"
+accelerate = "==0.33.0"
+chromadb = "==0.5.5"
+diffusers = "==0.30.1"
+docx2txt = "==0.8"
+EbookLib = "==0.18"
+fastembed = "==0.3.6"
+ftfy = "==6.2.3"
+html2text = "==2024.2.26"
+ipython = "==8.26.0"
+llama-index = "==0.11.2"
+nbconvert = "==7.16.4"
+networkx = "==3.3"
+onnxruntime = "==1.19"
+onnxslim = "==0.1.32"
+openai = "==1.42.0"
+opencv-python = ">=4.10"
+optimum = { extras = ["onnxruntime"], version = "==1.21.4" }
+pillow = "==10.4.0"
+protobuf = "==3.20.3"
+psutil = "==6.0.0"
+streamlit = "==1.38.0"
+streamlit-webrtc = "==0.47.7"
+torch = "==2.4.0"
+transformers = "==4.43.4"
+ultralytics = "==8.2.83"
+watchdog = "==4.0.0"
 
 [tasks]
 gui = "streamlit run home.py"
-
-[pypi-dependencies.optimum]
-extras = [ "onnxruntime",]
-version = "<=1.21.4"

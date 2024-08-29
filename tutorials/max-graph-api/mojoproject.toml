@@ -1,9 +1,9 @@
 [project]
-authors = [ "Modular <hello@modular.com>",]
-channels = [ "conda-forge", "https://conda.modular.com/max-nightly", "pytorch",]
+authors = ["Modular <hello@modular.com>"]
+channels = ["conda-forge", "https://conda.modular.com/max-nightly", "pytorch"]
 description = "Add a short description here"
 name = "max-graph-api"
-platforms = [ "osx-arm64", "linux-64",]
+platforms = ["osx-arm64", "linux-64"]
 version = "0.0.0"
 
 [tasks]
@@ -12,13 +12,7 @@ matmul = "mojo matmul.mojo"
 mnist = "python mnist.py && mojo mnist.mojo"
 
 [dependencies]
-max = ">=24.5.0a,<24.6"
+max = "==24.5.0.dev2024082715"
+pytorch = { version = "==2.4.0", channel = "pytorch" }
+torchvision = { version = ">=0.19.0,<0.20", channel = "pytorch" }
 numpy = "<2.0"
-
-[dependencies.pytorch]
-version = "==2.4.0"
-channel = "pytorch"
-
-[dependencies.torchvision]
-version = ">=0.19.0,<0.20"
-channel = "pytorch"

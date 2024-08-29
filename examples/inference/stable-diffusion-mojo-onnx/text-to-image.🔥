@@ -14,8 +14,6 @@
 
 import sys
 import random
-import os
-from pathlib import Path
 
 from collections import List
 from memory import memcpy
@@ -30,6 +28,8 @@ import python_utils
 from scheduler import Scheduler
 
 
+var DEFAULT_MODEL_DIR = "../../models/stable-diffusion-onnx"
+var DESCRIPTION = "Generate an image based on the given prompt."
 var GUIDANCE_SCALE_FACTOR = Float32(7.5)
 var LATENT_SCALE_FACTOR = Float32(0.18215)
 var OUTPUT_HEIGHT = 512
@@ -95,10 +95,7 @@ def main():
     prompt = str("")
     negative_prompt = str("")
     num_steps = 25
-    hf = Python.import_module("huggingface_hub")
-    model_dir = Path(
-        str(hf.snapshot_download("modularai/stable-diffusion-1.5-onnx"))
-    )
+    model_dir = str(DEFAULT_MODEL_DIR)
     output = str("output.png")
 
     for i in range(1, len(argv), 2):
@@ -110,6 +107,8 @@ def main():
             num_steps = atol(argv[i + 1])
         elif argv[i] == "--seed":
             seed(atol(argv[i + 1]))
+        elif argv[i] == "--model-dir":
+            model_dir = argv[i + 1]
         elif argv[i] == "-o" or argv[i] == "--output":
             output = argv[i + 1]
         else:
@@ -129,15 +128,15 @@ def main():
     # Compile & load models - this may take a few minutes.
     print("Loading and compiling models...")
     session = InferenceSession()
-    txt_encoder = session.load(model_dir / "text_encoder" / "model.onnx")
-    img_decoder = session.load(model_dir / "vae_decoder" / "model.onnx")
-    img_diffuser = session.load(model_dir / "unet" / "model.onnx")
+    txt_encoder = session.load(model_dir + "/text_encoder/model.onnx")
+    img_decoder = session.load(model_dir + "/vae_decoder/model.onnx")
+    img_diffuser = session.load(model_dir + "/unet/model.onnx")
     print("Models compiled.\n")
 
     # Tokenize inputs and run through text encoder.
     print("Processing input...")
     tokenizer = transformers.CLIPTokenizer.from_pretrained(
-        os.path.join(model_dir.path, "tokenizer")
+        model_dir + "/tokenizer"
     )
     max_length = int(tokenizer.model_max_length)
     prompt_p = tokenizer(prompt, padding="max_length", max_length=max_length)
