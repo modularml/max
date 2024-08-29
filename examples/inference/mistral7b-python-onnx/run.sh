@@ -23,7 +23,7 @@ cd "$(dirname "$0")"
 
 # If CONDA_PREFIX is set, install requirements
 if [[ -n "$CONDA_PREFIX" ]]; then
-    pip install -r requirements.txt
+    python3 -m pip install -r requirements.txt
 fi
 
 # Download model from HuggingFace
