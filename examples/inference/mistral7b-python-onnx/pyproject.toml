@@ -1,0 +1,22 @@
+[project]
+name = "mistral7b-python-onnx"
+version = "1.0.0"
+description = "MAX Examples"
+requires-python = ">=3.9,<3.13"
+authors = [{ name = "Modular", email = "hello@modular.com" }]
+dependencies = []
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.pixi.project]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
+platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
+
+[tool.pixi.pypi-dependencies]
+mistral7b-python-onnx = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+max = "*"
+pip = ">=24.0,<25"
