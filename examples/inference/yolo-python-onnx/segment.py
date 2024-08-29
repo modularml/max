@@ -11,24 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+import os
+import platform
+import shutil
+import signal
 import subprocess
 import time
-import signal
-import os
-import requests
-import shutil
-
-from max.engine import InferenceSession
-
-import torch
-import onnxruntime
-import numpy as np
-import cv2
-
 from argparse import ArgumentParser
+
+import cv2
+import numpy as np
+import onnxruntime
+import torch
 from constants import CLASS_NAMES
-from ultralytics.models.yolo.segment.predict import ops
+from max.engine import InferenceSession
 from ultralytics.engine.results import Results
+from ultralytics.models.yolo.segment.predict import ops
 
 DESCRIPTION = "Segment images from a webcam or video file using YOLO."
 DEFAULT_MODEL_DIR = "../../models/yolo"
@@ -349,6 +347,11 @@ def main():
         help="Output video file to write to",
     )
     args = parser.parse_args()
+
+    # Improves model compilation speed dramatically on intel CPUs
+    if "Intel" in platform.processor():
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1"
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 

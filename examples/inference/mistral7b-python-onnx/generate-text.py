@@ -13,19 +13,20 @@
 # ===----------------------------------------------------------------------=== #
 
 
-from max import engine
-
 import os
+
+from max import engine
 
 # suppress extraneous logging
 os.environ["TRANSFORMERS_VERBOSITY"] = "critical"
 
+import platform
 import signal
-import torch
 from argparse import ArgumentParser
+
+import torch
 from transformers import AutoTokenizer
 from transformers.generation.logits_process import LogitsProcessorList
-
 
 DEFAULT_MODEL_PATH = "../../models/minstral7b-onnx/model.onnx"
 DESCRIPTION = "Generate text given a prompt."
@@ -122,6 +123,11 @@ def main():
         help="Directory for the downloaded model.",
     )
     args = parser.parse_args()
+
+    # Improves model compilation speed dramatically on intel CPUs
+    if "Intel" in platform.processor():
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1"
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
