@@ -13,6 +13,7 @@
 
 # suppress extraneous logging
 import os
+import platform
 import signal
 from argparse import ArgumentParser
 
@@ -63,6 +64,11 @@ def main():
         help="Location of the downloaded model.",
     )
     args = parser.parse_args()
+
+    # Improves model compilation speed dramatically on intel CPUs
+    if "Intel" in platform.processor():
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1"
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
