@@ -13,6 +13,7 @@
 
 from collections import Dict, List
 import sys
+from sys import is_x86
 from math import align_up
 from memory import memcpy
 from os import setenv
@@ -145,7 +146,7 @@ def _get_attention_mask(
 
 
 def _generation_loop[
-    kv_params: KVCacheStaticParams
+    type: DType, kv_params: KVCacheStaticParams
 ](
     inout kv_manager: ContiguousKVCacheManager,
     inout metrics: Metrics,
@@ -199,7 +200,7 @@ def _generation_loop[
             .take()
             .to_device_tensor()
             .move_to(host_device)
-            .to_tensor[DType.float32, 2]()
+            .to_tensor[type, 2]()
         )
 
         kv_collection = result[1].take().to[kv_manager.CollectionType]()
@@ -336,7 +337,7 @@ def generate_text_naive(
 
 
 def generate_text[
-    kv_params: KVCacheStaticParams
+    type: DType, kv_params: KVCacheStaticParams
 ](
     tokenizer: TikTokenEncoder,
     compiled_model: Model,
@@ -381,7 +382,7 @@ def generate_text[
     if config.get("warmup-pipeline")[Bool]:
         print("Warming up pipeline...")
         metrics.begin_timing_warmup()
-        _generation_loop[kv_params](
+        _generation_loop[type, kv_params](
             kv_manager,
             metrics,
             compiled_model,
@@ -406,7 +407,7 @@ def generate_text[
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
 
-    _generation_loop[kv_params](
+    _generation_loop[type, kv_params](
         kv_manager,
         metrics,
         compiled_model,
@@ -428,14 +429,14 @@ def generate_text[
 
 
 def run[
-    kv_params: KVCacheStaticParams, encoding: QuantizationEncoding
+    type: DType, kv_params: KVCacheStaticParams, encoding: QuantizationEncoding
 ](config: Config) -> None:
     if config.get("prompt")[String] == "I believe the meaning of life is":
         print("Using default prompt, provide an argument to change it:")
         print('    --prompt "Hello llama3"')
     metrics = Metrics()
     metrics.begin_timing_startup()
-    model = Llama3[kv_params, encoding](config.get("model-path")[Path])
+    model = Llama3[type, kv_params, encoding](config.get("model-path")[Path])
     params = model.hyperparams()
 
     print("Loading tokenizer...")
@@ -494,7 +495,7 @@ def run[
         " ms",
     )
 
-    generate_text[kv_params](
+    generate_text[type, kv_params](
         tokenizer,
         compiled_model,
         params,
@@ -602,9 +603,16 @@ def run_dispatch[kv_params: KVCacheStaticParams](config: Config):
     elif encoding == Q6_KEncoding.id():
         run_naive[Q6_KEncoding](config)
     elif encoding == BFloat16Encoding.id():
-        run[kv_params, BFloat16Encoding](config)
+
+        @parameter
+        if is_x86():
+            run[DType.bfloat16, kv_params, BFloat16Encoding](config)
+        else:
+            raise "bfloat16 is only supported on x86 machines"
+
     elif encoding == Float32Encoding.id():
         run[
+            DType.float32,
             kv_params,
             Float32Encoding,
         ](config)

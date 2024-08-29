@@ -18,6 +18,7 @@ from math import align_up
 
 from max.engine import InferenceSession, Model, SessionOptions
 from max.driver import cpu_device, Tensor
+from max.driver._cuda import cuda_device
 from max._utils import handle_from_config, call_dylib_func
 from max.graph import Graph
 from max.graph.quantization import QuantizationEncoding
@@ -55,6 +56,7 @@ from .run import (
 
 
 struct Llama3InferenceService[
+    dtype: DType,
     kv_params: KVCacheStaticParams,
     EncodingT: QuantizationEncoding,
 ](PythonService):
@@ -266,13 +268,234 @@ struct Llama3InferenceService[
             handler.wfile.write(json_str)
 
 
+# FIXME (MSDK-871): Add support for quantized encodings through mo.opaque
+# and remove this redundant version.
+struct Llama3InferenceService_NaiveKVCache[EncodingT: QuantizationEncoding](
+    PythonService
+):
+    """Inference service for Llama3."""
+
+    var _config: Config
+    var _tokenizer: TikTokenEncoder
+    var _session: InferenceSession
+
+    var _model: Llama3_NaiveKVCache[EncodingT]
+    var _graph: Graph
+    var _compiled_model: Model
+
+    var _json_module: PythonObject
+
+    fn __init__(
+        inout self,
+        owned config: Config,
+    ) raises:
+        self._config = config^
+        self._json_module = Python.import_module("json")
+        self._model = Llama3_NaiveKVCache[EncodingT](
+            self._config.get("model-path")[Path]
+        )
+
+        print("Loading tokenizer...")
+        self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
+            self._model.model["tokenizer.ggml.tokens"]._value.unsafe_get[
+                GGUFArray
+            ]()[]
+        )
+
+        print("Building model...")
+        if self._config.get("version")[String] == "3.0":
+            model_name = "llama3"
+        else:
+            model_name = "llama3_1"
+        self._graph = self._model.build_graph(model_name)
+        var session_options = SessionOptions(
+            cuda_device() if self._config.get("experimental-use-gpu")[
+                Bool
+            ] else cpu_device()
+        )
+        self._session = InferenceSession(session_options)
+
+        self._compiled_model = compile_graph(
+            self._session,
+            self._graph,
+            self._config.get("custom-ops-path")[List[Path]],
+        )
+
+    fn handle(
+        inout self, owned body: PythonObject, owned handler: PythonObject
+    ) raises -> None:
+        if handler.path != "/v1/chat/completions":
+            handler.send_response(500)
+            handler.end_headers()
+            return
+
+        # TODO: Support GPU workflow in the serving case.
+        var use_gpu = self._config.get("experimental-use-gpu")[Bool]
+        var cpu_device = cpu_device()
+
+        var stream = False
+        if body.get("stream") is not None and body["stream"]:
+            stream = True
+
+        # Tokenize prompt and message contents.
+        var prompt = List[Int64](
+            self._tokenizer.encode_special("<|begin_of_text|>")
+        )
+
+        for node in body["messages"]:
+            prompt.append(self._tokenizer.encode_special("<|start_header_id|>"))
+            prompt += self._tokenizer.encode(str(node["role"]), bos=None)
+            prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
+            prompt += self._tokenizer.encode(
+                str("\n\n") + str(node["content"]), bos=None
+            )
+            prompt.append(self._tokenizer.encode_special("<|eot_id|>"))
+            # Only add a newline after "system" to follow the prompt format exactly at:
+            #   https://llama.meta.com/docs/model-cards-and-prompt-formats/meta-llama-3/
+            if str(node["role"]) != "system":
+                prompt += self._tokenizer.encode(String("\n"), bos=None)
+        prompt.append(self._tokenizer.encode_special("<|start_header_id|>"))
+        prompt += self._tokenizer.encode(String("assistant"), bos=None)
+        prompt.append(self._tokenizer.encode_special("<|end_header_id|>"))
+        prompt += self._tokenizer.encode(String("\n"), bos=None)
+
+        var sampler = WeightedSampler(
+            self._config.get("temperature")[Float64].cast[DType.float32](),
+            self._config.get("min-p")[Float64].cast[DType.float32](),
+        )
+        var tokens = Tensor[DType.int64, rank=2]((1, len(prompt)), cpu_device)
+        for i in range(len(prompt)):
+            tokens[0, i] = prompt[i]
+
+        print("--Prompt Received--")
+        for token in prompt:
+            print(self._tokenizer.decode(token[]), end="")
+
+        print("Executing...")
+
+        var kv_cache = KVCache(
+            self._model.model.hyperparams(),
+            self._config.get("max-length")[Int],
+            self._config.get("batch-size")[Int],
+            cpu_device,
+        )
+
+        var max_tokens = get_max_tokens_to_generate(
+            prompt.size,
+            self._config.get("max-length")[Int],
+            self._config.get("max-new-tokens")[Int],
+        )
+
+        if stream:
+            handler.send_response(200)
+            handler.send_header("Content-type", "text/event-stream")
+            handler.end_headers()
+
+        # The first iteration caches the entire prompt and all subsequent
+        # iterations generate one token.
+        # Avoid overrunning the cache by setting the trip count accordingly.
+        var outputs = List[String]()
+
+        for _ in range(prompt.size, max_tokens + 1):
+            var results = self._compiled_model.execute(
+                tokens^,
+                kv_cache.keys_view(cpu_device),
+                kv_cache.values_view(cpu_device),
+            )
+
+            kv_cache.update(results[1].take(), results[2].take())
+
+            var logits = results[0].take().to_device_tensor()
+            logits = logits.move_to(cpu_device)
+            var logits_tensor = logits.to_tensor[DType.float32, rank=2]()
+            var token = Int64(sampler.sample(logits_tensor^).selected)
+
+            tokens = Tensor[DType.int64, rank=2]((1, 1), cpu_device)
+            tokens[0, 0] = token
+
+            # HACK: Check for end of text token.
+            if token == 128001:
+                break
+
+            # HACK: Check after decoding the token.
+            var next_token = self._tokenizer.decode(Int64(token))
+            if next_token == "<|eot_id|>":
+                break
+
+            if not stream:
+                outputs.append(next_token)
+            else:
+                # Write chunk response if streaming.
+                var chunk = Python.dict()
+                var choices = Python.list()
+                var choice = Python.dict()
+                var delta = Python.dict()
+                delta["content"] = next_token
+                choice["delta"] = delta
+                choices.append(choice)
+                chunk["choices"] = choices
+                chunk["object"] = "chat.completion.chunk"
+
+                var json_str = self._json_module.dumps(chunk).encode(
+                    encoding="utf_8"
+                )
+                try:
+                    handler.wfile.write(PythonObject("data: ").encode("utf-8"))
+                    handler.wfile.write(json_str)
+                    handler.wfile.write(PythonObject("\n\n").encode("utf-8"))
+                    handler.wfile.flush()
+                except BrokenPipeError:
+                    break
+
+        # Write complete response if not streaming.
+        if stream:
+            handler.wfile.write(PythonObject("data: [DONE]\n").encode("utf-8"))
+            handler.wfile.flush()
+        else:
+            var raw_message: String = ""
+            for output in outputs:
+                raw_message += output[]
+
+            var choice = Python.dict()
+            var message = Python.dict()
+            message["role"] = "assistant"
+            message["content"] = raw_message
+            choice["index"] = 0
+            choice["message"] = message
+
+            var choices = Python.list()
+            choices.append(choice)
+            var resp = Python.dict()
+            resp["choices"] = choices
+            var json_str = self._json_module.dumps(resp).encode(
+                encoding="utf_8"
+            )
+            handler.send_response(200)
+            handler.send_header("Content-type", "text/json")
+            handler.end_headers()
+
+            handler.wfile.write(json_str)
+
+
 def serve[
+    dtype: DType, layout: KVCacheLayout, EncodingT: QuantizationEncoding
+](config: Config) -> None:
+    alias kv_params = KVCacheStaticParams(
+        num_heads=8, head_size=128, layout=layout
+    )
+    service = Llama3InferenceService[dtype, kv_params, EncodingT](config)
+    server = PythonServer.create("0.0.0.0:8000")
+    print("Listening on port 8000!")
+    server.serve(service)
+
+
+def serve_naive[
     layout: KVCacheLayout, EncodingT: QuantizationEncoding
 ](config: Config) -> None:
     alias kv_params = KVCacheStaticParams(
         num_heads=8, head_size=128, layout=layout
     )
-    service = Llama3InferenceService[kv_params, EncodingT](config)
+    service = Llama3InferenceService_NaiveKVCache[EncodingT](config)
     server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
     server.serve(service)
@@ -289,15 +512,15 @@ def llama3_serve_dispatch[layout: KVCacheLayout](config: Config):
         config.set("model-path", model_path)
 
     if encoding == Q4_0Encoding.id():
-        serve[layout, Q4_0Encoding](config)
+        serve_naive[layout, Q4_0Encoding](config)
     elif encoding == Q4_KEncoding.id():
-        serve[layout, Q4_KEncoding](config)
+        serve_naive[layout, Q4_KEncoding](config)
     elif encoding == Q6_KEncoding.id():
-        serve[layout, Q6_KEncoding](config)
+        serve_naive[layout, Q6_KEncoding](config)
     elif encoding == BFloat16Encoding.id():
-        serve[layout, BFloat16Encoding](config)
+        serve[DType.bfloat16, layout, BFloat16Encoding](config)
     elif encoding == Float32Encoding.id():
-        serve[layout, Float32Encoding](config)
+        serve[DType.float32, layout, Float32Encoding](config)
     else:
         raise "--quantization-encoding " + encoding + " not supported"
 

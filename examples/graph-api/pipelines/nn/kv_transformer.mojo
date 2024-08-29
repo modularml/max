@@ -28,7 +28,9 @@ from max.serve.kv_cache.types import (
 from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names
 
 
-def kv_cache_length[kv_params: KVCacheStaticParams](cache: Symbol) -> Symbol:
+def kv_cache_length[
+    type: DType, kv_params: KVCacheStaticParams
+](cache: Symbol) -> Symbol:
     """Retrieve the length of our ContiguousKVCache from mo.opaque type.
 
     Args:
@@ -37,7 +39,7 @@ def kv_cache_length[kv_params: KVCacheStaticParams](cache: Symbol) -> Symbol:
     Returns:
         Symbol: scalar with the length of the ContiguousKVCache.
     """
-    alias kernel_names = _kv_cache_kernel_names[DType.float32, kv_params]()
+    alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
     out_type = TensorType(DType.int64)
     out = ops.custom[kernel_names.kv_cache_length_kernel](
         List[Symbol](cache), out_type
@@ -46,7 +48,7 @@ def kv_cache_length[kv_params: KVCacheStaticParams](cache: Symbol) -> Symbol:
 
 
 def key_cache_for_layer[
-    kv_params: KVCacheStaticParams
+    type: DType, kv_params: KVCacheStaticParams
 ](cache: Symbol, layer_idx: Int) -> Symbol:
     """Retrieve the ContiguousKVCache object for the keys of layer at layer_idx.
 
@@ -56,7 +58,7 @@ def key_cache_for_layer[
     Returns:
         Symbol: mo.opaque ContiguousKVCache type corresponding to key_cache for layer_idx.
     """
-    alias kernel_names = _kv_cache_kernel_names[DType.float32, kv_params]()
+    alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
 
     g = cache.graph()
 
@@ -68,7 +70,7 @@ def key_cache_for_layer[
     layer_idx_tens[0] = layer_idx
     layer_idx_sym = g.constant(layer_idx_tens)
 
-    out_type = _OpaqueType(ContiguousKVCache[DType.float32, kv_params].id())
+    out_type = _OpaqueType(ContiguousKVCache[type, kv_params].id())
     out = ops.custom[kernel_names.key_cache_for_layer_kernel](
         List[Symbol](layer_idx_sym, cache), out_type
     )
@@ -76,7 +78,7 @@ def key_cache_for_layer[
 
 
 def value_cache_for_layer[
-    kv_params: KVCacheStaticParams
+    type: DType, kv_params: KVCacheStaticParams
 ](cache: Symbol, layer_idx: Int) -> Symbol:
     """Retrieve the ContiguousKVCache object for the keys of layer at layer_idx.
 
@@ -87,7 +89,7 @@ def value_cache_for_layer[
         Symbol: mo.opaque ContiguousKVCache type corresponding to value_cache for layer_idx.
 
     """
-    alias kernel_names = _kv_cache_kernel_names[DType.float32, kv_params]()
+    alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
 
     g = cache.graph()
 
@@ -99,7 +101,7 @@ def value_cache_for_layer[
     layer_idx_tens[0] = layer_idx
     layer_idx_sym = g.constant(layer_idx_tens)
 
-    out_type = _OpaqueType(ContiguousKVCache[DType.float32, kv_params].id())
+    out_type = _OpaqueType(ContiguousKVCache[type, kv_params].id())
     out = ops.custom[kernel_names.value_cache_for_layer_kernel](
         List[Symbol](layer_idx_sym, cache), out_type
     )
@@ -107,13 +109,13 @@ def value_cache_for_layer[
 
 
 @value
-struct KVCacheOptimizedTransformerBlock[kv_params: KVCacheStaticParams](
-    CollectionElement
-):
+struct KVCacheOptimizedTransformerBlock[
+    type: DType, kv_params: KVCacheStaticParams
+](CollectionElement):
     """Transformer layer with our custom ContiguousKVCache mo.opaque type."""
 
     # Ops
-    var attention: KVCacheOptimizedAttention[kv_params]
+    var attention: KVCacheOptimizedAttention[type, kv_params]
     var feed_forward: FeedForward
     var attention_norm: RMSNorm
     var ffn_norm: RMSNorm
@@ -163,7 +165,7 @@ struct KVCacheOptimizedTransformerBlock[kv_params: KVCacheStaticParams](
 
 
 @value
-struct KVCacheOptimizedTransformer[kv_params: KVCacheStaticParams]:
+struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
     """Top-level block for Transformer-based models with custom ContiguousKVCache mo.opaque type.
     """
 
@@ -175,7 +177,7 @@ struct KVCacheOptimizedTransformer[kv_params: KVCacheStaticParams]:
 
     # ops
     var embedding: Embedding
-    var layers: List[KVCacheOptimizedTransformerBlock[kv_params]]
+    var layers: List[KVCacheOptimizedTransformerBlock[type, kv_params]]
     var norm: RMSNorm
     var output: Linear
     var theta: Float64
@@ -199,7 +201,7 @@ struct KVCacheOptimizedTransformer[kv_params: KVCacheStaticParams]:
             retval[
                 start_pos : start_pos + seq_len, out_dims = List(seq_len_dim)
             ],
-            DType.float32,
+            type,
         )
 
     def __call__(
@@ -222,13 +224,13 @@ struct KVCacheOptimizedTransformer[kv_params: KVCacheStaticParams]:
               - mo.opaque KVCacheCollection type.
         """
         g = tokens.graph()
-        start_pos = kv_cache_length[kv_params](kv_cache)
+        start_pos = kv_cache_length[type, kv_params](kv_cache)
         h = self.embedding(tokens)
         seq_len = ops.shape_of(tokens)[1]
         freqs_cis = self.freqs_cis(start_pos, seq_len, tokens.shape()[1])
         for i in range(len(self.layers)):
-            k_cache = key_cache_for_layer[kv_params](kv_cache, i)
-            v_cache = value_cache_for_layer[kv_params](kv_cache, i)
+            k_cache = key_cache_for_layer[type, kv_params](kv_cache, i)
+            v_cache = value_cache_for_layer[type, kv_params](kv_cache, i)
             h = self.layers[i](
                 h,
                 start_pos,

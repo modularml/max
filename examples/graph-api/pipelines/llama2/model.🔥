@@ -234,13 +234,15 @@ struct Llama2[
             w, _ = weight[Float32Encoding](name, layer, transpose=False)
             return RMSNorm(params.norm_eps, w)
 
-        layers = List[KVCacheOptimizedTransformerBlock[kv_params]]()
+        layers = List[
+            KVCacheOptimizedTransformerBlock[DType.float32, kv_params]
+        ]()
         for layer in range(params.n_layers):
             wq = weight("attn_q", layer)[0]
             wk = weight("attn_k", layer)[0]
             wv = weight("attn_v", layer)[0]
             wqkv = ops.concat(List[Symbol](wq, wk, wv), axis=1)
-            attention = KVCacheOptimizedAttention[kv_params](
+            attention = KVCacheOptimizedAttention[DType.float32, kv_params](
                 n_heads=params.n_heads,
                 dim=params.dims,
                 wqkv=wqkv.swapaxes(0, 1),
@@ -254,7 +256,7 @@ struct Llama2[
             )
 
             layers.append(
-                KVCacheOptimizedTransformerBlock[kv_params](
+                KVCacheOptimizedTransformerBlock[DType.float32, kv_params](
                     attention=attention,
                     feed_forward=feed_forward,
                     attention_norm=norm("attn_norm", layer),
@@ -263,7 +265,7 @@ struct Llama2[
             )
 
         embedding = Embedding(weight("token_embd", transpose=False))
-        model = KVCacheOptimizedTransformer[kv_params](
+        model = KVCacheOptimizedTransformer[DType.float32, kv_params](
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,

@@ -212,11 +212,8 @@ struct Llama3_NaiveKVCache[encoding: QuantizationEncoding = Float32Encoding]:
         return self.model.hyperparams()
 
 
-# TODO remove once we add BF16 support
-alias type = DType.float32
-
-
 struct Llama3[
+    type: DType,
     kv_params: KVCacheStaticParams,
     encoding: QuantizationEncoding = Float32Encoding,
 ]:
@@ -241,7 +238,7 @@ struct Llama3[
 
         @parameter
         def weight[
-            weight_type: QuantizationEncoding = encoding
+            type_: DType = type, weight_type: QuantizationEncoding = encoding
         ](
             name: String,
             layer: Optional[Int] = None,
@@ -256,17 +253,13 @@ struct Llama3[
 
             # Set uint8 dtype if quantized and float32 / bfloat16 otherwise,
             # since all quantization encodings currently have uint8 dtype.
-            alias dtype = DType.float32 if weight_type.id() == Float32Encoding.id() else (
-                DType.bfloat16 if weight_type.id()
-                == BFloat16Encoding.id() else DType.uint8
-            )
 
             # Also return the quantization encoding for this constant.
             encoding_id = encoding_id_from_ggml_type(
                 self.model.ggml_type(name, layer)
             )
 
-            weight = g.constant(self.model.get[dtype](name, layer))
+            weight = g.constant(self.model.get[type_](name, layer))
             if transpose:
                 weight = weight.swapaxes(-1, -2)
 
@@ -274,27 +267,18 @@ struct Llama3[
 
         def norm(name: String, layer: Optional[Int] = None) -> RMSNorm:
             # GGUF always stores these as float32.
-            w, _ = weight[Float32Encoding](name, layer, transpose=False)
+            w, _ = weight[DType.float32, Float32Encoding](
+                name, layer, transpose=False
+            )
             return RMSNorm(params.norm_eps, w)
 
-        # TODO: remove when we add BF16 support for kvcache
-        @parameter
-        if encoding.id() == BFloat16Encoding.id():
-            print(
-                "Note: split KV cache flash attention currently unavailable for"
-                " bfloat16, falling back to naive attention"
-            )
-            use_custom_attention = False
-        else:
-            use_custom_attention = True
-
-        layers = List[KVCacheOptimizedTransformerBlock[kv_params]]()
+        layers = List[KVCacheOptimizedTransformerBlock[type, kv_params]]()
         for layer in range(params.n_layers):
             wq = weight("attn_q", layer)[0]
             wk = weight("attn_k", layer)[0]
             wv = weight("attn_v", layer)[0]
             wqkv = ops.concat(List[Symbol](wq, wk, wv), axis=1)
-            attention = KVCacheOptimizedAttention[kv_params](
+            attention = KVCacheOptimizedAttention[type, kv_params](
                 n_heads=params.n_heads,
                 dim=params.dims,
                 wqkv=wqkv.swapaxes(0, 1),
@@ -308,7 +292,7 @@ struct Llama3[
             )
 
             layers.append(
-                KVCacheOptimizedTransformerBlock[kv_params](
+                KVCacheOptimizedTransformerBlock[type, kv_params](
                     attention=attention,
                     feed_forward=feed_forward,
                     attention_norm=norm("attn_norm", layer),
@@ -320,13 +304,15 @@ struct Llama3[
         # the GGUF weights for that model.
         try:
             rope_scaling = Optional[Symbol](
-                weight[Float32Encoding]("rope_freqs", transpose=False)[0]
+                weight[DType.float32, weight_type=Float32Encoding](
+                    "rope_freqs", transpose=False
+                )[0]
             )
         except:
             rope_scaling = None
 
         embedding = Embedding(weight("token_embd", transpose=False))
-        model = KVCacheOptimizedTransformer[kv_params](
+        model = KVCacheOptimizedTransformer[type, kv_params](
             dim=params.dims,
             n_heads=params.n_heads,
             embedding=embedding,
