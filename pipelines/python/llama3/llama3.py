@@ -12,8 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import KeysView, Union
+from typing import Tuple
 
 import gguf
 import numpy as np
@@ -131,12 +130,29 @@ class Llama3:
         # Note: assuming a single request.
         assert len(batch) == self.config.batch_size == 1
         request_id, context = next(iter(batch.items()))
-        # This feels really contrived, but it's because our KV cache setup
-        # just doesn't meaningfully support batch size > 1 yet.
+
         if request_id not in self._sessions:
             self._sessions[request_id] = 0
-            self._kv_cache.sequence_length = 0
+            self._reset_cache()
 
+        logits, _, _ = self._execute(context)
+
+        # TODO: Add a weighted sampler here.
+        # Get argmax of the logits of the last token.
+        next_token = logits.argmax(axis=-1)[-1]
+        context.next_token = next_token.reshape(1, -1)
+        decoded_token = self._tokenizer.decode(next_token)
+        if decoded_token == self._tokenizer.eos_token:
+            return {}
+        return {request_id: decoded_token}
+
+    def _reset_cache(self):
+        # This feels really contrived, but it's because our KV cache setup
+        # just doesn't meaningfully support batch size > 1 yet.
+        self._kv_cache.sequence_length = 0
+
+    def _execute(self, context: Llama3Context) -> Tuple[np.ndarray, ...]:
+        """Executes the model and returns the raw results."""
         cache = self._kv_cache
         input_names = [t.name for t in self._model.input_metadata]
         output_names = [t.name for t in self._model.output_metadata]
@@ -160,15 +176,7 @@ class Llama3:
         result = self._model.execute(**dict(zip(input_names, inputs)))
         logits, k_cache, v_cache = (result[o] for o in output_names)
         self._kv_cache.update(k_cache, v_cache)
-
-        # TODO: Add a weighted sampler here.
-        # Get argmax of the logits of the last token.
-        next_token = logits.argmax(axis=-1)[-1]
-        context.next_token = next_token.reshape(1, -1)
-        decoded_token = self._tokenizer.decode(next_token)
-        if decoded_token == self._tokenizer.eos_token:
-            return {}
-        return {request_id: decoded_token}
+        return logits, k_cache, v_cache
 
 
 def _max_tokens_to_generate(prompt_size: int, config: InferenceConfig) -> int:
