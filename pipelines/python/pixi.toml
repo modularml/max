@@ -1,15 +1,15 @@
 [project]
 authors = ["Modular <hello@modular.com>"]
-channels = ["conda-forge", "https://conda.modular.com/max-nightly"]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
 description = "End-to-end execution of Llama3 using the Max Engine"
 name = "Python Pipelines"
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 version = "0.1.0"
 
 [tasks]
 
 [dependencies]
-python = ">=3.12.5,<4"
+python = ">=3.9,<3.13"
 max = ">24.5.0.dev2024082817"
 
 [pypi-dependencies]
