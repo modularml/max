@@ -18,7 +18,7 @@ from max.graph.utils.load_gguf import Weights
 from .model.attention import Attention
 from .model.embedding import Embedding
 from .model.hyperparameters import Hyperparameters
-from .model.mlp import Linear, MLP
+from .model.mlp import MLP, Linear
 from .model.norm import RMSNorm
 from .model.rotary_embedding import RotaryEmbedding
 from .model.transformer import Transformer, TransformerBlock
@@ -33,20 +33,21 @@ def feed_forward(weights: Weights):
 
 
 def linear(weights: Weights) -> Linear:
-    weight: Weight = weights.weight(Graph.current)
+    weight: Weight = weights.weight
+    value = weight.add_to_graph(Graph.current)
     if weight.quantization_encoding is None:
-        return Linear(weight.value.T)
+        return Linear(value.T)
     else:
-        return Linear(weight.value, weight.quantization_encoding)
+        return Linear(value, weight.quantization_encoding)
 
 
 def rms_norm(weights: Weights, eps: float):
-    return RMSNorm(weights.weight(Graph.current).value, eps)
+    return RMSNorm(weights.weight, eps)
 
 
 def embedding(weights: Weights):
-    weight: Weight = weights.weight(Graph.current)
-    return Embedding(weight.value, weight.quantization_encoding)
+    weight: Weight = weights.weight
+    return Embedding(weight, weight.quantization_encoding)
 
 
 def attention(params: Hyperparameters, weights: Weights, rope: RotaryEmbedding):

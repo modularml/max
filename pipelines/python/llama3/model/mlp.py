@@ -17,8 +17,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-
-from max.graph import TensorValue, ops, ValueLike
+from max.graph import TensorValue, ValueLike, ops
 from max.graph.quantization import QuantizationEncoding
 
 
@@ -26,7 +25,7 @@ from max.graph.quantization import QuantizationEncoding
 class Linear:
     """A fully connected layer."""
 
-    weight: TensorValue
+    weight: ValueLike
     quantization_encoding: Optional[QuantizationEncoding] = None
 
     def __call__(self, x: TensorValue) -> TensorValue:
