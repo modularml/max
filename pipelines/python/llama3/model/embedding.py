@@ -21,7 +21,7 @@ from max.graph.quantization import QuantizationEncoding
 
 @dataclass
 class Embedding:
-    weights: TensorValue
+    weights: ValueLike
     quantization_encoding: Optional[QuantizationEncoding] = None
 
     def __call__(self, indices: ValueLike) -> TensorValue:
