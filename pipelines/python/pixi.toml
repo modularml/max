@@ -1,0 +1,21 @@
+[project]
+authors = ["Modular <hello@modular.com>"]
+channels = ["conda-forge", "https://conda.modular.com/max-nightly"]
+description = "End-to-end execution of Llama3 using the Max Engine"
+name = "Python Pipelines"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.12.5,<4"
+max = ">24.5.0.dev2024082817"
+
+[pypi-dependencies]
+click = ">=8.1.7"
+gguf = ">= 0.10.0"
+sentencepiece = ">= 0.2.0"
+requests = ">= 2.32.3"
+tokenizers = ">= 0.19.1"
+transformers = ">= 4.44.2"
