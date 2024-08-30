@@ -24,7 +24,7 @@ following command:
 
 ```sh
 # Run the MAX Engine example
-HF_TOKEN=<your-huggingface-user-token> magic run bash run.sh
+HF_TOKEN=<your-huggingface-user-token> magic run run.sh
 ```
 
 ### Conda instructions

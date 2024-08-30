@@ -13,7 +13,7 @@ If you have [`magic`](https://docs.modular.com/magic), you can run the
 following command:
 
 ```sh
-magic run bash run.sh
+magic run run.sh
 ```
 
 ### Conda instructions

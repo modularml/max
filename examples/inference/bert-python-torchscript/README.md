@@ -12,9 +12,9 @@ following command:
 
 ```sh
 # Run the MAX Engine example
-magic run bash run.sh
+magic run run.sh
 # Run the MAX Serving example
-magic run bash deploy.sh
+magic run deploy.sh
 ```
 
 ### Conda instructions

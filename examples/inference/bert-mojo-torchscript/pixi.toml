@@ -1,13 +1,9 @@
 [project]
-name = "BERT C Torchscript"
+name = "BERT Mojo Torchscript"
 version = "1.0.0"
 description = "MAX Examples"
 authors = ["Modular <hello@modular.com>"]
-channels = [
-    "pytorch",
-    "conda-forge",
-    "https://conda.cloudsmith.io/modular/max-nightly/",
-]
+channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
 platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
