@@ -26,28 +26,19 @@ class RotaryEmbedding:
     RotaryEmbedding layer to calculate and apply the frequency tensor for complex exponentials.
     """
 
-    freqs_cis: ValueLike
+    dim: DimLike
+    n_heads: int
+    theta: float
+    """Hyperparameter used to control the frequency scaling of the sinusoidal components of the embeddings."""
+    max_seq_len: int
+    """The maximum sequence length for model's input."""
+    rope_scaling: Optional[np.ndarray]
+    """Scaling factor for the positional frequencies."""
 
-    def __init__(
-        self,
-        dim: DimLike,
-        n_heads: int,
-        theta: float,
-        max_seq_len: int,
-        rope_scaling: Optional[np.array] = None,
-    ):
-        self.freqs_cis = self.calculate_freqs_cis(
-            dim, n_heads, theta, max_seq_len, rope_scaling
-        )
+    _freqs_cis: Optional[ValueLike] = None
 
-    def calculate_freqs_cis(
-        self,
-        dim: DimLike,
-        n_heads: int,
-        theta: float,
-        max_seq_len: int,
-        rope_scaling: Optional[np.array],
-    ) -> TensorValue:
+    @property
+    def freqs_cis(self) -> TensorValue:
         """
         Computes the frequency tensor for complex exponentials (cis)
         for a given seq_len. Tensor is scaled with theta parameter.
@@ -55,26 +46,25 @@ class RotaryEmbedding:
         See 'Roformer: Enhanced Transformer with Rotary Embedding'
         (arxiv.org/pdf/2104.09864).
 
-        Args:
-            max_seq_len: The maximum sequence length for model's input.
-            theta: Hyperparameter used to control the frequency scaling of the sinusoidal components of the embeddings.
-            rope_scaling: Scaling factor for the positional frequencies.
-
         Returns:
             The frequency tensor for complex exponentials with shape
                 (max_seq_len * 2, dim//(2 * n_heads), 2)
         """
-        n = dim // n_heads
-        # TODO (MSDK-655): Use ops.arange() here when implemented.
-        # Note: using float64 to avoid an overflow on the exponential, then converting back to float32.
-        iota = np.arange(0, n - 1, 2, dtype=np.float64)
-        if rope_scaling is not None:
-            iota = iota * rope_scaling.astype(np.float64)
-        freqs = (1.0 / (theta ** (iota / n))).astype(np.float32)
-        # TODO (MSDK-655): Use ops.arange() here when implemented.
-        t = np.arange(0, max_seq_len * 2.0, dtype=np.float32)
-        freqs = ops.outer(t, freqs)
-        return ops.stack([ops.cos(freqs), ops.sin(freqs)], axis=-1)
+        if self._freqs_cis is None:
+            n = self.dim // self.n_heads
+            # TODO (MSDK-655): Use ops.arange() here when implemented.
+            # Note: using float64 to avoid an overflow on the exponential, then converting back to float32.
+            iota = np.arange(0, n - 1, 2, dtype=np.float64)
+            if self.rope_scaling is not None:
+                iota = iota * self.rope_scaling.astype(np.float64)
+            freqs = (1.0 / (self.theta ** (iota / n))).astype(np.float32)
+            # TODO (MSDK-655): Use ops.arange() here when implemented.
+            t = np.arange(0, self.max_seq_len * 2.0, dtype=np.float32)
+            freqs = ops.outer(t, freqs)
+            self._freqs_cis = ops.stack(
+                [ops.cos(freqs), ops.sin(freqs)], axis=-1
+            )
+        return self._freqs_cis
 
     def __call__(
         self, x: ValueLike, start_pos: int, seq_len: int

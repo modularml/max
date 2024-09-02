@@ -15,17 +15,18 @@ import enum
 from dataclasses import dataclass
 from typing import Optional
 
-from max.graph import TensorValue, ValueLike, ops
-from max.graph.quantization import QuantizationEncoding
+from max.graph import TensorValue, ValueLike, Weight, ops
 
 
 @dataclass
 class Embedding:
     weights: ValueLike
-    quantization_encoding: Optional[QuantizationEncoding] = None
 
     def __call__(self, indices: ValueLike) -> TensorValue:
         result = ops.gather(self.weights, indices, axis=0)
-        if self.quantization_encoding is not None:
-            result = ops.dequantize(self.quantization_encoding, result)
+        if (
+            isinstance(self.weights, Weight)
+            and self.weights.quantization_encoding is not None
+        ):
+            result = ops.dequantize(self.weights.quantization_encoding, result)
         return result
