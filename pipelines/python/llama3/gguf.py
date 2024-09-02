@@ -33,12 +33,7 @@ def feed_forward(weights: Weights):
 
 
 def linear(weights: Weights) -> Linear:
-    weight: Weight = weights.weight
-    value = weight.add_to_graph(Graph.current)
-    if weight.quantization_encoding is None:
-        return Linear(value.T)
-    else:
-        return Linear(value, weight.quantization_encoding)
+    return Linear(weights.weight)
 
 
 def rms_norm(weights: Weights, eps: float):
@@ -46,8 +41,7 @@ def rms_norm(weights: Weights, eps: float):
 
 
 def embedding(weights: Weights):
-    weight: Weight = weights.weight
-    return Embedding(weight, weight.quantization_encoding)
+    return Embedding(weights.weight)
 
 
 def attention(params: Hyperparameters, weights: Weights, rope: RotaryEmbedding):

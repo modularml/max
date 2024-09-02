@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from max.graph import TensorValue, ValueLike, ops
+from max.graph import TensorValue, ValueLike, Weight, ops
 from max.graph.quantization import QuantizationEncoding
 
 
@@ -26,12 +26,15 @@ class Linear:
     """A fully connected layer."""
 
     weight: ValueLike
-    quantization_encoding: Optional[QuantizationEncoding] = None
 
     def __call__(self, x: TensorValue) -> TensorValue:
-        if self.quantization_encoding is not None:
-            return ops.qmatmul(self.quantization_encoding, x, self.weight)
-        return x @ self.weight
+        weight = TensorValue(self.weight)
+        if (
+            isinstance(self.weight, Weight)
+            and self.weight.quantization_encoding is not None
+        ):
+            return ops.qmatmul(self.weight.quantization_encoding, x, weight)
+        return x @ weight.T
 
 
 @dataclass
