@@ -36,10 +36,14 @@ class TransformerBlock:
     mlp_norm: RMSNorm
 
     def __call__(
-        self, x: ValueLike, k_cache: ValueLike, v_cache: ValueLike
+        self,
+        x: ValueLike,
+        attention_mask: ValueLike,
+        k_cache: ValueLike,
+        v_cache: ValueLike,
     ) -> Tuple[TensorValue, TensorValue, TensorValue]:
         attention_out, k_cache_update, v_cache_update = self.attention(
-            self.attention_norm(x), k_cache, v_cache
+            self.attention_norm(x), attention_mask, k_cache, v_cache
         )
 
         h = x + attention_out
@@ -62,13 +66,14 @@ class Transformer:
     theta: float
     embedding: Embedding
 
-    def __call__(self, tokens, k_cache, v_cache):
+    def __call__(self, tokens, attention_mask, k_cache, v_cache):
         h = self.embedding(tokens)
         k_cache_updates = []
         v_cache_updates = []
         for i in range(len(self.layers)):
             h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
                 h,
+                attention_mask,
                 k_cache[:, i],
                 v_cache[:, i],
             )
