@@ -11,9 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import enum
 from dataclasses import dataclass
-from typing import Optional
 
 from max.graph import TensorValue, ValueLike, Weight, ops
 

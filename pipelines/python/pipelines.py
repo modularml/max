@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 import asyncio
-from pathlib import Path
 
 import click
 import llama3

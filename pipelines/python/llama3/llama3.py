@@ -19,11 +19,11 @@ import numpy as np
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
-from max.graph.utils.load_gguf import Weights
+from max.graph.weights.load_gguf import GGUFWeights
 
 from utils import gguf_utils, tokenizer_from_gguf
 
-from .config import InferenceConfig
+from .config import InferenceConfig, SupportedEncodings
 from .gguf import transformer
 from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
@@ -40,7 +40,7 @@ class Llama3Context:
 
 
 def _llama_graph(
-    batch_size: int, params: Hyperparameters, weights: Weights
+    batch_size: int, params: Hyperparameters, weights: GGUFWeights
 ) -> Graph:
     cache_type = TensorType(
         DType.float32,
@@ -70,6 +70,7 @@ class Llama3:
     _model: Model
     _kv_cache: KVCache
     _sessions: dict[str, int]
+    _weights: GGUFWeights
 
     def __init__(self, config: InferenceConfig):
         self.config = config
@@ -77,7 +78,9 @@ class Llama3:
         assert config.weight_path is not None
         gguf_reader = gguf.GGUFReader(config.weight_path)
 
-        params = _read_hyperparameters(gguf_reader)
+        params = _read_hyperparameters(
+            config.quantization_encoding, gguf_reader
+        )
         self._model = self._load_model(config, params, gguf_reader)
         self._tokenizer = tokenizer_from_gguf(gguf_reader)
 
@@ -106,9 +109,12 @@ class Llama3:
             print("Loading serialized model from", serialized_path, "...")
             return session.load(serialized_path)
         else:
-            graph = _llama_graph(config.batch_size, params, Weights(reader))
+            self._weights = GGUFWeights(reader)
+            graph = _llama_graph(config.batch_size, params, self._weights)
             print("Compiling...")
-            return session.load(graph)
+            return session.load(
+                graph, weights_registry=self._weights.allocated_weights
+            )
 
     def _get_attention_mask(self, n: int):
         mask = np.ones(shape=(1, n)).astype(bool)
@@ -186,7 +192,9 @@ def _max_tokens_to_generate(prompt_size: int, config: InferenceConfig) -> int:
     return min(config.max_new_tokens + prompt_size, config.max_length)
 
 
-def _read_hyperparameters(reader: gguf.GGUFReader) -> Hyperparameters:
+def _read_hyperparameters(
+    model_encoding: SupportedEncodings, reader: gguf.GGUFReader
+) -> Hyperparameters:
     key_names = {
         "n_layers": "llama.block_count",
         "n_heads": "llama.attention.head_count",
@@ -203,4 +211,15 @@ def _read_hyperparameters(reader: gguf.GGUFReader) -> Hyperparameters:
         if (value := gguf_utils.read_number(reader, key)) is not None
     }
 
-    return Hyperparameters(**configured_params)
+    # The feed forward length doesn't appear in the pretrained llama checkpoint
+    # fields. Obtain the value from the shape of the projection weight.
+    tensor = next(
+        filter(lambda t: t.name == "blk.0.ffn_down.weight", reader.tensors)
+    )
+    feed_forward_length = tensor.shape[0]
+    return Hyperparameters(
+        dtype=model_encoding.dtype,
+        quantization_encoding=model_encoding.quantization_encoding,
+        feed_forward_length=feed_forward_length,
+        **configured_params,
+    )

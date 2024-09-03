@@ -14,11 +14,8 @@
 """Multi-layer Perceptron."""
 
 from dataclasses import dataclass
-from typing import Optional
 
-import numpy as np
 from max.graph import TensorValue, ValueLike, Weight, ops
-from max.graph.quantization import QuantizationEncoding
 
 
 @dataclass
