@@ -39,9 +39,11 @@ def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config["quantization-encoding"] = str("float32")
     default_config["temperature"] = 0.5
     default_config["min-p"] = 0.05
-    default_config["warmup-pipeline"] = False
-    default_config["experimental-store-graph"] = str("")
-    default_config["experimental-load-graph"] = str("")
+    default_config["num-warmups"] = 1
+    default_config["max-batch-size"] = 1
+    default_config["max-length"] = 512
+    default_config["custom-ops-path"] = Path("")
+    default_config["mef-use-or-gen-path"] = str("")
     return default_config
 
 
@@ -82,9 +84,10 @@ struct ReplitConfigRegistry(ConfigRegistry):
         self.registry["quantization-encoding"] = OptionTypeEnum.STRING
         self.registry["temperature"] = OptionTypeEnum.FLOAT
         self.registry["min-p"] = OptionTypeEnum.FLOAT
-        self.registry["warmup-pipeline"] = OptionTypeEnum.BOOL
-        self.registry["experimental-store-graph"] = OptionTypeEnum.STRING
-        self.registry["experimental-load-graph"] = OptionTypeEnum.STRING
+        self.registry["num-warmups"] = OptionTypeEnum.INT
+        self.registry["pad-to-multiple-of"] = OptionTypeEnum.INT
+        self.registry["max-batch-size"] = OptionTypeEnum.INT
+        self.registry["mef-use-or-gen-path"] = OptionTypeEnum.STRING
         if additional_pipeline_args:
             self.registry.update(additional_pipeline_args.value())
 

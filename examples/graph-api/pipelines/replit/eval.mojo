@@ -15,6 +15,7 @@ from pathlib import cwd, Path
 import sys
 from time import perf_counter_ns
 
+from max.engine import InferenceSession, Model, TensorMap
 from max.tensor import Tensor, TensorShape
 
 from .config import (
@@ -22,13 +23,13 @@ from .config import (
     get_replit_base_default_config,
     get_replit_model_url,
 )
-from .model.replit import Replit
-from .weights.hyperparams import get_default
-from .run import ReplitPipeline, Config
-from ..benchmarks.human_eval import HumanEval
-from ..tokenizer import AutoTokenizer
-from ..configs.registry import ConfigRegistry, ConfigRegistryDict
-from ..configs.parse_args import (
+from model.replit import Replit
+from weights.hyperparams import get_default
+from run import ReplitPipeline, Config
+from pipelines.benchmarks.human_eval import HumanEval
+from pipelines.tokenizer import AutoTokenizer
+from pipelines.configs.registry import ConfigRegistry, ConfigRegistryDict
+from pipelines.configs.parse_args import (
     OptionTypeEnum,
     OptionValue,
     parse_args,
