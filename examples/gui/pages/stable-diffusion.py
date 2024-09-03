@@ -13,20 +13,15 @@
 
 import os
 import time
-from os.path import exists
 
 import numpy as np
 import streamlit as st
 from diffusers import PNDMScheduler
 from max.engine import InferenceSession
 from PIL import Image
-from shared import (
-    cache_dir,
-    menu,
-    modular_cache_dir,
-    run_subprocess_monitor_download,
-)
+from shared import menu, modular_cache_dir
 from transformers import CLIPTokenizer
+from huggingface_hub import snapshot_download
 
 st.set_page_config("Stable Diffusion 1.5", page_icon="🎨")
 
@@ -63,36 +58,9 @@ img_diffuser_path = model_dir / "unet" / "model.onnx"
 scheduler_path = model_dir / "scheduler" / "scheduler_config.json"
 tokenizer_path = model_dir / "tokenizer"
 
-if (
-    exists(text_encoder_path)
-    and exists(img_decoder_path)
-    and exists(img_diffuser_path)
-    and exists(scheduler_path)
-):
-    st.info("Models already downloaded", icon="✅")
-else:
-    with st.spinner("Downloading models and converting to ONNX"):
-        command = [
-            "optimum-cli",
-            "export",
-            "onnx",
-            "--model",
-            "runwayml/stable-diffusion-v1-5",
-            model_dir,
-        ]
-        folder_path = (
-            cache_dir()
-            / "huggingface"
-            / "hub"
-            / "models--runwayml--stable-diffusion-v1-5"
-            / "blobs"
-        )
-        run_subprocess_monitor_download(
-            command,
-            folder_path,
-            total_size_mb=5228,
-            post_process_msg="Converting models to ONNX",
-        )
+# TODO: set up progress bar to work with huggingface_hub and streamlit
+with st.spinner("Downloading ONNX models, check terminal for progress"):
+    model_dir = snapshot_download("jackos/stable-diffusion-1.5-onnx")
 
 # Main Page
 prompt = st.text_input("Prompt", "A puppy playing the drums")
