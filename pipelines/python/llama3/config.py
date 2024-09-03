@@ -17,6 +17,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
+from max.dtype import DType
+from max.graph.quantization import QuantizationEncoding
+
 
 class SupportedEncodings(str, Enum):
     float32 = "float32"
@@ -30,6 +33,29 @@ class SupportedEncodings(str, Enum):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def quantization_encoding(self) -> Optional[QuantizationEncoding]:
+        return _ENCODING_TO_QUANTIZATION_ENCODING.get(self)
+
+    @property
+    def dtype(self) -> DType:
+        return _ENCODING_TO_DTYPE[self]
+
+
+_ENCODING_TO_QUANTIZATION_ENCODING = {
+    SupportedEncodings.q4_0: QuantizationEncoding.Q4_0,
+    SupportedEncodings.q4_k: QuantizationEncoding.Q4_K,
+    SupportedEncodings.q6_k: QuantizationEncoding.Q6_K,
+}
+
+_ENCODING_TO_DTYPE = {
+    SupportedEncodings.float32: DType.float32,
+    SupportedEncodings.bfloat16: DType.bfloat16,
+    SupportedEncodings.q4_0: DType.uint8,
+    SupportedEncodings.q4_k: DType.uint8,
+    SupportedEncodings.q6_k: DType.uint8,
+}
 
 
 class SupportedVersions(str, Enum):

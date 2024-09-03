@@ -13,10 +13,17 @@
 """Llama3 model hyperparameters."""
 
 from dataclasses import dataclass
+from typing import Optional
+
+from max.dtype import DType
+from max.graph.quantization import QuantizationEncoding
 
 
 @dataclass
 class Hyperparameters:
+    dtype: DType
+    quantization_encoding: Optional[QuantizationEncoding] = None
+
     seq_len: int = 2048
     """Maximum length of the token sequence that can be processed by this model."""
 
@@ -40,6 +47,9 @@ class Hyperparameters:
 
     layer_norm_rms_epsilon: float = 1e-5
     """Epsilon value for layer norm calculation."""
+
+    feed_forward_length: int = 500
+    """Dimensions in the attention projection layers."""
 
     @property
     def head_dim(self):
