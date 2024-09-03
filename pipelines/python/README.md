@@ -65,6 +65,33 @@ The default settings for this pipeline use the 8B set of pretrained weights in
    python3 pipelines.py llama3 --prompt "I believe the meaning of life is"
    ```
 
+4. Optionally host a text completion endpoint via MAX Serve.
+
+   MAX Serve provides functionality to host performant OpenAI compatible
+   endpoints using the FastAPI framework.
+
+   You can configure the pipeline to be hosted by using the `--serve` argument.
+   For e.g.,
+
+   ```shell
+   python3 pipelines.py llama3 --quantization-encoding q4_k --serve
+   ```
+
+   A request can be submitted via a cURL command.
+
+   ```shell
+   curl -N http://localhost:8000/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "llama3",
+        "stream": true,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Who won the world series in 2020?"}
+        ]
+    }'
+    ```
+
 ## Options
 
 The following command-line options are available to customize operation of the
