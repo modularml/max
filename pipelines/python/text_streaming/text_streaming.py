@@ -13,8 +13,9 @@
 
 from typing import Optional
 
-from .interfaces import TokenGenerator
 from utils import TextGenerationMetrics
+
+from .interfaces import TokenGenerator
 
 
 async def stream_text_to_console(
@@ -31,7 +32,7 @@ async def stream_text_to_console(
         metrics.signpost("begin_generation")
 
     # Note: assume a single request for now.
-    request_id = 0
+    request_id = str(id(prompt))
     for i in range(prompt_size, max_tokens + 1):
         response = await model.next_token({request_id: context})
         if request_id not in response:
