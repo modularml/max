@@ -16,4 +16,5 @@ inspect-guff = "mojo inspect-guff.🔥"
 
 [dependencies]
 python = ">=3.9,<3.13"
+huggingface_hub = ">=0.24.6,<0.25"
 max = "*"
