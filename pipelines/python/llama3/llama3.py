@@ -42,6 +42,8 @@ class Llama3Context:
 def _llama_graph(
     batch_size: int, params: Hyperparameters, weights: GGUFWeights
 ) -> Graph:
+    tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
+    attn_mask_type = TensorType(DType.bool, shape=[batch_size, "post_seq_len"])
     cache_type = TensorType(
         DType.float32,
         shape=[
@@ -52,10 +54,10 @@ def _llama_graph(
             params.head_dim,
         ],
     )
-    tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
 
     with Graph(
-        "llama3", input_types=[tokens_type, cache_type, cache_type]
+        "llama3",
+        input_types=[tokens_type, attn_mask_type, cache_type, cache_type],
     ) as graph:
         model = transformer(graph, params, weights)
         logits, k_update, v_update = model(*graph.inputs)
@@ -160,26 +162,17 @@ class Llama3:
     def _execute(self, context: Llama3Context) -> Tuple[np.ndarray, ...]:
         """Executes the model and returns the raw results."""
         cache = self._kv_cache
-        input_names = [t.name for t in self._model.input_metadata]
         output_names = [t.name for t in self._model.output_metadata]
-        # TODO (MSDK-844): Remove this when attention masks are harmonized between Mojo and Python graphs.
-        if len(input_names) == 4:
-            inputs = [
-                context.next_token,
-                self._get_attention_mask(
-                    cache.sequence_length + context.next_token.shape[1]
-                ),
-                cache.keys_view(),
-                cache.values_view(),
-            ]
-        else:
-            inputs = [
-                context.next_token,
-                cache.keys_view(),
-                cache.values_view(),
-            ]
 
-        result = self._model.execute(**dict(zip(input_names, inputs)))
+        result = self._model.execute(
+            input0=context.next_token,
+            input1=self._get_attention_mask(
+                cache.sequence_length + context.next_token.shape[1]
+            ),
+            input2=cache.keys_view(),
+            input3=cache.values_view(),
+        )
+
         logits, k_cache, v_cache = (result[o] for o in output_names)
         self._kv_cache.update(k_cache, v_cache)
         return logits, k_cache, v_cache

@@ -24,8 +24,11 @@ from .mlp import Linear
 from .rotary_embedding import RotaryEmbedding
 
 
-def attention_mask(
-    start_pos: DimLike, seq_len: DimLike, activation_dtype: DType
+def generate_attention_mask(
+    attention_mask: ValueLike,
+    start_pos: DimLike,
+    seq_len: DimLike,
+    activation_dtype: DType,
 ) -> TensorValue:
     """Computes Attention mask."""
     mask_val = ops.cast(
@@ -36,20 +39,29 @@ def attention_mask(
         activation_dtype,
     )
     mask = ops.band_part(mask_val, -1, 0, exclude=True)
-    return ops.concat(
-        [
-            ops.cast(
-                ops.broadcast_to(
-                    ops.scalar(0, dtype=DType.float32),
-                    shape=[seq_len, start_pos],
-                ),
-                activation_dtype,
-            ),
-            mask,
-        ],
-        axis=1,
-        new_dim="post_seq_len",
+
+    zeros = ops.cast(
+        ops.broadcast_to(
+            ops.scalar(0, dtype=DType.float32),
+            shape=[seq_len, start_pos],
+        ),
+        activation_dtype,
     )
+
+    x = ops.concat([zeros, mask], axis=1, new_dim="post_seq_len")
+
+    select_mask = ops.cast(
+        ops.broadcast_to(attention_mask, shape=x.shape), DType.bool
+    )
+
+    y = ops.cast(
+        ops.broadcast_to(
+            ops.scalar(float("-inf"), dtype=DType.float32), shape=x.shape
+        ),
+        activation_dtype,
+    )
+
+    return ops.select(select_mask, x, y)
 
 
 @dataclass
@@ -83,6 +95,7 @@ class Attention:
         xq: ValueLike,
         xk: ValueLike,
         xv: ValueLike,
+        attention_mask: ValueLike,
         k_cache: ValueLike,
         v_cache: ValueLike,
     ) -> TensorValue:
@@ -107,13 +120,16 @@ class Attention:
         values = values.transpose(1, 2)
 
         scale = ops.scalar(math.sqrt(1.0 / self.head_dim), dtype=xq.dtype)
-        mask = attention_mask(prev_seq_len, seq_len, xq.dtype)
+        mask = generate_attention_mask(
+            attention_mask, prev_seq_len, seq_len, xq.dtype
+        )
         scores = xq @ ops.transpose(keys, 2, 3)
         return ops.softmax(scale * scores + mask) @ values
 
     def __call__(
         self,
         x: ValueLike,
+        attention_mask: ValueLike,
         k_cache: ValueLike,
         v_cache: ValueLike,
     ) -> TensorValue:
@@ -143,7 +159,7 @@ class Attention:
         xq = self.rope(xq, start_pos, seq_len)
         xk = self.rope(xk, start_pos, seq_len)
         output = (
-            self.attention(xq, xk, xv, k_cache, v_cache)
+            self.attention(xq, xk, xv, attention_mask, k_cache, v_cache)
             .transpose(1, 2)
             .reshape([batch, seq_len, -1])
         )
