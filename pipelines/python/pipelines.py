@@ -15,7 +15,13 @@ import asyncio
 
 import click
 import llama3
+from max.serve.api_server import fastapi_app, fastapi_config
+from max.serve.config import APIType, Settings
+from max.serve.pipelines.deps import token_pipeline
+from max.serve.pipelines.llm import TokenGeneratorPipeline
 from text_streaming import stream_text_to_console
+from text_streaming.interfaces import TokenGenerator
+from uvicorn import Server
 
 from utils import (
     TextGenerationMetrics,
@@ -30,6 +36,18 @@ try:
     rich.traceback.install()
 except ImportError:
     pass
+
+
+async def serve_token_generator(model: TokenGenerator):
+    """Hosts the Llama3 pipeline using max.serve."""
+    settings = Settings(api_types=[APIType.OPENAI])
+    pipeline = TokenGeneratorPipeline[llama3.Llama3Context](model)
+    pipelines = [pipeline]
+    app = fastapi_app(settings, pipelines)
+    app.dependency_overrides[token_pipeline] = lambda: pipeline
+    config = fastapi_config(app=app)
+    server = Server(config)
+    await server.serve()
 
 
 class ModelGroup(click.Group):
@@ -67,15 +85,27 @@ def main():
         " pipeline will warn and then exit"
     ),
 )
-def run_llama3(prompt, verify, **config_kwargs):
+@click.option(
+    "--serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
+)
+def run_llama3(prompt, verify, serve, **config_kwargs):
     """Runs the Llama3 pipeline."""
     config = llama3.InferenceConfig(**config_kwargs)
     validate_weight_path(config, verify)
 
-    with TextGenerationMetrics(print_report=True) as metrics:
+    if serve:
+        print("Starting server...")
         model = llama3.Llama3(config)
-        print("Beginning text generation...")
-        asyncio.run(stream_text_to_console(model, prompt, metrics))
+        asyncio.run(serve_token_generator(model))
+    else:
+        with TextGenerationMetrics(print_report=True) as metrics:
+            model = llama3.Llama3(config)
+            print("Beginning text generation...")
+            asyncio.run(stream_text_to_console(model, prompt, metrics))
 
 
 def validate_weight_path(config, verify):
