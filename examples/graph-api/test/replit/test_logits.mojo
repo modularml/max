@@ -17,15 +17,21 @@ from max.engine import InferenceSession, TensorMap
 from max.graph import _testing, Graph, TensorType, Symbol, Type
 from max.tensor import Tensor, TensorShape
 from max.driver import cpu_device
+from max.serve.kv_cache.types import (
+    KVCacheLayout,
+    KVCacheStaticParams,
+)
 
-from pipelines.replit.layers.embedding import SharedEmbedding
-from pipelines.replit.layers.attention import GroupedQueryAttention
-from pipelines.replit.layers.linear import Linear
-from pipelines.replit.layers.block import MPTBlock, MPTMLP
-from pipelines.replit.layers.norm import LPLayerNorm
+from pipelines.nn import Embedding, Linear
+from pipelines.replit.model.block import MPTMLP
+from pipelines.replit.model.norm import LPLayerNorm
 from pipelines.replit.model.replit import Replit
 from pipelines.replit.weights.hyperparams import HyperParams
 from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
+
+alias replit_kv_params_cpu = KVCacheStaticParams(
+    num_heads=8, head_size=128, layout=KVCacheLayout.BHSD
+)
 
 # fmt: off
 struct TestCheckpoint(LoadableModel):
@@ -234,116 +240,6 @@ fn get_hyperparams() -> HyperParams:
         kv_n_heads=2,
     )
 
-fn test_attention() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams()
-
-    var g = Graph(
-        List[Type](TensorType(DType.float32, 1, 8, 8)),
-    )
-
-    var attn = GroupedQueryAttention[DType.float32](
-        nano_params,
-        Linear(g.constant(params.get[DType.float32]("attn_qkv", 0))),
-        Linear(g.constant(params.get[DType.float32]("attn_output", 0)))
-    )
-    g.output(attn(g[0])[0])
-    var input = Tensor[DType.float32](TensorShape(1, 8, 8),
-        2.0151, -0.3334, -0.4256, -0.1741,  1.2037, -0.8116, -1.1967, -0.2774,
-        -1.8925,  1.7477,  0.6883,  0.1850, -0.8403, -0.0448, -0.1820,  0.3386,
-        -0.5880,  2.0923,  1.2860, -0.4784, -0.4392, -0.4871, -0.7330, -0.6527,
-         2.0151, -0.3334, -0.4256, -0.1741,  1.2037, -0.8116, -1.1967, -0.2774,
-         0.2181,  0.5272, -0.1138,  0.3204,  1.0776, -1.1188, -1.9934,  1.0827,
-        -0.8331, -1.6811,  0.9493,  1.3706, -0.2184, -0.2707, -0.4784,  1.1619,
-         0.2181,  0.5272, -0.1138,  0.3204,  1.0776, -1.1188, -1.9934,  1.0827,
-        -0.5880,  2.0923,  1.2860, -0.4784, -0.4392, -0.4871, -0.7330, -0.6527)
-
-    var expected = Tensor[DType.float32](TensorShape(1, 8, 8),
-        -0.0907,  0.3197, -0.0206, -0.1600, -0.0087,  0.1185, -0.0902,  0.0044,
-         0.0639,  0.0013,  0.2308,  0.0490,  0.0904,  0.1417,  0.1224, -0.0594,
-        -0.0181, -0.0317,  0.3169,  0.0102,  0.1237,  0.2282,  0.1946, -0.0931,
-        -0.0245,  0.0890,  0.2498, -0.0354,  0.1130,  0.2140,  0.0853, -0.0684,
-         0.0820,  0.1211,  0.3137, -0.0132,  0.1657,  0.2035,  0.0426, -0.0523,
-         0.0799,  0.0347,  0.2080,  0.0472,  0.1135,  0.1163,  0.0250, -0.0465,
-         0.1290,  0.1221,  0.2316,  0.0458,  0.1065,  0.1555,  0.0463, -0.0507,
-         0.0959,  0.0927,  0.2632,  0.0381,  0.1015,  0.1742,  0.0997, -0.0487)
-    var actual = _testing.execute_unary(g, input)
-    _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
-
-fn test_attention_with_bias() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams()
-
-    var g = Graph(
-        List[Type](TensorType(DType.float32, 1, 8, 8), TensorType(DType.float32, 1, 4, 1, 10)),
-    )
-
-    var attn = GroupedQueryAttention[DType.float32](
-        nano_params,
-        Linear(g.constant[DType.float32](params.get[DType.float32]("attn_qkv", 0))),
-        Linear(g.constant[DType.float32](params.get[DType.float32]("attn_output", 0)))
-    )
-    g.output(attn(g[0], g[1])[0])
-    var input = Tensor[DType.float32](TensorShape(1, 8, 8),
-        2.0151, -0.3334, -0.4256, -0.1741,  1.2037, -0.8116, -1.1967, -0.2774,
-        -1.8925,  1.7477,  0.6883,  0.1850, -0.8403, -0.0448, -0.1820,  0.3386,
-        -0.5880,  2.0923,  1.2860, -0.4784, -0.4392, -0.4871, -0.7330, -0.6527,
-         2.0151, -0.3334, -0.4256, -0.1741,  1.2037, -0.8116, -1.1967, -0.2774,
-         0.2181,  0.5272, -0.1138,  0.3204,  1.0776, -1.1188, -1.9934,  1.0827,
-        -0.8331, -1.6811,  0.9493,  1.3706, -0.2184, -0.2707, -0.4784,  1.1619,
-         0.2181,  0.5272, -0.1138,  0.3204,  1.0776, -1.1188, -1.9934,  1.0827,
-        -0.5880,  2.0923,  1.2860, -0.4784, -0.4392, -0.4871, -0.7330, -0.6527)
-    var bias = Tensor[DType.float32](TensorShape(1, 4, 1, 10),
-        -2.2500, -2.0000, -1.7500, -1.5000, -1.2500, -1.0000, -0.7500, -0.5000,
-        -0.2500,  0.0000, -0.5625, -0.5000, -0.4375, -0.3750, -0.3125, -0.2500,
-        -0.1875, -0.1250, -0.0625,  0.0000, -0.1406, -0.1250, -0.1094, -0.0938,
-        -0.0781, -0.0625, -0.0469, -0.0312, -0.0156,  0.0000, -0.0352, -0.0312,
-        -0.0273, -0.0234, -0.0195, -0.0156, -0.0117, -0.0078, -0.0039,  0.0000)
-
-    var expected = Tensor[DType.float32](TensorShape(1, 8, 8),
-        -0.0907,  0.3197, -0.0206, -0.1600, -0.0087,  0.1185, -0.0902,  0.0044,
-         0.0681, -0.0225,  0.2354,  0.0588,  0.0846,  0.1385,  0.1491, -0.0620,
-        -0.0258, -0.0646,  0.3360,  0.0141,  0.1253,  0.2275,  0.2158, -0.0887,
-        -0.0285,  0.0925,  0.2522, -0.0392,  0.1167,  0.2158,  0.0770, -0.0667,
-         0.0927,  0.1336,  0.3022, -0.0113,  0.1621,  0.2030,  0.0433, -0.0587,
-         0.1054,  0.0470,  0.1783,  0.0620,  0.0964,  0.1099,  0.0434, -0.0620,
-         0.1562,  0.1375,  0.2024,  0.0603,  0.0909,  0.1495,  0.0616, -0.0660,
-         0.0996,  0.0751,  0.2700,  0.0461,  0.0993,  0.1702,  0.1142, -0.0468)
-    var actual = _testing.execute_binary(g, input, bias)
-    _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
-
-fn test_mpt_block() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams()
-
-    var g = Graph(
-        List[Type](TensorType(DType.float32, 1, 8, 8)),
-    )
-    var block = MPTBlock[TestCheckpoint, DType.float32](params, 0, g, nano_params)
-    g.output(block(g[0])[0])
-    var input = Tensor[DType.float32](TensorShape(1, 8, 8),
-        0.9180, -0.8026, -0.8702, -0.6859,  0.3235, -1.1530, -1.4351, -0.7616,
-        -2.5224,  2.1028,  0.7568,  0.1173, -1.1854, -0.1747, -0.3490,  0.3125,
-        -0.3225,  1.8615,  1.2045, -0.2332, -0.2013, -0.2403, -0.4407, -0.3752,
-         0.9180, -0.8026, -0.8702, -0.6859,  0.3235, -1.1530, -1.4351, -0.7616,
-        -0.1004,  0.1079, -0.3241, -0.0315,  0.4788, -1.0013, -1.5907,  0.4822,
-        -0.8603, -1.7125,  0.9310,  1.3544, -0.2425, -0.2951, -0.5038,  1.1447,
-        -0.1004,  0.1079, -0.3241, -0.0315,  0.4788, -1.0013, -1.5907,  0.4822,
-        -0.3225,  1.8615,  1.2045, -0.2332, -0.2013, -0.2403, -0.4407, -0.3752)
-    var actual = _testing.execute_unary(g, input)
-    var expected = Tensor[DType.float32](TensorShape(1, 8, 8),
-        0.3056, -0.2998, -1.1084, -0.5862,  0.4061, -1.1266, -1.4276, -1.2711,
-        -2.2747,  1.9785,  1.0319,  0.1628, -1.5928,  0.1269, -0.0891,  0.5916,
-        -0.4814,  1.7713,  1.5678, -0.1263, -0.5337,  0.1245, -0.0338, -0.3837,
-         0.2949, -0.5436, -0.8369, -0.4782,  0.5335, -1.0136, -1.2786, -1.3996,
-        -0.2665,  0.4962, -0.2078,  0.1107,  0.7217, -0.8450, -1.5606,  0.1508,
-        -0.8324, -1.5109,  1.2459,  1.4560,  0.0869, -0.2173, -0.5796,  1.0845,
-        -0.2258,  0.5059, -0.2965,  0.2054,  0.6618, -0.9088, -1.5465,  0.1460,
-        -0.3838,  1.8936,  1.5217, -0.1029, -0.5370,  0.0715, -0.1384, -0.3549)
-    _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
 fn test_mpt_mlp() raises:
     var params = TestCheckpoint(Path(""))
     var nano_params = get_hyperparams()
@@ -352,8 +248,8 @@ fn test_mpt_mlp() raises:
     )
 
     var layer = MPTMLP(
-        Linear(g.constant[DType.float32](params.get[DType.float32]("ffn_up", 0))),
-        Linear(g.constant[DType.float32](params.get[DType.float32]("ffn_down", 0))))
+        Linear(g.constant[DType.float32](params.get[DType.float32]("ffn_up", 0)).swapaxes(0, 1)),
+        Linear(g.constant[DType.float32](params.get[DType.float32]("ffn_down", 0)).swapaxes(0, 1)))
     g.output(layer(g[0]))
 
     var input = Tensor[DType.float32](TensorShape(1, 8, 8),
@@ -383,14 +279,14 @@ fn test_mpt_mlp() raises:
     _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
 
 
-fn test_shared_embedding() raises:
+fn test_embedding() raises:
     var params = TestCheckpoint(Path(""))
     var nano_params = get_hyperparams()
     var g = Graph(
         List[Type](TensorType(DType.int32, 1, 8)),
     )
     var w = g.constant[DType.float32](params.get[DType.float32]("token_embd"))
-    var layer = SharedEmbedding(w)
+    var layer = Embedding(w)
     g.output(layer(g[0]))
     var input = Tensor[DType.int32](TensorShape(1, 8),
         1, 3, 2, 1, 4, 0, 4, 2)
@@ -405,34 +301,6 @@ fn test_shared_embedding() raises:
         -0.3225,  1.8615,  1.2045, -0.2332, -0.2013, -0.2403, -0.4407, -0.3752)
     var actual = _testing.execute_unary(g, input)
     _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
-fn test_shared_embedding_unembed() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams()
-    var g = Graph(
-        List[Type](TensorType(DType.float32, 1, 8, 8)),
-    )
-    var w = g.constant[DType.float32](params.get[DType.float32]("token_embd"))
-    var layer = SharedEmbedding(w)
-    g.output(layer(g[0], True))
-    var input = Tensor[DType.float32](TensorShape(1, 8, 8),
-        1.4109,  0.5062, -0.7023,  0.0782,  1.5611, -0.7295, -1.1792, -0.9454,
-        -1.7746,  1.5395,  0.8181,  0.1406, -1.2493,  0.1024, -0.0443,  0.4675,
-        -0.8558,  1.7665,  1.5831, -0.4237, -0.9087, -0.1369, -0.2978, -0.7267,
-         1.3464,  0.0786, -0.3724,  0.1633,  1.7200, -0.6418, -1.0637, -1.2304,
-        -0.1199,  0.9884, -0.0648,  0.4224,  1.2894, -0.9741, -2.0008,  0.4595,
-        -0.8964, -1.5943,  1.1241,  1.3843, -0.0221, -0.3162, -0.6531,  0.9737,
-        -0.0332,  1.0200, -0.2109,  0.6005,  1.1947, -1.0703, -1.9450,  0.4442,
-        -0.7281,  1.8884,  1.4836, -0.3958, -0.9121, -0.2083, -0.4312, -0.6964)
-    var expected = Tensor[DType.float32](TensorShape(1, 8, 5),
-        -3.2800,  5.2049,  0.3586, -4.6237,  3.0359,  0.6726, -4.4877,  4.4617,
-         9.9737, -0.3301, -1.8099, -2.4457,  6.1897,  7.9996, -0.3979, -2.5187,
-         5.1450, -0.0361, -5.4336,  2.5538,  0.4311,  2.9250,  2.3859,  1.8649,
-         5.1234,  7.9651, -0.9179, -1.6446,  0.5353,  1.3245,  0.4133,  2.9960,
-         2.2226,  1.7278,  5.1146, -2.0596, -2.1093,  6.3143,  7.9343, -0.0695)
-    var actual = _testing.execute_unary(g, input)
-    _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
-
 
 fn test_norm() raises:
     var params = TestCheckpoint(Path(""))
@@ -472,7 +340,7 @@ fn test_linear() raises:
     var g = Graph(
         List[Type](TensorType(DType.float32, 1, 8, 8)),
     )
-    var w = g.constant[DType.float32](params.get[DType.float32]("attn_qkv", 0))
+    var w = g.constant[DType.float32](params.get[DType.float32]("attn_qkv", 0)).swapaxes(0, 1)
     var layer = Linear(w)
     g.output(layer(g[0]))
 
@@ -515,125 +383,9 @@ fn test_linear() raises:
     var actual = _testing.execute_unary(g, input)
     _testing.assert_tensors_almost_equal(actual, expected, atol=1e-4, rtol=1e-4)
 
-fn test_replit_logits() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams()
-    var replit = Replit[TestCheckpoint, DType.float32](nano_params)
-    var g = replit.build_graph(
-        params,
-        "Nano Replit",
-        with_attention_mask=True,
-        use_cache=True
-    )
-
-    # Test with empty kv cache.
-    var input = Tensor[DType.int64](TensorShape(1, 7), 1, 3, 2, 1, 4, 0, 2)
-    var attention_mask = Tensor[DType.bool](TensorShape(1, 7), True)
-    var kv_cache = replit.create_empty_cache(cpu_device())
-    var k_cache = Tensor[DType.float32](kv_cache[0].spec())
-    var v_cache = Tensor[DType.float32](kv_cache[1].spec())
-    var result_map = execute_replit(g, input, attention_mask, k_cache, v_cache)
-
-    var expected_logits = Tensor[DType.float32](TensorShape(1, 5),
-        -1.9980, -2.2461,  6.2784,  8.0301, -0.1669)
-    var logits = result_map.get[DType.float32]("output0")
-    _testing.assert_tensors_almost_equal(logits, expected_logits, atol=1e-4, rtol=1e-4)
-
-    var expected_k_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 2, 7),
-        -1.0390,  0.2506, -0.2787, -1.0390, -1.2110, -0.3321, -0.2787, -0.5360,
-         0.3860,  0.1726, -0.5360, -0.3086,  0.4769,  0.1726, -0.5828,  0.9236,
-         0.8546, -0.5828, -0.2465, -0.3986,  0.8546,  0.1491, -0.0715, -0.3276,
-         0.1491,  0.8684,  1.0959, -0.3276)
-    var new_k_cache = result_map.get[DType.float32]("output1")
-    _testing.assert_tensors_almost_equal(new_k_cache, expected_k_cache, atol=1e-4, rtol=1e-4)
-
-    var expected_v_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 7, 2),
-        -0.3588, -0.6982,  0.6270,  0.8170,  0.8232,  0.2299, -0.3588, -0.6982,
-        -0.1642,  0.0711, -0.1535,  0.5428,  0.8232,  0.2299,  0.1687, -0.1312,
-         0.0458, -0.7262,  0.1820, -0.4769,  0.1687, -0.1312,  0.2427, -1.0441,
-        -0.1002,  0.1982,  0.1820, -0.4769)
-    var new_v_cache = result_map.get[DType.float32]("output2")
-    _testing.assert_tensors_almost_equal(new_v_cache, expected_v_cache, atol=1e-4, rtol=1e-4)
-
-
-fn test_replit_logits_with_prev_cache() raises:
-    var params = TestCheckpoint(Path(""))
-    var nano_params = get_hyperparams()
-    var replit = Replit[TestCheckpoint, DType.float32](nano_params)
-    var g = replit.build_graph(
-        params,
-        "Nano Replit",
-        with_attention_mask=True,
-        use_cache=True
-    )
-
-    # Test with new inputs and the kv cache computed previously.
-    var input2 = Tensor[DType.int64](TensorShape(1, 2), 2, 3)
-    var k_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 2, 7),
-        -1.0390,  0.2506, -0.2787, -1.0390, -1.2110, -0.3321, -0.2787, -0.5360,
-         0.3860,  0.1726, -0.5360, -0.3086,  0.4769,  0.1726, -0.5828,  0.9236,
-         0.8546, -0.5828, -0.2465, -0.3986,  0.8546,  0.1491, -0.0715, -0.3276,
-         0.1491,  0.8684,  1.0959, -0.3276)
-    var v_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 7, 2),
-        -0.3588, -0.6982,  0.6270,  0.8170,  0.8232,  0.2299, -0.3588, -0.6982,
-        -0.1642,  0.0711, -0.1535,  0.5428,  0.8232,  0.2299,  0.1687, -0.1312,
-         0.0458, -0.7262,  0.1820, -0.4769,  0.1687, -0.1312,  0.2427, -1.0441,
-        -0.1002,  0.1982,  0.1820, -0.4769)
-    var attention_mask2 = Tensor[DType.bool](TensorShape(1, 9), True)
-    var result_map2 = execute_replit(g, input2, attention_mask2, k_cache, v_cache)
-    var expected_logits2 = Tensor[DType.float32](TensorShape(1, 5),
-        0.8508, -4.5605,  4.4140,  9.9478, -0.3976)
-    var logits2 = result_map2.get[DType.float32]("output0")
-    _testing.assert_tensors_almost_equal(logits2, expected_logits2, atol=1e-4, rtol=1e-4)
-    var expected_k_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 2, 9),
-        -1.0390,  0.2506, -0.2787, -1.0390, -1.2110, -0.3321, -0.2787, -0.2787,
-         0.2506, -0.5360,  0.3860,  0.1726, -0.5360, -0.3086,  0.4769,  0.1726,
-         0.1726,  0.3860, -0.5828,  0.9236,  0.8546, -0.5828, -0.2465, -0.3986,
-         0.8546,  0.8546,  0.9236,  0.1491, -0.0715, -0.3276,  0.1491,  0.8684,
-         1.0959, -0.3276, -0.3276, -0.0715)
-    var new_k_cache = result_map2.get[DType.float32]("output1")
-    _testing.assert_tensors_almost_equal(new_k_cache, expected_k_cache, atol=1e-4, rtol=1e-4)
-
-    var expected_v_cache = Tensor[DType.float32](TensorShape(1, 1, 2, 9, 2),
-        -0.3588, -0.6982,  0.6270,  0.8170,  0.8232,  0.2299, -0.3588, -0.6982,
-        -0.1642,  0.0711, -0.1535,  0.5428,  0.8232,  0.2299,  0.8232,  0.2299,
-         0.6270,  0.8170,  0.1687, -0.1312,  0.0458, -0.7262,  0.1820, -0.4769,
-         0.1687, -0.1312,  0.2427, -1.0441, -0.1002,  0.1982,  0.1820, -0.4769,
-         0.1820, -0.4769,  0.0458, -0.7262)
-    var new_v_cache = result_map2.get[DType.float32]("output2")
-    _testing.assert_tensors_almost_equal(new_v_cache, expected_v_cache, atol=1e-4, rtol=1e-4)
-
-# fmt: on
-
-
-fn execute_replit(
-    g: Graph,
-    input: Tensor[DType.int64],
-    attention_mask: Tensor[DType.bool],
-    k_cache: Tensor[DType.float32],
-    v_cache: Tensor[DType.float32],
-) raises -> TensorMap:
-    var session = InferenceSession()
-    var model = session.load(g)
-
-    var input_map = session.new_tensor_map()
-    input_map.borrow("input0", input)
-    input_map.borrow("input1", attention_mask)
-    input_map.borrow("input2", k_cache)
-    input_map.borrow("input3", v_cache)
-
-    var result_map = model.execute(input_map)
-    return result_map^
-
 
 fn main() raises:
-    test_attention()
-    test_attention_with_bias()
-    test_mpt_block()
     test_mpt_mlp()
-    test_shared_embedding()
-    test_shared_embedding_unembed()
+    test_embedding()
     test_norm()
     test_linear()
-    test_replit_logits()
-    test_replit_logits_with_prev_cache()

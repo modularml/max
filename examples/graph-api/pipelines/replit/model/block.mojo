@@ -10,16 +10,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from max.graph import ops, Symbol
+"""The core Transformer block of the model."""
+
+from collections import Optional
+
+from max.graph import ops, Symbol, Graph
+from pathlib import Path
+from pipelines.weights.gguf import GGUFFile
+from pipelines.weights.loadable_model import LoadableModel
+
+from pipelines.nn import Linear
+from ..model.norm import LPLayerNorm
+from ..weights.hyperparams import HyperParams
 
 
 @value
-struct Linear:
-    """A fully connected layer."""
+struct MPTMLP:
+    """Multiplayer perceptron used in MPT."""
 
-    var weight: Symbol
+    var up_proj: Linear
+    var down_proj: Linear
 
     def __call__(self, input: Symbol) -> Symbol:
         g = input.graph()
-        with g.layer("Linear"):
-            return input @ ops.transpose_matrix(self.weight)
+        with g.layer("MPTMLP"):
+            return self.down_proj(ops.gelu(self.up_proj(input)))
