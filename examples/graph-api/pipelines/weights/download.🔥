@@ -16,6 +16,16 @@
 import os
 from pathlib import Path
 from sys.ffi import external_call
+from python import Python
+
+from max.graph.quantization import (
+    Float32Encoding,
+    QuantizationEncoding,
+    Q4_0Encoding,
+    Q4_KEncoding,
+    Q6_KEncoding,
+    BFloat16Encoding,
+)
 
 
 def modular_cache_dir() -> Path:
@@ -45,3 +55,46 @@ def download_to_cache(url: String) -> Path:
         external_call["system", NoneType](Reference(cmd.as_bytes_slice()[0]))
 
     return destination
+
+
+def download_from_hf(repo_id: String, filename: String) -> Path:
+    """Uses huggingface_hub from Python to resume downloads on interupt."""
+    hf_hub_download = Python.import_module("huggingface_hub").hf_hub_download
+    return Path(str(hf_hub_download(repo_id, filename)))
+
+
+def download_llama3(encoding: String, version: String) -> Path:
+    # fmt: off
+    if version == "2.0":
+        if encoding == Q4_0Encoding.id():
+            return download_from_hf("TheBloke/Llama-2-7B-GGUF", "llama-2-7b.Q4_0.gguf")
+        elif encoding == Q4_KEncoding.id():
+            return download_from_hf("TheBloke/Llama-2-7B-GGUF", "llama-2-7b.Q4_K_M.gguf")
+        elif encoding == Q6_KEncoding.id():
+            return download_from_hf("TheBloke/Llama-2-7B-GGUF", "llama-2-7b.Q6_K.gguf")
+        elif encoding == Float32Encoding.id():
+            return download_from_hf("karpathy/tinyllamas", "stories15M.bin")
+    elif version == "3.0":
+        if encoding == Q4_0Encoding.id():
+            return download_from_hf("QuantFactory/Meta-Llama-3-8B-Instruct-GGUF", "Meta-Llama-3-8B-Instruct.Q4_0.gguf")
+        elif encoding == Q4_KEncoding.id():
+            return download_from_hf("bartowski/Meta-Llama-3-8B-Instruct-GGUF", "Meta-Llama-3-8B-Instruct-Q4_K_M.gguf")
+        elif encoding == Q6_KEncoding.id():
+            return download_from_hf("bartowski/Meta-Llama-3-8B-Instruct-GGUF", "Meta-Llama-3-8B-Instruct-Q6_K.gguf")
+        elif encoding == BFloat16Encoding.id():
+            return download_from_hf("ddh0/Meta-Llama-3-8B-Instruct-GGUF", "Meta-Llama-3-8B-Instruct-bf16.gguf")
+        elif encoding == Float32Encoding.id():
+            return download_from_hf("brendanduke/Llama-3-8B-f32.gguf", "llama3-8b-f32.ggu")
+    elif version == "3.1":
+        if encoding == Q4_0Encoding.id():
+            return download_from_hf("kaetemi/Meta-Llama-3.1-8B-Q4_0-GGUF", "meta-llama-3.1-8b-q4_0.gguf")
+        elif encoding == Q4_KEncoding.id():
+            return download_from_hf("bartowski/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf")
+        elif encoding == Q6_KEncoding.id():
+            return download_from_hf("bartowski/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q6_K.gguf")
+        elif encoding == BFloat16Encoding.id():
+            return download_from_hf("bullerwins/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-bf16.gguf")
+        elif encoding == Float32Encoding.id():
+            return download_from_hf("bartowski/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-f32.gguf")
+    raise "Quantization encoding: " + encoding + " and version: " + version + " not supported"
+    # fmt: on

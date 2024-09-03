@@ -20,6 +20,7 @@ from os import setenv
 from pathlib import Path
 from utils.index import Index
 from time import perf_counter_ns
+from python import Python
 
 
 from max.engine import InferenceSession, Model, SessionOptions
@@ -70,7 +71,7 @@ from ..configs.parse_args import (
     register_pipeline_configs,
 )
 from ..samplers.weighted_sampler import WeightedSampler
-from ..weights.download import download_to_cache
+from ..weights.download import download_llama3
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
@@ -588,13 +589,8 @@ def run_naive[encoding: QuantizationEncoding](config: Config) -> None:
 
 def run_dispatch[kv_params: KVCacheStaticParams](config: Config):
     encoding = config.get("quantization-encoding")[String]
-
-    if not config.get("model-path")[Path]:
-        if config.get("version")[String] == "3.0":
-            model_path = download_to_cache(get_llama3_model_url(encoding))
-        else:
-            model_path = download_to_cache(get_llama3_1_model_url(encoding))
-        config.set("model-path", model_path)
+    version = config.get("version")[String]
+    config.set("model-path", download_llama3(encoding, version))
 
     if encoding == Q4_0Encoding.id():
         run_naive[Q4_0Encoding](config)
