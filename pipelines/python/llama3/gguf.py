@@ -136,7 +136,7 @@ def attention(
 def transformer(graph: Graph, params: Hyperparameters, weights: GGUFWeights):
     with graph:
         try:
-            rope_scaling = weights.rope_freqs.weight.tensor().data
+            rope_scaling = weights.rope_freqs.weight.raw_tensor().data
         except KeyError:
             # Set default RoPE scaling if the tensor isn't present in the GGUF
             # file.

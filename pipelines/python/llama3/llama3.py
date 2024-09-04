@@ -19,7 +19,7 @@ import numpy as np
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
-from max.graph.weights.load_gguf import GGUFWeights
+from max.graph.weights import GGUFWeights
 
 from utils import gguf_utils, tokenizer_from_gguf
 
@@ -113,6 +113,7 @@ class Llama3:
             return session.load(serialized_path)
         else:
             self._weights = GGUFWeights(reader)
+            print("Building model...")
             graph = _llama_graph(config.batch_size, params, self._weights)
             print("Compiling...")
             return session.load(
