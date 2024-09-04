@@ -23,7 +23,6 @@ async def stream_text_to_console(
 ):
     context = await model.new_context(prompt)
     prompt_size = context.prompt_size
-    max_tokens = context.max_tokens
 
     # Start with the initial prompt.
     print(context.prompt, end="", flush=True)
@@ -32,13 +31,15 @@ async def stream_text_to_console(
         metrics.signpost("begin_generation")
 
     # Note: assume a single request for now.
+    is_first_token = True
     request_id = str(id(prompt))
-    for i in range(prompt_size, max_tokens + 1):
+    while True:
         response = await model.next_token({request_id: context})
         if request_id not in response:
             break
         if metrics:
-            if i == prompt_size:
+            if is_first_token:
+                is_first_token = False
                 metrics.signpost("first_token")
             metrics.new_token()
         print(response[request_id], end="", flush=True)

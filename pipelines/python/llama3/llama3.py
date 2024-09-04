@@ -33,10 +33,12 @@ from .model.hyperparameters import Hyperparameters
 class Llama3Context:
     """The context for text generation using a Llama 3 model."""
 
-    next_token: np.ndarray
+    prompt: str
     prompt_size: int
     max_tokens: int
-    prompt: str
+    next_token: np.ndarray
+    output_token_count: int = 0  # Number of generated tokens so far.
+    output_sequence: str = ""  # Generated text sequence from tokens so far.
 
 
 def _llama_graph(
@@ -71,8 +73,7 @@ class Llama3:
     config: InferenceConfig
     _model: Model
     _kv_cache: KVCache
-    _sessions: dict[str, int]
-    _weights: GGUFWeights
+    _sessions: set[str]
 
     def __init__(self, config: InferenceConfig):
         self.config = config
@@ -98,7 +99,7 @@ class Llama3:
             params.n_kv_heads,
             params.head_dim,
         )
-        self._sessions = {}
+        self._sessions = set[str]()
 
     def _load_model(
         self,
@@ -135,12 +136,13 @@ class Llama3:
     async def next_token(
         self, batch: dict[str, Llama3Context]
     ) -> dict[str, str]:
+        # TODO(MSDK-889) - Consider moving request/cache mgmt out of next_token.
         # Note: assuming a single request.
         assert len(batch) == self.config.batch_size == 1
         request_id, context = next(iter(batch.items()))
 
         if request_id not in self._sessions:
-            self._sessions[request_id] = 0
+            self._sessions.add(request_id)
             self._reset_cache()
 
         logits, _, _ = self._execute(context)
@@ -148,11 +150,26 @@ class Llama3:
         # TODO: Add a weighted sampler here.
         # Get argmax of the logits of the last token.
         next_token = logits.argmax(axis=-1)[-1]
-        context.next_token = next_token.reshape(1, -1)
         decoded_token = self._tokenizer.decode(next_token)
-        if decoded_token == self._tokenizer.eos_token:
+
+        # Update context
+        context.next_token = next_token.reshape(1, -1)
+        context.output_sequence += decoded_token
+        context.output_token_count += 1
+
+        if self._should_stop(context, decoded_token):
+            self._sessions.remove(request_id)
             return {}
+
         return {request_id: decoded_token}
+
+    def _should_stop(self, context: Llama3Context, decoded_token) -> bool:
+        if decoded_token == self._tokenizer.eos_token:
+            return True
+        max_output_tokens = max(1, context.max_tokens - context.prompt_size)
+        if context.output_token_count == max_output_tokens:
+            return True
+        return False
 
     def _reset_cache(self):
         # This feels really contrived, but it's because our KV cache setup
