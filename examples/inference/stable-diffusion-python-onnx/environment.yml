@@ -1,0 +1,9 @@
+name: max-repo
+channels:
+  - https://conda.modular.com/max
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.8,<3.12
+  - max
+  - pip>=24.0,<25

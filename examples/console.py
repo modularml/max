@@ -142,13 +142,8 @@ def select_repository(
 
 def run_repository(repo_name: str) -> None:
     repo_path = os.path.join(ROOT, repo_name)
-    requirements_path = os.path.join(repo_path, "requirements.txt")
     run_script_path = (Path(repo_path) / "run.sh").resolve()
-
-    if os.path.exists(requirements_path):
-        subprocess.run(["pip", "install", "-r", requirements_path])
-
-    subprocess.run(["bash", run_script_path], cwd=repo_path)
+    subprocess.run(["magic", "run", "bash", run_script_path], cwd=repo_path)
     return
 
 

@@ -14,7 +14,7 @@ unlocks full programmability, unparalleled performance, and seamless hardware po
     <img src="https://modular-assets.s3.amazonaws.com/images/modular_architecture_diagram_bg.png">
 </p>
 
-[See here to get started with MAX](https://docs.modular.com/engine/get-started)
+[See here to get started with MAX](https://docs.modular.com/max/get-started)
 and when you want to report issues or request features,
 [please create a GitHub issue here](https://github.com/modularml/max/issues/new/choose).
 
@@ -29,8 +29,8 @@ with benchmarking and visualization tooling.
 ## Getting Started
 
 MAX is available in both stable and nightly builds. To install either version,
-follow the guide to [install the MAX SDK](https://modul.ar/get-started) (also
-see for the system requirements).
+follow the guide to [create a project with
+Magic](https://docs.modular.com/max/create-project).
 
 Then clone this repository:
 
@@ -82,19 +82,7 @@ The [tutorials](./tutorials/) directory contains the "finished" code for
 tutorials you can read at
 [docs.modular.com/max/tutorials](https://docs.modular.com/max/tutorials).
 
-### FAQ
-
-Q: I get `ModuleNotFoundError: No module named 'max'` when running an example?
-
-A: Please make sure you run
-
-```sh
-python3 -m pip install --find-links "$(modular config max.path)/wheels" max-engine
-```
-
-in your local python environment. Note that `max` can also be available in your `PATH`
-
-### MAX Serving Docker Container
+### Docker Container
 
 For MAX Serving, you can pull our Docker Container from the the public ECR here:
 [https://gallery.ecr.aws/modular/max-serving](https://gallery.ecr.aws/modular/max-serving)
