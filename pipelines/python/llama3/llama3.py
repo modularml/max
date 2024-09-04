@@ -107,7 +107,7 @@ class Llama3:
         params: Hyperparameters,
         reader: gguf.GGUFReader,
     ) -> Model:
-        session = InferenceSession()
+        session = InferenceSession(device=config.device)
         if serialized_path := config.serialized_model_path:
             print("Loading serialized model from", serialized_path, "...")
             return session.load(serialized_path)

@@ -15,6 +15,7 @@ import asyncio
 
 import click
 import llama3
+from max.driver import CUDA, CPU
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.pipelines.deps import token_pipeline
@@ -92,8 +93,17 @@ def main():
     default=False,
     help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
 )
-def run_llama3(prompt, verify, serve, **config_kwargs):
+@click.option(
+    "--use-gpu",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to run the model on the available GPU.",
+)
+def run_llama3(prompt, verify, serve, use_gpu, **config_kwargs):
     """Runs the Llama3 pipeline."""
+    device = CUDA() if use_gpu else CPU()
+    config_kwargs.update({"device": device})
     config = llama3.InferenceConfig(**config_kwargs)
     validate_weight_path(config, verify)
 

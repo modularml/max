@@ -19,6 +19,7 @@ from typing import Optional, Union
 
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
+from max.driver import Device, CPU
 
 
 class SupportedEncodings(str, Enum):
@@ -89,6 +90,13 @@ PRETRAINED_MODEL_WEIGHTS = {
 
 @dataclass
 class InferenceConfig:
+    # This device, practically given the post_init below
+    # should never be None, this is done to appease the dataclass
+    # constructor for using a non-defaultable abstract base class
+    # as a type.
+    device: Optional[Device] = None
+    """Device to run inference upon."""
+
     weight_path: Optional[Union[str, Path]] = None
     """Path or URL of the model weights."""
 
@@ -109,6 +117,10 @@ class InferenceConfig:
 
     batch_size: int = 1
     """Batch size of inputs to the model."""
+
+    def __post_init__(self):
+        if self.device is None:
+            self.device = CPU()
 
     @staticmethod
     def help():
