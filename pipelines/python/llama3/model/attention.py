@@ -31,21 +31,15 @@ def generate_attention_mask(
     activation_dtype: DType,
 ) -> TensorValue:
     """Computes Attention mask."""
-    mask_val = ops.cast(
-        ops.broadcast_to(
-            ops.scalar(float("-inf"), dtype=DType.float32),
-            shape=[seq_len, seq_len],
-        ),
-        activation_dtype,
+    mask_val = ops.broadcast_to(
+        ops.scalar(float("-inf"), activation_dtype),
+        shape=[seq_len, seq_len],
     )
     mask = ops.band_part(mask_val, -1, 0, exclude=True)
 
-    zeros = ops.cast(
-        ops.broadcast_to(
-            ops.scalar(0, dtype=DType.float32),
-            shape=[seq_len, start_pos],
-        ),
-        activation_dtype,
+    zeros = ops.broadcast_to(
+        ops.scalar(0, activation_dtype),
+        shape=[seq_len, start_pos],
     )
 
     x = ops.concat([zeros, mask], axis=1, new_dim="post_seq_len")
@@ -54,11 +48,8 @@ def generate_attention_mask(
         ops.broadcast_to(attention_mask, shape=x.shape), DType.bool
     )
 
-    y = ops.cast(
-        ops.broadcast_to(
-            ops.scalar(float("-inf"), dtype=DType.float32), shape=x.shape
-        ),
-        activation_dtype,
+    y = ops.broadcast_to(
+        ops.scalar(float("-inf"), activation_dtype), shape=x.shape
     )
 
     return ops.select(select_mask, x, y)
@@ -119,7 +110,7 @@ class Attention:
         keys = keys.transpose(1, 2)
         values = values.transpose(1, 2)
 
-        scale = ops.scalar(math.sqrt(1.0 / self.head_dim), dtype=xq.dtype)
+        scale = math.sqrt(1.0 / self.head_dim)
         mask = generate_attention_mask(
             attention_mask, prev_seq_len, seq_len, xq.dtype
         )
