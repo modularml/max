@@ -26,8 +26,5 @@ class RMSNorm:
     eps: float = 1e-6
 
     def __call__(self, x: ValueLike) -> TensorValue:
-        x = TensorValue(x)
-        eps = ops.scalar(self.eps, x.dtype)
-        two = ops.scalar(2, x.dtype)
-        scale = ops.rsqrt(ops.mean(x**two, axis=-1) + eps)
+        scale = ops.rsqrt(ops.mean(x**2, axis=-1) + self.eps)
         return x * scale * self.weight

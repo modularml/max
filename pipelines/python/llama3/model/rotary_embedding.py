@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+from max.dtype import DType
 from max.graph import DimLike, TensorValue, ValueLike, ops
 
 
@@ -60,7 +61,7 @@ class RotaryEmbedding:
             freqs = (1.0 / (self.theta ** (iota / n))).astype(np.float32)
             # TODO (MSDK-655): Use ops.arange() here when implemented.
             t = np.arange(0, self.max_seq_len * 2.0, dtype=np.float32)
-            freqs = ops.outer(t, freqs)
+            freqs = ops.outer(ops.constant(t, DType.float32), freqs)
             self._freqs_cis = ops.stack(
                 [ops.cos(freqs), ops.sin(freqs)], axis=-1
             )
