@@ -20,10 +20,10 @@ If you have [`magic`](https://docs.modular.com/magic), you can run any of the
 following commands:
 
 ```sh
-magic run llama2 --prompt "what is the meaning of life"
+magic run llama2 --prompt "I believe the meaning of life is"
 magic run llama3 --prompt "what is the meaning of life"
-magic run quantize-tinystories --prompt "what is the meaning of life"
-magic run replit --prompt "what is the meaning of life"
+magic run quantize-tinystories --prompt "I believe the meaning of life is"
+magic run replit --prompt "def fibonacci(n):"
 magic run basic
 magic run mojo run_pipeline.🔥 [pipeline] [options]
 ```
