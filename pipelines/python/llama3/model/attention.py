@@ -74,11 +74,7 @@ class Attention:
         batch = kv.shape[0]
         kv = ops.reshape(kv, [batch, -1, self.n_kv_heads, 1, self.head_dim])
 
-        # TODO (MSDK-655): Should use a ops.tile() implementation here when available.
-        num_tiles = [1, 1, 1, self.n_heads // self.n_kv_heads, 1]
-        for i, n in enumerate(num_tiles):
-            tiles = [kv for _ in range(n)]
-            kv = ops.concat(tiles, axis=i)
+        kv = ops.tile(kv, [1, 1, 1, self.n_heads // self.n_kv_heads, 1])
         return ops.reshape(kv, [batch, -1, self.n_heads, self.head_dim])
 
     def attention(
