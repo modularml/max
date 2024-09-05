@@ -35,14 +35,15 @@ async def stream_text_to_console(
     request_id = str(id(prompt))
     while True:
         response = await model.next_token({request_id: context})
-        if request_id not in response:
+        response_text = response[request_id]
+        if response_text is None:
             break
         if metrics:
             if is_first_token:
                 is_first_token = False
                 metrics.signpost("first_token")
             metrics.new_token()
-        print(response[request_id], end="", flush=True)
+        print(response_text, end="", flush=True)
     if metrics:
         metrics.signpost("end_generation")
     print()
