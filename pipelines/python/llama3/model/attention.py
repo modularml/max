@@ -32,13 +32,13 @@ def generate_attention_mask(
 ) -> TensorValue:
     """Computes Attention mask."""
     mask_val = ops.broadcast_to(
-        ops.scalar(float("-inf"), activation_dtype),
+        ops.constant(float("-inf"), activation_dtype),
         shape=[seq_len, seq_len],
     )
     mask = ops.band_part(mask_val, -1, 0, exclude=True)
 
     zeros = ops.broadcast_to(
-        ops.scalar(0, activation_dtype),
+        ops.constant(0, activation_dtype),
         shape=[seq_len, start_pos],
     )
 
@@ -49,7 +49,7 @@ def generate_attention_mask(
     )
 
     y = ops.broadcast_to(
-        ops.scalar(float("-inf"), activation_dtype), shape=x.shape
+        ops.constant(float("-inf"), activation_dtype), shape=x.shape
     )
 
     return ops.select(select_mask, x, y)
