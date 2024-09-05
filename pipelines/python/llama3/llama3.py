@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+import os
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -25,9 +26,9 @@ from utils import gguf_utils, tokenizer_from_gguf
 
 from .config import InferenceConfig, SupportedEncodings
 from .gguf import transformer
+from .kernel_names import KVCacheKernelNames
 from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
-from .kernel_names import KVCacheKernelNames
 
 
 @dataclass
@@ -129,7 +130,11 @@ class Llama3:
             print("Loading serialized model from", serialized_path, "...")
             return session.load(serialized_path)
         else:
-            self._weights = GGUFWeights(reader)
+            # TODO(GRA-964): Revert #46659 when memory planning is done.
+            self._weights = GGUFWeights(
+                reader,
+                use_resource="MODULAR_USE_EXTERNAL_WEIGHTS" not in os.environ,
+            )
             print("Building model...")
             graph = _llama_graph(
                 config.batch_size, params, self._weights, self._kernel_names
