@@ -26,6 +26,7 @@ from .model.mlp import MLP, Linear
 from .model.norm import RMSNorm
 from .model.rotary_embedding import RotaryEmbedding
 from .model.transformer import Transformer, TransformerBlock
+from .kernel_names import KVCacheKernelNames
 
 
 def feed_forward(
@@ -133,7 +134,16 @@ def attention(
     )
 
 
-def transformer(graph: Graph, params: Hyperparameters, weights: GGUFWeights):
+def transformer(
+    graph: Graph,
+    params: Hyperparameters,
+    weights: GGUFWeights,
+    _kernel_names: KVCacheKernelNames,
+):
+    # _kernel_names is currently unused
+    # This is wired up with the expectation that we will
+    # use it in a follow up PR which leverages the mo.opaque kv cache
+
     with graph:
         try:
             rope_scaling = weights.rope_freqs.weight.raw_tensor().data
