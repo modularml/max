@@ -22,7 +22,13 @@ struct RMSNorm:
     var weight: Symbol
 
     def __call__(self, input: Symbol) -> Symbol:
-        scale = ops.rsqrt(ops.mean(input**2.0, axis=-1) + self.eps)
-        # Since norm weights are float32, cast to input dtype to avoid
-        # promoting the result to float32 when the input is float16.
-        return input * scale * ops.cast(self.weight, input.tensor_type().dtype)
+        g = input.graph()
+        input_type = input.tensor_type()
+        return ops.custom["rms_norm"](
+            List[Symbol](
+                input,
+                ops.cast(self.weight, input_type.dtype),
+                ops.cast(g.scalar[DType.float64](self.eps), input_type.dtype),
+            ),
+            input.type(),
+        )
