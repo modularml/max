@@ -27,6 +27,7 @@ from .config import InferenceConfig, SupportedEncodings
 from .gguf import transformer
 from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
+from .kernel_names import KVCacheKernelNames
 
 
 @dataclass
@@ -42,7 +43,10 @@ class Llama3Context:
 
 
 def _llama_graph(
-    batch_size: int, params: Hyperparameters, weights: GGUFWeights
+    batch_size: int,
+    params: Hyperparameters,
+    weights: GGUFWeights,
+    kernel_names: KVCacheKernelNames,
 ) -> Graph:
     tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
     attn_mask_type = TensorType(DType.bool, shape=[batch_size, "post_seq_len"])
@@ -61,7 +65,7 @@ def _llama_graph(
         "llama3",
         input_types=[tokens_type, attn_mask_type, cache_type, cache_type],
     ) as graph:
-        model = transformer(graph, params, weights)
+        model = transformer(graph, params, weights, kernel_names)
         logits, k_update, v_update = model(*graph.inputs)
         graph.output(logits[:, -1], k_update, v_update)
         return graph
@@ -74,6 +78,7 @@ class Llama3:
     _model: Model
     _kv_cache: KVCache
     _sessions: set[str]
+    _kernel_names: KVCacheKernelNames
 
     def __init__(self, config: InferenceConfig):
         self.config = config
@@ -84,8 +89,6 @@ class Llama3:
         params = _read_hyperparameters(
             config.quantization_encoding, gguf_reader
         )
-        self._model = self._load_model(config, params, gguf_reader)
-        self._tokenizer = tokenizer_from_gguf(gguf_reader)
 
         # Work around for older Llama 1/2 GGUFs, where the vocab size may be -1.
         # See https://github.com/ggerganov/llama.cpp/pull/4258.
@@ -101,6 +104,20 @@ class Llama3:
         )
         self._sessions = set[str]()
 
+        dtype = (
+            DType.float32 if params.quantization_encoding
+            is not None else params.dtype
+        )
+        self._kernel_names = KVCacheKernelNames(
+            n_kv_heads=params.n_kv_heads,
+            head_dim=params.head_dim,
+            dtype=dtype,
+            device=config.device,
+        )
+
+        self._model = self._load_model(config, params, gguf_reader)
+        self._tokenizer = tokenizer_from_gguf(gguf_reader)
+
     def _load_model(
         self,
         config: InferenceConfig,
@@ -114,7 +131,9 @@ class Llama3:
         else:
             self._weights = GGUFWeights(reader)
             print("Building model...")
-            graph = _llama_graph(config.batch_size, params, self._weights)
+            graph = _llama_graph(
+                config.batch_size, params, self._weights, self._kernel_names
+            )
             print("Compiling...")
             return session.load(
                 graph, weights_registry=self._weights.allocated_weights
