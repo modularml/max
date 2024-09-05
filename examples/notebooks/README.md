@@ -17,7 +17,7 @@ remote machine where you've installed MAX.
 
 All you need is MAX (via Magic) and the Jupyter VS Code extension:
 
-1. [Install Magic](https://developer.modular.com/magic).
+1. [Install Magic](https://docs.modular.com/magic).
 
 2. Install [Visual Studio Code](https://code.visualstudio.com/) and the
    [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter).
