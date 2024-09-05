@@ -55,25 +55,18 @@ class RotaryEmbedding:
             n = self.dim // self.n_heads
             # Note: using float64 to avoid an overflow on the exponential, then converting back to float32.
             iota = ops.range(
-                ops.scalar(0, DType.float64),
-                ops.scalar(n - 1, DType.float64),
-                ops.scalar(2, DType.float64),
+                ops.constant(0, DType.float64),
+                ops.constant(n - 1, DType.float64),
+                ops.constant(2, DType.float64),
                 out_dim=n // 2,
             )
             if self.rope_scaling is not None:
-                iota = iota * ops.constant(self.rope_scaling, DType.float64)
-            freqs = ops.cast(
-                ops.scalar(1.0, DType.float64)
-                / (
-                    ops.scalar(self.theta, DType.float64)
-                    ** (iota / ops.scalar(n, DType.float64))
-                ),
-                DType.float32,
-            )
+                iota = iota * self.rope_scaling
+            freqs = ops.cast(1.0 / (self.theta ** (iota / n)), DType.float32)
             t = ops.range(
-                ops.scalar(0, DType.float32),
-                ops.scalar(self.max_seq_len * 2.0, DType.float32),
-                ops.scalar(1, DType.float32),
+                ops.constant(0, DType.float32),
+                ops.constant(self.max_seq_len * 2.0, DType.float32),
+                ops.constant(1, DType.float32),
                 out_dim=self.max_seq_len * 2,
             )
             freqs = ops.outer(t, freqs)
