@@ -39,8 +39,17 @@ class Llama3Context:
     prompt_size: int
     max_tokens: int
     next_token: np.ndarray
+    next_decoded: str
     output_token_count: int = 0  # Number of generated tokens so far.
     output_sequence: str = ""  # Generated text sequence from tokens so far.
+
+    def is_done(self, eos: str) -> bool:
+        if self.next_decoded == eos:
+            return True
+        max_output_tokens = max(1, self.max_tokens - self.prompt_size)
+        if self.output_token_count == max_output_tokens:
+            return True
+        return False
 
 
 def _llama_graph(
@@ -152,19 +161,24 @@ class Llama3:
         encoded_prompt = self._tokenizer.encode(prompt)
         prompt_size = len(encoded_prompt)
         return Llama3Context(
-            next_token=np.array(encoded_prompt).reshape(1, -1),
+            prompt=prompt,
             prompt_size=prompt_size,
             max_tokens=_max_tokens_to_generate(prompt_size, self.config),
-            prompt=prompt,
+            next_token=np.array(encoded_prompt).reshape(1, -1),
+            next_decoded="",
         )
 
     async def next_token(
         self, batch: dict[str, Llama3Context]
-    ) -> dict[str, str]:
+    ) -> dict[str, str | None]:
         # TODO(MSDK-889) - Consider moving request/cache mgmt out of next_token.
         # Note: assuming a single request.
         assert len(batch) == self.config.batch_size == 1
         request_id, context = next(iter(batch.items()))
+
+        if context.is_done(self._tokenizer.eos_token):
+            self._sessions.remove(request_id)
+            return {request_id: None}
 
         if request_id not in self._sessions:
             self._sessions.add(request_id)
@@ -179,22 +193,11 @@ class Llama3:
 
         # Update context
         context.next_token = next_token.reshape(1, -1)
+        context.next_decoded = decoded_token
         context.output_sequence += decoded_token
         context.output_token_count += 1
 
-        if self._should_stop(context, decoded_token):
-            self._sessions.remove(request_id)
-            return {}
-
         return {request_id: decoded_token}
-
-    def _should_stop(self, context: Llama3Context, decoded_token) -> bool:
-        if decoded_token == self._tokenizer.eos_token:
-            return True
-        max_output_tokens = max(1, context.max_tokens - context.prompt_size)
-        if context.output_token_count == max_output_tokens:
-            return True
-        return False
 
     def _reset_cache(self):
         # This feels really contrived, but it's because our KV cache setup

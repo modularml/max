@@ -17,9 +17,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
+from max.driver import CPU, Device
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
-from max.driver import Device, CPU
 
 
 class SupportedEncodings(str, Enum):
@@ -139,7 +139,7 @@ class InferenceConfig:
                 "Controls the maximum length of the text sequence (includes the"
                 " input tokens)."
             ),
-            "version": (
+            "max_new_tokens": (
                 "Controls the maximum length of the text sequence (does not"
                 " include the input tokens)."
             ),
