@@ -53,15 +53,30 @@ class RotaryEmbedding:
         """
         if self._freqs_cis is None:
             n = self.dim // self.n_heads
-            # TODO (MSDK-655): Use ops.arange() here when implemented.
             # Note: using float64 to avoid an overflow on the exponential, then converting back to float32.
-            iota = np.arange(0, n - 1, 2, dtype=np.float64)
+            iota = ops.range(
+                ops.scalar(0, DType.float64),
+                ops.scalar(n - 1, DType.float64),
+                ops.scalar(2, DType.float64),
+                out_dim=n // 2,
+            )
             if self.rope_scaling is not None:
-                iota = iota * self.rope_scaling.astype(np.float64)
-            freqs = (1.0 / (self.theta ** (iota / n))).astype(np.float32)
-            # TODO (MSDK-655): Use ops.arange() here when implemented.
-            t = np.arange(0, self.max_seq_len * 2.0, dtype=np.float32)
-            freqs = ops.outer(ops.constant(t, DType.float32), freqs)
+                iota = iota * ops.constant(self.rope_scaling, DType.float64)
+            freqs = ops.cast(
+                ops.scalar(1.0, DType.float64)
+                / (
+                    ops.scalar(self.theta, DType.float64)
+                    ** (iota / ops.scalar(n, DType.float64))
+                ),
+                DType.float32,
+            )
+            t = ops.range(
+                ops.scalar(0, DType.float32),
+                ops.scalar(self.max_seq_len * 2.0, DType.float32),
+                ops.scalar(1, DType.float32),
+                out_dim=self.max_seq_len * 2,
+            )
+            freqs = ops.outer(t, freqs)
             self._freqs_cis = ops.stack(
                 [ops.cos(freqs), ops.sin(freqs)], axis=-1
             )
