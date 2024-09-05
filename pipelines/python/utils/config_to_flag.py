@@ -13,19 +13,16 @@
 """Converts a Config dataclass to a set of Click flags."""
 
 import inspect
-from dataclasses import fields
+from dataclasses import MISSING, fields
 from enum import Enum
 from typing import Union, get_args, get_origin
 
 import click
 
 
-def config_to_flag(cls, defaults=None):
+def config_to_flag(cls):
     options = []
-    defaults = defaults or {}
-
     help_text = {} if not hasattr(cls, "help") else cls.help()
-
     for field in fields(cls):
         if field.name.startswith("_"):
             # Skip private config fields.
@@ -49,7 +46,7 @@ def config_to_flag(cls, defaults=None):
                 f"--{normalized_name}",
                 show_default=True,
                 type=field_type,
-                default=defaults.get(field.name, field.default),
+                default=None if field.default == MISSING else field.default,
                 help=help_text.get(field.name),
             )
         )
