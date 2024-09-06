@@ -17,6 +17,7 @@ from typing import Tuple
 
 import gguf
 import numpy as np
+from max.driver import Tensor, CPU
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
@@ -207,18 +208,21 @@ class Llama3:
     def _execute(self, context: Llama3Context) -> Tuple[np.ndarray, ...]:
         """Executes the model and returns the raw results."""
         cache = self._kv_cache
-        output_names = [t.name for t in self._model.output_metadata]
-
-        result = self._model.execute(
-            input0=context.next_token,
-            input1=self._get_attention_mask(
-                cache.sequence_length + context.next_token.shape[1]
-            ),
-            input2=cache.keys_view(),
-            input3=cache.values_view(),
+        attn_mask = self._get_attention_mask(
+            cache.sequence_length + context.next_token.shape[1]
         )
 
-        logits, k_cache, v_cache = (result[o] for o in output_names)
+        logits, k_cache, v_cache = self._model.execute(
+            Tensor.from_numpy(context.next_token, self.config.device),
+            Tensor.from_numpy(attn_mask, self.config.device),
+            Tensor.from_numpy(cache.keys_view(), self.config.device),
+            Tensor.from_numpy(cache.values_view(), self.config.device),
+        )
+
+        logits = np.from_dlpack(logits.copy_to(CPU()))
+        k_cache = np.from_dlpack(k_cache.copy_to(CPU()))
+        v_cache = np.from_dlpack(v_cache.copy_to(CPU()))
+
         self._kv_cache.update(k_cache, v_cache)
         return logits, k_cache, v_cache
 
