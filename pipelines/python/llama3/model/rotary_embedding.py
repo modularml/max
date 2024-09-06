@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 """The rope embedding used within the model."""
 
-
 from dataclasses import dataclass
 from typing import Optional
 
@@ -112,4 +111,6 @@ class RotaryEmbedding:
 
         rope_complex = ops.stack([rope_re, rope_im], axis=-1)
 
-        return ops.reshape(rope_complex, v.shape)
+        # Cast back to the activations dtype, which may differ from
+        # freqs_cis's dtype.
+        return ops.cast(ops.reshape(rope_complex, v.shape), v.dtype)

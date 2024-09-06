@@ -12,10 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple
 
 from max.graph import ValueLike, TensorValue, ops
-from typing import List
 
 from .attention import Attention
 from .mlp import MLP, Linear
@@ -68,20 +67,26 @@ class Transformer:
 
     def __call__(self, tokens, attention_mask, k_cache, v_cache):
         h = self.embedding(tokens)
+        # Use the embeddings as ground truth for the activation dtype.
+        activations_dtype = h.dtype
+        kv_cache_dtype = k_cache.dtype
+
         k_cache_updates = []
         v_cache_updates = []
         for i in range(len(self.layers)):
             h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
                 h,
                 attention_mask,
-                k_cache[:, i],
-                v_cache[:, i],
+                ops.cast(k_cache[:, i], activations_dtype),
+                ops.cast(v_cache[:, i], activations_dtype),
             )
             k_cache_updates.append(ops.transpose(k_cache_layer_update, 0, 1))
             v_cache_updates.append(ops.transpose(v_cache_layer_update, 0, 1))
 
         return (
-            self.output(self.norm(h)),
-            ops.stack(k_cache_updates, axis=1),
-            ops.stack(v_cache_updates, axis=1),
+            # Cast outputs back to the KV cache dtype, which may differ from
+            # the activations dtype.
+            ops.cast(self.output(self.norm(h)), kv_cache_dtype),
+            ops.cast(ops.stack(k_cache_updates, axis=1), kv_cache_dtype),
+            ops.cast(ops.stack(v_cache_updates, axis=1), kv_cache_dtype),
         )

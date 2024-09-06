@@ -15,8 +15,6 @@
 
 from dataclasses import dataclass
 
-import numpy as np
-
 from max.graph import TensorValue, ops, ValueLike
 
 
@@ -27,4 +25,13 @@ class RMSNorm:
 
     def __call__(self, x: ValueLike) -> TensorValue:
         scale = ops.rsqrt(ops.mean(x**2, axis=-1) + self.eps)
-        return x * scale * self.weight
+
+        # Cast back to the activation dtype, which may differ from the weights.
+        #
+        # Checkpoints can store weights in a precision that differs from our
+        # desired activation precision.
+        # For example we may want computations to be in bfloat16, but the
+        # weights or a subset thereof are stored as float32.
+        # So to prevent dtype promotion causing issues downstream, just cast
+        # to the activation dtype here.
+        return x * scale * ops.cast(self.weight, x.dtype)
