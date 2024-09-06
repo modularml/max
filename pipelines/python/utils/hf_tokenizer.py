@@ -14,19 +14,11 @@
 """Utilities for creating a HuggingFace tokenizer for a pipeline model."""
 
 import os
-from typing import List, Optional, Union
+from typing import Union
 
 import gguf
-import numpy as np
-from gguf import GGUFReader, GGUFValueType, Keys
-from tokenizers import (
-    AddedToken,
-    Regex,
-    Tokenizer,
-    decoders,
-    pre_tokenizers,
-    processors,
-)
+from gguf import GGUFReader, Keys
+from tokenizers import Regex, Tokenizer, decoders, pre_tokenizers, processors
 from tokenizers.models import BPE
 from transformers import PreTrainedTokenizerFast
 
@@ -63,7 +55,6 @@ def tokenizer_from_gguf(
             merges,
             fuse_unk=False,
             byte_fallback=False,
-            ignore_merges=True,
         )
     )
 
@@ -73,24 +64,18 @@ def tokenizer_from_gguf(
     bos_token_id = gguf_utils.read_number(reader, Keys.Tokenizer.BOS_ID)
     if bos_token_id is not None:
         bos_token = vocab_list[bos_token_id]
-        special_tokens.append(
-            AddedToken(bos_token, normalized=False, special=True)
-        )
+        special_tokens.append(bos_token)
 
     eos_token = None
     eos_token_id = gguf_utils.read_number(reader, Keys.Tokenizer.EOS_ID)
     if eos_token_id is not None:
         eos_token = vocab_list[eos_token_id]
-        special_tokens.append(
-            AddedToken(vocab_list[eos_token_id], normalized=False, special=True)
-        )
+        special_tokens.append(vocab_list[eos_token_id])
     token_type = gguf_utils.read_array(reader, Keys.Tokenizer.TOKEN_TYPE)
     if token_type:
         for i, type in enumerate(token_type):
             if type == LlamaTokenType.LLAMA_TOKEN_TYPE_CONTROL:
-                special_tokens.append(
-                    AddedToken(vocab_list[i], normalized=False, special=True)
-                )
+                special_tokens.append(vocab_list[i])
 
     # Note: special tokens do not increase the size of the vocabulary, since
     # they are already in the vocab list
