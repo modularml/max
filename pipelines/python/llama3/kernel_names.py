@@ -12,12 +12,12 @@
 # ===----------------------------------------------------------------------=== #
 """Kernel Names for KV Cache related custom Ops."""
 
-from enum import StrEnum
+from enum import Enum
 from max.dtype import DType
 from max.driver import Device
 
 
-class KVCacheLayout(StrEnum):
+class KVCacheLayout(Enum):
     BHSD = "bhsd"
     BSHD = "bshd"
 
