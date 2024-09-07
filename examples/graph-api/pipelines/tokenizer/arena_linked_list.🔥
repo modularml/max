@@ -112,7 +112,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
 
     def __getitem__(
         ref [_]self: Self, id: Self.ID
-    ) -> ref [__lifetime_of(self._arena[0].value().value)] ElementType:
+    ) -> ref [__lifetime_of(self.node(0).value().value)] ElementType:
         """Gets a reference to a value in the list."""
         node_ref = Reference(self.node(id))
         debug_assert(bool(node_ref[]), "retrieved removed value")
