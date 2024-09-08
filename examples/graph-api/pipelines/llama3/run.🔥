@@ -57,12 +57,7 @@ from .model.llama import Llama3_NaiveKVCache
 from ..tokenizer.tiktoken import TikTokenEncoder
 from ..tokenizer.regex import set_locale_unicode
 from ..configs.common import get_max_tokens_to_generate
-from ..configs.llama import (
-    LlamaConfigRegistry,
-    get_llama_base_default_config,
-    get_llama3_model_url,
-    get_llama3_1_model_url,
-)
+from ..configs.llama import LlamaConfigRegistry, get_llama_base_default_config
 from ..configs.registry import ConfigRegistryDict
 from ..configs.parse_args import (
     OptionTypeEnum,
@@ -71,7 +66,7 @@ from ..configs.parse_args import (
     register_pipeline_configs,
 )
 from ..samplers.weighted_sampler import WeightedSampler
-from ..weights.download import download_llama3
+from ..weights.download import download_llama3, download_llama3_1
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
 
@@ -589,8 +584,10 @@ def run_naive[encoding: QuantizationEncoding](config: Config) -> None:
 
 def run_dispatch[kv_params: KVCacheStaticParams](config: Config):
     encoding = config.get("quantization-encoding")[String]
-    version = config.get("version")[String]
-    config.set("model-path", download_llama3(encoding, version))
+    if config.get("version")[String] == "3.1":
+        config.set("model-path", download_llama3_1(encoding))
+    else:
+        config.set("model-path", download_llama3(encoding))
 
     if encoding == Q4_0Encoding.id():
         run_naive[Q4_0Encoding](config)

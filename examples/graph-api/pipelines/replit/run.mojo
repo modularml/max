@@ -62,7 +62,7 @@ from ..configs.parse_args import (
     register_pipeline_configs,
 )
 from ..metrics.metrics import Metrics
-from pipelines.weights.download import download_to_cache
+from pipelines.weights.download import download_replit
 
 alias DEFAULT_MAX_SEQ_LEN = 512
 
@@ -107,7 +107,7 @@ struct Config:
         if not model_path:
             print("Downloading weights...", end="")
             start_time = now()
-            model_path = download_to_cache(get_replit_model_url(raw_type))
+            model_path = download_replit(raw_type)
             print("done. Took", (now() - start_time) / 1e9, "seconds.")
             print("Using checkpoint at", model_path)
             self.config["model-path"] = model_path

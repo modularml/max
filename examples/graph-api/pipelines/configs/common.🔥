@@ -22,27 +22,3 @@ def get_max_tokens_to_generate(
         return max_length
 
     return min(max_new_tokens + prompt_len, max_length)
-
-
-def check_url_exists(urls: Dict[String, String], encoding: String):
-    """
-    This helper function takes in a dictionary of encoding to pre-defined URLs
-    for downloading the respective weights and checks if the given encoding exists.
-    Raises an error if it's not found.
-
-    Args:
-        urls: A dictionary of String keys and values representing encoding to
-              URLs for downloading said weight types.
-        encoding: The wanted encoding.
-    Raises:
-        An error if the given encoding has no pre-defined URL.
-    """
-    if encoding not in urls:
-        error = (
-            "encoding: "
-            + encoding
-            + " has no pre-defined URL, choose from encodings:"
-        )
-        for item in urls:
-            error += " " + item[]
-        raise error
