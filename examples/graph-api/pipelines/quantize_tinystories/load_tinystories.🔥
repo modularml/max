@@ -46,7 +46,7 @@ from pipelines.nn import (
     Transformer,
     TransformerBlock,
 )
-from pipelines.weights.download import download_to_cache
+from pipelines.weights.download import download_from_hf
 from pipelines.weights.loadable_model import LlamaHParams
 
 
@@ -201,9 +201,7 @@ struct TeenyTinyLlama[encoding: QuantizationEncoding]:
 def load_quantized_tinystories(checkpoint_path: Path):
     """Runs the TinyStories pipeline."""
     # Download and cache only the tokenizer config for Llama.
-    tokenizer_path = download_to_cache(
-        "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-    )
+    tokenizer_path = download_from_hf("modularai/llama-2", "tokenizer.bin")
 
     # Stage the Llama model graph from the saved MAX checkpoint file.
     # This is cpu only, and thus only a BHSD layout is needed

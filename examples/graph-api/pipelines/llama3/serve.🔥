@@ -34,7 +34,7 @@ from ..tokenizer.regex import set_locale_unicode
 from ..samplers.weighted_sampler import WeightedSampler
 from ..weights.gguf import GGUFArray, GGUFFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
-from ..weights.download import download_llama3
+from ..weights.download import download_llama3, download_llama3_1
 
 from max.graph.quantization import (
     QuantizationEncoding,
@@ -504,8 +504,10 @@ def llama3_serve_dispatch[layout: KVCacheLayout](config: Config):
     encoding = config.get("quantization-encoding")[String]
 
     encoding = config.get("quantization-encoding")[String]
-    version = config.get("version")[String]
-    config.set("model-path", download_llama3(encoding, version))
+    if config.get("version")[String] == "3.1":
+        config.set("model-path", download_llama3_1(encoding))
+    else:
+        config.set("model-path", download_llama3(encoding))
 
     if encoding == Q4_0Encoding.id():
         serve_naive[layout, Q4_0Encoding](config)

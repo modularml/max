@@ -64,7 +64,7 @@ from ..configs.parse_args import (
     register_pipeline_configs,
 )
 from ..tokenizer import AutoTokenizer, Tokenizer
-from ..weights.download import download_llama3, download_to_cache
+from ..weights.download import download_llama2, download_from_hf
 from ..weights.gguf import GGUFFile
 from ..weights.llama2checkpoint import LlamaCFile
 from ..weights.loadable_model import LlamaHParams, LoadableModel
@@ -450,12 +450,9 @@ def llama2_run():
 
     # Download Model and Tokenizer as Needed
     if not config.get("model-path")[Path]:
-        encoding = config.get("quantization-encoding")[String]
-        config.set("model-path", download_llama3(encoding, "2.0"))
+        config.set("model-path", download_llama2(encoding))
     if not config.get("tokenizer-path")[Path]:
-        tokenizer_path = download_to_cache(
-            "https://github.com/tairov/llama2.mojo/raw/master/tokenizer.bin",
-        )
+        tokenizer_path = download_from_hf("modularai/llama-2", "tokenizer.bin")
         config.set("tokenizer-path", tokenizer_path)
 
     # Print CLI Warnings
