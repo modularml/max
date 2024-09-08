@@ -12,11 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 
-from .config import (
-    PRETRAINED_MODEL_WEIGHTS,
-    InferenceConfig,
-    SupportedEncodings,
-    SupportedVersions,
-)
+from .config import InferenceConfig, SupportedEncodings, SupportedVersions
 from .llama3 import Llama3, Llama3Context
 from .model.hyperparameters import Hyperparameters
