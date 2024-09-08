@@ -30,7 +30,6 @@ import python_utils
 from scheduler import Scheduler
 
 
-var DESCRIPTION = "Generate an image based on the given prompt."
 var GUIDANCE_SCALE_FACTOR = Float32(7.5)
 var LATENT_SCALE_FACTOR = Float32(0.18215)
 var OUTPUT_HEIGHT = 512
@@ -96,10 +95,10 @@ def main():
     prompt = str("")
     negative_prompt = str("")
     num_steps = 25
-    snapshot_download = Python.import_module(
-        "huggingface_hub"
-    ).snapshot_download
-    model_dir = Path(str(snapshot_download("jackos/stable-diffusion-1.5-onnx")))
+    hf = Python.import_module("huggingface_hub")
+    model_dir = Path(
+        str(hf.snapshot_download("modularai/stable-diffusion-1.5-onnx"))
+    )
     output = str("output.png")
 
     for i in range(1, len(argv), 2):

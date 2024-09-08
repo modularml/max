@@ -17,11 +17,11 @@ import time
 import numpy as np
 import streamlit as st
 from diffusers import PNDMScheduler
+from huggingface_hub import snapshot_download
 from max.engine import InferenceSession
 from PIL import Image
 from shared import menu, modular_cache_dir
 from transformers import CLIPTokenizer
-from huggingface_hub import snapshot_download
 
 st.set_page_config("Stable Diffusion 1.5", page_icon="🎨")
 
@@ -60,7 +60,7 @@ tokenizer_path = model_dir / "tokenizer"
 
 # TODO: set up progress bar to work with huggingface_hub and streamlit
 with st.spinner("Downloading ONNX models, check terminal for progress"):
-    model_dir = snapshot_download("jackos/stable-diffusion-1.5-onnx")
+    model_dir = snapshot_download("modularai/stable-diffusion-1.5-onnx")
 
 # Main Page
 prompt = st.text_input("Prompt", "A puppy playing the drums")
