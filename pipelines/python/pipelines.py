@@ -15,7 +15,8 @@ import asyncio
 
 import click
 import llama3
-from max.driver import CUDA, CPU
+from huggingface_hub import hf_hub_download
+from max.driver import CPU, CUDA
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.pipelines.deps import token_pipeline
@@ -24,12 +25,7 @@ from text_streaming import stream_text_to_console
 from text_streaming.interfaces import TokenGenerator
 from uvicorn import Server
 
-from utils import (
-    TextGenerationMetrics,
-    config_to_flag,
-    download_to_cache,
-    find_in_cache,
-)
+from utils import TextGenerationMetrics, config_to_flag
 
 try:
     import rich.traceback
@@ -76,17 +72,6 @@ def main():
     help="The text prompt to use for further generation.",
 )
 @click.option(
-    "--verify",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help=(
-        "Whether to verify the SHA of the weights before continuing (warning:"
-        " this can add 30-60 seconds of call latency). If SHA checksum fails,"
-        " pipeline will warn and then exit"
-    ),
-)
-@click.option(
     "--serve",
     is_flag=True,
     show_default=True,
@@ -100,12 +85,15 @@ def main():
     default=False,
     help="Whether to run the model on the available GPU.",
 )
-def run_llama3(prompt, verify, serve, use_gpu, **config_kwargs):
+def run_llama3(prompt, serve, use_gpu, **config_kwargs):
     """Runs the Llama3 pipeline."""
     device = CUDA() if use_gpu else CPU()
     config_kwargs.update({"device": device})
     config = llama3.InferenceConfig(**config_kwargs)
-    validate_weight_path(config, verify)
+    config.weight_path = hf_hub_download(
+        repo_id=f"modularai/llama-{config.version}",
+        filename=config.quantization_encoding.hf_model_name(config.version),
+    )
 
     if serve:
         print("Starting server...")
@@ -116,27 +104,6 @@ def run_llama3(prompt, verify, serve, use_gpu, **config_kwargs):
             model = llama3.Llama3(config)
             print("Beginning text generation...")
             asyncio.run(stream_text_to_console(model, prompt, metrics))
-
-
-def validate_weight_path(config, verify):
-    """Ensures that the config `weight_path` points to a valid local path."""
-    if config.serialized_model_path:
-        # Although the serialized model already contains weights, the weights
-        # file is required for the Llama3 tokenizer. Any valid checkpoint works,
-        # so we use the `find_in_cache` method to look for a valid checkpoint
-        # before downloading one.
-        valid_weight_urls = llama3.PRETRAINED_MODEL_WEIGHTS[config.version]
-        config.weight_path = find_in_cache(
-            config.weight_path,
-            verify=verify,
-            default_url=valid_weight_urls[llama3.SupportedEncodings.q4_k],
-            valid_urls=valid_weight_urls.values(),
-        )
-    else:
-        config.weight_path = download_to_cache(
-            config.remote_weight_location(), verify=verify
-        )
-    assert config.weight_path is not None
 
 
 if __name__ == "__main__":

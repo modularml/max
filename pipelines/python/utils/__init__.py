@@ -13,6 +13,5 @@
 """Pipeline utilities."""
 
 from .config_to_flag import config_to_flag
-from .download import download_to_cache, find_in_cache
 from .hf_tokenizer import tokenizer_from_gguf
 from .metrics import TextGenerationMetrics

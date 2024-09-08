@@ -22,6 +22,17 @@ from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
 
 
+class SupportedVersions(str, Enum):
+    llama3 = "3"
+    llama3_1 = "3.1"
+
+    def __repr__(self) -> str:
+        return self.value
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class SupportedEncodings(str, Enum):
     float32 = "float32"
     bfloat16 = "bfloat16"
@@ -43,6 +54,14 @@ class SupportedEncodings(str, Enum):
     def dtype(self) -> DType:
         return _ENCODING_TO_DTYPE[self]
 
+    def hf_model_name(self, version: SupportedVersions) -> str:
+        if version == SupportedVersions.llama3:
+            return _ENCODING_TO_MODEL_NAME_LLAMA3[self]
+        elif version == SupportedVersions.llama3_1:
+            return _ENCODING_TO_MODEL_NAME_LLAMA3_1[self]
+        else:
+            raise ValueError(f"Unsupported version: {version}")
+
 
 _ENCODING_TO_QUANTIZATION_ENCODING = {
     SupportedEncodings.q4_0: QuantizationEncoding.Q4_0,
@@ -58,33 +77,20 @@ _ENCODING_TO_DTYPE = {
     SupportedEncodings.q6_k: DType.uint8,
 }
 
+_ENCODING_TO_MODEL_NAME_LLAMA3 = {
+    SupportedEncodings.float32: "llama-3-8b-f32.gguf",
+    SupportedEncodings.bfloat16: "llama-3-8b-instruct-bf16.gguf",
+    SupportedEncodings.q4_0: "llama-3-8b-instruct-q4_0.gguf",
+    SupportedEncodings.q4_k: "llama-3-8b-instruct-q4_k_m.gguf",
+    SupportedEncodings.q6_k: "llama-3-8b-instruct-q6_k.gguf",
+}
 
-class SupportedVersions(str, Enum):
-    llama3 = "3"
-    llama3_1 = "3.1"
-
-    def __repr__(self) -> str:
-        return self.value
-
-    def __str__(self) -> str:
-        return self.value
-
-
-PRETRAINED_MODEL_WEIGHTS = {
-    SupportedVersions.llama3: {
-        SupportedEncodings.q4_0: "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct.Q4_0.gguf",
-        SupportedEncodings.q4_k: "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
-        SupportedEncodings.q6_k: "https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-Q6_K.gguf",
-        SupportedEncodings.bfloat16: "https://huggingface.co/ddh0/Meta-Llama-3-8B-Instruct-bf16-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-bf16.gguf",
-        SupportedEncodings.float32: "https://huggingface.co/brendanduke/Llama-3-8B-f32.gguf/resolve/main/llama3-8b-f32.gguf",
-    },
-    SupportedVersions.llama3_1: {
-        SupportedEncodings.q4_0: "https://huggingface.co/kaetemi/Meta-Llama-3.1-8B-Q4_0-GGUF/resolve/main/meta-llama-3.1-8b-q4_0.gguf",
-        SupportedEncodings.q4_k: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        SupportedEncodings.q6_k: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q6_K.gguf",
-        SupportedEncodings.bfloat16: "https://huggingface.co/bullerwins/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-bf16.gguf",
-        SupportedEncodings.float32: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-f32.gguf",
-    },
+_ENCODING_TO_MODEL_NAME_LLAMA3_1 = {
+    SupportedEncodings.float32: "llama-3.1-8b-instruct-f32.gguf",
+    SupportedEncodings.bfloat16: "llama-3.1-8b-instruct-bf16.gguf",
+    SupportedEncodings.q4_0: "llama-3.1-8b-instruct-q4_0.gguf",
+    SupportedEncodings.q4_k: "llama-3.1-8b-instruct-q4_k_m.gguf",
+    SupportedEncodings.q6_k: "llama-3.1-8b-instruct-q6_k.gguf",
 }
 
 
@@ -145,18 +151,3 @@ class InferenceConfig:
             ),
             "batch_size": "Batch size of inputs to the model.",
         }
-
-    def remote_weight_location(self):
-        if self.weight_path is not None:
-            return self.weight_path
-        try:
-            version_weights = PRETRAINED_MODEL_WEIGHTS[self.version]
-        except KeyError:
-            raise ValueError(f"unsupported model version {self.version}")
-        try:
-            return version_weights[self.quantization_encoding]
-        except KeyError:
-            raise ValueError(
-                f"quantization of {self.quantization_encoding} not"
-                f" supported for version {self.version}"
-            )
