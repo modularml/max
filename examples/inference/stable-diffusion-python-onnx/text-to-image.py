@@ -18,10 +18,10 @@ from pathlib import Path
 
 import numpy as np
 from diffusers import PNDMScheduler
+from huggingface_hub import snapshot_download
 from max.engine import InferenceSession
 from PIL import Image
 from transformers import CLIPTokenizer
-from huggingface_hub import snapshot_download
 
 DESCRIPTION = "Generate an image based on the given prompt."
 GUIDANCE_SCALE_FACTOR = 7.5
@@ -82,7 +82,7 @@ def main():
 
     # Compile & load models - this may take a few minutes.
     session = InferenceSession()
-    model_dir = Path(snapshot_download("jackos/stable-diffusion-1.5-onnx"))
+    model_dir = Path(snapshot_download("modularai/stable-diffusion-1.5-onnx"))
     print("Loading and compiling models...")
     txt_encoder = session.load(model_dir / "text_encoder" / "model.onnx")
     img_decoder = session.load(model_dir / "vae_decoder" / "model.onnx")
