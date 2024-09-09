@@ -21,6 +21,7 @@ from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.pipelines.deps import token_pipeline
 from max.serve.pipelines.llm import TokenGeneratorPipeline
+from transformers import AutoTokenizer
 from text_streaming import stream_text_to_console
 from text_streaming.interfaces import TokenGenerator
 from uvicorn import Server
@@ -35,10 +36,12 @@ except ImportError:
     pass
 
 
-async def serve_token_generator(model: TokenGenerator):
+async def serve_token_generator(
+    model: TokenGenerator, tokenizer: AutoTokenizer
+):
     """Hosts the Llama3 pipeline using max.serve."""
     settings = Settings(api_types=[APIType.OPENAI])
-    pipeline = TokenGeneratorPipeline[llama3.Llama3Context](model)
+    pipeline = TokenGeneratorPipeline[llama3.Llama3Context](model, tokenizer)
     pipelines = [pipeline]
     app = fastapi_app(settings, pipelines)
     app.dependency_overrides[token_pipeline] = lambda: pipeline
@@ -90,15 +93,17 @@ def run_llama3(prompt, serve, use_gpu, **config_kwargs):
     device = CUDA() if use_gpu else CPU()
     config_kwargs.update({"device": device})
     config = llama3.InferenceConfig(**config_kwargs)
+    repo_id = f"modularai/llama-{config.version}"
     config.weight_path = hf_hub_download(
-        repo_id=f"modularai/llama-{config.version}",
+        repo_id=repo_id,
         filename=config.quantization_encoding.hf_model_name(config.version),
     )
 
     if serve:
         print("Starting server...")
         model = llama3.Llama3(config)
-        asyncio.run(serve_token_generator(model))
+        tokenizer = AutoTokenizer.from_pretrained(repo_id)
+        asyncio.run(serve_token_generator(model, tokenizer))
     else:
         with TextGenerationMetrics(print_report=True) as metrics:
             model = llama3.Llama3(config)
