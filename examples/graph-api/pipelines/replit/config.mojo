@@ -37,7 +37,7 @@ def get_replit_base_default_config() -> Dict[String, OptionValue]:
     default_config["prompt"] = str('def hello():\n  print("hello world")')
     default_config["experimental-use-gpu"] = False
     default_config["quantization-encoding"] = str("float32")
-    default_config["temperature"] = 0.5
+    default_config["temperature"] = 1.0
     default_config["min-p"] = 0.05
     default_config["num-warmups"] = 1
     default_config["max-batch-size"] = 1
