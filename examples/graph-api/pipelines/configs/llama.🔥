@@ -37,7 +37,7 @@ def get_llama_base_default_config() -> Dict[String, OptionValue]:
     default_config["prompt"] = String("I believe the meaning of life is")
     default_config["quantization-encoding"] = String("q4_k")
     default_config["experimental-use-gpu"] = False
-    default_config["temperature"] = 0.5
+    default_config["temperature"] = 1.0
     default_config["min-p"] = 0.05
     default_config["warmup-pipeline"] = False
     default_config["mef-use-or-gen-path"] = String("")

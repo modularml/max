@@ -104,8 +104,8 @@ pipeline:
   in the model.
   Valid values: `q4_0`, `q4_k`, `q6_k`, `float32`.
   (Default value: `q4_k`).
-- `--temperature`: The temperature for sampling, on a scale from 0.0 - 1.0,
-  with 0.0 being greedy sampling. (Default value: 0.5)
+- `--temperature`: The temperature for sampling with 0.0 being greedy sampling.
+  (Default value: 1.0)
 - `--version`: Selects which version in the Llama 3 family to use.
   Valid values: `3.0`, `3.1`.
   (Default value: `3.1`)

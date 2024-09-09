@@ -89,16 +89,21 @@ pipeline:
 
 - `--model-path`: Overrides the default model weights, and allows for an
   already-downloaded pretrained weight file to be used with the model.
-- `--prompt`: The text prompt to use for further code generation.
 - `--max-length`: An optional token generation configuration to specify maximum
    sequence length.
 - `--max-new-tokens`: An optional token generation configuration to specify
    maximum number of tokens.
+- `--min-p`: The starting required percentage for
+  [Min P sampling](https://github.com/ggerganov/llama.cpp/pull/3841).
+  (Default value: 0.05)
+- `--prompt`: The text prompt to use for further code generation.
 - `--quantization-encoding`: The encoding to use for a datatype that can be
    quantized to a low bits per weight format. The options for quantized formats
    will download and cache default weights.
-- `--warmup-pipeline`: Performs a warmup run of the pipeline before text
-   generation.
+- `--temperature`: The temperature for sampling with 0.0 being greedy sampling.
+  (Default value: 1.0)
+- `--num-warmups`: Performs warmup runs of the pipeline before text generation.
+  (Default value: 1)
 
 ## Ideas for future extension
 
