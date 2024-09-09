@@ -219,9 +219,14 @@ class Llama3:
             Tensor.from_numpy(cache.values_view(), self.config.device),
         )
 
-        logits = np.from_dlpack(logits.copy_to(CPU()))
-        k_cache = np.from_dlpack(k_cache.copy_to(CPU()))
-        v_cache = np.from_dlpack(v_cache.copy_to(CPU()))
+        if not self.config.device.is_host:
+            logits = logits.copy_to(CPU())
+            k_cache = k_cache.copy_to(CPU())
+            v_cache = v_cache.copy_to(CPU())
+
+        logits = np.from_dlpack(logits)
+        k_cache = np.from_dlpack(k_cache)
+        v_cache = np.from_dlpack(v_cache)
 
         self._kv_cache.update(k_cache, v_cache)
         return logits, k_cache, v_cache
