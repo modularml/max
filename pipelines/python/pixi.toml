@@ -10,16 +10,12 @@ version = "0.1.0"
 llama3 = "python pipelines.py llama3"
 
 [dependencies]
-max = ">24.5.0.dev2024082817"
-python = ">=3.9,<3.13"
+max = ">=24.6.0.dev2024090821"
 
 [pypi-dependencies]
 click = ">=8.1.7"
-fastapi = ">=0.113.0"
 gguf = ">=0.10.0"
-pydantic-settings = ">=2.4.0"
 requests = ">=2.32.3"
 sentencepiece = ">=0.2.0"
-sse-starlette = ">=2.1.3"
 tokenizers = ">=0.19.1"
 transformers = ">=4.44.2"
