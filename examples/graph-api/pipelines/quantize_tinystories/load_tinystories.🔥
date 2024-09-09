@@ -37,7 +37,7 @@ from pipelines.llama2.run import (
     _generate_q_text_with_tokenizer,
     Config,
 )
-from pipelines.llama3.metrics import Metrics
+from pipelines.metrics.metrics import Metrics
 from pipelines.nn import (
     Embedding,
     FeedForward,
