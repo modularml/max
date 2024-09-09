@@ -51,7 +51,7 @@ from kv_cache.types import (
     KVCacheLayout,
 )
 
-from .metrics import Metrics
+from ..metrics.metrics import Metrics
 from .model.llama import Llama3
 from .model.llama import Llama3_NaiveKVCache
 from ..tokenizer.tiktoken import TikTokenEncoder
@@ -228,35 +228,31 @@ def generate_text_naive(
 
     host_device = cpu_device() if use_gpu else execution_device
 
-    metrics.begin_timing_prompt()
-
-    prompt = tokenizer.encode(config.get("prompt")[String])
-    padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
-    n_pad_tokens = padded_size - prompt.size
-    sampler = WeightedSampler(
-        config.get("temperature")[Float64].cast[DType.float32](),
-        config.get("min-p")[Float64].cast[DType.float32](),
-    )
-    metrics.set_tokens_in_prompt(padded_size)
-
-    # Allocate input & attention mask tensors, then initialize them.
-    # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
-    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
-    prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
-    for i in range(padded_size):
-        tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
-        prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
-
     # If a pipeline warmup is needed, create a throwaway KV cache and generate
     # a single output token from the model to exercise the graph.
     if config.get("warmup-pipeline")[Bool]:
         print("Warming up pipeline...")
         metrics.begin_timing_warmup()
+        warmup_prompt = tokenizer.encode(config.get("prompt")[String])
+        padded_size = align_up(
+            warmup_prompt.size, config.get("pad-to-multiple-of")[Int]
+        )
+        n_pad_tokens = padded_size - warmup_prompt.size
+
+        # Allocate input & attention mask tensors, then initialize them.
+        # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
         warmup_tokens = Tensor[DType.int64, rank=2](
             (1, padded_size), host_device
         )
+        warmup_prompt_attn_mask = Tensor[DType.bool, rank=2](
+            (1, padded_size), host_device
+        )
         for i in range(padded_size):
-            warmup_tokens[0, i] = tokens[0, i]
+            warmup_tokens[0, i] = (
+                0 if i < n_pad_tokens else warmup_prompt[i - n_pad_tokens]
+            )
+            warmup_prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
+
         warmup_kv_cache = KVCache(
             params,
             config.get("max-length")[Int],
@@ -265,7 +261,9 @@ def generate_text_naive(
         )
         _ = compiled_model.execute(
             warmup_tokens.to_device_tensor().move_to(execution_device),
-            _get_attention_mask(prompt_attn_mask, padded_size, host_device)
+            _get_attention_mask(
+                warmup_prompt_attn_mask, padded_size, host_device
+            )
             .to_device_tensor()
             .move_to(execution_device),
             warmup_kv_cache.keys_view(execution_device),
@@ -284,9 +282,31 @@ def generate_text_naive(
         )
         metrics.end_timing_warmup()
 
-    print("Executing...")
-    for token in prompt:
-        print(tokenizer.decode(token[]), end="")
+    metrics.end_timing_startup()
+
+    metrics.begin_timing_prompt()
+    prompt = tokenizer.encode(config.get("prompt")[String])
+    sampler = WeightedSampler(
+        config.get("temperature")[Float64].cast[DType.float32](),
+        config.get("min-p")[Float64].cast[DType.float32](),
+    )
+    padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
+    n_pad_tokens = padded_size - prompt.size
+    metrics.set_tokens_in_prompt(padded_size)
+
+    # Allocate input & attention mask tensors, then initialize them.
+    # FIXME (MSDK-774): Padding logic should be handled by tokenizer instead.
+    tokens = Tensor[DType.int64, rank=2]((1, padded_size), host_device)
+    prompt_attn_mask = Tensor[DType.bool, rank=2]((1, padded_size), host_device)
+    for i in range(padded_size):
+        tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
+        prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
+
+    max_tokens = get_max_tokens_to_generate(
+        padded_size,
+        config.get("max-length")[Int],
+        config.get("max-new-tokens")[Int],
+    )
 
     kv_cache = KVCache(
         params,
@@ -295,15 +315,14 @@ def generate_text_naive(
         host_device,
     )
 
+    print("Executing...")
+    for token in prompt:
+        print(tokenizer.decode(token[]), end="")
+
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
     # Avoid overrunning the cache by setting the trip count accordingly.
     metrics.begin_timing_generation()
-    max_tokens = get_max_tokens_to_generate(
-        padded_size,
-        config.get("max-length")[Int],
-        config.get("max-new-tokens")[Int],
-    )
     for i in range(padded_size, max_tokens + 1):
         results = compiled_model.execute(
             tokens.to_device_tensor().move_to(execution_device),
@@ -347,14 +366,52 @@ def generate_text[
 
     host_device = cpu_device() if use_gpu else execution_device
 
-    metrics.begin_timing_prompt()
+    # If a pipeline warmup is needed, create a throwaway KV cache and generate
+    # a single output token from the model to exercise the graph.
+    if config.get("warmup-pipeline")[Bool]:
+        print("Warming up pipeline...")
+        metrics.begin_timing_warmup()
+        warmup_prompt = tokenizer.encode(config.get("prompt")[String])
+        sampler = WeightedSampler(
+            config.get("temperature")[Float64].cast[DType.float32](),
+            config.get("min-p")[Float64].cast[DType.float32](),
+        )
+        padded_size = align_up(
+            warmup_prompt.size, config.get("pad-to-multiple-of")[Int]
+        )
 
+        warmup_kv_manager = ContiguousKVCacheManager[DType.float32, kv_params](
+            config.get("batch-size")[Int],
+            config.get("max-length")[Int],
+            params.n_layers,
+            execution_device,
+            host_device,
+        )
+
+        _generation_loop[type, kv_params](
+            warmup_kv_manager,
+            metrics,
+            compiled_model,
+            sampler,
+            tokenizer,
+            warmup_prompt,
+            config,
+            host_device,
+            execution_device,
+            padded_size + 2,
+            padded_size,
+            is_warmup=True,
+        )
+        metrics.end_timing_warmup()
+
+    metrics.end_timing_startup()
+
+    metrics.begin_timing_prompt()
     prompt = tokenizer.encode(config.get("prompt")[String])
     sampler = WeightedSampler(
         config.get("temperature")[Float64].cast[DType.float32](),
         config.get("min-p")[Float64].cast[DType.float32](),
     )
-
     padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
     metrics.set_tokens_in_prompt(padded_size)
 
@@ -371,28 +428,6 @@ def generate_text[
         execution_device,
         host_device,
     )
-
-    # If a pipeline warmup is needed, create a throwaway KV cache and generate
-    # a single output token from the model to exercise the graph.
-    # TODO temporarily removing warmup for debug cycles
-    if config.get("warmup-pipeline")[Bool]:
-        print("Warming up pipeline...")
-        metrics.begin_timing_warmup()
-        _generation_loop[type, kv_params](
-            kv_manager,
-            metrics,
-            compiled_model,
-            sampler,
-            tokenizer,
-            prompt,
-            config,
-            host_device,
-            execution_device,
-            padded_size + 2,
-            padded_size,
-            is_warmup=True,
-        )
-        metrics.end_timing_warmup()
 
     print("Executing...")
     for token in prompt:
@@ -559,7 +594,6 @@ def run_naive[encoding: QuantizationEncoding](config: Config) -> None:
         print("Writing mef to ", mef_use_or_gen_path)
         compiled_model.export_compiled_model(mef_use_or_gen_path)
 
-    metrics.end_timing_startup()
     print(
         "Build graph time, ",
         (end_build - start_build) / 1_000_000,

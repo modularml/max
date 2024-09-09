@@ -479,10 +479,12 @@ def dispatch[dtype: DType, kv_params: KVCacheStaticParams](config: Config):
     num_warmups = config.get("num-warmups")[Int]
     if num_warmups > 0:
         print("Warming up pipeline...")
+        metrics.begin_timing_warmup()
         for i in range(num_warmups):
             _ = replit.reset(prompt)
             _ = replit.next_token(sampler)
             _ = replit.next_token(sampler)
+        metrics.end_timing_warmup()
 
     metrics.end_timing_startup()
     metrics.begin_timing_prompt()

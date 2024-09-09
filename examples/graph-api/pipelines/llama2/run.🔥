@@ -47,7 +47,7 @@ from max.serve.kv_cache.types import (
 )
 
 from ..llama3.kv_cache import KVCache
-from ..llama3.metrics import Metrics
+from ..metrics.metrics import Metrics
 from .model import Llama2, QuantizedLlama2
 from ..samplers.weighted_sampler import WeightedSampler
 from .tokenizer.bpe import BPETokenizer
