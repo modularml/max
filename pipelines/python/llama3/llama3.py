@@ -193,6 +193,15 @@ class Llama3:
         context.output_sequence += decoded_token
         context.output_token_count += 1
 
+        # This is a temporary workaround to stop the response from
+        # returning the eos token in the response
+        # If we return None here, the server upstream likely
+        # never calls this again, to remove the request_id
+        # therefore, using a "" returns nothing noticable to the client
+        # and still calls this method again, to close the session appropriately
+        if decoded_token == self._tokenizer.eos_token:
+            return {request_id: ""}
+
         return {request_id: decoded_token}
 
     def _reset_cache(self):
