@@ -11,7 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import os
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -140,11 +139,7 @@ class Llama3:
             print("Loading serialized model from", serialized_path, "...")
             return session.load(serialized_path)
         else:
-            # TODO(GRA-964): Revert #46659 when memory planning is done.
-            self._weights = GGUFWeights(
-                reader,
-                use_resource="MODULAR_USE_EXTERNAL_WEIGHTS" not in os.environ,
-            )
+            self._weights = GGUFWeights(reader)
             print("Building model...")
             graph = _llama_graph(
                 config.batch_size, params, self._weights, self._kernel_names
