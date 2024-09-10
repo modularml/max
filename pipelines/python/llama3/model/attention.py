@@ -69,7 +69,7 @@ class Attention:
 
     rope: RotaryEmbedding
 
-    def repeat_kv(self, kv: TensorValue):
+    def repeat_kv(self, kv: TensorValue) -> TensorValue:
         """Repeats key/value tensors to match the number of query heads."""
         batch = kv.shape[0]
         kv = ops.reshape(kv, [batch, -1, self.n_kv_heads, 1, self.head_dim])
