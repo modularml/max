@@ -26,6 +26,8 @@ struct Metrics:
     var start_time_before_prompt: Optional[Int]
     var start_time_before_warmup: Optional[Int]
     var end_warmup: Optional[Int]
+    var start_time_before_tokenization: Optional[Int]
+    var end_tokenization: Optional[Int]
     var start_time_before_generation: Optional[Int]
     var start_time_before_context: Optional[Int]
     var end_time: Optional[Int]
@@ -40,6 +42,8 @@ struct Metrics:
         self.start_time_before_prompt = None
         self.start_time_before_warmup = None
         self.end_warmup = None
+        self.start_time_before_tokenization = None
+        self.end_tokenization = None
         self.start_time_before_generation = None
         self.start_time_before_context = None
         self.end_time = None
@@ -72,11 +76,27 @@ struct Metrics:
 
     def begin_timing_warmup(inout self):
         """Begins timing from before an optional warmup run."""
+        if not self.start_startup or self.end_startup:
+            raise "Error: Warmup should be included within startup time"
         self.start_time_before_warmup = now()
 
     def end_timing_warmup(inout self):
         """Ends measurement of an optional warmup run."""
+        if not self.start_startup or self.end_startup:
+            raise "Error: Warmup should be included within startup time"
         self.end_warmup = now()
+
+    def begin_timing_tokenization(inout self):
+        """Begins timing from before tokenization."""
+        if not self.start_time_before_prompt or self.start_time_before_context:
+            raise "Error: Tokenization should be included within TTFT"
+        self.start_time_before_tokenization = now()
+
+    def end_timing_tokenization(inout self):
+        """Ends measurement of tokenization."""
+        if not self.start_time_before_prompt or self.start_time_before_context:
+            raise "Error: Tokenization should be included within TTFT"
+        self.end_tokenization = now()
 
     def begin_timing_generation(inout self):
         """Begins timing from the first generated token."""
@@ -165,7 +185,7 @@ struct Metrics:
             )
         if self.start_time_before_warmup and self.end_warmup:
             print(
-                "Warmup time:",
+                "\tWarmup time:",
                 (
                     self.end_warmup.value()
                     - self.start_time_before_warmup.value()
@@ -178,6 +198,14 @@ struct Metrics:
             (start_context - start_inc_prompt) * 1e-6,
             "ms",
         )
+        if self.start_time_before_tokenization:
+            start_tokenize = self.start_time_before_tokenization.value()
+            end_tokenize = self.end_tokenization.value()
+            print(
+                "\tTokenization Time:",
+                (end_tokenize - start_tokenize) * 1e-6,
+                "ms",
+            )
         print(
             "Prompt eval throughput (context-encoding):",
             tokens_in_prompt / (start_context - start) * 1e9,

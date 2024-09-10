@@ -144,19 +144,43 @@ def _get_attention_mask(
 def _generation_loop[
     type: DType, kv_params: KVCacheStaticParams
 ](
-    inout kv_manager: ContiguousKVCacheManager,
     inout metrics: Metrics,
+    n_layers: Int,
     compiled_model: Model,
-    sampler: WeightedSampler,
     tokenizer: TikTokenEncoder,
-    prompt: List[Int64],
     config: Config,
     host_device: Device,
     execution_device: Device,
-    new_tokens: Int,
-    padded_size: Int,
     is_warmup: Bool,
 ):
+    sampler = WeightedSampler(
+        config.get("temperature")[Float64].cast[DType.float32](),
+        config.get("min-p")[Float64].cast[DType.float32](),
+    )
+
+    kv_manager = ContiguousKVCacheManager[DType.float32, kv_params](
+        config.get("batch-size")[Int],
+        config.get("max-length")[Int],
+        n_layers,
+        execution_device,
+        host_device,
+    )
+
+    if not is_warmup:
+        print(config.get("prompt")[String], end="")
+        metrics.end_timing_startup()
+        metrics.begin_timing_prompt()
+        metrics.begin_timing_tokenization()
+
+    prompt = tokenizer.encode(config.get("prompt")[String])
+    padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
+
+    max_tokens = get_max_tokens_to_generate(
+        padded_size,
+        config.get("max-length")[Int],
+        config.get("max-new-tokens")[Int] if not is_warmup else 2,
+    )
+
     n_pad_tokens = padded_size - prompt.size
 
     # Allocate input & attention mask tensors, then initialize them.
@@ -167,8 +191,16 @@ def _generation_loop[
         tokens[0, i] = 0 if i < n_pad_tokens else prompt[i - n_pad_tokens]
         prompt_attn_mask[0, i] = False if i < n_pad_tokens else True
 
+    if not is_warmup:
+        metrics.end_timing_tokenization()
+
     kv_collection = kv_manager.claim(config.get("batch-size")[Int])
-    for i in range(padded_size, new_tokens + 1):
+
+    if not is_warmup:
+        metrics.set_tokens_in_prompt(padded_size)
+        metrics.begin_timing_generation()
+
+    for i in range(padded_size, max_tokens + 1):
         tokens_shape = tokens._spec.shape
         if i == padded_size:
             valid_lengths = List[Int](padded_size)
@@ -213,6 +245,7 @@ def _generation_loop[
 
     for seq_id in kv_collection.get_seq_ids():
         kv_manager.release(seq_id[])
+    _ = kv_manager^
 
 
 def generate_text_naive(
@@ -282,14 +315,25 @@ def generate_text_naive(
         )
         metrics.end_timing_warmup()
 
-    metrics.end_timing_startup()
-
-    metrics.begin_timing_prompt()
-    prompt = tokenizer.encode(config.get("prompt")[String])
     sampler = WeightedSampler(
         config.get("temperature")[Float64].cast[DType.float32](),
         config.get("min-p")[Float64].cast[DType.float32](),
     )
+
+    kv_cache = KVCache(
+        params,
+        config.get("max-length")[Int],
+        config.get("batch-size")[Int],
+        host_device,
+    )
+
+    print("Executing...")
+    print(config.get("prompt")[String], end="")
+    metrics.end_timing_startup()
+    metrics.begin_timing_prompt()
+    metrics.begin_timing_tokenization()
+
+    prompt = tokenizer.encode(config.get("prompt")[String])
     padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
     n_pad_tokens = padded_size - prompt.size
     metrics.set_tokens_in_prompt(padded_size)
@@ -307,17 +351,7 @@ def generate_text_naive(
         config.get("max-length")[Int],
         config.get("max-new-tokens")[Int],
     )
-
-    kv_cache = KVCache(
-        params,
-        config.get("max-length")[Int],
-        config.get("batch-size")[Int],
-        host_device,
-    )
-
-    print("Executing...")
-    for token in prompt:
-        print(tokenizer.decode(token[]), end="")
+    metrics.end_timing_tokenization()
 
     # The first iteration caches the entire prompt and all subsequent
     # iterations generate one token.
@@ -371,92 +405,31 @@ def generate_text[
     if config.get("warmup-pipeline")[Bool]:
         print("Warming up pipeline...")
         metrics.begin_timing_warmup()
-        warmup_prompt = tokenizer.encode(config.get("prompt")[String])
-        sampler = WeightedSampler(
-            config.get("temperature")[Float64].cast[DType.float32](),
-            config.get("min-p")[Float64].cast[DType.float32](),
-        )
-        padded_size = align_up(
-            warmup_prompt.size, config.get("pad-to-multiple-of")[Int]
-        )
-
-        warmup_kv_manager = ContiguousKVCacheManager[DType.float32, kv_params](
-            config.get("batch-size")[Int],
-            config.get("max-length")[Int],
-            params.n_layers,
-            execution_device,
-            host_device,
-        )
-
         _generation_loop[type, kv_params](
-            warmup_kv_manager,
             metrics,
+            params.n_layers,
             compiled_model,
-            sampler,
             tokenizer,
-            warmup_prompt,
             config,
             host_device,
             execution_device,
-            padded_size + 2,
-            padded_size,
             is_warmup=True,
         )
         metrics.end_timing_warmup()
 
-    metrics.end_timing_startup()
-
-    metrics.begin_timing_prompt()
-    prompt = tokenizer.encode(config.get("prompt")[String])
-    sampler = WeightedSampler(
-        config.get("temperature")[Float64].cast[DType.float32](),
-        config.get("min-p")[Float64].cast[DType.float32](),
-    )
-    padded_size = align_up(prompt.size, config.get("pad-to-multiple-of")[Int])
-    metrics.set_tokens_in_prompt(padded_size)
-
-    max_tokens = get_max_tokens_to_generate(
-        padded_size,
-        config.get("max-length")[Int],
-        config.get("max-new-tokens")[Int],
-    )
-
-    kv_manager = ContiguousKVCacheManager[DType.float32, kv_params](
-        config.get("batch-size")[Int],
-        config.get("max-length")[Int],
-        params.n_layers,
-        execution_device,
-        host_device,
-    )
-
     print("Executing...")
-    for token in prompt:
-        print(tokenizer.decode(token[]), end="")
-
-    # The first iteration caches the entire prompt and all subsequent
-    # iterations generate one token.
-    # Avoid overrunning the cache by setting the trip count accordingly.
-    metrics.begin_timing_generation()
-
     _generation_loop[type, kv_params](
-        kv_manager,
         metrics,
+        params.n_layers,
         compiled_model,
-        sampler,
         tokenizer,
-        prompt,
         config,
         host_device,
         execution_device,
-        max_tokens,
-        padded_size,
         is_warmup=False,
     )
-
-    print()
     metrics.end_timing()
-
-    _ = kv_manager^
+    print()
 
 
 def run[
@@ -516,7 +489,6 @@ def run[
         print("Writing mef to ", mef_use_or_gen_path)
         compiled_model.export_compiled_model(mef_use_or_gen_path)
 
-    metrics.end_timing_startup()
     print(
         "Build graph time, ",
         (end_build - start_build) / 1_000_000,
