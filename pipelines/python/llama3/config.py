@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """All configurable parameters for Llama3."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
@@ -96,11 +96,7 @@ _ENCODING_TO_MODEL_NAME_LLAMA3_1 = {
 
 @dataclass
 class InferenceConfig:
-    # This device, practically given the post_init below
-    # should never be None, this is done to appease the dataclass
-    # constructor for using a non-defaultable abstract base class
-    # as a type.
-    device: Optional[Device] = None
+    device: Device = field(default_factory=CPU)
     """Device to run inference upon."""
 
     weight_path: Optional[Union[str, Path]] = None
@@ -123,10 +119,6 @@ class InferenceConfig:
 
     batch_size: int = 1
     """Batch size of inputs to the model."""
-
-    def __post_init__(self):
-        if self.device is None:
-            self.device = CPU()
 
     @staticmethod
     def help():
