@@ -77,6 +77,32 @@ struct KVCache:
         _ = values_tensor
         self.sequence_length += seqlen
 
+    def update(
+        inout self,
+        bytecount: Int,
+        keys_ptr: UnsafePointer[Float32],
+        values_ptr: UnsafePointer[Float32],
+    ):
+        """Updates the KV Cache with data from new tokens."""
+
+        # This is doing the equivalent of
+        #   self.keys[self.sequence_length:self.sequence_length + seqlen, ...] = keys
+        #   self.values[self.sequence_length:self.sequence_length + seqlen, ...] = values
+        seqlen = bytecount // self._offset(1)
+        start_pos = self._offset(self.sequence_length)
+        update_size = self._offset(seqlen)
+        memcpy(
+            self.keys.unsafe_ptr() + start_pos,
+            keys_ptr.bitcast[UInt8](),
+            update_size,
+        )
+        memcpy(
+            self.values.unsafe_ptr() + start_pos,
+            values_ptr.bitcast[UInt8](),
+            update_size,
+        )
+        self.sequence_length += seqlen
+
     def keys_view(self, device: Device) -> DeviceTensor:
         """Copies the keys tensor from the cache for use in the model."""
         cpu_device = self.keys.device()
@@ -102,6 +128,13 @@ struct KVCache:
             self._offset(self.sequence_length),
         )
         return values_copy.move_to(device)
+
+    # The following direct view into the cached keys or values is temporary
+    # and the entire KV cache will soon be replaced by a more elegant system.
+    def _view(self, tensor: DeviceTensor) -> EngineTensorView:
+        spec = self._spec(self.sequence_length)
+        data = tensor.unsafe_ptr().bitcast[NoneType]()
+        return EngineTensorView(spec, data, tensor.spec.dtype())
 
     def _spec(self, seq_len: Int) -> TensorSpec:
         """The shape of a key or value tensor of a given sequence length."""

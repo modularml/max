@@ -21,15 +21,17 @@ from utils.index import Index
 from time import perf_counter_ns
 
 
-from max.engine import InferenceSession, Model, SessionOptions
+from max.engine import EngineTensorView, InferenceSession, Model, SessionOptions
 from max.driver import (
     AnyTensor,
     Device,
     Tensor,
     cpu_device,
+    DeviceTensor,
 )
 from max.tensor import TensorShape
 from max.driver._cuda import cuda_device
+from max.engine import EngineTensorView
 from max.graph import Graph
 from max.graph.quantization import (
     Float32Encoding,
@@ -135,6 +137,50 @@ def _get_attention_mask(
     return mask
 
 
+def convert_to_engine_view(tensor: DeviceTensor) -> EngineTensorView:
+    return EngineTensorView(
+        tensor.spec,
+        tensor.unsafe_ptr().bitcast[NoneType](),
+        tensor.spec.dtype(),
+    )
+
+
+# The following is a temporary workaround to avoid a regression in CPU token
+# generation throughput due to extra copies of key and value tensors. This
+# will be replaced by a better means of doing in-memory updates for the KV
+# cache.
+def cpu_execute(
+    model: Model,
+    tokens: DeviceTensor,
+    mask: DeviceTensor,
+    inout cache: KVCache,
+    session: InferenceSession,
+) -> DeviceTensor:
+    input_map = session.new_tensor_map()
+    input_map.borrow("input0", convert_to_engine_view(tokens))
+    input_map.borrow("input1", convert_to_engine_view(mask))
+    tmp_keys = cache._view(cache.keys)
+    tmp_vals = cache._view(cache.values)
+    input_map.borrow("input2", tmp_keys)
+    input_map.borrow("input3", tmp_vals)
+    results = model.execute(input_map)
+    _ = tmp_keys
+    _ = tmp_vals
+    keys_out = results.get[DType.float32]("output1")
+    values_out = results.get[DType.float32]("output2")
+    bytecount = keys_out.spec().bytecount()
+    cache.update(
+        bytecount,
+        keys_out.unsafe_ptr(),
+        values_out.unsafe_ptr(),
+    )
+    _ = keys_out
+    _ = values_out
+    return Tensor[DType.float32, 2](
+        results.get[DType.float32]("output0")
+    ).to_device_tensor()
+
+
 def generate_text(
     tokenizer: TikTokenEncoder,
     compiled_model: Model,
@@ -142,6 +188,7 @@ def generate_text(
     config: Config,
     inout metrics: Metrics,
     execution_device: Device,
+    session: InferenceSession,
     use_gpu: Bool,
 ):
     """Generates text by applying the compiled model to the provided prompt."""
@@ -185,25 +232,52 @@ def generate_text(
             config.get("batch-size")[Int],
             host_device,
         )
-        _ = compiled_model.execute(
-            warmup_tokens.to_device_tensor().move_to(execution_device),
-            _get_attention_mask(prompt_attn_mask, padded_size, host_device)
-            .to_device_tensor()
-            .move_to(execution_device),
-            warmup_kv_cache.keys_view(execution_device),
-            warmup_kv_cache.values_view(execution_device),
-        )
 
+        # Warmup context-encoding
+        if use_gpu:
+            _ = compiled_model.execute(
+                warmup_tokens.to_device_tensor().move_to(execution_device),
+                _get_attention_mask(prompt_attn_mask, padded_size, host_device)
+                .to_device_tensor()
+                .move_to(execution_device),
+                warmup_kv_cache.keys_view(execution_device),
+                warmup_kv_cache.values_view(execution_device),
+            )
+        else:
+            _ = cpu_execute(
+                compiled_model,
+                warmup_tokens.to_device_tensor().move_to(execution_device),
+                _get_attention_mask(
+                    prompt_attn_mask, padded_size, host_device
+                ).to_device_tensor(),
+                warmup_kv_cache,
+                session,
+            )
+
+        # Warmup token-generation
         warmup_token = Tensor[DType.int64, rank=2](TensorShape(1, 1))
-        warmup_mask = Tensor[DType.int64, rank=2](TensorShape(1, 1))
-        warmup_token[0, 0] = Int64(123)
-        warmup_mask[0, 0] = True
-        _ = compiled_model.execute(
-            warmup_token.to_device_tensor().move_to(execution_device),
-            warmup_mask.to_device_tensor().move_to(execution_device),
-            warmup_kv_cache.keys_view(execution_device),
-            warmup_kv_cache.values_view(execution_device),
+        warmup_mask = Tensor[DType.bool, rank=2](
+            TensorShape(1, padded_size + 1)
         )
+        warmup_token[0, 0] = Int64(123)
+        for i in range(padded_size):
+            warmup_mask[0, i] = prompt_attn_mask[0, i]
+        warmup_mask[0, padded_size] = True
+        if use_gpu:
+            _ = compiled_model.execute(
+                warmup_token.to_device_tensor().move_to(execution_device),
+                warmup_mask.to_device_tensor().move_to(execution_device),
+                warmup_kv_cache.keys_view(execution_device),
+                warmup_kv_cache.values_view(execution_device),
+            )
+        else:
+            _ = cpu_execute(
+                compiled_model,
+                warmup_token.to_device_tensor().move_to(execution_device),
+                warmup_mask.to_device_tensor().move_to(execution_device),
+                warmup_kv_cache,
+                session,
+            )
         metrics.end_timing_warmup()
 
     print("Executing...")
@@ -227,18 +301,28 @@ def generate_text(
         config.get("max-new-tokens")[Int],
     )
     for i in range(padded_size, max_tokens + 1):
-        results = compiled_model.execute(
-            tokens.to_device_tensor().move_to(execution_device),
-            _get_attention_mask(prompt_attn_mask, i, host_device)
-            .to_device_tensor()
-            .move_to(execution_device),
-            kv_cache.keys_view(execution_device),
-            kv_cache.values_view(execution_device),
-        )
+        if use_gpu:
+            results = compiled_model.execute(
+                tokens.to_device_tensor().move_to(execution_device),
+                _get_attention_mask(prompt_attn_mask, i, host_device)
+                .to_device_tensor()
+                .move_to(execution_device),
+                kv_cache.keys_view(execution_device),
+                kv_cache.values_view(execution_device),
+            )
+            kv_cache.update(results[1].take(), results[2].take())
+            logits = results[0].take().to_device_tensor()
+        else:
+            logits = cpu_execute(
+                compiled_model,
+                tokens.to_device_tensor().move_to(execution_device),
+                _get_attention_mask(prompt_attn_mask, i, host_device)
+                .to_device_tensor()
+                .move_to(execution_device),
+                kv_cache,
+                session,
+            )
 
-        kv_cache.update(results[1].take(), results[2].take())
-
-        logits = results[0].take().to_device_tensor()
         logits = logits.move_to(host_device)
         logits_tensor = logits.to_tensor[DType.float32, rank=2]()
         token = Int64(sampler.sample(logits_tensor^).selected)
@@ -326,6 +410,7 @@ def run[encoding: QuantizationEncoding](config: Config) -> None:
         config,
         metrics,
         execution_device,
+        session,
         use_gpu,
     )
     print()
