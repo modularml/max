@@ -26,7 +26,7 @@ from .model.mlp import MLP, Linear
 from .model.norm import RMSNorm
 from .model.rotary_embedding import RotaryEmbedding
 from .model.transformer import Transformer, TransformerBlock
-from .kernel_names import KVCacheKernelNames
+from .kv_cache_params import KVCacheParams
 
 
 def feed_forward(
@@ -138,7 +138,7 @@ def transformer(
     graph: Graph,
     params: Hyperparameters,
     weights: GGUFWeights,
-    _kernel_names: KVCacheKernelNames,
+    _kv_params: KVCacheParams,
 ):
     # _kernel_names is currently unused
     # This is wired up with the expectation that we will

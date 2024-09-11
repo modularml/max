@@ -26,7 +26,7 @@ from utils import gguf_utils, tokenizer_from_gguf
 
 from .config import InferenceConfig, SupportedEncodings
 from .gguf import transformer
-from .kernel_names import KVCacheKernelNames
+from .kv_cache_params import KVCacheParams
 from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
 
@@ -56,7 +56,7 @@ def _llama_graph(
     batch_size: int,
     params: Hyperparameters,
     weights: GGUFWeights,
-    kernel_names: KVCacheKernelNames,
+    kv_params: KVCacheParams,
 ) -> Graph:
     tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
     attn_mask_type = TensorType(DType.bool, shape=[batch_size, "post_seq_len"])
@@ -75,7 +75,7 @@ def _llama_graph(
         "llama3",
         input_types=[tokens_type, attn_mask_type, cache_type, cache_type],
     ) as graph:
-        model = transformer(graph, params, weights, kernel_names)
+        model = transformer(graph, params, weights, kv_params)
         logits, k_update, v_update = model(*graph.inputs)
         graph.output(logits[:, -1], k_update, v_update)
         return graph
@@ -88,7 +88,7 @@ class Llama3:
     _model: Model
     _kv_cache: KVCache
     _sessions: set[str]
-    _kernel_names: KVCacheKernelNames
+    _kv_params: KVCacheParams
 
     def __init__(self, config: InferenceConfig):
         self.config = config
@@ -118,7 +118,7 @@ class Llama3:
             DType.float32 if params.quantization_encoding
             is not None else params.dtype
         )
-        self._kernel_names = KVCacheKernelNames(
+        self._kv_params = KVCacheParams(
             n_kv_heads=params.n_kv_heads,
             head_dim=params.head_dim,
             dtype=dtype,
@@ -142,7 +142,7 @@ class Llama3:
             self._weights = GGUFWeights(reader)
             print("Building model...")
             graph = _llama_graph(
-                config.batch_size, params, self._weights, self._kernel_names
+                config.batch_size, params, self._weights, self._kv_params
             )
             print("Compiling...")
             return session.load(
