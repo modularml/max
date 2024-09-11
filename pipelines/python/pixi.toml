@@ -10,6 +10,7 @@ version = "0.1.0"
 llama3 = "python pipelines.py llama3"
 
 [dependencies]
+python = ">=3.9,<3.13"
 max = ">=24.6.0.dev2024090821"
 
 [pypi-dependencies]
