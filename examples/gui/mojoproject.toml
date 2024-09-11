@@ -1,11 +1,11 @@
 [project]
 name = "gui"
 version = "1.0.0"
-channels = ["conda-forge", "https://conda.cloudsmith.io/modular/max-nightly/"]
-platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
+channels = [ "conda-forge", "https://conda.modular.com/max/",]
+platforms = [ "osx-arm64", "linux-aarch64", "linux-64",]
 
 [dependencies]
-max = "*"
+max = ">=24.5.0a,<24.6"
 numpy = "==1.26.4"
 
 [pypi-dependencies]
@@ -25,7 +25,6 @@ onnxruntime = "==1.19"
 onnxslim = "==0.1.32"
 openai = "==1.42.0"
 opencv-python = ">=4.10"
-optimum = { extras = ["onnxruntime"], version = "==1.21.4" }
 pillow = "==10.4.0"
 protobuf = "==3.20.3"
 psutil = "==6.0.0"
@@ -38,3 +37,7 @@ watchdog = "==4.0.0"
 
 [tasks]
 gui = "streamlit run home.py"
+
+[pypi-dependencies.optimum]
+extras = [ "onnxruntime",]
+version = "==1.21.4"

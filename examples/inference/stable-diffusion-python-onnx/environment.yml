@@ -1,8 +1,7 @@
 name: max-repo
 channels:
-  - https://conda.cloudsmith.io/modular/max-nightly/
+  - https://conda.modular.com/max/
   - conda-forge
-  - defaults
 dependencies:
   - python>=3.9,<3.13
   - max
