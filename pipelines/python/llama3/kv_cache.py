@@ -42,6 +42,7 @@ class KVCache:
         """Insert the updated key and value cache elements in the main cache."""
         key_length = new_keys.shape[0]
         new_sequence_length = self.sequence_length + key_length
+        assert new_sequence_length < self.keys.shape[0], "kv-cache overflow"
         self.keys[self.sequence_length : new_sequence_length, ...] = new_keys
         self.values[
             self.sequence_length : new_sequence_length, ...
