@@ -21,6 +21,9 @@ class KVCacheLayout(Enum):
     BHSD = "bhsd"
     BSHD = "bshd"
 
+    def __str__(self) -> str:
+        return self.value
+
 
 VALID_KV_KERNELS = [
     ("bf16", 1, 10, KVCacheLayout.BHSD),
@@ -34,7 +37,7 @@ VALID_KV_KERNELS = [
 ]
 
 
-class KVCacheKernelNames:
+class KVCacheParams:
     def __init__(
         self,
         dtype: DType,
@@ -42,34 +45,42 @@ class KVCacheKernelNames:
         head_dim: int,
         device: Device,
     ):
-        layout = KVCacheLayout.BHSD if device.is_host else KVCacheLayout.BSHD
-        dt = "bf16" if dtype == DType.bfloat16 else "f32"
+        # Initialize static attributes
+        self.dtype = dtype
+        self.n_kv_heads = n_kv_heads
+        self.head_dim = head_dim
+        self.layout = (
+            KVCacheLayout.BHSD if device.is_host else KVCacheLayout.BSHD
+        )
 
-        if (dt, n_kv_heads, head_dim, layout) not in VALID_KV_KERNELS:
+        # Validate inputs
+        dt = "bf16" if dtype == DType.bfloat16 else "f32"
+        if (dt, n_kv_heads, head_dim, self.layout) not in VALID_KV_KERNELS:
             raise Exception(
                 f"Unsupported KV Cache Configuration: got dtype: {dt},"
                 f" n_kv_heads: {n_kv_heads}, head_dim: {head_dim}, layout:"
-                f" {layout}"
+                f" {self.layout}"
             )
 
+        # Create Kernel Names for Ease
         self._matmul_kernel = (
-            f"matmul_kv_cache_h{n_kv_heads}_d{head_dim}_{layout}"
+            f"matmul_kv_cache_h{n_kv_heads}_d{head_dim}_{self.layout}"
         )
         self._flash_attention_kernel = (
-            f"flash_attention_kv_cache_h{n_kv_heads}_d{head_dim}_{layout}"
+            f"flash_attention_kv_cache_h{n_kv_heads}_d{head_dim}_{self.layout}"
         )
         self._kv_cache_length_kernel = (
-            f"kv_cache_length_h{n_kv_heads}_d{head_dim}_{layout}_{dt}"
+            f"kv_cache_length_h{n_kv_heads}_d{head_dim}_{self.layout}_{dt}"
         )
         self._key_cache_for_layer_kernel = (
-            f"key_cache_for_layer_h{n_kv_heads}_d{head_dim}_{str(layout)}_{dt}"
+            f"key_cache_for_layer_h{n_kv_heads}_d{head_dim}_{self.layout}_{dt}"
         )
-        self._value_cache_for_layer_kernel = f"value_cache_for_layer_h{n_kv_heads}_d{head_dim}_{str(layout)}_{dt}"
+        self._value_cache_for_layer_kernel = f"value_cache_for_layer_h{n_kv_heads}_d{head_dim}_{self.layout}_{dt}"
         self._fused_qkv_matmul_kernel = (
-            f"fused_qkv_matmul_kv_cache_h{n_kv_heads}_d{head_dim}_{str(layout)}"
+            f"fused_qkv_matmul_kv_cache_h{n_kv_heads}_d{head_dim}_{self.layout}"
         )
         self._fused_qk_rope_kernel = (
-            f"fused_qk_rope_h{n_kv_heads}_d{head_dim}_{str(layout)}"
+            f"fused_qk_rope_h{n_kv_heads}_d{head_dim}_{self.layout}"
         )
 
     @property
