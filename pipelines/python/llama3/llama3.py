@@ -156,6 +156,15 @@ class Llama3:
     async def new_context(self, prompt: str) -> Llama3Context:
         encoded_prompt = self._tokenizer.encode(prompt)
         prompt_size = len(encoded_prompt)
+        if (
+            _max_tokens_to_generate(prompt_size, self.config)
+            > self._kv_cache.keys.shape[0]
+        ):
+            raise ValueError(
+                "prompt length"
+                f" ({_max_tokens_to_generate(prompt_size, self.config)}) is"
+                f" greater than {self._kv_cache.keys.shape[0]}"
+            )
         return Llama3Context(
             prompt=prompt,
             prompt_size=prompt_size,
