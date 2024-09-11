@@ -111,7 +111,10 @@ class Attention:
             attention_mask, prev_seq_len, seq_len, xq.dtype
         )
         scores = xq @ ops.transpose(keys, 2, 3)
-        return ops.softmax(scale * scores + mask) @ values
+        # Note, the graph compiler currently requires the order of operands
+        # to be `scores * scale` in order to pattern match the fused attention
+        # operator.
+        return ops.softmax(scores * scale + mask) @ values
 
     def __call__(
         self,
