@@ -16,6 +16,8 @@
 import time
 from typing import Union
 
+import psutil
+
 
 class TextGenerationMetrics:
     """Metrics capturing and reporting for a text generation pipeline."""
@@ -29,14 +31,20 @@ class TextGenerationMetrics:
 
     _start_time: float
     _signposts: dict[str, float]
+    _mem_usage_marker: dict[str, float]
     _should_print_report: bool
+    _process: psutil.Process
+    _print_raw: bool
 
-    def __init__(self, print_report: bool = False):
-        self.signposts = {}
+    def __init__(self, print_report: bool = False, print_raw: bool = False):
+        self._signposts = {}
+        self._mem_usage_marker = {}
         self.prompt_size = 0
         self.output_size = 0
         self._should_print_report = print_report
-        self.start_time = time.time()
+        self._start_time = time.time()
+        self._process = psutil.Process()
+        self._print_raw = print_raw
 
     def __enter__(self):
         return self
@@ -44,39 +52,43 @@ class TextGenerationMetrics:
     def __exit__(self, *exc):
         self._calculate_results()
         if self._should_print_report:
-            self._print_report()
+            self._print_report(self._print_raw)
 
     def signpost(self, name: str):
-        """Measure the current time and tag it with a name for later reporting.
+        """Measure the current time and memory usage, tagging it with a name for later reporting.
         """
-        self.signposts[name] = time.time()
+        self._signposts[name] = time.time()
+        self._mem_usage_marker[name] = (self._process.memory_info().rss) / (
+            1024 * 1024 * 1024
+        )
 
     def new_token(self):
         """Report that a new token has been generated."""
         self.output_size += 1
 
     def _calculate_results(self):
-        begin_generation = self.signposts.get("begin_generation")
+        begin_generation = self._signposts.get("begin_generation")
         if begin_generation:
             self.startup_time = (
-                self.signposts["begin_generation"] - self.start_time
+                self._signposts["begin_generation"] - self._start_time
             ) * 1000.0
         else:
             self.startup_time = "n/a"
 
-        first_token = self.signposts.get("first_token")
+        first_token = self._signposts.get("first_token")
         if first_token and begin_generation:
             self.time_to_first_token = (
-                self.signposts["first_token"]
-                - self.signposts["begin_generation"]
+                self._signposts["first_token"]
+                - self._signposts["begin_generation"]
             ) * 1000.0
         else:
             self.time_to_first_token = "n/a"
 
-        end_generation = self.signposts.get("end_generation")
+        end_generation = self._signposts.get("end_generation")
         if end_generation and first_token and begin_generation:
             generation_time = (
-                self.signposts["end_generation"] - self.signposts["first_token"]
+                self._signposts["end_generation"]
+                - self._signposts["first_token"]
             )
             assert isinstance(self.time_to_first_token, float)
             self.prompt_eval_throughput = self.prompt_size / (
@@ -87,7 +99,7 @@ class TextGenerationMetrics:
             self.prompt_eval_throughput = "n/a"
             self.eval_throughput = "n/a"
 
-    def _print_report(self):
+    def _print_report(self, print_raw=False):
         print()
         print("Prompt size:", self.prompt_size)
         print("Output size:", self.output_size)
@@ -103,3 +115,10 @@ class TextGenerationMetrics:
             self.eval_throughput,
             "tokens per second",
         )
+        if print_raw:
+            print("=============raw stats=================")
+            for k, v in self._signposts.items():
+                print(
+                    f"Started {k} at {v} with memory"
+                    f" {self._mem_usage_marker[k]} GB"
+                )
