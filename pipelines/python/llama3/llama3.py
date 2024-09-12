@@ -21,6 +21,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
+from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
 from .config import InferenceConfig, SupportedEncodings, SupportedVersions
@@ -88,6 +89,7 @@ class Llama3:
     _kv_cache: KVCache
     _sessions: set[str]
     _kv_params: KVCacheParams
+    _tokenizer: Tokenizer
 
     def __init__(self, config: InferenceConfig):
         self.config = config
