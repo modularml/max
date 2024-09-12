@@ -72,7 +72,7 @@ class RotaryEmbedding:
             self._freqs_cis = ops.stack(
                 [ops.cos(freqs), ops.sin(freqs)], axis=-1
             )
-        return self._freqs_cis
+        return TensorValue(self._freqs_cis)
 
     def __call__(
         self, x: ValueLike, start_pos: int, seq_len: int
