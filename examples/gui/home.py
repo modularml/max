@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 import streamlit as st
-
 from shared import menu
 
 st.set_page_config("MAX", "⚡️")
@@ -23,8 +22,8 @@ menu()
 Welcome to MAX! Select an example to get started:
 """
 
-if st.button("🦙 Llama3"):
-    st.switch_page("pages/llama3.py")
+if st.button("🦙 Llama3.1"):
+    st.switch_page("pages/llama3_1.py")
 elif st.button("📄 RAG with Llama3"):
     st.switch_page("pages/rag.py")
 elif st.button("👓 BERT"):
