@@ -54,59 +54,19 @@ class KVCacheParams:
         )
 
         # Validate inputs
-        dt = "bf16" if dtype == DType.bfloat16 else "f32"
-        if (dt, n_kv_heads, head_dim, self.layout) not in VALID_KV_KERNELS:
-            raise Exception(
-                f"Unsupported KV Cache Configuration: got dtype: {dt},"
-                f" n_kv_heads: {n_kv_heads}, head_dim: {head_dim}, layout:"
-                f" {self.layout}"
+        if (
+            self.dtype_shorthand,
+            n_kv_heads,
+            head_dim,
+            self.layout,
+        ) not in VALID_KV_KERNELS:
+            raise ValueError(
+                "Unsupported KV Cache Configuration: got dtype:"
+                f" {self.dtype_shorthand}, n_kv_heads: {n_kv_heads}, head_dim:"
+                f" {head_dim}, layout: {self.layout}"
             )
 
-        # Create Kernel Names for Ease
-        self._matmul_kernel = (
-            f"matmul_kv_cache_h{n_kv_heads}_d{head_dim}_{self.layout}"
-        )
-        self._flash_attention_kernel = (
-            f"flash_attention_kv_cache_h{n_kv_heads}_d{head_dim}_{self.layout}"
-        )
-        self._kv_cache_length_kernel = (
-            f"kv_cache_length_h{n_kv_heads}_d{head_dim}_{self.layout}_{dt}"
-        )
-        self._key_cache_for_layer_kernel = (
-            f"key_cache_for_layer_h{n_kv_heads}_d{head_dim}_{self.layout}_{dt}"
-        )
-        self._value_cache_for_layer_kernel = f"value_cache_for_layer_h{n_kv_heads}_d{head_dim}_{self.layout}_{dt}"
-        self._fused_qkv_matmul_kernel = (
-            f"fused_qkv_matmul_kv_cache_h{n_kv_heads}_d{head_dim}_{self.layout}"
-        )
-        self._fused_qk_rope_kernel = (
-            f"fused_qk_rope_h{n_kv_heads}_d{head_dim}_{self.layout}"
-        )
-
     @property
-    def matmul_kernel(self) -> str:
-        return self._matmul_kernel
-
-    @property
-    def flash_attention_kernel(self) -> str:
-        return self._flash_attention_kernel
-
-    @property
-    def kv_cache_length_kernel(self) -> str:
-        return self._kv_cache_length_kernel
-
-    @property
-    def key_cache_for_layer_kernel(self) -> str:
-        return self._key_cache_for_layer_kernel
-
-    @property
-    def value_cache_for_layer_kernel(self) -> str:
-        return self._value_cache_for_layer_kernel
-
-    @property
-    def fused_qkv_matmul_kernel(self) -> str:
-        return self._fused_qkv_matmul_kernel
-
-    @property
-    def fused_qk_rope_kernel(self) -> str:
-        return self._fused_qk_rope_kernel
+    def dtype_shorthand(self) -> str:
+        """The textual representation in shorthand of the dtype."""
+        return "bf16" if self.dtype == DType.bfloat16 else "f32"
