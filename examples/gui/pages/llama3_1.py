@@ -206,7 +206,3 @@ if prompt := st.chat_input("Send a message to llama3"):
         {"role": "user", "avatar": "💬", "content": prompt},
         {"role": "assistant", "avatar": "🦙", "content": response},
     ]
-    st.session_state.messages += [
-        {"role": "user", "avatar": "💬", "content": prompt},
-        {"role": "assistant", "avatar": "🦙", "content": response},
-    ]
