@@ -22,10 +22,10 @@ async def stream_text_to_console(
     model: TokenGenerator, prompt: str, metrics: Optional[TextGenerationMetrics]
 ):
     context = await model.new_context(prompt)
-    prompt_size = context.prompt_size
+    prompt_size = len(context.tokens)
 
     # Start with the initial prompt.
-    print(context.prompt, end="", flush=True)
+    print(prompt, end="", flush=True)
     if metrics:
         metrics.prompt_size = prompt_size
         metrics.signpost("begin_generation")
@@ -35,15 +35,14 @@ async def stream_text_to_console(
     request_id = str(id(prompt))
     while True:
         response = await model.next_token({request_id: context})
-        response_text = response[request_id]
-        if response_text is None:
+        if request_id not in response:
             break
         if metrics:
             if is_first_token:
                 is_first_token = False
                 metrics.signpost("first_token")
             metrics.new_token()
-        print(response_text, end="", flush=True)
+        print(response[request_id], end="", flush=True)
     if metrics:
         metrics.signpost("end_generation")
     print()
