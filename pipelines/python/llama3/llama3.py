@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 
 import gguf
@@ -24,7 +24,7 @@ from max.graph.weights import GGUFWeights
 from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
-from .config import InferenceConfig, SupportedEncodings, SupportedVersions
+from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .kv_cache_params import KVCacheParams
 from .kv_cache import KVCache
@@ -36,20 +36,18 @@ class Llama3Context:
     """The context for text generation using a Llama 3 model."""
 
     prompt: str
-    prompt_size: int
     max_tokens: int
-    next_token: np.ndarray
-    next_decoded: str
-    output_token_count: int = 0  # Number of generated tokens so far.
-    output_sequence: str = ""  # Generated text sequence from tokens so far.
+    next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
+    tokens: list[int] = field(default_factory=list)
+    decoded: str = ""
 
-    def is_done(self, eos: str) -> bool:
-        if self.next_decoded == eos:
-            return True
-        max_output_tokens = max(1, self.max_tokens - self.prompt_size)
-        if self.output_token_count == max_output_tokens:
-            return True
-        return False
+    def append(self, token_ids: np.ndarray, decoded: str):
+        self.next_tokens = token_ids
+        self.tokens.extend(token_ids)
+        self.decoded += decoded
+
+    def is_done(self, eos: int) -> bool:
+        return self.tokens[-1] == eos or len(self.tokens) > self.max_tokens
 
 
 def _llama_graph(
@@ -124,8 +122,8 @@ class Llama3:
             device=config.device,
         )
 
-        self._model = self._load_model(config, params, gguf_reader)
         self._tokenizer = tokenizer_from_gguf(gguf_reader)
+        self._model = self._load_model(config, params, gguf_reader)
 
     def _load_model(
         self,
@@ -148,29 +146,15 @@ class Llama3:
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    def _get_attention_mask(self, n: int):
-        mask = np.ones(shape=(1, n)).astype(bool)
-        return mask
+    def _attention_mask(self, n: int):
+        return np.ones(shape=(1, n)).astype(bool)
 
     async def new_context(self, prompt: str) -> Llama3Context:
         encoded_prompt = self._tokenizer.encode(prompt)
-        prompt_size = len(encoded_prompt)
-        if (
-            _max_tokens_to_generate(prompt_size, self.config)
-            > self._kv_cache.keys.shape[0]
-        ):
-            raise ValueError(
-                "prompt length"
-                f" ({_max_tokens_to_generate(prompt_size, self.config)}) is"
-                f" greater than {self._kv_cache.keys.shape[0]}"
-            )
-        return Llama3Context(
-            prompt=prompt,
-            prompt_size=prompt_size,
-            max_tokens=_max_tokens_to_generate(prompt_size, self.config),
-            next_token=np.array(encoded_prompt).reshape(1, -1),
-            next_decoded="",
-        )
+        max_tokens = _max_tokens_to_generate(len(encoded_prompt), self.config)
+        context = Llama3Context(prompt, max_tokens=max_tokens)
+        context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
+        return context
 
     async def next_token(
         self, batch: dict[str, Llama3Context]
@@ -180,12 +164,8 @@ class Llama3:
         assert len(batch) == self.config.batch_size == 1
         request_id, context = next(iter(batch.items()))
 
-        if context.is_done(self._tokenizer.eos_token):
-            self._sessions.remove(request_id)
-            return {request_id: None}
-
-        if request_id not in self._sessions:
-            self._sessions.add(request_id)
+        if self._sessions ^ batch.keys():
+            self._sessions = set(batch.keys())
             self._reset_cache()
 
         logits, _, _ = self._execute(context)
@@ -196,21 +176,13 @@ class Llama3:
         decoded_token = self._tokenizer.decode(next_token)
 
         # Update context
-        context.next_token = next_token.reshape(1, -1)
-        context.next_decoded = decoded_token
-        context.output_sequence += decoded_token
-        context.output_token_count += 1
+        context.append(next_token.reshape(1, -1), decoded_token)
 
-        # This is a temporary workaround to stop the response from
-        # returning the eos token in the response
-        # If we return None here, the server upstream likely
-        # never calls this again, to remove the request_id
-        # therefore, using a "" returns nothing noticable to the client
-        # and still calls this method again, to close the session appropriately
-        if decoded_token == self._tokenizer.eos_token:
-            return {request_id: ""}
-
-        return {request_id: decoded_token}
+        return {
+            request_id: decoded_token
+            for request_id, context in batch.items()
+            if not context.is_done(self._tokenizer.eos_token_id)
+        }
 
     def _reset_cache(self):
         # This feels really contrived, but it's because our KV cache setup
@@ -220,12 +192,12 @@ class Llama3:
     def _execute(self, context: Llama3Context) -> Tuple[np.ndarray, ...]:
         """Executes the model and returns the raw results."""
         cache = self._kv_cache
-        attn_mask = self._get_attention_mask(
-            cache.sequence_length + context.next_token.shape[1]
+        attn_mask = self._attention_mask(
+            cache.sequence_length + context.next_tokens.shape[1]
         )
 
         logits, k_cache, v_cache = self._model.execute(
-            Tensor.from_numpy(context.next_token, self.config.device),
+            Tensor.from_numpy(context.next_tokens, self.config.device),
             Tensor.from_numpy(attn_mask, self.config.device),
             Tensor.from_numpy(cache.keys_view(), self.config.device),
             Tensor.from_numpy(cache.values_view(), self.config.device),
