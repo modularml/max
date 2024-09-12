@@ -61,7 +61,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/hpack-4.0.0-pyh9f0ad1d_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpcore-1.0.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpx-0.27.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.6-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/humanfriendly-10.0-pyhd8ed1ab_6.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/idna-3.8-pyhd8ed1ab_0.conda
@@ -134,13 +134,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-2.1.5-py312h66e93f0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/marshmallow-3.22.0-pyhd8ed1ab_0.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091118-release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-core-24.6.0.dev2024091118-release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-python-24.6.0.dev2024091118-3.12release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091118-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091205-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-core-24.6.0.dev2024091205-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-python-24.6.0.dev2024091205-3.12release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091205-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mmh3-4.1.0-py312h30efb56_0.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091118-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091205-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/monotonic-1.5-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpc-1.3.1-h24ddda3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.1-h90cbb55_3.conda
@@ -395,7 +395,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/hpack-4.0.0-pyh9f0ad1d_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpcore-1.0.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpx-0.27.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.6-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/humanfriendly-10.0-pyhd8ed1ab_6.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/idna-3.8-pyhd8ed1ab_0.conda
@@ -450,13 +450,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/markupsafe-2.1.5-py312h52516f5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/marshmallow-3.22.0-pyhd8ed1ab_0.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091118-release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-core-24.6.0.dev2024091118-release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-python-24.6.0.dev2024091118-3.12release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091118-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091205-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-core-24.6.0.dev2024091205-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-python-24.6.0.dev2024091205-3.12release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091205-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/mmh3-4.1.0-py312h2aa54b4_0.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091118-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091205-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/monotonic-1.5-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/mpc-1.3.1-h783934e_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/mpfr-4.2.1-h2305555_3.conda
@@ -691,7 +691,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/hpack-4.0.0-pyh9f0ad1d_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpcore-1.0.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/httpx-0.27.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.6-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/humanfriendly-10.0-pyhd8ed1ab_6.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/idna-3.8-pyhd8ed1ab_0.conda
@@ -755,13 +755,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/markupsafe-2.1.5-py312h024a12e_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/marshmallow-3.22.0-pyhd8ed1ab_0.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091118-release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-core-24.6.0.dev2024091118-release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-python-24.6.0.dev2024091118-3.12release.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091118-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091205-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-core-24.6.0.dev2024091205-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-python-24.6.0.dev2024091205-3.12release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091205-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mmh3-4.1.0-py312h20a0b95_0.conda
-      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091118-release.conda
+      - conda: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091205-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/monotonic-1.5-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mpc-1.3.1-h8f1351a_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mpfr-4.2.1-hb693164_3.conda
@@ -3358,13 +3358,13 @@ packages:
   timestamp: 1724778453275
 - kind: conda
   name: huggingface_hub
-  version: 0.24.6
+  version: 0.24.7
   build: pyhd8ed1ab_0
   subdir: noarch
   noarch: python
-  url: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.6-pyhd8ed1ab_0.conda
-  sha256: 46bdcaa7f3058838615ef87580beb95f19a7f6b3fc584a30d277816e19011426
-  md5: 129d512e741eccfd55c51335b45647bb
+  url: https://conda.anaconda.org/conda-forge/noarch/huggingface_hub-0.24.7-pyhd8ed1ab_0.conda
+  sha256: 000b32aa2b960fe1e39aecdd3e5b0eea0f9b1e9d622188c7bd8a6f86c244233d
+  md5: 9a8208360743187a5eabc2b2b05cb74f
   depends:
   - filelock
   - fsspec >=2023.5.0
@@ -3375,11 +3375,10 @@ packages:
   - tqdm >=4.42.1
   - typing-extensions >=3.7.4.3
   license: Apache-2.0
-  license_family: APACHE
   purls:
   - pkg:pypi/huggingface-hub?source=hash-mapping
-  size: 259940
-  timestamp: 1724106343768
+  size: 259655
+  timestamp: 1726154689209
 - kind: conda
   name: humanfriendly
   version: '10.0'
@@ -6590,72 +6589,72 @@ packages:
   requires_python: '>=3.8'
 - kind: conda
   name: max
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: release
   subdir: noarch
   noarch: python
-  url: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091118-release.conda
-  sha256: 0b86e3eb76472f4dcf3125ea3552da5f211e78f86c1b87e94bc7d6cfb6582018
-  md5: 70f958d3a5457841ca3e17893fbf9088
+  url: https://conda.cloudsmith.io/modular/max-nightly/noarch/max-24.6.0.dev2024091205-release.conda
+  sha256: d57c331bdf3f93040edb3555ef3ec1eba0b3aa029adbbe7910f6e2dd84b634ed
+  md5: d93a3c9e49471ed1d9b8e76732cd0e82
   depends:
-  - max-core ==24.6.0.dev2024091118 release
+  - max-core ==24.6.0.dev2024091205 release
   - max-python >=24.6.0.0dev,<25.0a0
-  - mojo-jupyter ==24.6.0.dev2024091118 release
-  - mblack ==24.6.0.dev2024091118 release
-  size: 9713
-  timestamp: 1726081099020
+  - mojo-jupyter ==24.6.0.dev2024091205 release
+  - mblack ==24.6.0.dev2024091205 release
+  size: 9708
+  timestamp: 1726118345728
 - kind: conda
   name: max-core
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: release
   subdir: linux-64
-  url: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-core-24.6.0.dev2024091118-release.conda
-  sha256: 53275ed30526f12f128572273ae294da451e7ec6991a82985cf53f2ef8b0b104
-  md5: 7f8d1103f58c0f895520b342a456f9db
+  url: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-core-24.6.0.dev2024091205-release.conda
+  sha256: 6195b203ac6f1ca2c55ffe3781721f8ab8aa6266cc224ed21257fefd6eabcd74
+  md5: ba484f5b9f08f1cd711150a0d2371a62
   depends:
-  - mblack ==24.6.0.dev2024091118 release
+  - mblack ==24.6.0.dev2024091205 release
   arch: x86_64
   platform: linux
-  size: 284630848
-  timestamp: 1726081099018
+  size: 284494897
+  timestamp: 1726118345726
 - kind: conda
   name: max-core
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: release
   subdir: linux-aarch64
-  url: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-core-24.6.0.dev2024091118-release.conda
-  sha256: 5b753de8ed4898129159bed2cc6073121dcccc875385d13194d436060786a00a
-  md5: c4d37974984cb44d5344874f876a31f3
+  url: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-core-24.6.0.dev2024091205-release.conda
+  sha256: 3031e38f0c0c2649e940c3a048a8664ccc51ac6d7a5714c2eb7482fe4bf913fe
+  md5: aa23b2f398e1569cf3f00ea9bfdcc7a1
   depends:
-  - mblack ==24.6.0.dev2024091118 release
+  - mblack ==24.6.0.dev2024091205 release
   arch: aarch64
   platform: linux
-  size: 288003118
-  timestamp: 1726081070316
+  size: 287931778
+  timestamp: 1726118327737
 - kind: conda
   name: max-core
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: release
   subdir: osx-arm64
-  url: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-core-24.6.0.dev2024091118-release.conda
-  sha256: bd0490b1f2e48c130454b3d834992c10c0e2563f27935768ce020d855b7f4a3b
-  md5: 75fe553bd8f31381096285fb8d3b01c9
+  url: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-core-24.6.0.dev2024091205-release.conda
+  sha256: 1d0117bb4443276003134075237be94fe80b3b48893d6bbb0c2433a2bf3a5306
+  md5: a5386fe664f1abd0ba7f094b3913ea28
   depends:
-  - mblack ==24.6.0.dev2024091118 release
+  - mblack ==24.6.0.dev2024091205 release
   arch: arm64
   platform: osx
-  size: 245161288
-  timestamp: 1726081034332
+  size: 245491032
+  timestamp: 1726118601653
 - kind: conda
   name: max-python
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: 3.12release
   subdir: linux-64
-  url: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-python-24.6.0.dev2024091118-3.12release.conda
-  sha256: d66b6e1b3be08e3ad22a6fb262cf2efb9553bbb7d9d56b96372648bd110e815f
-  md5: 9667ba85ad40e5b59806bd9947ecbdf7
+  url: https://conda.cloudsmith.io/modular/max-nightly/linux-64/max-python-24.6.0.dev2024091205-3.12release.conda
+  sha256: cbdf3d3039b2de5ec38904031a457983343087c1fd7ae0f7b0ac63276370218b
+  md5: dad4af4349e86de7cf2f31daa789b324
   depends:
-  - max-core ==24.6.0.dev2024091118 release
+  - max-core ==24.6.0.dev2024091205 release
   - python 3.12.*
   - numpy >=1.18,<2.0
   - fastapi >=0.113.0,<0.114
@@ -6664,18 +6663,18 @@ packages:
   - python_abi 3.12.* *_cp312
   arch: x86_64
   platform: linux
-  size: 139076737
-  timestamp: 1726081099024
+  size: 139012384
+  timestamp: 1726118345732
 - kind: conda
   name: max-python
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: 3.12release
   subdir: linux-aarch64
-  url: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-python-24.6.0.dev2024091118-3.12release.conda
-  sha256: a2b82e03653cb14df4ed0679408b41e8051c9a29a3f159c2fded8c7ca91d5517
-  md5: 880b3585022881362dec59ebfcf1d76f
+  url: https://conda.cloudsmith.io/modular/max-nightly/linux-aarch64/max-python-24.6.0.dev2024091205-3.12release.conda
+  sha256: 635b5c32624d41de9f5d40503f8c5e9a5b1031aa881404fdbae8013b82ed9be9
+  md5: af65296f2310c14182520f7aca0a9ef3
   depends:
-  - max-core ==24.6.0.dev2024091118 release
+  - max-core ==24.6.0.dev2024091205 release
   - python 3.12.*
   - numpy >=1.18,<2.0
   - fastapi >=0.113.0,<0.114
@@ -6684,18 +6683,18 @@ packages:
   - python_abi 3.12.* *_cp312
   arch: aarch64
   platform: linux
-  size: 142368435
-  timestamp: 1726081070322
+  size: 142286009
+  timestamp: 1726118327743
 - kind: conda
   name: max-python
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: 3.12release
   subdir: osx-arm64
-  url: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-python-24.6.0.dev2024091118-3.12release.conda
-  sha256: 6093efc38f1d89da0105faf8ad9309ad883f837f6826c86cea95d01761d939d2
-  md5: e216cd8355f2fae6dd176c6cf080f77a
+  url: https://conda.cloudsmith.io/modular/max-nightly/osx-arm64/max-python-24.6.0.dev2024091205-3.12release.conda
+  sha256: 50221c59f6aadb7f7f3985491c4fa93177bb79ee3ebe59b34f800781ef316e32
+  md5: f5e631fbc16f1812940ee62a2fe760be
   depends:
-  - max-core ==24.6.0.dev2024091118 release
+  - max-core ==24.6.0.dev2024091205 release
   - python 3.12.*
   - numpy >=1.18,<2.0
   - fastapi >=0.113.0,<0.114
@@ -6704,17 +6703,17 @@ packages:
   - python_abi 3.12.* *_cp312
   arch: arm64
   platform: osx
-  size: 127195701
-  timestamp: 1726081034334
+  size: 127918886
+  timestamp: 1726118601655
 - kind: conda
   name: mblack
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: release
   subdir: noarch
   noarch: python
-  url: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091118-release.conda
-  sha256: 935521aeb54c1e9b0543aee081c9e750aca1655af73c451c22130ab3696a0078
-  md5: 7426843f471f79815dba89e03411eefd
+  url: https://conda.cloudsmith.io/modular/max-nightly/noarch/mblack-24.6.0.dev2024091205-release.conda
+  sha256: 32ca9f2e53008f86607ae48a4418a8a3b80bac60699f5add3cb2146c36fdc5dc
+  md5: 113092896a681ef2a4795951f37d43ea
   depends:
   - python >=3.9,<3.13
   - click >=8.0.0
@@ -6724,8 +6723,8 @@ packages:
   - platformdirs >=2
   - python
   license: MIT
-  size: 130508
-  timestamp: 1726081099022
+  size: 130509
+  timestamp: 1726118345730
 - kind: conda
   name: mdurl
   version: 0.1.2
@@ -6809,20 +6808,20 @@ packages:
   timestamp: 1704792633668
 - kind: conda
   name: mojo-jupyter
-  version: 24.6.0.dev2024091118
+  version: 24.6.0.dev2024091205
   build: release
   subdir: noarch
   noarch: python
-  url: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091118-release.conda
-  sha256: 544de60f81247a3d9895a3df77a451939754aeb5a1266fca3a0dad92968d4bd9
-  md5: 72d9583a3f458ff9f951b0f8ddf28576
+  url: https://conda.cloudsmith.io/modular/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024091205-release.conda
+  sha256: 273c9a97a074b08eae4baf69a942a3e1207725b4a7a7f075f7feda03c7e7a25a
+  md5: 88046ff73580bdf902f40aa6331318bd
   depends:
-  - max-core ==24.6.0.dev2024091118 release
+  - max-core ==24.6.0.dev2024091205 release
   - python >=3.9,<3.13
   - jupyter_client >=8.6.2,<8.7
   - python
-  size: 21655
-  timestamp: 1726081099022
+  size: 21652
+  timestamp: 1726118345731
 - kind: conda
   name: monotonic
   version: '1.5'
@@ -8642,7 +8641,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/pydantic?source=compressed-mapping
+  - pkg:pypi/pydantic?source=hash-mapping
   size: 300605
   timestamp: 1725908662611
 - kind: conda
@@ -9957,7 +9956,7 @@ packages:
   license: MIT
   license_family: MIT
   purls:
-  - pkg:pypi/setuptools?source=compressed-mapping
+  - pkg:pypi/setuptools?source=hash-mapping
   size: 1460460
   timestamp: 1725348602179
 - kind: conda

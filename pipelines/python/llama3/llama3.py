@@ -23,8 +23,7 @@ from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
 
 from utils import gguf_utils, tokenizer_from_gguf
-
-from .config import InferenceConfig, SupportedEncodings
+from .config import InferenceConfig, SupportedEncodings, SupportedVersions
 from .gguf import transformer
 from .kv_cache_params import KVCacheParams
 from .kv_cache import KVCache
@@ -96,9 +95,7 @@ class Llama3:
         assert config.weight_path is not None
         gguf_reader = gguf.GGUFReader(config.weight_path)
 
-        params = _read_hyperparameters(
-            config.quantization_encoding, gguf_reader
-        )
+        params = _read_hyperparameters(config, gguf_reader)
 
         # Work around for older Llama 1/2 GGUFs, where the vocab size may be -1.
         # See https://github.com/ggerganov/llama.cpp/pull/4258.
@@ -253,7 +250,7 @@ def _max_tokens_to_generate(prompt_size: int, config: InferenceConfig) -> int:
 
 
 def _read_hyperparameters(
-    model_encoding: SupportedEncodings, reader: gguf.GGUFReader
+    config: InferenceConfig, reader: gguf.GGUFReader
 ) -> Hyperparameters:
     key_names = {
         "n_layers": "llama.block_count",
@@ -277,9 +274,21 @@ def _read_hyperparameters(
         filter(lambda t: t.name == "blk.0.ffn_down.weight", reader.tensors)
     )
     feed_forward_length = tensor.shape[0]
+
+    seq_len = 128_000 if config.version == SupportedVersions.llama3_1 else 8_000
+    if config.max_length > seq_len:
+        print(
+            "Warning: `max_length` is more than the supported context size"
+            f"`max_length` is now set to {seq_len}"
+        )
+        config.max_length = seq_len
+    else:
+        seq_len = config.max_length
+
     return Hyperparameters(
-        dtype=model_encoding.dtype,
-        quantization_encoding=model_encoding.quantization_encoding,
+        dtype=config.quantization_encoding.dtype,
+        quantization_encoding=config.quantization_encoding.quantization_encoding,
         feed_forward_length=feed_forward_length,
+        seq_len=seq_len,
         **configured_params,
     )
