@@ -15,8 +15,8 @@ import streamlit as st
 from shared import menu
 
 st.set_page_config("MAX", "⚡️")
-
 menu()
+
 """# MAX ⚡️ Examples
 
 Welcome to MAX! Select an example to get started:

@@ -11,17 +11,16 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import os
 import time
+from pathlib import Path
 
 import numpy as np
 import streamlit as st
-from diffusers import PNDMScheduler
-from huggingface_hub import snapshot_download
+from diffusers.schedulers.scheduling_pndm import PNDMScheduler
 from max.engine import InferenceSession
 from PIL import Image
-from shared import menu, modular_cache_dir
-from transformers import CLIPTokenizer
+from shared import hf_streamlit_download, menu
+from transformers.models.clip.tokenization_clip import CLIPTokenizer
 
 st.set_page_config("Stable Diffusion 1.5", page_icon="🎨")
 
@@ -35,7 +34,6 @@ def load_tokenizer(path):
     return CLIPTokenizer.from_pretrained(path)
 
 
-# Sidebar
 num_steps = st.sidebar.number_input("Number of steps", 1, 100, 15)
 seed = st.sidebar.number_input("Seed", 0, 255)
 guidance_scale_factor = st.sidebar.number_input(
@@ -50,19 +48,14 @@ latent_width = output_width // 8
 latent_height = output_height // 8
 latent_channels = 4
 
-model_dir = modular_cache_dir() / "stable-diffusion-1.5"
-os.makedirs(model_dir, exist_ok=True)
+model_dir = Path(hf_streamlit_download("modularai/stable-diffusion-1.5-onnx"))
+
 text_encoder_path = model_dir / "text_encoder" / "model.onnx"
 img_decoder_path = model_dir / "vae_decoder" / "model.onnx"
 img_diffuser_path = model_dir / "unet" / "model.onnx"
 scheduler_path = model_dir / "scheduler" / "scheduler_config.json"
 tokenizer_path = model_dir / "tokenizer"
 
-# TODO: set up progress bar to work with huggingface_hub and streamlit
-with st.spinner("Downloading ONNX models, check terminal for progress"):
-    model_dir = snapshot_download("modularai/stable-diffusion-1.5-onnx")
-
-# Main Page
 prompt = st.text_input("Prompt", "A puppy playing the drums")
 negative_prompt = st.text_input("Negative Prompt", "No overlapping geometry")
 
