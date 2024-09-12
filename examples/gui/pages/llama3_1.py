@@ -21,7 +21,7 @@ from pathlib import Path
 
 import streamlit as st
 import torch
-from max.driver import CPU, CUDA, Device
+from max.driver import CPU, CUDA
 from pipelines.llama3 import Llama3
 from pipelines.llama3.config import (
     InferenceConfig,
@@ -70,10 +70,10 @@ def start_llama3(
     quantization: SupportedEncodings,
     max_length: int,
     max_new_tokens: int,
-    _device: Device,
+    use_gpu: bool,
 ) -> Llama3:
     config = InferenceConfig(
-        device=_device,
+        device=CUDA() if use_gpu else CPU(),
         weight_path=weight_path,
         quantization_encoding=quantization,
         max_length=max_length,
@@ -100,16 +100,23 @@ else:
     use_gpu = st.sidebar.checkbox(
         "Use GPU (CUDA not available)", value=False, disabled=True
     )
-if use_gpu:
-    encoding = st.sidebar.selectbox("Encoding", ["bfloat16"])
-else:
-    encoding = st.sidebar.selectbox("Encoding", SupportedEncodings, index=3)
 
-device = CUDA() if use_gpu else CPU()
-max_length = st.sidebar.slider(
+if use_gpu:
+    encoding = st.sidebar.selectbox("Encoding", [SupportedEncodings.bfloat16])
+else:
+    encoding = st.sidebar.selectbox(
+        "Encoding",
+        [
+            SupportedEncodings.q4_0,
+            SupportedEncodings.q4_k,
+            SupportedEncodings.q6_k,
+        ],
+    )
+
+max_length = st.sidebar.number_input(
     "Max input and output tokens", 0, 128_000, 12_000
 )
-max_new_tokens = st.sidebar.slider("Max output tokens", 0, 24_000, 6000)
+max_new_tokens = st.sidebar.number_input("Max output tokens", 0, 24_000, 6000)
 download_state = st.empty()
 download_state.info("Downloading GGUF weights", icon="📥")
 
@@ -126,7 +133,7 @@ model = start_llama3(
     encoding,
     max_length,
     max_new_tokens,
-    device,
+    use_gpu,
 )
 model_state.success("Llama3 is ready!", icon="✅")
 rag = st.sidebar.checkbox("Activate RAG", value=False)
