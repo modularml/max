@@ -24,7 +24,7 @@ from max.graph.utils.load_gguf import Weights
 
 from utils import gguf_utils, tokenizer_from_gguf
 
-from .config import InferenceConfig
+from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
@@ -78,7 +78,7 @@ class Llama3:
         assert config.weight_path is not None
         gguf_reader = gguf.GGUFReader(config.weight_path)
 
-        params = _read_hyperparameters(gguf_reader)
+        params = _read_hyperparameters(config, gguf_reader)
         self._model = self._load_model(config, params, gguf_reader)
         self._tokenizer = tokenizer_from_gguf(gguf_reader)
 
@@ -178,7 +178,9 @@ def _max_tokens_to_generate(prompt_size: int, config: InferenceConfig) -> int:
     return min(config.max_new_tokens + prompt_size, config.max_length)
 
 
-def _read_hyperparameters(reader: gguf.GGUFReader) -> Hyperparameters:
+def _read_hyperparameters(
+    config: InferenceConfig, reader: gguf.GGUFReader
+) -> Hyperparameters:
     key_names = {
         "n_layers": "llama.block_count",
         "n_heads": "llama.attention.head_count",
@@ -195,4 +197,17 @@ def _read_hyperparameters(reader: gguf.GGUFReader) -> Hyperparameters:
         if (value := gguf_utils.read_number(reader, key)) is not None
     }
 
-    return Hyperparameters(**configured_params)
+    seq_len = 128_000 if config.version == SupportedVersions.llama3_1 else 8_000
+    if config.max_length > seq_len:
+        print(
+            "Warning: `max_length` is more than the supported context size"
+            f"`max_length` is now set to {seq_len}"
+        )
+        config.max_length = seq_len
+    else:
+        seq_len = config.max_length
+
+    return Hyperparameters(
+        seq_len=seq_len,
+        **configured_params,
+    )

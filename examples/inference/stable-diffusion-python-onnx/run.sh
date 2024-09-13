@@ -28,8 +28,5 @@ if [[ -n "$CONDA_PREFIX" ]]; then
     python3 -m pip install -r requirements.txt
 fi
 
-# Download model
-python3 ../common/stable-diffusion-onnx/download-model.py -o "$MODEL_DIR"
-
 # Execute model
-python3 text-to-image.py --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT" --model-dir "$MODEL_DIR"
+python3 text-to-image.py --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT"
