@@ -12,12 +12,10 @@
 # ===----------------------------------------------------------------------=== #
 """Helper functions for wrapping custom kv cache/attention related ops."""
 
-from .kv_cache_params import KVCacheParams, ContiguousKVCacheType
+from .kv_cache_params import KVCacheParams
+from .kv_cache import ContiguousKVCacheType
 from max.graph import ops, ValueLike, TensorType, TensorValue
 from max.dtype import DType
-from max.graph.type import _OpaqueType
-
-ContiguousKVCacheType = _OpaqueType("ContiguousKVCache")
 
 
 def fused_qkv_matmul(
