@@ -231,10 +231,11 @@ class TextGenerationMetrics:
         else:
             self.time_to_first_token = "n/a"
 
-        st.sidebar.metric(
-            "Input/Output Tokens",
-            value=f"{self.prompt_size}/{self.output_size}",
-        )
+        # TODO: Bring back when prompt_size is fixed
+        # st.sidebar.metric(
+        #     "Input/Output Tokens",
+        #     value=f"{self.prompt_size}/{self.output_size}",
+        # )
         st.sidebar.metric(
             "Time to first token", value=f"{self.time_to_first_token:.2f} ms"
         )
@@ -246,10 +247,11 @@ class TextGenerationMetrics:
                 self.time_to_first_token / 1000.0
             )
             self.eval_throughput = (self.output_size - 1) / generation_time
-            st.sidebar.metric(
-                "Prompt eval throughput (context-encoding):",
-                value=f"{self.prompt_eval_throughput:.2f} tokens/s",
-            )
+            # TODO: Bring back when prompt_size is fixed
+            # st.sidebar.metric(
+            #     "Prompt eval throughput (context-encoding):",
+            #     value=f"{self.prompt_eval_throughput:.2f} tokens/s",
+            # )
             st.sidebar.metric(
                 "Eval throughput (token-generation):",
                 value=f"{self.eval_throughput:.2f} tokens/s",
@@ -259,37 +261,30 @@ class TextGenerationMetrics:
 async def stream_output(model: TokenGenerator, prompt: str) -> str:
     metrics = TextGenerationMetrics()
     context = await model.new_context(prompt)
-    prompt_size = context.prompt_size
+    prompt_size = len(context.tokens)
 
-    # Start with the initial prompt.
+    response_display = st.empty()
+    response_str = ""
+
     if metrics:
         metrics.prompt_size = prompt_size
         metrics.signpost("begin_generation")
 
-    # Note: assume a single request for now.
     is_first_token = True
     request_id = str(id(prompt))
-    full_response = ""
-    output = st.empty()
     while True:
         response = await model.next_token({request_id: context})
         if request_id not in response:
             break
-        response_text = response[request_id]
-        if response_text is None:
-            break
-        if response_text not in [
-            "<|end_header_id|>",
-            "<|start_header_id|>",
-            "assistant",
-        ]:
-            full_response += response_text
-            output.markdown(full_response)
+        response_str += response[request_id]
+        response_display.markdown(response_str)
         if metrics:
             if is_first_token:
                 is_first_token = False
                 metrics.signpost("first_token")
             metrics.new_token()
+    if metrics:
+        metrics.signpost("end_generation")
 
     metrics.calculate_results()
-    return full_response
+    return response_str

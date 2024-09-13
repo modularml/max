@@ -47,18 +47,12 @@ st.set_page_config(page_title="Llama3.1", page_icon="🦙")
 """
 # Llama3.1 🦙
 
-This example downloads Llama3.1 Instruct GGUF weights, builds the model with the
-MAX graphs Python API, and caches it after compilation so you can continuously
+Compile and cache Llama3.1 built with MAX graphs so you can continuously
 chat with it.
 
-#### RAG (Retrieval Augmented Generation)
-
-Tick the `Activate RAG` checkbox on the sidebar to augment your prompts with
-text from documents in the `examples/gui/ragdata` folder.
-
-There is a small example file explaining mojo functions in
-`examples/gui/ragdata`, you can put more supported documents in there and
-refresh the page: `.txt` `.pdf` `.csv` `.docx` `.epub` `.ipynb` `.md` `.html`
+Tick `Activate RAG` on the sidebar to augment your prompts with
+text from documents in the `examples/gui/ragdata` folder in format: `.txt`
+`.pdf` `.csv` `.docx` `.epub` `.ipynb` `.md` `.html`.
 """
 
 menu()
@@ -88,7 +82,8 @@ def messages_to_llama3_prompt(messages: list[dict[str, str]]) -> str:
         prompt_string += (
             f"<|start_header_id|>{message['role']}<|end_header_id|>\n\n"
         )
-        prompt_string += f"{message['content']}<|eot_id|>"
+        prompt_string += f"{message['content']}<|eot_id|>\n"
+    prompt_string += "<|start_header_id|>assistant<|end_header_id|>"
     return prompt_string
 
 
@@ -172,7 +167,9 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-if prompt := st.chat_input("Send a message to llama3"):
+disable_chat = True if "model" not in st.session_state else False
+
+if prompt := st.chat_input("Send a message to llama3", disabled=disable_chat):
     messages = [{"role": "system", "content": system_prompt}]
     messages += [
         {"role": m["role"], "content": m["content"]}
