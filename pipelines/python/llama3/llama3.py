@@ -219,8 +219,8 @@ class Llama3:
 def _max_tokens_to_generate(prompt_size: int, config: InferenceConfig) -> int:
     """Returns the max number of tokens to generate (including the prompt)."""
     if config.max_new_tokens < 0:
-        return config.max_length
-    return min(config.max_new_tokens + prompt_size, config.max_length)
+        return config.max_length - prompt_size
+    return min(config.max_new_tokens, config.max_length - prompt_size)
 
 
 def _read_hyperparameters(
