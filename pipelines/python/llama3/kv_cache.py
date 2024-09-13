@@ -18,13 +18,17 @@ from typing import List, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
-from .kv_cache_params import KVCacheParams
-from max.driver import Device
-from .kv_cache_params import KVCacheLayout, KVCacheParams
-from max.graph import Graph, ops, TensorType, TensorValue
-from max.graph.type import TensorType, _OpaqueType
-from max.driver import Tensor, Device
+from max.driver import Device, Tensor
 from max.engine import InferenceSession
+from max.graph import (
+    Graph,
+    ops,
+    TensorType,
+    TensorValue,
+    OpaqueValue,
+    OpaqueType,
+)
+from .kv_cache_params import KVCacheLayout, KVCacheParams
 
 
 class KVCache:
@@ -70,8 +74,11 @@ class KVCache:
         return self.values[0 : self.sequence_length, ...]
 
 
-ContiguousKVCacheType = _OpaqueType("ContiguousKVCache")
-ContiguousKVCacheCollectionType = _OpaqueType("ContiguousKVCacheCollection")
+ContiguousKVCacheType: TypeAlias = OpaqueType("ContiguousKVCache")
+ContiguousKVCacheCollectionType: TypeAlias = OpaqueType(
+    "ContiguousKVCacheCollection"
+)
+ContiguousKVCacheCollection: TypeAlias = OpaqueValue
 
 
 class FetchContiguousKVCacheCollection:

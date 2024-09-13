@@ -45,7 +45,7 @@ class KVCacheParams:
         head_dim: int,
         device: Device,
     ):
-        # Initialize static attributes
+        # Initialize static attributes.
         self.dtype = dtype
         self.n_kv_heads = n_kv_heads
         self.head_dim = head_dim
@@ -53,7 +53,7 @@ class KVCacheParams:
             KVCacheLayout.BHSD if device.is_host else KVCacheLayout.BSHD
         )
 
-        # Validate inputs
+        # Validate inputs.
         if (
             self.dtype_shorthand,
             n_kv_heads,
