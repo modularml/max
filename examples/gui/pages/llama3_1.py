@@ -107,8 +107,8 @@ else:
     encoding = st.sidebar.selectbox(
         "Encoding",
         [
-            SupportedEncodings.q4_0,
             SupportedEncodings.q4_k,
+            SupportedEncodings.q4_0,
             SupportedEncodings.q6_k,
         ],
     )
@@ -117,25 +117,23 @@ max_length = st.sidebar.number_input(
     "Max input and output tokens", 0, 128_000, 12_000
 )
 max_new_tokens = st.sidebar.number_input("Max output tokens", 0, 24_000, 6000)
-download_state = st.empty()
-download_state.info("Downloading GGUF weights", icon="📥")
 
-encoding = SupportedEncodings(encoding)
 model_name = encoding.hf_model_name(SupportedVersions.llama3_1)
 weights = hf_streamlit_download("modularai/llama-3.1", model_name)
-download_state.success("GGUF Weights Downloaded", icon="✅")
 
-
+button_state = st.empty()
 model_state = st.empty()
-model_state.info("Starting Llama3...", icon="️⚙️")
-model = start_llama3(
-    weights,
-    encoding,
-    max_length,
-    max_new_tokens,
-    use_gpu,
-)
-model_state.success("Llama3 is ready!", icon="✅")
+if button_state.button("Start Llama3", key=0):
+    model_state.info("Starting Llama3...", icon="️⚙️")
+    st.session_state["model"] = start_llama3(
+        weights,
+        encoding,
+        max_length,
+        max_new_tokens,
+        use_gpu,
+    )
+    model_state.success("Llama3 is ready!", icon="✅")
+
 rag = st.sidebar.checkbox("Activate RAG", value=False)
 
 if rag:
@@ -207,7 +205,9 @@ if prompt := st.chat_input("Send a message to llama3"):
     time.sleep(0.1)
 
     with st.chat_message("assistant", avatar="🦙"):
-        response = asyncio.run(stream_output(model, prompt_string))
+        response = asyncio.run(
+            stream_output(st.session_state["model"], prompt_string)
+        )
 
     st.session_state.messages += [
         {"role": "user", "avatar": "💬", "content": prompt},

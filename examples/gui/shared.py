@@ -273,6 +273,8 @@ async def stream_output(model: TokenGenerator, prompt: str) -> str:
     output = st.empty()
     while True:
         response = await model.next_token({request_id: context})
+        if request_id not in response:
+            break
         response_text = response[request_id]
         if response_text is None:
             break
