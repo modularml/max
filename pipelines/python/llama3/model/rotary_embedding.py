@@ -14,6 +14,7 @@
 
 from dataclasses import dataclass
 from typing import Optional
+from functools import cached_property
 
 import numpy as np
 from max.dtype import DType
@@ -34,11 +35,9 @@ class RotaryEmbedding:
     """The maximum sequence length for model's input."""
     rope_scaling: Optional[np.ndarray]
     """Scaling factor for the positional frequencies."""
-
     _freqs_cis: Optional[ValueLike] = None
 
-    @property
-    def freqs_cis(self) -> TensorValue:
+    def freqs_cis_base(self) -> TensorValue:
         """
         Computes the frequency tensor for complex exponentials (cis)
         for a given seq_len. Tensor is scaled with theta parameter.
@@ -73,6 +72,11 @@ class RotaryEmbedding:
                 [ops.cos(freqs), ops.sin(freqs)], axis=-1
             )
         return TensorValue(self._freqs_cis)
+
+    @cached_property
+    def freqs_cis(self) -> TensorValue:
+        self._freqs_cis = self.freqs_cis_base()
+        return self._freqs_cis
 
     def __call__(
         self, x: ValueLike, start_pos: int, seq_len: int
@@ -114,3 +118,18 @@ class RotaryEmbedding:
         # Cast back to the activations dtype, which may differ from
         # freqs_cis's dtype.
         return ops.cast(ops.reshape(rope_complex, v.shape), v.dtype)
+
+
+@dataclass
+class OptimizedRotaryEmbedding(RotaryEmbedding):
+    """
+    Optimized version of RotaryEmbedding using 2D frequency tensor representation.
+    """
+
+    @cached_property
+    def freqs_cis(self):
+        freqs = self.freqs_cis_base()
+        d1, d2, d3 = freqs.shape
+        new_f_shape = [1, d1.dim * d2.dim * d3.dim]
+        self._freqs_cis = ops.reshape(freqs, new_f_shape)
+        return self._freqs_cis

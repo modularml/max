@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import ValueLike, ops, DimLike, TensorValue
 from .mlp import Linear
-from .rotary_embedding import RotaryEmbedding
+from .rotary_embedding import OptimizedRotaryEmbedding
 from ..kv_cache_params import KVCacheParams, KVCacheLayout
 from ..kernels import (
     fused_qk_rope,
@@ -69,7 +69,7 @@ class OptimizedAttention:
     # This class will not use the RotaryEmbedding to
     # calculate rope, but it already includes a freqs_cis
     # calculation, which we will borrow
-    rope: RotaryEmbedding
+    rope: OptimizedRotaryEmbedding
 
     def __call__(
         self,
@@ -90,13 +90,6 @@ class OptimizedAttention:
             v_cache=v_cache,
         )
 
-        # reshape our rope positional frequencies
-        # TODO: MSDK-945 - Make this dynamic and move upstream to the RotaryEmbedding object
-        # I am unsure if this method of reshaping, id dynamic, please refer to the Mojo implementation
-        d1, d2, d3 = self.rope.freqs_cis.shape
-        new_f_shape = [1, d1.dim * d2.dim * d3.dim]
-        freqs_cis_2d = ops.reshape(self.rope.freqs_cis, new_f_shape)
-
         # Apply rope
         xq = ops.reshape(
             xq,
@@ -107,13 +100,14 @@ class OptimizedAttention:
                 self.kv_params.head_dim,
             ],
         )
-        xq = fused_qk_rope(self.kv_params, xq, k_cache, freqs_cis_2d)
+        xq = fused_qk_rope(self.kv_params, xq, k_cache, self.rope.freqs_cis)
 
         if self.kv_params.layout == KVCacheLayout.BHSD:
             xq = ops.transpose(xq, 1, 2)
 
         # Calculate Flash Attention
         # TODO: MSDK-922 - Update the below to use start_pos effectively
+
         start_pos = kv_cache_length(self.kv_params, k_cache)
         attn_mask = generate_attention_mask(
             mask, start_pos, seq_len, self.kv_params.dtype
