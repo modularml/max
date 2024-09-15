@@ -12,24 +12,26 @@
 # ===----------------------------------------------------------------------=== #
 """An Opaque KV Cache Optimized attention mechanism."""
 
-
 from dataclasses import dataclass
+
 from max.dtype import DType
-from max.graph import ValueLike, ops, DimLike, TensorValue
-from .mlp import Linear
-from .rotary_embedding import OptimizedRotaryEmbedding
-from ..kv_cache_params import KVCacheParams, KVCacheLayout
+from max.graph import DimLike, TensorValue, ValueLike, ops
+
 from ..kernels import (
+    ContiguousKVCache,
+    flash_attention,
     fused_qk_rope,
     fused_qkv_matmul,
-    flash_attention,
     kv_cache_length,
 )
+from ..kv_cache_params import KVCacheLayout, KVCacheParams
+from .mlp import Linear
+from .rotary_embedding import OptimizedRotaryEmbedding
 
 
 def generate_attention_mask(
-    attention_mask: ValueLike,
-    start_pos: DimLike,
+    attention_mask: TensorValue,
+    start_pos: TensorValue,
     seq_len: DimLike,
     activation_dtype: DType,
 ) -> TensorValue:
@@ -63,7 +65,7 @@ class OptimizedAttention:
     n_heads: int
     kv_params: KVCacheParams
 
-    wqkv: ValueLike
+    wqkv: TensorValue
     wo: Linear
 
     # This class will not use the RotaryEmbedding to
@@ -73,11 +75,11 @@ class OptimizedAttention:
 
     def __call__(
         self,
-        x: ValueLike,
+        x: TensorValue,
         mask: ValueLike,
-        k_cache: ValueLike,
-        v_cache: ValueLike,
-    ) -> ...:
+        k_cache: ContiguousKVCache,
+        v_cache: ContiguousKVCache,
+    ) -> TensorValue:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
 
@@ -90,7 +92,7 @@ class OptimizedAttention:
             v_cache=v_cache,
         )
 
-        # Apply rope
+        # Apply rope.
         xq = ops.reshape(
             xq,
             [

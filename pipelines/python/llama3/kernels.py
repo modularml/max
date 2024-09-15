@@ -12,22 +12,25 @@
 # ===----------------------------------------------------------------------=== #
 """Helper functions for wrapping custom kv cache/attention related ops."""
 
-from max.graph import ops, ValueLike, TensorType, TensorValue
 from max.dtype import DType
+from max.graph import OpaqueValue, TensorType, TensorValue, ops
 
+from .kv_cache import (
+    ContiguousKVCache,
+    ContiguousKVCacheCollection,
+    ContiguousKVCacheType,
+)
 from .kv_cache_params import KVCacheParams
-from .kv_cache import ContiguousKVCacheType
 
 
 def fused_qkv_matmul(
     kv_params: KVCacheParams,
-    input: ValueLike,
-    wqkv: ValueLike,
-    k_cache: ValueLike,
-    v_cache: ValueLike,
+    input: TensorValue,
+    wqkv: TensorValue,
+    k_cache: ContiguousKVCache,
+    v_cache: ContiguousKVCache,
 ) -> TensorValue:
     """Computes fused query, key and value projections."""
-
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
     return ops.custom(
         op_name,
@@ -38,12 +41,11 @@ def fused_qkv_matmul(
 
 def fused_qk_rope(
     kv_params: KVCacheParams,
-    input: ValueLike,
-    k_cache: ValueLike,
-    freqs_cis_2d: ValueLike,
+    input: TensorValue,
+    k_cache: ContiguousKVCache,
+    freqs_cis_2d: TensorValue,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings."""
-
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
     return ops.custom(
         op_name,
@@ -54,13 +56,12 @@ def fused_qk_rope(
 
 def flash_attention(
     kv_params: KVCacheParams,
-    input: ValueLike,
-    k_cache: ValueLike,
-    v_cache: ValueLike,
-    attn_mask: ValueLike,
+    input: TensorValue,
+    k_cache: ContiguousKVCache,
+    v_cache: ContiguousKVCache,
+    attn_mask: TensorValue,
 ) -> TensorValue:
-    """Computes flash attention provided the mo.opaque KV Cache"""
-
+    """Computes flash attention provided the mo.opaque KV Cache."""
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
     return ops.custom(
         op_name,
@@ -76,23 +77,21 @@ def flash_attention(
 
 
 def kv_cache_length(
-    kv_params: KVCacheParams, kv_cache: ValueLike
+    kv_params: KVCacheParams, kv_cache: ContiguousKVCache
 ) -> TensorValue:
-    """Calculate the length of the passed kv_cache collection."""
-
+    """Calculates the length of the passed kv_cache collection."""
     op_name = f"kv_cache_length_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
     return ops.custom(
         op_name,
         [kv_cache],
-        [TensorType(dtype=DType.int8, shape=[]).to_mlir()],
+        [TensorType(dtype=DType.int64, shape=[])],
     )[0]
 
 
 def key_cache_for_layer(
-    kv_params: KVCacheParams, i: int, kv_collection: ValueLike
+    kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
 ) -> ContiguousKVCacheType:
-    """Return the key cache for a specific layer from a collection."""
-
+    """Returns the key cache for a specific layer from a collection."""
     op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
     return ops.custom(
         op_name,
@@ -102,10 +101,9 @@ def key_cache_for_layer(
 
 
 def value_cache_for_layer(
-    kv_params: KVCacheParams, i: int, kv_collection: ValueLike
+    kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
 ) -> ContiguousKVCacheType:
-    """Return the value cache for a specific layer from a collection."""
-
+    """Returns the value cache for a specific layer from a collection."""
     op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
     return ops.custom(
         op_name,
