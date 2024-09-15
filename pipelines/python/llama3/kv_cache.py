@@ -22,12 +22,13 @@ from max.driver import Device, Tensor
 from max.engine import InferenceSession
 from max.graph import (
     Graph,
-    ops,
+    OpaqueType,
+    OpaqueValue,
     TensorType,
     TensorValue,
-    OpaqueValue,
-    OpaqueType,
+    ops,
 )
+
 from .kv_cache_params import KVCacheLayout, KVCacheParams
 
 
@@ -78,6 +79,7 @@ ContiguousKVCacheType: TypeAlias = OpaqueType("ContiguousKVCache")
 ContiguousKVCacheCollectionType: TypeAlias = OpaqueType(
     "ContiguousKVCacheCollection"
 )
+ContiguousKVCache: TypeAlias = OpaqueValue
 ContiguousKVCacheCollection: TypeAlias = OpaqueValue
 
 
@@ -93,7 +95,7 @@ class FetchContiguousKVCacheCollection:
         seq_ids: TensorValue,
         num_layers: TensorValue,
         batch_size: TensorValue,
-    ) -> ContiguousKVCacheCollectionType:
+    ) -> ContiguousKVCacheCollection:
         """Constructs an initial ContiguousKVCacheCollection for use downstream.
         """
         op_name = f"contiguous_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_{self.kv_params.layout}"
