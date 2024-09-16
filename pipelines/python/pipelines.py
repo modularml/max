@@ -108,7 +108,13 @@ def run_llama3(prompt, serve, use_gpu, **config_kwargs):
         with TextGenerationMetrics(print_report=True) as metrics:
             model = llama3.Llama3(config)
             print("Beginning text generation...")
-            asyncio.run(stream_text_to_console(model, prompt, metrics))
+            asyncio.run(
+                stream_text_to_console(
+                    model,
+                    prompt,
+                    metrics=metrics,
+                )
+            )
 
 
 if __name__ == "__main__":

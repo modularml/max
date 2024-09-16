@@ -19,7 +19,9 @@ from .interfaces import TokenGenerator
 
 
 async def stream_text_to_console(
-    model: TokenGenerator, prompt: str, metrics: Optional[TextGenerationMetrics]
+    model: TokenGenerator,
+    prompt: str,
+    metrics: Optional[TextGenerationMetrics] = None,
 ):
     context = await model.new_context(prompt)
     prompt_size = len(context.tokens)

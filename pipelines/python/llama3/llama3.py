@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Optional, Tuple
 
 import gguf
 import numpy as np
@@ -36,18 +36,23 @@ class Llama3Context:
     """The context for text generation using a Llama 3 model."""
 
     prompt: str
-    max_tokens: int
+    max_tokens: int  # Max number of tokens including input.
     next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
-    tokens: list[int] = field(default_factory=list)
-    decoded: str = ""
+    tokens: list[int] = field(default_factory=list)  # Tokens generated so far.
+    decoded: str = ""  # Decoded text sequence from tokens above.
 
     def append(self, token_ids: np.ndarray, decoded: str):
+        assert token_ids.shape[0] == 1 and token_ids.shape[1] >= 1
         self.next_tokens = token_ids
-        self.tokens.extend(token_ids)
+        self.tokens.extend(token_ids[0])
         self.decoded += decoded
 
     def is_done(self, eos: int) -> bool:
-        return self.tokens[-1] == eos or len(self.tokens) > self.max_tokens
+        if self.tokens[-1] == eos:
+            return True
+        if len(self.tokens) > self.max_tokens:
+            return True
+        return False
 
 
 def _llama_graph(
@@ -149,10 +154,17 @@ class Llama3:
     def _attention_mask(self, n: int):
         return np.ones(shape=(1, n)).astype(bool)
 
-    async def new_context(self, prompt: str) -> Llama3Context:
+    async def new_context(
+        self, prompt: str, max_new_tokens: Optional[int] = None
+    ) -> Llama3Context:
         encoded_prompt = self._tokenizer.encode(prompt)
-        max_tokens = _max_tokens_to_generate(len(encoded_prompt), self.config)
-        context = Llama3Context(prompt, max_tokens=max_tokens)
+        prompt_size = len(encoded_prompt)
+        max_tokens_to_generate = _max_tokens_to_generate(
+            prompt_size, self.config, max_new_tokens
+        )
+        context = Llama3Context(
+            prompt=prompt, max_tokens=prompt_size + max_tokens_to_generate
+        )
         context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
         return context
 
@@ -216,11 +228,18 @@ class Llama3:
         return logits, k_cache, v_cache
 
 
-def _max_tokens_to_generate(prompt_size: int, config: InferenceConfig) -> int:
+def _max_tokens_to_generate(
+    prompt_size: int,
+    config: InferenceConfig,
+    max_new_tokens: Optional[int] = None,
+) -> int:
     """Returns the max number of tokens to generate (including the prompt)."""
-    if config.max_new_tokens < 0:
+    max_new_tokens = (
+        max_new_tokens if max_new_tokens is not None else config.max_new_tokens
+    )
+    if max_new_tokens < 0:
         return config.max_length - prompt_size
-    return min(config.max_new_tokens, config.max_length - prompt_size)
+    return min(max_new_tokens, config.max_length - prompt_size)
 
 
 def _read_hyperparameters(
