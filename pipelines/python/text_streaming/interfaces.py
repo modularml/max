@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """Interfaces for different pipeline behaviors."""
 
-from typing import Generic, Protocol, TypeVar
+from typing import Generic, Optional, Protocol, TypeVar
 
 Context = TypeVar("Context")
 
@@ -20,7 +20,9 @@ Context = TypeVar("Context")
 class TokenGenerator(Generic[Context], Protocol):
     """Interface for LLM token-generator models."""
 
-    async def new_context(self, prompt: str) -> Context:
+    async def new_context(
+        self, prompt: str, max_new_tokens: Optional[int] = None
+    ) -> Context:
         ...
 
     async def next_token(
