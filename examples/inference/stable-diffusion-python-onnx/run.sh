@@ -29,4 +29,4 @@ if [[ -n "$CONDA_PREFIX" ]]; then
 fi
 
 # Execute model
-python3 text-to-image.py --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT"
+python3 text_to_image.py --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT"

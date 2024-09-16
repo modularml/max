@@ -13,6 +13,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import signal
+import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -33,65 +34,11 @@ LATENT_HEIGHT = OUTPUT_HEIGHT // 8
 LATENT_CHANNELS = 4
 
 
-def main():
-    # Parse args.
-    parser = ArgumentParser(description=DESCRIPTION)
-    parser.add_argument(
-        "--prompt",
-        type=str,
-        metavar="<str>",
-        required=True,
-        help="Description of desired image.",
-    )
-    parser.add_argument(
-        "--negative-prompt",
-        type=str,
-        metavar="<str>",
-        default="",
-        help="Objects or styles to avoid in generated image.",
-    )
-    parser.add_argument(
-        "--num-steps",
-        type=int,
-        metavar="<int>",
-        default=25,
-        help="# of diffusion steps; trades-off speed vs quality",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        metavar="<int>",
-        default=None,
-        help="Seed for psuedo-random number generation.",
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        type=str,
-        metavar="<outfile>",
-        default="output.png",
-        help="Output filename.",
-    )
-    args = parser.parse_args()
-
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-    # Set seed if requested.
-    if args.seed:
-        np.random.seed(args.seed)
-
-    # Compile & load models - this may take a few minutes.
-    session = InferenceSession()
-    model_dir = Path(snapshot_download("modularai/stable-diffusion-1.5-onnx"))
-    print("Loading and compiling models...")
-    txt_encoder = session.load(model_dir / "text_encoder" / "model.onnx")
-    img_decoder = session.load(model_dir / "vae_decoder" / "model.onnx")
-    img_diffuser = session.load(model_dir / "unet" / "model.onnx")
-    print("Models compiled.\n")
-
+def run_stable_diffusion(
+    args, txt_encoder, img_decoder, img_diffuser, tokenizer, scheduler
+):
     # Tokenize inputs and run through text encoder.
     print("Processing input...")
-    tokenizer = CLIPTokenizer.from_pretrained(model_dir / "tokenizer")
     prompt_p = tokenizer(
         args.prompt, padding="max_length", max_length=tokenizer.model_max_length
     )
@@ -111,7 +58,6 @@ def main():
 
     # Initialize latent and scheduler.
     print("Initializing latent...")
-    scheduler = PNDMScheduler.from_pretrained(model_dir / "scheduler")
 
     # Note: For onnx, shapes are given in NCHW format.
     latent = np.random.normal(
@@ -155,6 +101,77 @@ def main():
     Image.fromarray(image, "RGB").save(args.output)
     print(f"Image saved to {args.output}.")
     return
+
+
+def parse(args):
+    # Parse args.
+    parser = ArgumentParser(description=DESCRIPTION)
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        metavar="<str>",
+        required=True,
+        help="Description of desired image.",
+    )
+    parser.add_argument(
+        "--negative-prompt",
+        type=str,
+        metavar="<str>",
+        default="",
+        help="Objects or styles to avoid in generated image.",
+    )
+    parser.add_argument(
+        "--num-steps",
+        type=int,
+        metavar="<int>",
+        default=25,
+        help="# of diffusion steps; trades-off speed vs quality",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        metavar="<int>",
+        default=None,
+        help="Seed for psuedo-random number generation.",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        metavar="<outfile>",
+        default="output.png",
+        help="Output filename.",
+    )
+    parsed_args = parser.parse_args(args)
+
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    # Set seed if requested.
+    if parsed_args.seed:
+        np.random.seed(parsed_args.seed)
+
+    return parsed_args
+
+
+def main():
+    args = parse(sys.argv[1:])
+
+    # Compile & load models - this may take a few minutes.
+    session = InferenceSession()
+    model_dir = Path(snapshot_download("modularai/stable-diffusion-1.5-onnx"))
+    print("Loading and compiling models...")
+    txt_encoder = session.load(model_dir / "text_encoder" / "model.onnx")
+    img_decoder = session.load(model_dir / "vae_decoder" / "model.onnx")
+    img_diffuser = session.load(model_dir / "unet" / "model.onnx")
+    print("Models compiled.\n")
+
+    # Instantiate tokenizer and scheduler.
+    tokenizer = CLIPTokenizer.from_pretrained(model_dir / "tokenizer")
+    scheduler = PNDMScheduler.from_pretrained(model_dir / "scheduler")
+
+    run_stable_diffusion(
+        args, txt_encoder, img_decoder, img_diffuser, tokenizer, scheduler
+    )
 
 
 if __name__ == "__main__":

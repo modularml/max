@@ -34,11 +34,11 @@ conda run -n max-repo --live-stream bash run.sh
 Getting started with your own creative prompts is as simple as:
 
 ```sh
-./text-to-image.py --prompt "my image description" -o my-image.png
+./text_to_image.py --prompt "my image description" -o my-image.png
 ```
 
 But of course, there are some additional settings that can be tweaked for more
-fine-grained control over image output. See `./text-to-image.py --help` for
+fine-grained control over image output. See `./text_to_image.py --help` for
 details.
 
 ## Files
@@ -47,5 +47,5 @@ details.
 ](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 and exports it as ONNX.
 
-- `text-to-image.py`: Example program that runs full stable-diffusion pipeline
+- `text_to_image.py`: Example program that runs full stable-diffusion pipeline
 through MAX Engine in order to generate images from the given prompt.
