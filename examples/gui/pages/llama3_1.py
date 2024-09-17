@@ -10,10 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-import sys
-
-sys.path.append("pipelines")
-
 import asyncio
 import os
 import time
@@ -22,8 +18,8 @@ from pathlib import Path
 import streamlit as st
 import torch
 from max.driver import CPU, CUDA
-from pipelines.llama3 import Llama3
-from pipelines.llama3.config import (
+from llama3 import Llama3
+from llama3.config import (
     InferenceConfig,
     SupportedEncodings,
     SupportedVersions,
@@ -36,11 +32,6 @@ from shared import (
     menu,
     stream_output,
 )
-from streamlit.runtime.scriptrunner import get_script_run_ctx
-
-# Add the path to the `max/pipelines/python` folder to get access
-# to the llama3 module.
-
 
 st.set_page_config(page_title="Llama3.1", page_icon="🦙")
 
