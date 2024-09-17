@@ -19,13 +19,17 @@ from max.graph import Graph
 from max.graph.quantization import QuantizationEncoding
 from max.graph.weights import GGUFWeights
 
-from .model.attention import Attention
-from .model.embedding import Embedding
 from .model.hyperparameters import Hyperparameters
-from .model.mlp import MLP, Linear
-from .model.norm import RMSNorm
-from .model.rotary_embedding import RotaryEmbedding
-from .model.transformer import Transformer, TransformerBlock
+from nn import (
+    Attention,
+    Embedding,
+    Linear,
+    MLP,
+    RMSNorm,
+    RotaryEmbedding,
+    Transformer,
+    TransformerBlock,
+)
 from .kv_cache_params import KVCacheParams
 
 
