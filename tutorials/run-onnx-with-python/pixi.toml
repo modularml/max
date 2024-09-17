@@ -1,5 +1,5 @@
 [project]
-channels = ["conda-forge", "https://conda.modular.com/max"]
+channels = ["conda-forge", "https://conda.modular.com/max-nightly"]
 description = "Tutorial: Run an ONNX model with Python"
 name = "max-onnx-resnet"
 platforms = ["linux-64", "osx-arm64"]

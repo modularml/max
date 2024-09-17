@@ -151,3 +151,6 @@ cython_debug/
 # Downloaded example models
 examples/models/*
 !examples/models/README.md
+
+# Magic cache
+.magic
