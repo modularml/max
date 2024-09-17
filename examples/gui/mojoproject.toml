@@ -10,6 +10,7 @@ chromadb = "*"
 llama-index = "*"
 
 [pypi-dependencies]
+pipelines = { path = "../../pipelines/python", editable = true}
 accelerate = "*"
 diffusers = "*"
 docx2txt = "*"
