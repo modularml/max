@@ -35,7 +35,9 @@ def generate_attention_mask(
         ops.constant(float("-inf"), activation_dtype),
         shape=[batch, n_heads, seq_len, seq_len],
     )
-    mask = ops.band_part(mask_val, -1, 0, exclude=True)
+
+    # Create a lower triangular matrix filled with -inf.
+    mask = ops.band_part(mask_val, num_lower=-1, num_upper=0, exclude=True)
 
     zeros = ops.broadcast_to(
         ops.constant(0, activation_dtype),
@@ -47,15 +49,19 @@ def generate_attention_mask(
         ],
     )
 
-    x = ops.concat([zeros, mask], axis=3, new_dim="post_seq_len")
-    select_mask = ops.cast(attention_mask, DType.bool)
+    x = ops.concat([zeros, mask], axis=-1, new_dim="post_seq_len")
 
     y = ops.broadcast_to(
         ops.constant(float("-inf"), activation_dtype), shape=x.shape
     )
 
-    select_mask = select_mask.rebind(
-        (batch, n_heads, x.shape[2], select_mask.shape[-1])
+    select_mask = attention_mask.rebind(
+        (
+            batch,
+            n_heads,
+            x.shape[2],
+            attention_mask.shape[-1],
+        )
     )
     return ops.select(select_mask, x, y)
 

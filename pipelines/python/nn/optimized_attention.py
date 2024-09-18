@@ -35,31 +35,43 @@ def generate_attention_mask(
     seq_len: DimLike,
     activation_dtype: DType,
 ) -> TensorValue:
-    """Computes Attention mask."""
+    """Computes attention mask.
+
+    Returns:
+        A causal attention mask with -inf in the lower triangle.
+    """
+    batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
     mask_val = ops.broadcast_to(
         ops.constant(float("-inf"), activation_dtype),
-        shape=[seq_len, seq_len],
+        shape=[batch, n_heads, seq_len, seq_len],
     )
-    mask = ops.band_part(mask_val, -1, 0, exclude=True)
+
+    # Create a lower triangular matrix filled with -inf.
+    mask = ops.band_part(mask_val, num_lower=-1, num_upper=0, exclude=True)
 
     # Broadcast zero to (seq_len, start_pos).
     seq_len_val = ops.shape_to_tensor((seq_len,)).reshape(())
     zeros = ops.broadcast_to(
         ops.constant(0, activation_dtype),
-        shape=ops.stack([seq_len_val, ops.cast(start_pos, seq_len_val.dtype)]),
-        out_dims=("seq_len", "start_pos"),
+        shape=ops.stack(
+            [
+                ops.shape_to_tensor((batch,)).reshape(()),
+                ops.shape_to_tensor((n_heads,)).reshape(()),
+                seq_len_val,
+                ops.cast(start_pos, seq_len_val.dtype),
+            ]
+        ),
+        out_dims=(batch, n_heads, "seq_len", "start_pos"),
     )
 
-    x = ops.concat([zeros, mask], axis=1, new_dim="post_seq_len")
-
-    select_mask = ops.broadcast_to(attention_mask, shape=x.shape)
+    x = ops.concat([zeros, mask], axis=-1, new_dim="post_seq_len")
 
     y = ops.broadcast_to(
         ops.constant(float("-inf"), activation_dtype),
         shape=x.shape,
     )
 
-    return ops.select(select_mask, x, y)
+    return ops.select(attention_mask, x, y)
 
 
 @dataclass
