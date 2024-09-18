@@ -102,8 +102,15 @@ def main():
 )
 def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
     """Runs the Llama3 pipeline."""
-    device = CUDA() if use_gpu else CPU()
-    config_kwargs.update({"device": device})
+    if use_gpu:
+        config_kwargs.update(
+            {
+                "device": CUDA(),
+                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+            }
+        )
+    else:
+        config_kwargs.update({"device": CPU()})
     config = llama3.InferenceConfig(**config_kwargs)
     if config.weight_path is None:
         if config.huggingface_weights is not None:
