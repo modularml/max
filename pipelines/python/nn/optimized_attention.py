@@ -17,14 +17,14 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import DimLike, TensorValue, ValueLike, ops
 
-from ..kernels import (
+from .kernels import (
     ContiguousKVCache,
     flash_attention,
     fused_qk_rope,
     fused_qkv_matmul,
     kv_cache_length,
 )
-from ..kv_cache_params import KVCacheLayout, KVCacheParams
+from .kv_cache_params import KVCacheLayout, KVCacheParams
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
 
@@ -42,9 +42,12 @@ def generate_attention_mask(
     )
     mask = ops.band_part(mask_val, -1, 0, exclude=True)
 
+    # Broadcast zero to (seq_len, start_pos).
+    seq_len_val = ops.shape_to_tensor((seq_len,)).reshape(())
     zeros = ops.broadcast_to(
         ops.constant(0, activation_dtype),
-        shape=[seq_len, start_pos],
+        shape=ops.stack([seq_len_val, ops.cast(start_pos, seq_len_val.dtype)]),
+        out_dims=("seq_len", "start_pos"),
     )
 
     x = ops.concat([zeros, mask], axis=1, new_dim="post_seq_len")
@@ -52,7 +55,8 @@ def generate_attention_mask(
     select_mask = ops.broadcast_to(attention_mask, shape=x.shape)
 
     y = ops.broadcast_to(
-        ops.constant(float("-inf"), activation_dtype), shape=x.shape
+        ops.constant(float("-inf"), activation_dtype),
+        shape=x.shape,
     )
 
     return ops.select(select_mask, x, y)
@@ -105,8 +109,7 @@ class OptimizedAttention:
         if self.kv_params.layout == KVCacheLayout.BHSD:
             xq = ops.transpose(xq, 1, 2)
 
-        # Calculate Flash Attention
-        # TODO: MSDK-922 - Update the below to use start_pos effectively
+        # Calculate Flash Attention.
 
         start_pos = kv_cache_length(self.kv_params, k_cache)
         attn_mask = generate_attention_mask(

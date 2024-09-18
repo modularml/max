@@ -19,6 +19,7 @@ from typing import List, TypeAlias
 import numpy as np
 import numpy.typing as npt
 from max.driver import Device, Tensor
+from max.dtype import DType
 from max.engine import InferenceSession
 from max.graph import (
     Graph,
@@ -145,7 +146,7 @@ class ContiguousKVCacheManager:
         self.max_seq_len = max_seq_len
         self.num_layers = num_layers
         self.available = set([i for i in range(0, self.max_batch_size)])
-        self.cache_lengths = {}
+        self.cache_lengths: dict[int, int] = {}
         self.device = device
 
         # Create a graph for the fetch method.
@@ -153,9 +154,9 @@ class ContiguousKVCacheManager:
             self.params.dtype,
             ("start_pos", "n_layers", "batch_size", "n_kv_heads", "head_dim"),
         )
-        cache_lengths_type = TensorType(self.params.dtype, (max_batch_size,))
-        seq_ids_type = TensorType(self.params.dtype, ("seq_len",))
-        int_scalar_type = TensorType(self.params.dtype, (1,))
+        cache_lengths_type = TensorType(DType.int32, (max_batch_size,))
+        seq_ids_type = TensorType(DType.int32, ("seq_len",))
+        int_scalar_type = TensorType(DType.int32, (1,))
 
         fetch_graph = Graph(
             "fetch_kv_collection",
@@ -170,13 +171,11 @@ class ContiguousKVCacheManager:
             ],
         )
 
-        self.fetch = session.load(fetch_graph)
+        self.fetch_model = session.load(fetch_graph)
 
         # Initialize Block Buffer.
-        block_shape = [2] + self.cache_shape(self.max_batch_size)
-        self.blocks_buf = Tensor.from_numpy(
-            np.zeros(block_shape, dtype=np.float32)
-        ).copy_to(self.device)
+        block_shape = (2, *self.cache_shape(self.max_batch_size))
+        self.blocks_buf = Tensor.zeros(block_shape, DType.bfloat16, self.device)
 
     def claim(self, batch_size: int) -> List[int]:
         """Assign `batch_size` blocks for incoming requests.
@@ -224,28 +223,26 @@ class ContiguousKVCacheManager:
         if any of the seq_ids are not valid (e.g. no assigned blocks) then
         """
 
-        cache_shape = self.cache_shape(len(seq_ids))
         # This is just grabbing the first n elements of memory we need
-        key_cache = self.blocks_buf[0, 0 : len(seq_ids), :, :, :, :, :].reshape(
-            cache_shape
-        )
-        value_cache = self.blocks_buf[1, 0 : len(seq_ids), :, :, :, :].reshape(
-            cache_shape
-        )
+        key_cache = self.blocks_buf[0, :, 0 : len(seq_ids), :, :, :]
+        value_cache = self.blocks_buf[1, :, 0 : len(seq_ids), :, :, :]
         cache_lengths = Tensor.from_numpy(
-            [seq.l for seq in self.cache_lengths.values()]
+            np.array(list(self.cache_lengths.values())).astype(np.int32),
+            device=self.device,
         )
-        seq_ids = Tensor.from_numpy(seq_ids)
+        seq_ids_tensor = Tensor.from_numpy(
+            np.array(seq_ids).astype(np.int32), device=self.device
+        )
 
         # Call construct_kv_cache_collection
-        return self.fetch._execute(
+        return self.fetch_model.execute(
             key_cache,
             value_cache,
             cache_lengths,
-            seq_ids,
-            self.num_layers,
-            len(seq_ids),
-        )
+            seq_ids_tensor,
+            np.array([self.num_layers]).astype(np.int32),
+            np.array([len(seq_ids)]).astype(np.int32),
+        )[0]
 
     def step(self, valid_lengths: dict[int, int]) -> None:
         """Commits changes to the ContiguousKVCache blocks.

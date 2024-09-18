@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """Llama3 model hyperparameters."""
 
+import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -60,3 +61,10 @@ class Hyperparameters:
     def kv_weight_dim(self):
         """Dimension of the key and value attention weights."""
         return self.head_dim * self.n_kv_heads
+
+    @property
+    def use_opaque(self):
+        """Boolean to use opaque kv caching optimizations."""
+        return self.quantization_encoding is None and (
+            "TMP_USE_OPAQUE" in os.environ
+        )

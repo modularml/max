@@ -35,7 +35,7 @@ def fused_qkv_matmul(
     return ops.custom(
         op_name,
         [input, wqkv, k_cache, v_cache],
-        [TensorType(dtype=kv_params.dtype, shape=input.shape).to_mlir()],
+        [TensorType(dtype=kv_params.dtype, shape=input.shape)],
     )[0]
 
 
@@ -50,7 +50,7 @@ def fused_qk_rope(
     return ops.custom(
         op_name,
         [input, k_cache, freqs_cis_2d],
-        [TensorType(dtype=kv_params.dtype, shape=input.shape).to_mlir()],
+        [TensorType(dtype=kv_params.dtype, shape=input.shape)],
     )[0]
 
 
@@ -63,16 +63,12 @@ def flash_attention(
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache."""
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
+    # NOTE: The scale argument to the flash attentionkernel is constrained to float32.
+    scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [
-            input,
-            k_cache,
-            v_cache,
-            attn_mask,
-            ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.int32)),
-        ],
-        [TensorType(dtype=kv_params.dtype, shape=input.shape).to_mlir()],
+        [input, k_cache, v_cache, attn_mask, scale],
+        [TensorType(dtype=kv_params.dtype, shape=input.shape)],
     )[0]
 
 
@@ -96,7 +92,7 @@ def key_cache_for_layer(
     return ops.custom(
         op_name,
         [ops.constant(i, dtype=DType.int8), kv_collection],
-        [ContiguousKVCacheType.to_mlir()],
+        [ContiguousKVCacheType],
     )[0]
 
 
@@ -108,5 +104,5 @@ def value_cache_for_layer(
     return ops.custom(
         op_name,
         [ops.constant(i, dtype=DType.int8), kv_collection],
-        [ContiguousKVCacheType.to_mlir()],
+        [ContiguousKVCacheType],
     )[0]
