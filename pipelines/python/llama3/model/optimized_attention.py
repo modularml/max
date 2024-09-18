@@ -49,9 +49,7 @@ def generate_attention_mask(
 
     x = ops.concat([zeros, mask], axis=1, new_dim="post_seq_len")
 
-    select_mask = ops.cast(
-        ops.broadcast_to(attention_mask, shape=x.shape), DType.bool
-    )
+    select_mask = ops.broadcast_to(attention_mask, shape=x.shape)
 
     y = ops.broadcast_to(
         ops.constant(float("-inf"), activation_dtype), shape=x.shape

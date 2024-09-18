@@ -16,7 +16,6 @@
 import math
 from dataclasses import dataclass
 
-import numpy as np
 from max.dtype import DType
 from max.graph import DimLike, TensorValue, ValueLike, ops
 
@@ -31,27 +30,33 @@ def generate_attention_mask(
     activation_dtype: DType,
 ) -> TensorValue:
     """Computes Attention mask."""
+    batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
     mask_val = ops.broadcast_to(
         ops.constant(float("-inf"), activation_dtype),
-        shape=[seq_len, seq_len],
+        shape=[batch, n_heads, seq_len, seq_len],
     )
     mask = ops.band_part(mask_val, -1, 0, exclude=True)
 
     zeros = ops.broadcast_to(
         ops.constant(0, activation_dtype),
-        shape=[seq_len, start_pos],
+        shape=[
+            batch,
+            n_heads,
+            seq_len,
+            start_pos,
+        ],
     )
 
-    x = ops.concat([zeros, mask], axis=1, new_dim="post_seq_len")
-
-    select_mask = ops.cast(
-        ops.broadcast_to(attention_mask, shape=x.shape), DType.bool
-    )
+    x = ops.concat([zeros, mask], axis=3, new_dim="post_seq_len")
+    select_mask = ops.cast(attention_mask, DType.bool)
 
     y = ops.broadcast_to(
         ops.constant(float("-inf"), activation_dtype), shape=x.shape
     )
 
+    select_mask = select_mask.rebind(
+        (batch, n_heads, x.shape[2], select_mask.shape[-1])
+    )
     return ops.select(select_mask, x, y)
 
 
