@@ -102,6 +102,9 @@ class InferenceConfig:
     weight_path: Optional[Union[str, Path]] = None
     """Path or URL of the model weights."""
 
+    huggingface_weights: Optional[str] = None
+    """Hugging Face weights to download and use with this model."""
+
     version: SupportedVersions = SupportedVersions.llama3_1
     """Llama version."""
 
@@ -127,6 +130,11 @@ class InferenceConfig:
                 "Path or URL of the model weights. If not provided, default"
                 " weights will be downloaded based on the version and"
                 " quantization encoding."
+            ),
+            "huggingface_weights": (
+                "Hugging Face weights to download and use with this model, of"
+                " the format [author/repository/file]. For example,"
+                " modularai/llama-3.1/llama-3.1-8b-instruct-q4_k_m.gguf"
             ),
             "version": "Llama version.",
             "quantization_encoding": (

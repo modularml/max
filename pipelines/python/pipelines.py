@@ -105,11 +105,26 @@ def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
     device = CUDA() if use_gpu else CPU()
     config_kwargs.update({"device": device})
     config = llama3.InferenceConfig(**config_kwargs)
-    repo_id = f"modularai/llama-{config.version}"
-    config.weight_path = hf_hub_download(
-        repo_id=repo_id,
-        filename=config.quantization_encoding.hf_model_name(config.version),
-    )
+    if config.weight_path is None:
+        if config.huggingface_weights is not None:
+            components = config.huggingface_weights.split("/")
+            assert len(components) == 3, (
+                "invalid Hugging Face weight location:"
+                f" {config.huggingface_weights}, "
+            )
+            repo_id = f"{components[0]}/{components[1]}"
+            weight_filename = components[2]
+
+        else:
+            repo_id = f"modularai/llama-{config.version}"
+            weight_filename = config.quantization_encoding.hf_model_name(
+                config.version
+            )
+
+        config.weight_path = hf_hub_download(
+            repo_id=repo_id,
+            filename=weight_filename,
+        )
 
     if serve:
         print("Starting server...")

@@ -268,7 +268,7 @@ def transformer(
     with graph:
         try:
             rope_scaling = weights.rope_freqs.weight.raw_tensor().data
-        except KeyError:
+        except AttributeError:
             # Set default RoPE scaling if the tensor isn't present in the GGUF
             # file.
             rope_scaling = None
