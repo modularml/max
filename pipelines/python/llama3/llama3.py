@@ -345,17 +345,34 @@ class Llama3:
         batched_np_tensor = batched_np_tensor.squeeze(axis=1)
         return batched_np_tensor, max_length
 
-    def _execute_opaque(self, context: Llama3Context) -> Tensor:
+    def _execute_opaque(
+        self, req_to_context_dict: dict[str, Llama3Context]
+    ) -> Tensor:
+        # Pad all tensors to the maximum sequence length in the batch.
+        batched_np_tensor, max_length = self._batch_tensors_with_padding(
+            req_to_context_dict
+        )
+
         # Grab attention mask.
-        attn_mask = self._attention_mask(context.seq_len)
+        # TODO(MSDK-982): verify that the actual desired attention mask shape
+        # and padding is correct for batches with different prompt sizes.
+        attn_mask = self._attention_mask(
+            batch_size=batched_np_tensor.shape[0],
+            n=max(self._kv_manager.cache_lengths.values()) + max_length,
+        )
 
         # Grab kv_collection.
-        assert context.cache_seq_id is not None, "cache_seq_id cannot be none"
-        kv_collection = self._kv_manager.fetch([context.cache_seq_id])
+        kv_collection = self._kv_manager.fetch(
+            [ctx.cache_seq_id for ctx in req_to_context_dict.values()]
+        )
+
+        # Create batched input token tensor.
+        context_batch = list(req_to_context_dict.values())
+        next_tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
 
         # Execute Model.
         logits = self._model.execute(
-            Tensor.from_numpy(context.next_tokens, self.config.device),
+            Tensor.from_numpy(next_tokens, self.config.device),
             Tensor.from_numpy(attn_mask, self.config.device),
             kv_collection,
         )
@@ -365,7 +382,10 @@ class Llama3:
 
         logits = np.from_dlpack(logits)
         self._kv_manager.step(
-            valid_lengths={context.cache_seq_id: len(context.next_tokens)}
+            valid_lengths={
+                ctx.cache_seq_id: len(ctx.next_tokens)
+                for ctx in req_to_context_dict.values()
+            }
         )
 
         return logits
