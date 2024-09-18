@@ -11,24 +11,32 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Tuple
 
 import gguf
+import max.driver as md
 import numpy as np
-from max.driver import Tensor, CPU
+from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
 from tokenizers import Tokenizer
 
+from nn.kv_cache import (
+    ContiguousKVCacheCollectionType,
+    ContiguousKVCacheManager,
+    KVCache,
+)
+from nn.kv_cache_params import KVCacheParams
 from utils import gguf_utils, tokenizer_from_gguf
+
 from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
-from .kv_cache_params import KVCacheParams
-from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
 
 
@@ -50,6 +58,7 @@ class Llama3Context:
 
     prompt: str
     max_tokens: int  # Max number of tokens including input.
+    cache_seq_id: Optional[int] = None
     next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
     tokens: list[int] = field(default_factory=list)  # Tokens generated so far.
     decoded: str = ""  # Decoded text sequence from tokens above.
@@ -67,8 +76,13 @@ class Llama3Context:
             return True
         return False
 
+    @property
+    def seq_len(self) -> int:
+        """Returns the total sequence length including the prompt size."""
+        return len(self.tokens) + len(self.next_tokens)
 
-def _llama_graph(
+
+def _llama_graph_opaque(
     batch_size: int,
     params: Hyperparameters,
     weights: GGUFWeights,
@@ -79,6 +93,33 @@ def _llama_graph(
         DType.bool,
         shape=[batch_size, params.n_heads, "seq_len", "post_seq_len"],
     )
+    cache_type = ContiguousKVCacheCollectionType
+
+    with Graph(
+        "llama3",
+        input_types=[tokens_type, attn_mask_type, cache_type],
+    ) as graph:
+        model = transformer(graph, params, weights, kv_params)
+        logits = model(*graph.inputs)
+        graph.output(logits[:, -1])
+        return graph
+
+
+def _llama_graph(
+    batch_size: int,
+    params: Hyperparameters,
+    weights: GGUFWeights,
+    kv_params: KVCacheParams,
+) -> Graph:
+    if params.use_opaque:
+        return _llama_graph_opaque(batch_size, params, weights, kv_params)
+
+    tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
+    attn_mask_type = TensorType(
+        DType.bool,
+        shape=[batch_size, params.n_heads, "seq_len", "post_seq_len"],
+    )
+
     cache_type = TensorType(
         DType.float32,
         shape=[
@@ -116,45 +157,60 @@ class Llama3:
         assert config.weight_path is not None
         gguf_reader = gguf.GGUFReader(config.weight_path)
 
-        params = _read_hyperparameters(config, gguf_reader)
+        self.params = _read_hyperparameters(config, gguf_reader)
 
         # Work around for older Llama 1/2 GGUFs, where the vocab size may be -1.
         # See https://github.com/ggerganov/llama.cpp/pull/4258.
-        if params.vocab_size < 0:
-            params.vocab_size = self._tokenizer.vocab_size
+        if self.params.vocab_size < 0:
+            self.params.vocab_size = self._tokenizer.vocab_size
 
-        self._kv_cache = KVCache(
-            params.seq_len,
-            config.batch_size,
-            params.n_layers,
-            params.n_kv_heads,
-            params.head_dim,
-        )
         self._sessions = set[str]()
 
         dtype = (
-            DType.float32 if params.quantization_encoding
-            is not None else params.dtype
+            DType.float32 if self.params.quantization_encoding
+            is not None else self.params.dtype
         )
         self._kv_params = KVCacheParams(
-            n_kv_heads=params.n_kv_heads,
-            head_dim=params.head_dim,
+            n_kv_heads=self.params.n_kv_heads,
+            head_dim=self.params.head_dim,
             dtype=dtype,
             device=config.device,
         )
 
-        self._tokenizer = tokenizer_from_gguf(gguf_reader)
-        self._model = self._load_model(config, params, gguf_reader)
+        session = InferenceSession(device=config.device)
 
-        self._n_heads = params.n_heads
+        self._tokenizer = tokenizer_from_gguf(gguf_reader)
+        self._model = self._load_model(
+            session, config, self.params, gguf_reader
+        )
+
+        if self.params.use_opaque:
+            self._kv_manager = ContiguousKVCacheManager(
+                params=self._kv_params,
+                max_batch_size=config.batch_size,
+                max_seq_len=config.max_length,
+                num_layers=self.params.n_layers,
+                session=session,
+                device=config.device,
+            )
+        else:
+            self._kv_cache = KVCache(
+                self.params.seq_len,
+                config.batch_size,
+                self.params.n_layers,
+                self.params.n_kv_heads,
+                self.params.head_dim,
+            )
+
+        self._n_heads = self.params.n_heads
 
     def _load_model(
         self,
+        session: InferenceSession,
         config: InferenceConfig,
         params: Hyperparameters,
         reader: gguf.GGUFReader,
     ) -> Model:
-        session = InferenceSession(device=config.device)
         if serialized_path := config.serialized_model_path:
             print("Loading serialized model from", serialized_path, "...")
             return session.load(serialized_path)
@@ -174,9 +230,30 @@ class Llama3:
         # and the second copy of n here.
         return np.ones(shape=(batch_size, self._n_heads, n, n)).astype(bool)
 
-    async def new_context(
-        self, prompt: str, max_new_tokens: Optional[int] = None
+    async def _new_context_opaque(
+        self, prompt: str, max_new_tokens: int | None = None
     ) -> Llama3Context:
+        encoded_prompt = self._tokenizer.encode(prompt)
+        prompt_size = len(encoded_prompt)
+        max_tokens_to_generate = _max_tokens_to_generate(
+            prompt_size, self.config, max_new_tokens
+        )
+        seq_id = self._kv_manager.claim(batch_size=1)[0]
+        context = Llama3Context(
+            prompt=prompt,
+            max_tokens=prompt_size + max_tokens_to_generate,
+            cache_seq_id=seq_id,
+        )
+
+        context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
+        return context
+
+    async def new_context(
+        self, prompt: str, max_new_tokens: int | None = None
+    ) -> Llama3Context:
+        if self.params.use_opaque:
+            return await self._new_context_opaque(prompt, max_new_tokens)
+
         encoded_prompt = self._tokenizer.encode(prompt)
         prompt_size = len(encoded_prompt)
         max_tokens_to_generate = _max_tokens_to_generate(
@@ -198,7 +275,10 @@ class Llama3:
             self._sessions = set(req_to_context_dict.keys())
             self._reset_cache()
 
-        req_id_to_logits_dict, _, _ = self._execute(req_to_context_dict)
+        if self.params.use_opaque:
+            req_id_to_logits_dict = self._execute_opaque(req_to_context_dict)
+        else:
+            req_id_to_logits_dict, _, _ = self._execute(req_to_context_dict)
 
         for request_id, context in req_to_context_dict.items():
             # TODO: Add a weighted sampler here.
@@ -215,9 +295,10 @@ class Llama3:
         return res
 
     def _reset_cache(self):
-        # TODO: This feels really contrived, but it's because our KV
-        # cache setup just doesn't meaningfully support batch size > 1 yet.
-        self._kv_cache.sequence_length = 0
+        if not self.params.use_opaque:
+            # TODO: This feels really contrived, but it's because our KV
+            # cache setup just doesn't meaningfully support batch size > 1 yet.
+            self._kv_cache.sequence_length = 0
 
     # TODO(MSDK-979): We may not need this if we can figure out how to leverage
     # the tokenizer's enable_padding() API. Add unit tests if we decide to still
@@ -256,6 +337,31 @@ class Llama3:
         # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
         batched_np_tensor = batched_np_tensor.squeeze(axis=1)
         return batched_np_tensor, max_length
+
+    def _execute_opaque(self, context: Llama3Context) -> Tensor:
+        # Grab attention mask.
+        attn_mask = self._attention_mask(context.seq_len)
+
+        # Grab kv_collection.
+        assert context.cache_seq_id is not None, "cache_seq_id cannot be none"
+        kv_collection = self._kv_manager.fetch([context.cache_seq_id])
+
+        # Execute Model.
+        logits = self._model.execute(
+            Tensor.from_numpy(context.next_tokens, self.config.device),
+            Tensor.from_numpy(attn_mask, self.config.device),
+            kv_collection,
+        )
+
+        if not self.config.device.is_host:
+            logits = logits.copy_to(CPU())
+
+        logits = np.from_dlpack(logits)
+        self._kv_manager.step(
+            valid_lengths={context.cache_seq_id: len(context.next_tokens)}
+        )
+
+        return logits
 
     def _execute(
         self, req_to_context_dict: dict[str, Llama3Context]

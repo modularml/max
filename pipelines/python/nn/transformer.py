@@ -12,14 +12,21 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
-from max.graph import ValueLike, TensorValue, ops
+from max.graph import OpaqueValue, TensorValue, ValueLike, ops
 
 from .attention import Attention
+from .embedding import Embedding
+from .kernels import (
+    ContiguousKVCacheType,
+    KVCacheParams,
+    key_cache_for_layer,
+    value_cache_for_layer,
+)
 from .mlp import MLP, Linear
 from .norm import RMSNorm
-from .embedding import Embedding
+from .optimized_attention import OptimizedAttention
 
 
 @dataclass
@@ -29,7 +36,7 @@ class TransformerBlock:
     into single transformer block.
     """
 
-    attention: Attention
+    attention: Union[Attention, OptimizedAttention]
     mlp: MLP
     attention_norm: RMSNorm
     mlp_norm: RMSNorm
@@ -38,8 +45,8 @@ class TransformerBlock:
         self,
         x: ValueLike,
         attention_mask: ValueLike,
-        k_cache: ValueLike,
-        v_cache: ValueLike,
+        k_cache: Union[ContiguousKVCacheType, ValueLike],
+        v_cache: Union[ContiguousKVCacheType, ValueLike],
     ) -> Tuple[TensorValue, TensorValue, TensorValue]:
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x), attention_mask, k_cache, v_cache
@@ -90,3 +97,34 @@ class Transformer:
             ops.cast(ops.stack(k_cache_updates, axis=1), kv_cache_dtype),
             ops.cast(ops.stack(v_cache_updates, axis=1), kv_cache_dtype),
         )
+
+
+@dataclass
+class OptimizedTransformer:
+    """
+    Transformer model consisting of TransformerBlock layers.
+    """
+
+    dim: int
+    n_heads: int
+    layers: List[TransformerBlock]
+    norm: RMSNorm
+    output: Linear
+    theta: float
+    embedding: Embedding
+    kv_params: KVCacheParams
+
+    def __call__(
+        self, tokens, attention_mask, kv_cache_collection: OpaqueValue
+    ) -> TensorValue:
+        h = self.embedding(tokens)
+
+        for i in range(len(self.layers)):
+            h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
+                h,
+                attention_mask,
+                key_cache_for_layer(self.kv_params, i, kv_cache_collection),
+                value_cache_for_layer(self.kv_params, i, kv_cache_collection),
+            )
+
+        return self.output(self.norm(h))

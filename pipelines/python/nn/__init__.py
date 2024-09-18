@@ -13,7 +13,8 @@
 
 from .attention import Attention
 from .embedding import Embedding
-from .mlp import Linear, MLP
+from .mlp import MLP, Linear
 from .norm import RMSNorm
-from .rotary_embedding import RotaryEmbedding
-from .transformer import Transformer, TransformerBlock
+from .optimized_attention import OptimizedAttention
+from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
+from .transformer import OptimizedTransformer, Transformer, TransformerBlock

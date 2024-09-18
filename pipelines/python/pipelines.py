@@ -14,7 +14,6 @@
 import asyncio
 
 import click
-import llama3
 from huggingface_hub import hf_hub_download
 from max.driver import CPU, CUDA
 from max.serve.api_server import fastapi_app, fastapi_config
@@ -23,10 +22,11 @@ from max.serve.debug import DebugSettings
 from max.serve.pipelines.deps import token_pipeline
 from max.serve.pipelines.llm import TokenGeneratorPipeline
 from transformers import AutoTokenizer
-from text_streaming import stream_text_to_console
-from text_streaming.interfaces import TokenGenerator
 from uvicorn import Server
 
+import llama3
+from text_streaming import stream_text_to_console
+from text_streaming.interfaces import TokenGenerator
 from utils import TextGenerationMetrics, config_to_flag
 
 try:

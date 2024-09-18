@@ -12,25 +12,29 @@
 # ===----------------------------------------------------------------------=== #
 """Build a Llama3 model via Graph API from GGUF weights."""
 
-from typing import Optional
+from typing import Optional, Union
 
 from max.dtype import DType
-from max.graph import Graph
+from max.graph import Graph, ops
 from max.graph.quantization import QuantizationEncoding
 from max.graph.weights import GGUFWeights
 
-from .model.hyperparameters import Hyperparameters
 from nn import (
+    MLP,
     Attention,
     Embedding,
     Linear,
-    MLP,
+    OptimizedAttention,
+    OptimizedRotaryEmbedding,
+    OptimizedTransformer,
     RMSNorm,
     RotaryEmbedding,
     Transformer,
     TransformerBlock,
 )
-from .kv_cache_params import KVCacheParams
+from nn.kv_cache_params import KVCacheParams
+
+from .model.hyperparameters import Hyperparameters
 
 
 def feed_forward(
@@ -98,8 +102,122 @@ def embedding(
     )
 
 
+def _attention_opaque(kv_params, params, rope, weights):
+    wq = weights.attn_q.weight.allocate(
+        params.dtype,
+        [params.hidden_dim, params.hidden_dim],
+        params.quantization_encoding,
+    )
+    wk = ops.transpose(
+        weights.attn_k.weight.allocate(
+            params.dtype,
+            [params.kv_weight_dim, params.hidden_dim],
+            params.quantization_encoding,
+        ),
+        0,
+        1,
+    )
+    wv = ops.transpose(
+        weights.attn_v.weight.allocate(
+            params.dtype,
+            [params.kv_weight_dim, params.hidden_dim],
+            params.quantization_encoding,
+        ),
+        0,
+        1,
+    )
+    wqkv = ops.concat((wq, wk, wv), axis=1)
+
+    return OptimizedAttention(
+        n_heads=params.n_heads,
+        kv_params=kv_params,
+        wqkv=wqkv,
+        wo=linear(
+            params.dtype,
+            params.quantization_encoding,
+            params.hidden_dim,
+            params.hidden_dim,
+            weights.attn_output,
+        ),
+        rope=rope,
+    )
+
+
+def _transformer_opaque(graph, params, weights, kv_params):
+    with graph:
+        try:
+            rope_scaling = weights.rope_freqs.weight.raw_tensor().data
+        except KeyError:
+            # Set default RoPE scaling if the tensor isn't present in the GGUF
+            # file.
+            rope_scaling = None
+
+        rope = OptimizedRotaryEmbedding(
+            dim=params.hidden_dim,
+            n_heads=params.n_heads,
+            theta=params.rope_theta,
+            max_seq_len=params.seq_len,
+            rope_scaling=rope_scaling,
+        )
+
+        layers = [
+            TransformerBlock(
+                attention=_attention_opaque(
+                    kv_params, params, rope, weights.blk[i]
+                ),
+                mlp=feed_forward(
+                    params.dtype,
+                    params.quantization_encoding,
+                    params.hidden_dim,
+                    params.feed_forward_length,
+                    weights.blk[i],
+                ),
+                attention_norm=rms_norm(
+                    params.hidden_dim,
+                    params.layer_norm_rms_epsilon,
+                    weights.blk[i].attn_norm,
+                ),
+                mlp_norm=rms_norm(
+                    params.hidden_dim,
+                    params.layer_norm_rms_epsilon,
+                    weights.blk[i].ffn_norm,
+                ),
+            )
+            for i in range(params.n_layers)
+        ]
+
+        return OptimizedTransformer(
+            dim=params.hidden_dim,
+            n_heads=params.n_heads,
+            layers=layers,
+            norm=rms_norm(
+                params.hidden_dim,
+                params.layer_norm_rms_epsilon,
+                weights.output_norm,
+            ),
+            output=linear(
+                params.dtype,
+                params.quantization_encoding,
+                params.vocab_size,
+                params.hidden_dim,
+                weights.output,
+            ),
+            theta=params.rope_theta,
+            embedding=embedding(
+                params,
+                params.vocab_size,
+                params.hidden_dim,
+                weights.token_embd,
+            ),
+            kv_params=kv_params,
+        )
+
+
 def attention(
-    params: Hyperparameters, rope: RotaryEmbedding, weights: GGUFWeights
+    kv_params: KVCacheParams,
+    params: Hyperparameters,
+    rope: Union[OptimizedRotaryEmbedding, RotaryEmbedding],
+    weights: GGUFWeights,
 ):
     return Attention(
         n_heads=params.n_heads,
@@ -142,11 +260,10 @@ def transformer(
     graph: Graph,
     params: Hyperparameters,
     weights: GGUFWeights,
-    _kv_params: KVCacheParams,
+    kv_params: KVCacheParams,
 ):
-    # _kernel_names is currently unused
-    # This is wired up with the expectation that we will
-    # use it in a follow up PR which leverages the mo.opaque kv cache
+    if params.use_opaque:
+        return _transformer_opaque(graph, params, weights, kv_params)
 
     with graph:
         try:
@@ -166,7 +283,7 @@ def transformer(
 
         layers = [
             TransformerBlock(
-                attention=attention(params, rope, weights.blk[i]),
+                attention=attention(kv_params, params, rope, weights.blk[i]),
                 mlp=feed_forward(
                     params.dtype,
                     params.quantization_encoding,
