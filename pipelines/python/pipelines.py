@@ -125,6 +125,7 @@ def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
                     model,
                     prompt,
                     metrics=metrics,
+                    max_batch_size=config.batch_size,
                 )
             )
 

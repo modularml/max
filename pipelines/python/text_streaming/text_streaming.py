@@ -18,14 +18,12 @@ from utils import TextGenerationMetrics
 
 from .interfaces import TokenGenerator
 
-# This is the max batch_size that we support. Hardcoded to 1 for now.
-MAX_BATCH_SIZE = 1
-
 
 async def stream_text_to_console(
     model: TokenGenerator,
     prompt: str,
     metrics: Optional[TextGenerationMetrics] = None,
+    max_batch_size: int = 1,
 ):
     # Length of is_first_token and request_id_context_dict should be == batch_size.
     is_first_token: dict[str, bool] = {}
@@ -34,7 +32,7 @@ async def stream_text_to_console(
     # TODO(MSDK-972): Make this batch_size variable based on size of the request dict.
     # NOTE: This batch_size param also needs to be == config.batch_size of
     # the underlying pipeline config.
-    batch_size = MAX_BATCH_SIZE
+    batch_size = max_batch_size
 
     # create a dict of request_id: contexts
     for _ in range(batch_size):
