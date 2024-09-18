@@ -256,6 +256,13 @@ class Llama3:
 
         encoded_prompt = self._tokenizer.encode(prompt)
         prompt_size = len(encoded_prompt)
+        if prompt_size >= self.config.max_length:
+            raise ValueError(
+                f"Prompt length of {prompt_size} is greater or equal to"
+                " configured max model context length of"
+                f" {self.config.max_length}."
+            )
+
         max_tokens_to_generate = _max_tokens_to_generate(
             prompt_size, self.config, max_new_tokens
         )
