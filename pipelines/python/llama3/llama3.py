@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional, Tuple
 
 import gguf
@@ -29,6 +30,18 @@ from .gguf import transformer
 from .kv_cache_params import KVCacheParams
 from .kv_cache import KVCache
 from .model.hyperparameters import Hyperparameters
+
+
+class PaddingDirection(Enum):
+    """
+    Padding (from) direction for attention_mask.
+    """
+
+    LEFT = "left"
+    RIGHT = "right"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass
@@ -62,7 +75,10 @@ def _llama_graph(
     kv_params: KVCacheParams,
 ) -> Graph:
     tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
-    attn_mask_type = TensorType(DType.bool, shape=[batch_size, "post_seq_len"])
+    attn_mask_type = TensorType(
+        DType.bool,
+        shape=[batch_size, params.n_heads, "seq_len", "post_seq_len"],
+    )
     cache_type = TensorType(
         DType.float32,
         shape=[
@@ -130,6 +146,8 @@ class Llama3:
         self._tokenizer = tokenizer_from_gguf(gguf_reader)
         self._model = self._load_model(config, params, gguf_reader)
 
+        self._n_heads = params.n_heads
+
     def _load_model(
         self,
         config: InferenceConfig,
@@ -151,8 +169,10 @@ class Llama3:
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    def _attention_mask(self, n: int):
-        return np.ones(shape=(1, n)).astype(bool)
+    def _attention_mask(self, batch_size: int, n: int):
+        # TODO(MSDK-977): We shouldn't be broadcasting attn_mask across kv_heads
+        # and the second copy of n here.
+        return np.ones(shape=(batch_size, self._n_heads, n, n)).astype(bool)
 
     async def new_context(
         self, prompt: str, max_new_tokens: Optional[int] = None
@@ -169,50 +189,92 @@ class Llama3:
         return context
 
     async def next_token(
-        self, batch: dict[str, Llama3Context]
+        self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, str | None]:
         # TODO(MSDK-889) - Consider moving request/cache mgmt out of next_token.
-        # Note: assuming a single request.
-        assert len(batch) == self.config.batch_size == 1
-        request_id, context = next(iter(batch.items()))
 
-        if self._sessions ^ batch.keys():
-            self._sessions = set(batch.keys())
+        res = {}
+        if self._sessions ^ req_to_context_dict.keys():
+            self._sessions = set(req_to_context_dict.keys())
             self._reset_cache()
 
-        logits, _, _ = self._execute(context)
+        req_id_to_logits_dict, _, _ = self._execute(req_to_context_dict)
 
-        # TODO: Add a weighted sampler here.
-        # Get argmax of the logits of the last token.
-        next_token = logits.argmax(axis=-1)[-1]
-        decoded_token = self._tokenizer.decode(next_token)
+        for request_id, context in req_to_context_dict.items():
+            # TODO: Add a weighted sampler here.
+            # Get argmax of the logits of the last token.
+            next_token = req_id_to_logits_dict[request_id].argmax(axis=-1)[-1]
+            decoded_token = self._tokenizer.decode(next_token)
 
-        # Update context
-        context.append(next_token.reshape(1, -1), decoded_token)
+            # Update context
+            context.append(next_token.reshape(1, -1), decoded_token)
 
-        return {
-            request_id: decoded_token
-            for request_id, context in batch.items()
-            if not context.is_done(self._tokenizer.eos_token_id)
-        }
+            # Add back to dictionary
+            if not context.is_done(self._tokenizer.eos_token_id):
+                res[request_id] = decoded_token
+        return res
 
     def _reset_cache(self):
-        # This feels really contrived, but it's because our KV cache setup
-        # just doesn't meaningfully support batch size > 1 yet.
+        # TODO: This feels really contrived, but it's because our KV
+        # cache setup just doesn't meaningfully support batch size > 1 yet.
         self._kv_cache.sequence_length = 0
 
-    def _execute(self, context: Llama3Context) -> Tuple[np.ndarray, ...]:
+    # TODO(MSDK-979): We may not need this if we can figure out how to leverage
+    # the tokenizer's enable_padding() API. Add unit tests if we decide to still
+    # keep this.
+    def _batch_tensors_with_padding(
+        self,
+        batch: dict[str, Llama3Context],
+        direction: PaddingDirection = PaddingDirection.LEFT,
+        pad_token: int = 0,
+    ) -> tuple[np.ndarray, int]:
+        """Generates a fixed length padded batch tensor, provided a batch of Llama3Context.
+        """
+
+        # Calculate Max Length to Batch
+        lengths = [request.next_tokens.shape[1] for request in batch.values()]
+        max_length = max(lengths)
+
+        # Create list of tensors, with padding
+        tensors = []
+        for i, context in enumerate(batch.values()):
+            if direction == PaddingDirection.LEFT:
+                pad_length = (max_length - lengths[i], 0)
+            else:
+                pad_length = (0, max_length - lengths[i])
+
+            tensors.append(
+                np.pad(
+                    context.next_tokens,
+                    pad_length,
+                    mode="constant",
+                    constant_values=pad_token,
+                )
+            )
+
+        batched_np_tensor = np.stack(tensors)
+        # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
+        batched_np_tensor = batched_np_tensor.squeeze(axis=1)
+        return batched_np_tensor, max_length
+
+    def _execute(
+        self, req_to_context_dict: dict[str, Llama3Context]
+    ) -> Tuple[dict[str, np.ndarray], ...]:
         """Executes the model and returns the raw results."""
-        cache = self._kv_cache
+        batched_np_tensor, max_length = self._batch_tensors_with_padding(
+            req_to_context_dict
+        )
+
         attn_mask = self._attention_mask(
-            cache.sequence_length + context.next_tokens.shape[1]
+            batched_np_tensor.shape[0],  # batch_size
+            self._kv_cache.sequence_length + max_length,
         )
 
         logits, k_cache, v_cache = self._model.execute(
-            Tensor.from_numpy(context.next_tokens, self.config.device),
+            Tensor.from_numpy(batched_np_tensor, self.config.device),
             Tensor.from_numpy(attn_mask, self.config.device),
-            Tensor.from_numpy(cache.keys_view(), self.config.device),
-            Tensor.from_numpy(cache.values_view(), self.config.device),
+            Tensor.from_numpy(self._kv_cache.keys_view(), self.config.device),
+            Tensor.from_numpy(self._kv_cache.values_view(), self.config.device),
         )
 
         if not self.config.device.is_host:
@@ -225,7 +287,21 @@ class Llama3:
         v_cache = np.from_dlpack(v_cache)
 
         self._kv_cache.update(k_cache, v_cache)
-        return logits, k_cache, v_cache
+
+        logits_to_return = {}
+        k_cache_to_return = {}
+        v_cache_to_return = {}
+
+        # Since req_to_context_dict dict is ordered as it was passed in from the
+        # input, we just iterate over the req_ids in that order and assign logits that
+        # way.
+        curr_index = 0
+        for req_id in req_to_context_dict.keys():
+            logits_to_return[req_id] = logits[curr_index]
+            k_cache_to_return[req_id] = k_cache
+            v_cache_to_return[req_id] = v_cache
+            curr_index += 1
+        return logits_to_return, k_cache_to_return, v_cache_to_return
 
 
 def _max_tokens_to_generate(
