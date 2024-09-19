@@ -35,6 +35,7 @@ print(js.get('data', '1')) --> Node(type=string, value="b")
 """
 
 from collections import List, Dict, Set
+from utils import StringRef
 
 alias COLON = ":"
 alias COMMA = ","
