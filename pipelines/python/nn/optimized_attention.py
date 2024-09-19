@@ -116,7 +116,9 @@ class OptimizedAttention:
                 self.kv_params.head_dim,
             ],
         )
-        xq = fused_qk_rope(self.kv_params, xq, k_cache, self.rope.freqs_cis)
+        # Cast freqs_cis to xq's dtype to match the fused_qk_rope kernel.
+        freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
+        xq = fused_qk_rope(self.kv_params, xq, k_cache, freqs_cis)
 
         if self.kv_params.layout == KVCacheLayout.BHSD:
             xq = ops.transpose(xq, 1, 2)
