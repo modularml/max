@@ -91,7 +91,7 @@ def key_cache_for_layer(
     op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
     return ops.custom(
         op_name,
-        [ops.constant(i, dtype=DType.int8), kv_collection],
+        [ops.constant(i, dtype=DType.int64), kv_collection],
         [ContiguousKVCacheType()],
     )[0]
 
@@ -103,6 +103,6 @@ def value_cache_for_layer(
     op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
     return ops.custom(
         op_name,
-        [ops.constant(i, dtype=DType.int8), kv_collection],
+        [ops.constant(i, dtype=DType.int64), kv_collection],
         [ContiguousKVCacheType()],
     )[0]
