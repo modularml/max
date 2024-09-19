@@ -235,18 +235,19 @@ class ContiguousKVCacheManager:
         if any of the seq_ids are not valid (e.g. no assigned blocks) then
         """
 
-        # This is just grabbing the first n elements of memory we need
+        # Grab the first n elements we need from `blocks_buf`.
         key_cache = self.blocks_buf[0, :, 0 : len(seq_ids), :, :, :]
         value_cache = self.blocks_buf[1, :, 0 : len(seq_ids), :, :, :]
+
         cache_lengths = Tensor.from_numpy(
-            np.array(list(self.cache_lengths.values())).astype(np.int32),
-            device=self.device,
+            np.array(list(self.cache_lengths.values())).astype(np.int32)
         )
-        seq_ids_tensor = Tensor.from_numpy(
-            np.array(seq_ids).astype(np.int32), device=self.device
-        )
+        seq_ids_tensor = Tensor.from_numpy(np.array(seq_ids).astype(np.int32))
 
         # Call construct_kv_cache_collection
+        # Construct the KV cache collection by executing the fetch model.
+        # `key_cache` and `value_cache` should be on the execution device.
+        # All other arguments should be on the host.
         return self.fetch_model.execute(
             key_cache,
             value_cache,
