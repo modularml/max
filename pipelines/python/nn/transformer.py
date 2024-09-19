@@ -14,6 +14,7 @@
 from dataclasses import dataclass
 from typing import List, Tuple, Union
 
+from max.dtype import DType
 from max.graph import OpaqueValue, TensorValue, ValueLike, ops
 
 from .attention import Attention
@@ -127,4 +128,4 @@ class OptimizedTransformer:
                 value_cache_for_layer(self.kv_params, i, kv_cache_collection),
             )
 
-        return self.output(self.norm(h))
+        return ops.cast(self.output(self.norm(h)), DType.float32)
