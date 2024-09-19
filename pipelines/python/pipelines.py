@@ -112,6 +112,9 @@ def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
     else:
         config_kwargs.update({"device": CPU()})
     config = llama3.InferenceConfig(**config_kwargs)
+    # By default, use the Modular HF repository as a reference for tokenizer
+    # configuration, etc. when no repository is specified.
+    repo_id = f"modularai/llama-{config.version}"
     if config.weight_path is None:
         if config.huggingface_weights is not None:
             components = config.huggingface_weights.split("/")
@@ -123,7 +126,6 @@ def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
             weight_filename = components[2]
 
         else:
-            repo_id = f"modularai/llama-{config.version}"
             weight_filename = config.quantization_encoding.hf_model_name(
                 config.version
             )
