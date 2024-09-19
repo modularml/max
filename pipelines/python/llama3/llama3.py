@@ -324,7 +324,7 @@ class Llama3:
         max_length = max(lengths)
 
         # Create list of tensors, with padding
-        tensors = []
+        tensors: list[np.ndarray] = []
         for i, context in enumerate(batch.values()):
             pad_length = max_length - lengths[i]
             if pad_length != 0:
@@ -343,6 +343,15 @@ class Llama3:
             else:
                 # No padding necessary
                 tensors.append(context.next_tokens)
+
+        # TODO(MSDK-982): Remove this workaround for batch-level padding once
+        # we are able to support variable number of batches
+        remaining_batches = self.config.batch_size - len(tensors)
+        if remaining_batches:
+            padded_batches = [
+                np.zeros((1, max_length), tensors[0].dtype)
+            ] * remaining_batches
+            tensors.extend(padded_batches)
 
         batched_np_tensor = np.stack(tensors)
         # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
