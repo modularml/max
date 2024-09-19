@@ -92,7 +92,7 @@ def key_cache_for_layer(
     return ops.custom(
         op_name,
         [ops.constant(i, dtype=DType.int8), kv_collection],
-        [ContiguousKVCacheType],
+        [ContiguousKVCacheType()],
     )[0]
 
 
@@ -104,5 +104,5 @@ def value_cache_for_layer(
     return ops.custom(
         op_name,
         [ops.constant(i, dtype=DType.int8), kv_collection],
-        [ContiguousKVCacheType],
+        [ContiguousKVCacheType()],
     )[0]

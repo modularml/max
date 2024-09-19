@@ -79,10 +79,22 @@ class KVCache:
         return self.values[0 : self.sequence_length, ...]
 
 
-ContiguousKVCacheType: TypeAlias = OpaqueType("ContiguousKVCache")
-ContiguousKVCacheCollectionType: TypeAlias = OpaqueType(
-    "ContiguousKVCacheCollection"
-)
+class ContiguousKVCacheType(OpaqueType):
+    """Contiguous Mojo KV cache type."""
+
+    def __init__(self) -> None:
+        """Creates an opaque type containing a contiguous KV cache."""
+        super().__init__("ContiguousKVCache")
+
+
+class ContiguousKVCacheCollectionType(OpaqueType):
+    """Collection of contiguous Mojo KV caches type."""
+
+    def __init__(self) -> None:
+        """Creates an opaque type containing a KV cache collection."""
+        super().__init__("ContiguousKVCacheCollection")
+
+
 ContiguousKVCache: TypeAlias = OpaqueValue
 ContiguousKVCacheCollection: TypeAlias = OpaqueValue
 
@@ -113,7 +125,7 @@ class FetchContiguousKVCacheCollection:
                 num_layers,
                 batch_size,
             ],
-            out_types=[ContiguousKVCacheCollectionType],
+            out_types=[ContiguousKVCacheCollectionType()],
         )[0]
 
 
