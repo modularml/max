@@ -326,19 +326,23 @@ class Llama3:
         # Create list of tensors, with padding
         tensors = []
         for i, context in enumerate(batch.values()):
-            if direction == PaddingDirection.LEFT:
-                pad_length = (max_length - lengths[i], 0)
-            else:
-                pad_length = (0, max_length - lengths[i])
-
-            tensors.append(
-                np.pad(
-                    context.next_tokens,
-                    pad_length,
-                    mode="constant",
-                    constant_values=pad_token,
+            pad_length = max_length - lengths[i]
+            if pad_length != 0:
+                if direction == PaddingDirection.LEFT:
+                    pad_width = (max_length - lengths[i], 0)
+                else:
+                    pad_width = (0, max_length - lengths[i])
+                tensors.append(
+                    np.pad(
+                        context.next_tokens,
+                        [(0, 0), pad_width],
+                        mode="constant",
+                        constant_values=pad_token,
+                    )
                 )
-            )
+            else:
+                # No padding necessary
+                tensors.append(context.next_tokens)
 
         batched_np_tensor = np.stack(tensors)
         # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
