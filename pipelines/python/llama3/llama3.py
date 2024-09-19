@@ -360,7 +360,7 @@ class Llama3:
 
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> Tensor:
+    ) -> dict[str, Tensor]:
         # Pad all tensors to the maximum sequence length in the batch.
         batched_np_tensor, max_length = self._batch_tensors_with_padding(
             req_to_context_dict
@@ -384,16 +384,16 @@ class Llama3:
         next_tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
 
         # Execute Model.
-        logits = self._model.execute(
+        batch_logits = self._model.execute(
             Tensor.from_numpy(next_tokens, self.config.device),
             Tensor.from_numpy(attn_mask, self.config.device),
             kv_collection,
         )
 
         if not self.config.device.is_host:
-            logits = logits.copy_to(CPU())
+            batch_logits = [logits.copy_to(CPU()) for logits in batch_logits]
 
-        logits = np.from_dlpack(logits)
+        batch_logits = [np.from_dlpack(logits) for logits in batch_logits]
         self._kv_manager.step(
             valid_lengths={
                 ctx.cache_seq_id: len(ctx.next_tokens)
@@ -401,7 +401,7 @@ class Llama3:
             }
         )
 
-        return logits
+        return dict(zip(req_to_context_dict, batch_logits))
 
     def _execute(
         self, req_to_context_dict: dict[str, Llama3Context]
