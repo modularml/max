@@ -13,7 +13,7 @@
 from pathlib import Path
 from collections import Dict, Optional
 
-from utils.variant import Variant
+from utils import Variant, StringRef
 
 from .ball import Ball
 from .json import JsonStorage, NULL, NodeType

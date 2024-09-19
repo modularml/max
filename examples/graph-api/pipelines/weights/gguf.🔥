@@ -45,6 +45,7 @@ from collections import List, Optional, InlineArray
 from pathlib import Path
 from utils import Variant
 from sys import sizeof
+from utils import StringRef
 
 from max.tensor import Tensor, TensorShape
 
