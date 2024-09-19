@@ -93,7 +93,7 @@ def _llama_graph_opaque(
         DType.bool,
         shape=[batch_size, params.n_heads, "seq_len", "post_seq_len"],
     )
-    cache_type = ContiguousKVCacheCollectionType
+    cache_type = ContiguousKVCacheCollectionType()
 
     with Graph(
         "llama3",
