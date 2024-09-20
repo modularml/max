@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from python import Python as py, PythonObject
-from memory import memcpy
+from memory import memcpy, UnsafePointer
 from max.graph import Graph, TensorType, ops
 from max import engine
 from max.tensor import Tensor, TensorShape, TensorSpec
