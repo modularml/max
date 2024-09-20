@@ -16,6 +16,7 @@ from .token_sampler import TokenSampler, SamplerResult
 from max.tensor import Tensor
 from random import random_float64
 import math
+from memory import UnsafePointer
 from utils.numerics import min_finite
 import max.driver as driver
 from runtime.tracing import Trace, TraceLevel

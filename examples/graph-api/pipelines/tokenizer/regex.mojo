@@ -13,7 +13,7 @@
 """POSIX 2 regular expressions via regcomp/regexec."""
 
 from collections import Optional
-from memory import Arc
+from memory import Arc, UnsafePointer
 from utils import Span, StringSlice
 from sys.info import os_is_macos
 from sys import external_call

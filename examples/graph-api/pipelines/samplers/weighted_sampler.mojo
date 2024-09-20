@@ -14,6 +14,7 @@
 from .token_sampler import TokenSampler, SamplerResult
 from max.tensor import Tensor
 from random import random_float64
+from memory import UnsafePointer
 import math
 from utils.numerics import min_finite
 import max.driver as driver

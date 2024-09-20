@@ -13,6 +13,7 @@
 """The body of the Llama 2 model definition."""
 
 from collections import List, Optional
+from memory import UnsafePointer
 from pathlib import Path
 from sys.intrinsics import _type_is_eq
 

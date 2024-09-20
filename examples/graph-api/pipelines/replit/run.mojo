@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from collections import Optional, Dict
+from memory import UnsafePointer
 from pathlib import cwd, Path
 from utils import StaticIntTuple
 import sys
