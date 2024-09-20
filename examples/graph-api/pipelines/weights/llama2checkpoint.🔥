@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 """A parser for the Llama 2 weights as provided for karpathy/llama2.c."""
 
-from memory import memcpy
+from memory import memcpy, UnsafePointer
 from collections import Optional
 from pathlib import Path
 from sys import sizeof

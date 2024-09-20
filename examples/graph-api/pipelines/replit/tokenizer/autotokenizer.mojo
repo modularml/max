@@ -15,7 +15,7 @@ forked from the generic tokenizer library as the encode interfaces are different
 
 from collections import Optional
 from math import ceildiv
-from memory import memcpy
+from memory import memcpy, UnsafePointer
 from python import Python, PythonObject
 from random import randint
 from max.tensor import Tensor, TensorShape

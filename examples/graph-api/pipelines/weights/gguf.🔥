@@ -42,6 +42,7 @@ Other types expose a `.destroy()` method simply to facilitate this.
 """
 
 from collections import List, Optional, InlineArray
+from memory import UnsafePointer
 from pathlib import Path
 from utils import Variant
 from sys import sizeof

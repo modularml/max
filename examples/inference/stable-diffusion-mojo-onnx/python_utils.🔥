@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from python import Python, PythonObject
-from memory import memcpy
+from memory import memcpy, UnsafePointer
 from collections import List
 
 from max.tensor import Tensor, TensorShape
