@@ -396,7 +396,7 @@ class Llama3:
         batch_logits = [np.from_dlpack(logits) for logits in batch_logits]
         self._kv_manager.step(
             valid_lengths={
-                ctx.cache_seq_id: len(ctx.next_tokens)
+                ctx.cache_seq_id: ctx.next_tokens.shape[1]
                 for ctx in req_to_context_dict.values()
             }
         )
