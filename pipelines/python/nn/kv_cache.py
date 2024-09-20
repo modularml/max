@@ -252,6 +252,7 @@ class ContiguousKVCacheManager:
             seq_ids_tensor,
             np.array([self.num_layers]).astype(np.int32),
             np.array([len(seq_ids)]).astype(np.int32),
+            copy_inputs_to_device=False,
         )[0]
 
     def step(self, valid_lengths: dict[int, int]) -> None:
