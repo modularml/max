@@ -13,7 +13,7 @@
 """Helper functions for wrapping custom kv cache/attention related ops."""
 
 from max.dtype import DType
-from max.graph import OpaqueValue, TensorType, TensorValue, ops
+from max.graph import TensorType, TensorValue, ops
 
 from .kv_cache import (
     ContiguousKVCache,
@@ -35,7 +35,7 @@ def fused_qkv_matmul(
     return ops.custom(
         op_name,
         [input, wqkv, k_cache, v_cache],
-        [TensorType(dtype=kv_params.dtype, shape=input.shape)],
+        [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
@@ -50,7 +50,7 @@ def fused_qk_rope(
     return ops.custom(
         op_name,
         [input, k_cache, freqs_cis_2d],
-        [TensorType(dtype=kv_params.dtype, shape=input.shape)],
+        [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
@@ -68,18 +68,18 @@ def flash_attention(
     return ops.custom(
         op_name,
         [input, k_cache, v_cache, attn_mask, scale],
-        [TensorType(dtype=kv_params.dtype, shape=input.shape)],
+        [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
 def kv_cache_length(
-    kv_params: KVCacheParams, kv_cache: ContiguousKVCache
+    kv_params: KVCacheParams, kv_cache_collection: ContiguousKVCacheCollection
 ) -> TensorValue:
     """Calculates the length of the passed kv_cache collection."""
     op_name = f"kv_cache_length_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
     return ops.custom(
         op_name,
-        [kv_cache],
+        [kv_cache_collection],
         [TensorType(dtype=DType.int64, shape=[])],
     )[0]
 
