@@ -157,7 +157,8 @@ class ContiguousKVCacheManager:
         self.max_batch_size = max_batch_size
         self.max_seq_len = max_seq_len
         self.num_layers = num_layers
-        self.available = set([i for i in range(0, self.max_batch_size)])
+        self.available = set(range(self.max_batch_size))
+        # Mapping from sequence id to current KV cache length.
         self.cache_lengths: dict[int, int] = {}
         self.device = device
 
@@ -229,11 +230,7 @@ class ContiguousKVCacheManager:
 
     # [0, 1, 2] -> [1, 2, 3]
     def fetch(self, seq_ids: List[int]) -> ContiguousKVCacheCollection:
-        """Retrieves the pre-assigned blocks for the given seq_ids.
-
-        and error is raised.
-        if any of the seq_ids are not valid (e.g. no assigned blocks) then
-        """
+        """Retrieves the pre-assigned blocks for the given seq_ids."""
 
         # Grab the first n elements we need from `blocks_buf`.
         key_cache = self.blocks_buf[0, :, 0 : len(seq_ids), :, :, :]
