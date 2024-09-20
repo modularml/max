@@ -11,33 +11,34 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Tuple, Union
+from typing import TYPE_CHECKING
 
 from max.dtype import DType
 from max.graph import OpaqueValue, TensorValue, ValueLike, ops
 
-from .attention import Attention
-from .embedding import Embedding
 from .kernels import (
     ContiguousKVCacheType,
     KVCacheParams,
     key_cache_for_layer,
     value_cache_for_layer,
 )
-from .mlp import MLP, Linear
-from .norm import RMSNorm
-from .optimized_attention import OptimizedAttention
+
+if TYPE_CHECKING:
+    from .attention import Attention
+    from .embedding import Embedding
+    from .mlp import MLP, Linear
+    from .norm import RMSNorm
+    from .optimized_attention import OptimizedAttention
 
 
 @dataclass
 class TransformerBlock:
-    """
-    Stacks Attention, FeedForward, and RMSNorm layers
-    into single transformer block.
-    """
+    """Stack of Attention, FeedForward, and RMSNorm layers."""
 
-    attention: Union[Attention, OptimizedAttention]
+    attention: Attention | OptimizedAttention
     mlp: MLP
     attention_norm: RMSNorm
     mlp_norm: RMSNorm
@@ -46,9 +47,9 @@ class TransformerBlock:
         self,
         x: ValueLike,
         attention_mask: ValueLike,
-        k_cache: Union[ContiguousKVCacheType, ValueLike],
-        v_cache: Union[ContiguousKVCacheType, ValueLike],
-    ) -> Tuple[TensorValue, TensorValue, TensorValue]:
+        k_cache: ContiguousKVCacheType | ValueLike,
+        v_cache: ContiguousKVCacheType | ValueLike,
+    ) -> tuple[TensorValue, TensorValue, TensorValue]:
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x), attention_mask, k_cache, v_cache
         )
@@ -61,13 +62,11 @@ class TransformerBlock:
 
 @dataclass
 class Transformer:
-    """
-    Transformer model consisting of TransformerBlock layers.
-    """
+    """Transformer model consisting of TransformerBlock layers."""
 
     dim: int
     n_heads: int
-    layers: List[TransformerBlock]
+    layers: list[TransformerBlock]
     norm: RMSNorm
     output: Linear
     theta: float
@@ -102,13 +101,11 @@ class Transformer:
 
 @dataclass
 class OptimizedTransformer:
-    """
-    Transformer model consisting of TransformerBlock layers.
-    """
+    """Transformer model consisting of TransformerBlock layers."""
 
     dim: int
     n_heads: int
-    layers: List[TransformerBlock]
+    layers: list[TransformerBlock]
     norm: RMSNorm
     output: Linear
     theta: float
@@ -120,8 +117,8 @@ class OptimizedTransformer:
     ) -> TensorValue:
         h = self.embedding(tokens)
 
-        for i in range(len(self.layers)):
-            h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
+        for i, layer in enumerate(self.layers):
+            h, _, _ = layer(
                 h,
                 attention_mask,
                 key_cache_for_layer(self.kv_params, i, kv_cache_collection),
