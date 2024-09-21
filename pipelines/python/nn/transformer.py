@@ -20,9 +20,11 @@ from max.dtype import DType
 from max.graph import OpaqueValue, TensorValue, ValueLike, ops
 
 from .kernels import (
+    ContiguousKVCacheCollection,
     ContiguousKVCacheType,
     KVCacheParams,
     key_cache_for_layer,
+    kv_cache_length,
     value_cache_for_layer,
 )
 
@@ -100,12 +102,39 @@ class Transformer:
 
 
 @dataclass
+class OptimizedTransformerBlock:
+    """Stack of Attention, FeedForward, and RMSNorm layers."""
+
+    attention: Attention | OptimizedAttention
+    mlp: MLP
+    attention_norm: RMSNorm
+    mlp_norm: RMSNorm
+
+    def __call__(
+        self,
+        x: ValueLike,
+        attention_mask: ValueLike,
+        k_cache: ContiguousKVCacheType | ValueLike,
+        v_cache: ContiguousKVCacheType | ValueLike,
+        start_pos: TensorValue,
+    ) -> tuple[TensorValue, TensorValue, TensorValue]:
+        attention_out, k_cache_update, v_cache_update = self.attention(
+            self.attention_norm(x), attention_mask, k_cache, v_cache, start_pos
+        )
+
+        h = x + attention_out
+        h = h + self.mlp(self.mlp_norm(h))
+
+        return h, k_cache_update, v_cache_update
+
+
+@dataclass
 class OptimizedTransformer:
-    """Transformer model consisting of TransformerBlock layers."""
+    """Transformer model consisting of OptimizedTransformerBlock layers."""
 
     dim: int
     n_heads: int
-    layers: list[TransformerBlock]
+    layers: list[OptimizedTransformerBlock]
     norm: RMSNorm
     output: Linear
     theta: float
@@ -113,16 +142,23 @@ class OptimizedTransformer:
     kv_params: KVCacheParams
 
     def __call__(
-        self, tokens, attention_mask, kv_cache_collection: OpaqueValue
+        self,
+        tokens,
+        attention_mask,
+        kv_cache_collection: ContiguousKVCacheCollection,
     ) -> TensorValue:
         h = self.embedding(tokens)
 
+        # Plumb in the `start_pos` (previous sequence length), needed to
+        # construct the attention mask.
+        start_pos = kv_cache_length(self.kv_params, kv_cache_collection)
         for i, layer in enumerate(self.layers):
             h, _, _ = layer(
                 h,
                 attention_mask,
                 key_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 value_cache_for_layer(self.kv_params, i, kv_cache_collection),
+                start_pos,
             )
 
         return ops.cast(self.output(self.norm(h)), DType.float32)

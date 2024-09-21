@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from max.dtype import DType
 from max.graph import TensorValue, ValueLike, ops
-from max.graph.type import DimLike, SymbolicDim
+from max.graph.type import Dim, DimLike
 
 from .kernels import (
     ContiguousKVCache,
@@ -74,7 +74,7 @@ def generate_attention_mask(
     return ops.select(attention_mask, x, y)
 
 
-def _dim_to_scalar(dim: SymbolicDim) -> TensorValue:
+def _dim_to_scalar(dim: Dim) -> TensorValue:
     return ops.shape_to_tensor((dim,)).reshape(())
 
 
@@ -97,6 +97,7 @@ class OptimizedAttention:
         mask: ValueLike,
         k_cache: ContiguousKVCache,
         v_cache: ContiguousKVCache,
+        start_pos: TensorValue,
     ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
@@ -125,14 +126,9 @@ class OptimizedAttention:
         freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
 
         # Slice out `freqs_cis` for our current position in the sequence.
-        seq_len_val = _dim_to_scalar(seq_len)
-        start_pos_val = _dim_to_scalar(attn_mask.shape[1]) - seq_len_val
         freqs_cis = freqs_cis[
             (
-                slice(
-                    start_pos_val,
-                    start_pos_val + seq_len_val,
-                ),
+                slice(start_pos, start_pos + _dim_to_scalar(seq_len)),
                 "seq_len",
             ),
             :,
@@ -143,8 +139,6 @@ class OptimizedAttention:
             xq = ops.transpose(xq, 1, 2)
 
         # Calculate Flash Attention.
-
-        start_pos = kv_cache_length(self.kv_params, k_cache)
         attn_mask = generate_attention_mask(
             mask, start_pos, seq_len, self.kv_params.dtype
         )
