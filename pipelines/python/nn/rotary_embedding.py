@@ -13,8 +13,8 @@
 """The rope embedding used within the model."""
 
 from dataclasses import dataclass
-from typing import Optional
 from functools import cached_property
+from typing import Optional
 
 import numpy as np
 from max.dtype import DType
@@ -130,6 +130,6 @@ class OptimizedRotaryEmbedding(RotaryEmbedding):
     def freqs_cis(self):
         freqs = self.freqs_cis_base()
         d1, d2, d3 = freqs.shape
-        new_f_shape = [1, d1.dim * d2.dim * d3.dim]
+        new_f_shape = [d1.dim, d2.dim * d3.dim]
         self._freqs_cis = ops.reshape(freqs, new_f_shape)
         return self._freqs_cis

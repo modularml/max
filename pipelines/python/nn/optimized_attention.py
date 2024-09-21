@@ -15,14 +15,14 @@
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import DimLike, TensorValue, ValueLike, ops
+from max.graph import TensorValue, ValueLike, ops
+from max.graph.type import DimLike, SymbolicDim
 
 from .kernels import (
     ContiguousKVCache,
     flash_attention,
     fused_qk_rope,
     fused_qkv_matmul,
-    kv_cache_length,
 )
 from .kv_cache_params import KVCacheLayout, KVCacheParams
 from .mlp import Linear
@@ -74,6 +74,10 @@ def generate_attention_mask(
     return ops.select(attention_mask, x, y)
 
 
+def _dim_to_scalar(dim: SymbolicDim) -> TensorValue:
+    return ops.shape_to_tensor((dim,)).reshape(())
+
+
 @dataclass
 class OptimizedAttention:
     n_heads: int
@@ -93,7 +97,7 @@ class OptimizedAttention:
         mask: ValueLike,
         k_cache: ContiguousKVCache,
         v_cache: ContiguousKVCache,
-    ) -> TensorValue:
+    ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
 
@@ -116,8 +120,23 @@ class OptimizedAttention:
                 self.kv_params.head_dim,
             ],
         )
+
         # Cast freqs_cis to xq's dtype to match the fused_qk_rope kernel.
         freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
+
+        # Slice out `freqs_cis` for our current position in the sequence.
+        seq_len_val = _dim_to_scalar(seq_len)
+        start_pos_val = _dim_to_scalar(attn_mask.shape[1]) - seq_len_val
+        freqs_cis = freqs_cis[
+            (
+                slice(
+                    start_pos_val,
+                    start_pos_val + seq_len_val,
+                ),
+                "seq_len",
+            ),
+            :,
+        ]
         xq = fused_qk_rope(self.kv_params, xq, k_cache, freqs_cis)
 
         if self.kv_params.layout == KVCacheLayout.BHSD:
