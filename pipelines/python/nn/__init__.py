@@ -17,4 +17,9 @@ from .mlp import MLP, Linear
 from .norm import RMSNorm
 from .optimized_attention import OptimizedAttention
 from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
-from .transformer import OptimizedTransformer, Transformer, TransformerBlock
+from .transformer import (
+    OptimizedTransformer,
+    OptimizedTransformerBlock,
+    Transformer,
+    TransformerBlock,
+)

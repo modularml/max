@@ -27,6 +27,7 @@ from nn import (
     OptimizedAttention,
     OptimizedRotaryEmbedding,
     OptimizedTransformer,
+    OptimizedTransformerBlock,
     RMSNorm,
     RotaryEmbedding,
     Transformer,
@@ -166,7 +167,7 @@ def _transformer_opaque(graph, params, weights, kv_params):
         )
 
         layers = [
-            TransformerBlock(
+            OptimizedTransformerBlock(
                 attention=_attention_opaque(
                     kv_params, params, rope, weights.blk[i]
                 ),
