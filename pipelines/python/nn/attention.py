@@ -31,8 +31,9 @@ def generate_attention_mask(
 ) -> TensorValue:
     """Computes Attention mask."""
     batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
+    fill_val = -10000.0
     mask_val = ops.broadcast_to(
-        ops.constant(float("-inf"), activation_dtype),
+        ops.constant(fill_val, activation_dtype),
         shape=[batch, n_heads, seq_len, seq_len],
     )
 
@@ -52,7 +53,7 @@ def generate_attention_mask(
     x = ops.concat([zeros, mask], axis=-1, new_dim="post_seq_len")
 
     y = ops.broadcast_to(
-        ops.constant(float("-inf"), activation_dtype), shape=x.shape
+        ops.constant(fill_val, activation_dtype), shape=x.shape
     )
 
     select_mask = attention_mask.rebind(

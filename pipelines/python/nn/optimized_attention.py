@@ -40,9 +40,10 @@ def generate_attention_mask(
     Returns:
         A causal attention mask with -inf in the lower triangle.
     """
+    fill_val = -10000.0
     batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
     mask_val = ops.broadcast_to(
-        ops.constant(float("-inf"), activation_dtype),
+        ops.constant(fill_val, activation_dtype),
         shape=[batch, n_heads, seq_len, seq_len],
     )
 
@@ -67,8 +68,7 @@ def generate_attention_mask(
     x = ops.concat([zeros, mask], axis=-1, new_dim="post_seq_len")
 
     y = ops.broadcast_to(
-        ops.constant(float("-inf"), activation_dtype),
-        shape=x.shape,
+        ops.constant(fill_val, activation_dtype), shape=x.shape
     )
 
     return ops.select(attention_mask, x, y)
