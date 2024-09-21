@@ -103,10 +103,14 @@ def embedding(
 
 
 def _attention_opaque(kv_params, params, rope, weights):
-    wq = weights.attn_q.weight.allocate(
-        params.dtype,
-        [params.hidden_dim, params.hidden_dim],
-        params.quantization_encoding,
+    wq = ops.transpose(
+        weights.attn_q.weight.allocate(
+            params.dtype,
+            [params.hidden_dim, params.hidden_dim],
+            params.quantization_encoding,
+        ),
+        0,
+        1,
     )
     wk = ops.transpose(
         weights.attn_k.weight.allocate(
@@ -126,7 +130,8 @@ def _attention_opaque(kv_params, params, rope, weights):
         0,
         1,
     )
-    wqkv = ops.concat((wq, wk, wv), axis=1)
+
+    wqkv = ops.concat((wq, wk, wv), axis=1).transpose(0, 1)
 
     return OptimizedAttention(
         n_heads=params.n_heads,
