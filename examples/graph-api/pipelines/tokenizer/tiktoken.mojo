@@ -51,7 +51,7 @@ def _next_rune(inout span: Span[UInt8, _]) -> Int:
 
 
 def _runes(string: String) -> List[Int]:
-    span = string.as_bytes_slice()
+    span = string.as_bytes_span()
     runes = List[Int]()
     while len(span):
         runes.append(_next_rune(span))
