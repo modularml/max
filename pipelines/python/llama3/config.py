@@ -114,6 +114,9 @@ class InferenceConfig:
     serialized_model_path: Optional[Union[str, Path]] = None
     """If specified, tries to load a serialized model from this path."""
 
+    save_to_serialized_model_path: Optional[Union[str, Path]] = None
+    """If specified, tries to save a serialized model to this path."""
+
     max_length: int = 512
     """Controls the maximum length of the text sequence (includes the input tokens)."""
 
