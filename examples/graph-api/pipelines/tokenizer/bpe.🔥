@@ -70,7 +70,7 @@ def split(
     string: String, split: String, /, max: Int = -2
 ) -> _SplitIter[False, __lifetime_of(string)]:
     """Iterate over string slice references. Splits at most `max` times."""
-    return _SplitIter(string.as_bytes_slice(), split, max, False)
+    return _SplitIter(string.as_bytes_span(), split, max, False)
 
 
 def lines(string: String) -> _SplitIter[False, __lifetime_of(string)]:
@@ -180,7 +180,7 @@ struct BPETokenizer:
         model = BPETokenizer()
 
         for line in lines(data):
-            if not len(line.as_bytes_slice()):
+            if not len(line.as_bytes_span()):
                 continue
             splt = split(line, " ", 1)
             token = b64decode(splt.__next__())
@@ -216,7 +216,7 @@ struct BPETokenizer:
         """
 
         var model = BPETokenizer()
-        span = data.as_bytes_slice()
+        span = data.as_bytes_span()
 
         _max_token_len = read[Int32](span)
         while len(span):
