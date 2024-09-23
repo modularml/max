@@ -85,7 +85,7 @@ struct WeightedSampler(TokenSampler):
                 reduce_max[1](aligned_length, length),
             )
 
-            _ = logits
+            _ = logits^
 
             @always_inline
             @parameter
