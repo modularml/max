@@ -310,12 +310,13 @@ class Llama3:
             # Add back to dictionary
             if not context.is_done(self._tokenizer.eos_token_id):
                 res[request_id] = decoded_token
+            elif self.params.use_opaque:
+                self._kv_manager.release(context.cache_seq_id)
+
         return res
 
     def _reset_cache(self):
         if not self.params.use_opaque:
-            # TODO: This feels really contrived, but it's because our KV
-            # cache setup just doesn't meaningfully support batch size > 1 yet.
             self._kv_cache.sequence_length = 0
 
     # TODO(MSDK-979): We may not need this if we can figure out how to leverage
