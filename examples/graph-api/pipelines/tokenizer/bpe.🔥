@@ -26,7 +26,7 @@ from .max_heap import MinHeap, OrderedElement
 
 # TODO(MSTDL-590): upstream split/lines into stdlib
 @value
-struct _SplitIter[is_mutable: Bool, lifetime: AnyLifetime[is_mutable].type]:
+struct _SplitIter[is_mutable: Bool, lifetime: Lifetime[is_mutable].type]:
     """Iterator over splits of a string. Returns string slices, preventing
     allocating a new String for each slice of the original string, and
     allows specifing a maximum number of splits."""
