@@ -31,13 +31,14 @@ def generate_attention_mask(
 ) -> TensorValue:
     """Computes Attention mask."""
     batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
+    # TODO(KERN-782): This should be -inf but softmax saturates with NaNs.
     fill_val = -10000.0
     mask_val = ops.broadcast_to(
         ops.constant(fill_val, activation_dtype),
         shape=[batch, n_heads, seq_len, seq_len],
     )
 
-    # Create a lower triangular matrix filled with -inf.
+    # Create a lower triangular matrix filled with -10000.0.
     mask = ops.band_part(mask_val, num_lower=-1, num_upper=0, exclude=True)
 
     zeros = ops.broadcast_to(
