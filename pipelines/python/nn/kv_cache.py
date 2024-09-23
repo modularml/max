@@ -165,7 +165,7 @@ class ContiguousKVCacheManager:
         # Create a graph for the fetch method.
         cache_type = TensorType(
             self.params.dtype,
-            ("start_pos", "n_layers", "batch_size", "n_kv_heads", "head_dim"),
+            self.params.static_cache_shape,
         )
         cache_lengths_type = TensorType(DType.int32, (max_batch_size,))
         seq_ids_type = TensorType(DType.int32, ("seq_len",))

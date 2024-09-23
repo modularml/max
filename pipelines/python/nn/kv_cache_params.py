@@ -70,3 +70,22 @@ class KVCacheParams:
     def dtype_shorthand(self) -> str:
         """The textual representation in shorthand of the dtype."""
         return "bf16" if self.dtype == DType.bfloat16 else "f32"
+
+    @property
+    def static_cache_shape(self) -> tuple[str, str, str, str, str]:
+        if self.layout == KVCacheLayout.BHSD:
+            return (
+                "num_layers",
+                "batch_size",
+                "n_kv_heads",
+                "seq_len",
+                "head_dim",
+            )
+        else:
+            return (
+                "num_layers",
+                "batch_size",
+                "seq_len",
+                "n_kv_heads",
+                "head_dim",
+            )
