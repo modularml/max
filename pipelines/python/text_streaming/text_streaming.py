@@ -27,31 +27,32 @@ async def stream_text_to_console(
 ):
     # Length of is_first_token and request_id_context_dict should be == batch_size.
     is_first_token: dict[str, bool] = {}
-    request_id_context_dict = dict()
+    request_id_context = dict()
 
     # TODO(MSDK-972): Make this batch_size variable based on size of the request dict.
     # NOTE: This batch_size param also needs to be == config.batch_size of
     # the underlying pipeline config.
     batch_size = max_batch_size
 
+    responses = {}
+
     # create a dict of request_id: contexts
     for _ in range(batch_size):
         # We make the key unique even for the same prompts for now.
         req_id = str(uuid.uuid4())
         context = await model.new_context(prompt)
-        request_id_context_dict[req_id] = context
+        responses[req_id] = [prompt]
+        request_id_context[req_id] = context
         is_first_token[req_id] = True
         prompt_size = len(context.tokens)
 
-        # Start with the initial prompt.
-        print(prompt, end="", flush=True)
     if metrics:
         metrics.prompt_size = prompt_size
         metrics.signpost("begin_generation")
 
     end_loop = False
     while not end_loop:
-        response = await model.next_token(request_id_context_dict)
+        response = await model.next_token(request_id_context)
         if len(response) == 0:
             break
         for key, response_text in response.items():
@@ -65,8 +66,13 @@ async def stream_text_to_console(
                     # prompts. Not sure if it messes up our metrics though.
                     metrics.signpost("first_token")
                 metrics.new_token()
-            # TODO(MSDK-974): Clean up console prints (row vs. col order) when batch_size > 1.
-            print(response_text, end="", flush=True)
+            responses[key].append(response_text)
     if metrics:
         metrics.signpost("end_generation")
+
+    # Print prompt + response for each unique prompt
+    for response in responses.values():
+        print("\n---\n")
+        print("".join(response), flush=True)
+
     print()
