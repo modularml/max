@@ -280,3 +280,11 @@ class ContiguousKVCacheManager:
         """
         self.available.add(seq_id)
         del self.cache_lengths[seq_id]
+
+    def reset_cache(self) -> None:
+        """Releases all existing seq_ids, to return the values to the pool."""
+        for seq_id in self.cache_lengths:
+            self.available.add(seq_id)
+
+        for seq_id in self.cache_lengths:
+            del self.cache_lengths[seq_id]
