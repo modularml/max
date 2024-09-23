@@ -184,6 +184,10 @@ class Llama3:
             session, config, self.params, gguf_reader
         )
 
+        if export_path := config.save_to_serialized_model_path:
+            print(f"Exporting serialized model to {export_path}...")
+            self._model._export_mef(export_path)
+
         if self.params.use_opaque:
             self._kv_manager = ContiguousKVCacheManager(
                 params=self._kv_params,
@@ -211,11 +215,18 @@ class Llama3:
         params: Hyperparameters,
         reader: gguf.GGUFReader,
     ) -> Model:
+        self._weights = GGUFWeights(reader)
         if serialized_path := config.serialized_model_path:
+            # Hydrate all weights to be referenced by the serialized graph.
+            weights_registry = {}
+            for name, tensor in self._weights._tensors.items():
+                weights_registry[name] = tensor.data
             print("Loading serialized model from", serialized_path, "...")
-            return session.load(serialized_path)
+            return session.load(
+                serialized_path,
+                weights_registry=weights_registry,
+            )
         else:
-            self._weights = GGUFWeights(reader)
             print("Building model...")
             graph = _llama_graph(
                 config.batch_size, params, self._weights, self._kv_params
