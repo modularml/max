@@ -25,8 +25,7 @@ async def stream_text_to_console(
     metrics: Optional[TextGenerationMetrics] = None,
     max_batch_size: int = 1,
 ):
-    # Length of is_first_token and request_id_context_dict should be == batch_size.
-    is_first_token: dict[str, bool] = {}
+    # Length of request_id_context_dict should be == batch_size.
     request_id_context = dict()
 
     # TODO(MSDK-972): Make this batch_size variable based on size of the request dict.
@@ -43,7 +42,6 @@ async def stream_text_to_console(
         context = await model.new_context(prompt)
         responses[req_id] = [prompt]
         request_id_context[req_id] = context
-        is_first_token[req_id] = True
         prompt_size = len(context.tokens)
 
     if metrics:
@@ -51,6 +49,7 @@ async def stream_text_to_console(
         metrics.signpost("begin_generation")
 
     end_loop = False
+    first_token = True
     while not end_loop:
         response = await model.next_token(request_id_context)
         if len(response) == 0:
@@ -60,10 +59,8 @@ async def stream_text_to_console(
                 end_loop = True
                 break
             if metrics:
-                if is_first_token[key]:
-                    is_first_token[key] = False
-                    # TODO(MSDK-973): This captures first tokens for all <batch size>
-                    # prompts. Not sure if it messes up our metrics though.
+                if first_token:
+                    first_token = False
                     metrics.signpost("first_token")
                 metrics.new_token()
             responses[key].append(response_text)
