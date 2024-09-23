@@ -25,14 +25,14 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
-from tokenizers import Tokenizer
-
 from nn.kv_cache import (
     ContiguousKVCacheCollectionType,
     ContiguousKVCacheManager,
     KVCache,
 )
 from nn.kv_cache_params import KVCacheParams
+from tokenizers import Tokenizer
+
 from utils import gguf_utils, tokenizer_from_gguf
 
 from .config import InferenceConfig, SupportedVersions
@@ -390,10 +390,9 @@ class Llama3:
             kv_collection,
         )
 
-        if not self.config.device.is_host:
-            batch_logits = [logits.copy_to(CPU()) for logits in batch_logits]
-
-        batch_logits = [np.from_dlpack(logits) for logits in batch_logits]
+        batch_logits = [
+            np.from_dlpack(logits.to(CPU())) for logits in batch_logits
+        ]
         self._kv_manager.step(
             valid_lengths={
                 ctx.cache_seq_id: ctx.next_tokens.shape[1]
@@ -423,14 +422,9 @@ class Llama3:
             Tensor.from_numpy(self._kv_cache.values_view(), self.config.device),
         )
 
-        if not self.config.device.is_host:
-            logits = logits.copy_to(CPU())
-            k_cache = k_cache.copy_to(CPU())
-            v_cache = v_cache.copy_to(CPU())
-
-        logits = np.from_dlpack(logits)
-        k_cache = np.from_dlpack(k_cache)
-        v_cache = np.from_dlpack(v_cache)
+        logits = np.from_dlpack(logits.to(CPU()))
+        k_cache = np.from_dlpack(k_cache.to(CPU()))
+        v_cache = np.from_dlpack(v_cache.to(CPU()))
 
         self._kv_cache.update(k_cache, v_cache)
 
