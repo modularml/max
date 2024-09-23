@@ -187,8 +187,10 @@ class ContiguousKVCacheManager:
         self.fetch_model = session.load(fetch_graph)
 
         # Initialize Block Buffer.
-        block_shape = (2, *self.cache_shape(self.max_batch_size))
-        self.blocks_buf = Tensor.zeros(block_shape, DType.bfloat16, self.device)
+        block_shape = [2] + self.cache_shape(self.max_batch_size)
+        self.blocks_buf = Tensor.zeros(
+            block_shape, dtype=self.params.dtype, device=self.device
+        )
 
     def claim(self, batch_size: int) -> List[int]:
         """Assign `batch_size` blocks for incoming requests.
