@@ -41,17 +41,17 @@ class KVCache:
     def __init__(
         self,
         max_length: int,
-        batch_size: int,
+        max_batch_size: int,
         n_layers: int,
         n_kv_heads: int,
         head_dim: int,
     ):
         self.keys = np.zeros(
-            shape=(max_length, n_layers, batch_size, n_kv_heads, head_dim),
+            shape=(max_length, n_layers, max_batch_size, n_kv_heads, head_dim),
             dtype=np.float32,
         )
         self.values = np.zeros(
-            shape=(max_length, n_layers, batch_size, n_kv_heads, head_dim),
+            shape=(max_length, n_layers, max_batch_size, n_kv_heads, head_dim),
             dtype=np.float32,
         )
         self.sequence_length = 0
@@ -64,19 +64,23 @@ class KVCache:
             f"kv-cache overflow, desired: {new_sequence_length}, "
             f"max: {self.keys.shape[0]}"
         )
-        self.keys[self.sequence_length : new_sequence_length, ...] = new_keys
+        batch_size = new_keys.shape[2]
+
+        self.keys[
+            self.sequence_length : new_sequence_length, :, :batch_size, ...
+        ] = new_keys
         self.values[
-            self.sequence_length : new_sequence_length, ...
+            self.sequence_length : new_sequence_length, :, :batch_size, ...
         ] = new_values
         self.sequence_length = new_sequence_length
 
-    def keys_view(self) -> npt.NDArray:
+    def keys_view(self, batch_size: int) -> npt.NDArray:
         """A view into the main key cache."""
-        return self.keys[0 : self.sequence_length, ...]
+        return self.keys[0 : self.sequence_length, :, :batch_size, ...]
 
-    def values_view(self) -> npt.NDArray:
+    def values_view(self, batch_size: int) -> npt.NDArray:
         """A view into the main value cache."""
-        return self.values[0 : self.sequence_length, ...]
+        return self.values[0 : self.sequence_length, :, :batch_size, ...]
 
 
 class ContiguousKVCacheType(OpaqueType):
