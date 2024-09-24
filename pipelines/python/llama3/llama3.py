@@ -239,7 +239,7 @@ class Llama3:
     def _attention_mask(self, batch_size: int, n: int):
         # TODO(MSDK-977): We shouldn't be broadcasting attn_mask across kv_heads
         # and the second copy of n here.
-        return np.ones(shape=(batch_size, self._n_heads, n, n)).astype(bool)
+        return np.full((batch_size, self._n_heads, n, n), True)
 
     async def _new_context_opaque(
         self, prompt: str, max_new_tokens: int | None = None
