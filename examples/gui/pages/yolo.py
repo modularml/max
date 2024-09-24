@@ -233,7 +233,7 @@ def video_frame_callback(frame: av.VideoFrame):
         / 255
     ).copy()
     start = time.time()
-    outputs = list(yolo.execute(images=input).values())
+    outputs = list(yolo.execute_legacy(images=input).values())
     elapsed_ms = (time.time() - start) * 1000
     result = postprocess(outputs[0], outputs[1], input, img)
     img = result.plot()

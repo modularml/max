@@ -85,7 +85,7 @@ def generate(model_path, input_ids):
         ).numpy()
 
         # Run the model with MAX engine
-        max_outputs = maxmodel.execute(**inputs)
+        max_outputs = maxmodel.execute_legacy(**inputs)
         outputs = torch.from_numpy(max_outputs["logits"])
 
         # Get the newly generated next token

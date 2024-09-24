@@ -42,7 +42,7 @@ def execute(model_path, inputs):
     print("Model compiled.\n")
 
     print("Executing model...")
-    outputs = model.execute(pixel_values=inputs["pixel_values"])
+    outputs = model.execute_legacy(pixel_values=inputs["pixel_values"])
     print("Model executed.\n")
     return outputs
 

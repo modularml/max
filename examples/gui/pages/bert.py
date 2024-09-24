@@ -117,7 +117,7 @@ if st.button("Predict Word"):
         as_tuple=True
     )[1]
 
-    outputs = model.execute(**inputs)["result0"]
+    outputs = model.execute_legacy(**inputs)["result0"]
 
     logits = torch.from_numpy(outputs[0, masked_index, :])
 
