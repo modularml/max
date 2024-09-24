@@ -118,8 +118,8 @@ class FetchContiguousKVCacheCollection:
         return ops.custom(
             op_name,
             values=[
-                key_cache,
-                value_cache,
+                key_cache,  # L, B, H, S, D: Layout Dependent (CPU vs GPU)
+                value_cache,  # L, B, H, S, D: Layout Dependent (CPU vs GPU)
                 cache_lengths,
                 seq_ids,
                 num_layers,
@@ -167,7 +167,7 @@ class ContiguousKVCacheManager:
             self.params.dtype,
             self.params.static_cache_shape,
         )
-        cache_lengths_type = TensorType(DType.int32, (max_batch_size,))
+        cache_lengths_type = TensorType(DType.int32, ("batch_size",))
         seq_ids_type = TensorType(DType.int32, ("seq_len",))
         int_scalar_type = TensorType(DType.int32, (1,))
 
@@ -187,7 +187,7 @@ class ContiguousKVCacheManager:
         self.fetch_model = session.load(fetch_graph)
 
         # Initialize Block Buffer.
-        block_shape = [2] + self.cache_shape(self.max_batch_size)
+        block_shape = self.block_shape(self.max_batch_size)
         self.blocks_buf = Tensor.zeros(
             block_shape, dtype=self.params.dtype, device=self.device
         )
@@ -211,20 +211,22 @@ class ContiguousKVCacheManager:
 
         return seq_ids
 
-    def cache_shape(self, n_sequences: int) -> list[int]:
+    def block_shape(self, n_sequences: int) -> list[int]:
         """Get the shape of the cache for a given number of sequences."""
         if self.params.layout == KVCacheLayout.BHSD:
             return [
-                self.num_layers,
+                2,
                 n_sequences,
+                self.num_layers,
                 self.params.n_kv_heads,
                 self.max_seq_len,
                 self.params.head_dim,
             ]
         else:
             return [
-                self.num_layers,
+                2,
                 n_sequences,
+                self.num_layers,
                 self.max_seq_len,
                 self.params.n_kv_heads,
                 self.params.head_dim,
@@ -235,8 +237,9 @@ class ContiguousKVCacheManager:
         """Retrieves the pre-assigned blocks for the given seq_ids."""
 
         # Grab the first n elements we need from `blocks_buf`.
-        key_cache = self.blocks_buf[0, :, 0 : len(seq_ids), :, :, :]
-        value_cache = self.blocks_buf[1, :, 0 : len(seq_ids), :, :, :]
+        # B, L, H, S, D -> L, B, H, S, D: Layout dependent
+        key_cache = self.blocks_buf[0, 0 : len(seq_ids), :, :, :, :]
+        value_cache = self.blocks_buf[1, 0 : len(seq_ids), :, :, :, :]
 
         cache_lengths = Tensor.from_numpy(
             np.array(list(self.cache_lengths.values())).astype(np.int32)
