@@ -114,10 +114,10 @@ def _llama_graph(
     if params.use_opaque:
         return _llama_graph_opaque(batch_size, params, weights, kv_params)
 
-    tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
+    tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
     attn_mask_type = TensorType(
         DType.bool,
-        shape=[batch_size, params.n_heads, "seq_len", "post_seq_len"],
+        shape=["batch_size", params.n_heads, "seq_len", "post_seq_len"],
     )
 
     cache_type = TensorType(
@@ -125,7 +125,7 @@ def _llama_graph(
         shape=[
             "start_pos",
             params.n_layers,
-            batch_size,
+            "batch_size",
             params.n_kv_heads,
             params.head_dim,
         ],
@@ -200,7 +200,7 @@ class Llama3:
         else:
             self._kv_cache = KVCache(
                 self.params.seq_len,
-                config.batch_size,
+                self.config.batch_size,
                 self.params.n_layers,
                 self.params.n_kv_heads,
                 self.params.head_dim,
@@ -356,15 +356,6 @@ class Llama3:
                 # No padding necessary
                 tensors.append(context.next_tokens)
 
-        # TODO(MSDK-982): Remove this workaround for batch-level padding once
-        # we are able to support variable number of batches
-        remaining_batches = self.config.batch_size - len(tensors)
-        if remaining_batches:
-            padded_batches = [
-                np.zeros((1, max_length), tensors[0].dtype)
-            ] * remaining_batches
-            tensors.extend(padded_batches)
-
         batched_np_tensor = np.stack(tensors)
         # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
         batched_np_tensor = batched_np_tensor.squeeze(axis=1)
@@ -422,16 +413,22 @@ class Llama3:
             req_to_context_dict
         )
 
+        batch_size = batched_np_tensor.shape[0]
+
         attn_mask = self._attention_mask(
-            batched_np_tensor.shape[0],  # batch_size
+            batch_size,
             self._kv_cache.sequence_length + max_length,
         )
 
         logits, k_cache, v_cache = self._model.execute(
             Tensor.from_numpy(batched_np_tensor, self.config.device),
             Tensor.from_numpy(attn_mask, self.config.device),
-            Tensor.from_numpy(self._kv_cache.keys_view(), self.config.device),
-            Tensor.from_numpy(self._kv_cache.values_view(), self.config.device),
+            Tensor.from_numpy(
+                self._kv_cache.keys_view(batch_size), self.config.device
+            ),
+            Tensor.from_numpy(
+                self._kv_cache.values_view(batch_size), self.config.device
+            ),
         )
 
         logits = np.from_dlpack(logits.to(CPU()))
