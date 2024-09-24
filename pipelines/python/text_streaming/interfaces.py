@@ -25,7 +25,8 @@ class TokenGenerator(Generic[Context], Protocol):
     ) -> Context:
         ...
 
-    async def next_token(
-        self, batch: dict[str, Context]
-    ) -> dict[str, str | None]:
+    async def next_token(self, batch: dict[str, Context]) -> dict[str, str]:
+        ...
+
+    async def release(self, context: Context):
         ...
