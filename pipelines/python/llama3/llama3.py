@@ -397,8 +397,8 @@ class Llama3:
 
         # Execute Model.
         batch_logits = self._model.execute(
-            Tensor.from_numpy(next_tokens, self.config.device),
-            Tensor.from_numpy(attn_mask, self.config.device),
+            Tensor.from_numpy(next_tokens).to(self.config.device),
+            Tensor.from_numpy(attn_mask).to(self.config.device),
             kv_collection,
         )
 
@@ -430,13 +430,13 @@ class Llama3:
         )
 
         logits, k_cache, v_cache = self._model.execute(
-            Tensor.from_numpy(batched_np_tensor, self.config.device),
-            Tensor.from_numpy(attn_mask, self.config.device),
-            Tensor.from_numpy(
-                self._kv_cache.keys_view(batch_size), self.config.device
+            Tensor.from_numpy(batched_np_tensor).to(self.config.device),
+            Tensor.from_numpy(attn_mask).to(self.config.device),
+            Tensor.from_numpy(self._kv_cache.keys_view(batch_size)).to(
+                self.config.device
             ),
-            Tensor.from_numpy(
-                self._kv_cache.values_view(batch_size), self.config.device
+            Tensor.from_numpy(self._kv_cache.values_view(batch_size)).to(
+                self.config.device
             ),
         )
 
