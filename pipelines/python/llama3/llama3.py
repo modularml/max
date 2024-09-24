@@ -315,6 +315,9 @@ class Llama3:
 
         return res
 
+    async def release(self, context: Llama3Context):
+        pass
+
     def _reset_cache(self):
         if not self.params.use_opaque:
             self._kv_cache.sequence_length = 0
