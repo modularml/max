@@ -205,7 +205,7 @@ class ContiguousKVCacheManager:
         """
 
         if len(self.available) < batch_size:
-            raise ValueError("batch size too large")
+            raise ValueError("no remaining slots available in kv cache")
 
         seq_ids = []
         for _ in range(batch_size):

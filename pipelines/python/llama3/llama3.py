@@ -291,7 +291,11 @@ class Llama3:
         res = {}
         if self._sessions ^ req_to_context_dict.keys():
             self._sessions = set(req_to_context_dict.keys())
-            self._reset_cache()
+            # TODO: MSDK-1020 We should not reset the cache here unilaterally
+            # as the cache here uses an independent method for _sessions
+            # management this should be fixed.
+            if not self.params.use_opaque:
+                self._reset_cache()
 
         if self.params.use_opaque:
             req_id_to_logits_dict = self._execute_opaque(req_to_context_dict)
@@ -319,7 +323,9 @@ class Llama3:
         pass
 
     def _reset_cache(self):
-        if not self.params.use_opaque:
+        if self.params.use_opaque:
+            self._kv_manager.reset_cache()
+        else:
             self._kv_cache.sequence_length = 0
 
     # TODO(MSDK-979): We may not need this if we can figure out how to leverage
