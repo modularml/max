@@ -11,10 +11,10 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from transformers import AutoImageProcessor, AutoModelForImageClassification
-from datasets import load_dataset
 import numpy as np
+from datasets import load_dataset
 from max import engine
+from transformers import AutoImageProcessor, AutoModelForImageClassification
 
 # The HuggingFace model name and exported file name
 HF_MODEL_NAME = "microsoft/resnet-50"
@@ -35,7 +35,7 @@ def main():
 
     session = engine.InferenceSession()
     model = session.load(MODEL_PATH)
-    outputs = model.execute(**inputs)
+    outputs = model.execute_legacy(**inputs)
 
     print("Output shape:", outputs["output"].shape)
 

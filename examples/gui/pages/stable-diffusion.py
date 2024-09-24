@@ -84,7 +84,7 @@ if st.button("Generate Image"):
         input_ids = np.stack((prompt_p.input_ids, prompt_n.input_ids)).astype(
             np.int32
         )
-        encoder_hidden_states = txt_encoder.execute(input_ids=input_ids)[
+        encoder_hidden_states = txt_encoder.execute_legacy(input_ids=input_ids)[
             "last_hidden_state"
         ]
 
@@ -112,7 +112,7 @@ if st.button("Generate Image"):
 
         # Execute the diffusion model with bs=2. Both batches have same primary input and
         # timestep, but the encoder_hidden_states (primary prompt vs negative) differs.
-        noise_pred = img_diffuser.execute(
+        noise_pred = img_diffuser.execute_legacy(
             sample=sample,
             encoder_hidden_states=encoder_hidden_states,
             timestep=np.array([t], dtype=np.int64),
@@ -130,7 +130,7 @@ if st.button("Generate Image"):
     # Decode finalized latent.
     with st.spinner("Decoding Image"):
         latent = latent * (1 / latent_scale_factor)
-        decoded = img_decoder.execute(latent_sample=latent)["sample"]
+        decoded = img_decoder.execute_legacy(latent_sample=latent)["sample"]
         image = np.clip(decoded / 2 + 0.5, 0, 1).squeeze()
         image = (image.transpose(1, 2, 0) * 255).astype(np.uint8)
         st.image(Image.fromarray(image, "RGB"))

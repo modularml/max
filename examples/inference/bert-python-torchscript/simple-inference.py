@@ -52,7 +52,7 @@ def execute(model_path, text, input_dict):
     masked_index = (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(
         as_tuple=True
     )[1]
-    outputs = model.execute(**inputs)["result0"]
+    outputs = model.execute_legacy(**inputs)["result0"]
     logits = torch.from_numpy(outputs[0, masked_index, :])
     predicted_token_id = logits.argmax(dim=-1)
     predicted_tokens = tokenizer.decode(
