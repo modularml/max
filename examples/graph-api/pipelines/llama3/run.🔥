@@ -218,8 +218,8 @@ def _generation_loop[
             mask[0, j] = True
 
         result = compiled_model.execute(
-            tokens.move_to(execution_device),
-            mask.move_to(execution_device),
+            tokens^.move_to(execution_device),
+            mask^.move_to(execution_device),
             AnyMojoValue(kv_collection^),
         )
 
@@ -370,7 +370,7 @@ def generate_text_naive(
         kv_cache.update(results[1].take(), results[2].take())
 
         logits = results[0].take().to_device_tensor()
-        logits = logits.move_to(host_device)
+        logits = logits^.move_to(host_device)
         logits_tensor = logits^.to_tensor[DType.float32, rank=2]()
         token = Int64(sampler.sample(logits_tensor^).selected)
 

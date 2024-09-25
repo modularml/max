@@ -88,7 +88,7 @@ struct KVCache:
             self.keys.unsafe_ptr(),
             self._offset(self.sequence_length),
         )
-        return keys_copy.move_to(device)
+        return keys_copy^.move_to(device)
 
     def values_view(self, device: Device) -> DeviceTensor:
         """Copies the values tensor from the cache for use in the model."""
@@ -101,7 +101,7 @@ struct KVCache:
             self.values.unsafe_ptr(),
             self._offset(self.sequence_length),
         )
-        return values_copy.move_to(device)
+        return values_copy^.move_to(device)
 
     def _spec(self, seq_len: Int) -> TensorSpec:
         """The shape of a key or value tensor of a given sequence length."""

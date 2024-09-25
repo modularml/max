@@ -212,8 +212,8 @@ def _generate_q_text_with_tokenizer[
         kv_cache.update(results[1].take(), results[2].take())
 
         logits = results[0].take().to_device_tensor()
-        logits = logits.move_to(host_device)
-        logits_tensor = logits.to_tensor[DType.float32, rank=2]()
+        logits = logits^.move_to(host_device)
+        logits_tensor = logits^.to_tensor[DType.float32, rank=2]()
         token = Int64(sampler.sample(logits_tensor^).selected)
 
         tokens = Tensor[DType.int64, rank=2](TensorShape(1, 1), host_device)
@@ -306,8 +306,8 @@ def _generate_text_with_tokenizer[
             mask[0, j] = True
 
         result = compiled_model.execute(
-            tokens.move_to(execution_device),
-            mask.move_to(execution_device),
+            tokens^.move_to(execution_device),
+            mask^.move_to(execution_device),
             AnyMojoValue(kv_collection^),
         )
 
