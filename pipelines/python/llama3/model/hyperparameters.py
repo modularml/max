@@ -52,6 +52,9 @@ class Hyperparameters:
     feed_forward_length: int = 500
     """Dimensions in the attention projection layers."""
 
+    force_naive_kv_cache: bool = False
+    """Force using the naive KV cache even for configs supporting the opaque KV cache."""
+
     @property
     def head_dim(self):
         """Dimension of each head."""
@@ -65,6 +68,8 @@ class Hyperparameters:
     @property
     def use_opaque(self):
         """Boolean to use opaque kv caching optimizations."""
-        return self.quantization_encoding is None and (
-            "TMP_USE_OPAQUE" in os.environ
+        return (
+            self.quantization_encoding is None
+            and "TMP_USE_OPAQUE" in os.environ
+            and not self.force_naive_kv_cache
         )

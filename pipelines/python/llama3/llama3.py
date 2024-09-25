@@ -145,6 +145,7 @@ class Llama3:
     config: InferenceConfig
     _model: Model
     _kv_cache: KVCache
+    _kv_manager: ContiguousKVCacheManager
     _sessions: set[str]
     _kv_params: KVCacheParams
     _tokenizer: Tokenizer
@@ -517,5 +518,6 @@ def _read_hyperparameters(
         quantization_encoding=config.quantization_encoding.quantization_encoding,
         feed_forward_length=feed_forward_length,
         seq_len=seq_len,
+        force_naive_kv_cache=config.force_naive_kv_cache,
         **configured_params,
     )
