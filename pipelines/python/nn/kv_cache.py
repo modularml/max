@@ -293,5 +293,4 @@ class ContiguousKVCacheManager:
         for seq_id in self.cache_lengths:
             self.available.add(seq_id)
 
-        for seq_id in self.cache_lengths:
-            del self.cache_lengths[seq_id]
+        self.cache_lengths.clear()
