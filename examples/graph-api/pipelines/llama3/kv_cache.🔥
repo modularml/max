@@ -54,8 +54,8 @@ struct KVCache:
     def update(inout self, owned keys: AnyMemory, owned values: AnyMemory):
         """Updates the KV Cache with data from new tokens."""
         cpu_device = self.keys.device()
-        keys_tensor = keys.to_device_tensor().move_to(cpu_device)
-        values_tensor = values.to_device_tensor().move_to(cpu_device)
+        keys_tensor = keys^.to_device_tensor().move_to(cpu_device)
+        values_tensor = values^.to_device_tensor().move_to(cpu_device)
 
         seqlen = keys_tensor.spec.bytecount() // self._offset(1)
         # This is doing the equivalent of
