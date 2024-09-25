@@ -38,13 +38,18 @@ except ImportError:
 
 
 async def serve_token_generator(
-    model: TokenGenerator, tokenizer: AutoTokenizer, profile=False
+    model: TokenGenerator,
+    tokenizer: AutoTokenizer,
+    max_batch_size: int = 1,
+    profile=False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
     settings = Settings(api_types=[APIType.OPENAI])
     debug_settings = DebugSettings(profiling_enabled=profile)
 
-    pipeline = TokenGeneratorPipeline[llama3.Llama3Context](model, tokenizer)
+    pipeline = TokenGeneratorPipeline[llama3.Llama3Context](
+        model, tokenizer, max_batch_size
+    )
     pipelines = [pipeline]
 
     app = fastapi_app(settings, debug_settings, pipelines)
@@ -139,7 +144,11 @@ def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
         print("Starting server...")
         model = llama3.Llama3(config)
         tokenizer = AutoTokenizer.from_pretrained(repo_id)
-        asyncio.run(serve_token_generator(model, tokenizer, profile_serve))
+        asyncio.run(
+            serve_token_generator(
+                model, tokenizer, config.batch_size, profile_serve
+            )
+        )
     else:
         with TextGenerationMetrics(print_report=True) as metrics:
             model = llama3.Llama3(config)
