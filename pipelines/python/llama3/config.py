@@ -126,6 +126,9 @@ class InferenceConfig:
     batch_size: int = 1
     """Batch size of inputs to the model."""
 
+    force_naive_kv_cache: bool = False
+    """Force using the naive KV cache even for configs supporting the opaque KV cache."""
+
     @staticmethod
     def help():
         return {
@@ -153,4 +156,5 @@ class InferenceConfig:
                 " include the input tokens)."
             ),
             "batch_size": "Batch size of inputs to the model.",
+            "force_naive_kv_cache": "If set, force using the naive KV cache.",
         }
