@@ -400,11 +400,11 @@ class Llama3:
             Tensor.from_numpy(next_tokens).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
             kv_collection,
-        )
+        )[0]
 
-        batch_logits = [
-            np.from_dlpack(logits.to(CPU())) for logits in batch_logits
-        ]
+        # Copy logits from device to host.
+        batch_logits = np.from_dlpack(batch_logits.to(CPU()))
+
         self._kv_manager.step(
             valid_lengths={
                 ctx.cache_seq_id: ctx.next_tokens.shape[1]
