@@ -245,12 +245,13 @@ class ContiguousKVCacheManager:
         key_cache = self.blocks_buf[0, 0 : len(seq_ids), :, :, :, :]
         value_cache = self.blocks_buf[1, 0 : len(seq_ids), :, :, :, :]
 
-        cache_lengths = Tensor.from_numpy(
-            np.array(list(self.cache_lengths.values())).astype(np.int32)
-        )
-        seq_ids_tensor = Tensor.from_numpy(np.array(seq_ids).astype(np.int32))
+        seq_ids_tensor = Tensor.zeros((len(seq_ids),), DType.int32)
+        cache_lengths = Tensor.zeros((len(seq_ids),), DType.int32)
+        for i, seq_id in enumerate(seq_ids):
+            seq_ids_tensor[i] = seq_id
+            cache_lengths[i] = self.cache_lengths[seq_id]
 
-        # Call construct_kv_cache_collection
+        # Call construct_kv_cache_collection.
         # Construct the KV cache collection by executing the fetch model.
         # `key_cache` and `value_cache` should be on the execution device.
         # All other arguments should be on the host.
@@ -271,12 +272,6 @@ class ContiguousKVCacheManager:
         the values in these buffers have been written to. We note the new tokens
         in the blocks and update the valid_length counter.
         """
-
-        if len(valid_lengths) != len(self.cache_lengths):
-            raise ValueError(
-                "Invalid valid_lengths passed, expected to match requests batch"
-                " size."
-            )
 
         for k, v in valid_lengths.items():
             self.cache_lengths[k] += v
