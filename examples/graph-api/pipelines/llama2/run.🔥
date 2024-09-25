@@ -201,7 +201,7 @@ def _generate_q_text_with_tokenizer[
     )
     for i in range(padded_size, max_tokens + 1):
         results = compiled_model.execute(
-            tokens.to_device_tensor().move_to(execution_device),
+            tokens^.to_device_tensor().move_to(execution_device),
             _get_attention_mask(prompt_attn_mask, i, host_device)
             .to_device_tensor()
             .move_to(execution_device),

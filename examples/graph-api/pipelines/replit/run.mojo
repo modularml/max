@@ -412,11 +412,11 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
             .take()
             .to[ContiguousKVCacheCollection[dtype, kv_params]]()
         )
-        logits = output.to_device_tensor()
+        logits = output^.to_device_tensor()
         if self._run_on_gpu:
             logits = logits.copy_to(self._cpu_device)
         var token: Int64 = sampler._sample(
-            logits.to_tensor[dtype, 2]()
+            logits^.to_tensor[dtype, 2]()
         ).selected
         if self._tokenizer.is_end_of_text(token):
             self._is_end_of_text = True
