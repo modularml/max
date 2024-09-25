@@ -16,7 +16,7 @@ from typing import Optional
 
 from utils import TextGenerationMetrics
 
-from .interfaces import TokenGenerator
+from max.pipelines import TokenGenerator
 
 
 async def stream_text_to_console(

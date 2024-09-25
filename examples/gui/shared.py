@@ -11,11 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-
-import sys
-
-sys.path.append("pipelines")
-
 import os
 import threading
 import time
@@ -34,8 +29,8 @@ from streamlit.runtime.scriptrunner import (
     add_script_run_ctx,
     get_script_run_ctx,
 )
-from text_streaming.interfaces import TokenGenerator
 from tqdm.auto import tqdm
+from max.pipelines import TokenGenerator
 
 RAG_SYSTEM_PROMPT = """You are a helpful document search assistant.
 Your task is to find an answer to user's query about their given documentation.
