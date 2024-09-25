@@ -111,6 +111,8 @@ pipeline:
 - `--quantization-encoding`: The encoding to use for a datatype that can be
   quantized to a low bits per weight format. The options for quantized formats
   will download and cache default weights, but `float32` requires the use of
+- `--save-to-serialized-model-path`: If specified, writes the serialized model
+  to this path.
 - `--serialized-model-path`: If specified, tries to load a serialized model
   from this path.
 - `--version`: Selects which version in the Llama 3 family to use.
@@ -118,3 +120,5 @@ pipeline:
   (Default value: `3.1`)
 - `--weight-path`: Overrides the default URL, and allows for an
   already-downloaded pretrained weight file to be used with the model.
+- `--batch-size`: Specifies the maximum batch size to be used. Default is 1.
+- `--use-gpu`: Uses the gpu to execute the model.
