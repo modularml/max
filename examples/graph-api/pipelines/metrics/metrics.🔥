@@ -14,7 +14,7 @@
 
 from collections import List, Optional
 from python import Python
-from time import now
+from time import monotonic
 from runtime.tracing import Trace, TraceLevel
 
 
@@ -58,7 +58,7 @@ struct Metrics:
 
     def begin_timing_startup(inout self):
         """Begins measurement of the pipeline startup time."""
-        self.start_startup = now()
+        self.start_startup = monotonic()
         self.traces.append(
             Trace[TraceLevel.OP]("startup", parent_id=self.traces[0].event_id)
         )
@@ -66,41 +66,41 @@ struct Metrics:
 
     def end_timing_startup(inout self):
         """Ends measurement of the pipeline startup time."""
-        self.end_startup = now()
+        self.end_startup = monotonic()
         self.traces[-1].end()
         _ = self.traces.pop()
 
     def begin_timing_prompt(inout self):
         """Begins timing from before prompt processing."""
-        self.start_time_before_prompt = now()
+        self.start_time_before_prompt = monotonic()
 
     def begin_timing_warmup(inout self):
         """Begins timing from before an optional warmup run."""
         if not self.start_startup or self.end_startup:
             raise "Error: Warmup should be included within startup time"
-        self.start_time_before_warmup = now()
+        self.start_time_before_warmup = monotonic()
 
     def end_timing_warmup(inout self):
         """Ends measurement of an optional warmup run."""
         if not self.start_startup or self.end_startup:
             raise "Error: Warmup should be included within startup time"
-        self.end_warmup = now()
+        self.end_warmup = monotonic()
 
     def begin_timing_tokenization(inout self):
         """Begins timing from before tokenization."""
         if not self.start_time_before_prompt or self.start_time_before_context:
             raise "Error: Tokenization should be included within TTFT"
-        self.start_time_before_tokenization = now()
+        self.start_time_before_tokenization = monotonic()
 
     def end_timing_tokenization(inout self):
         """Ends measurement of tokenization."""
         if not self.start_time_before_prompt or self.start_time_before_context:
             raise "Error: Tokenization should be included within TTFT"
-        self.end_tokenization = now()
+        self.end_tokenization = monotonic()
 
     def begin_timing_generation(inout self):
         """Begins timing from the first generated token."""
-        self.start_time_before_generation = now()
+        self.start_time_before_generation = monotonic()
         self.traces.append(
             Trace[TraceLevel.OP](
                 "generate",
@@ -115,7 +115,7 @@ struct Metrics:
         if not self.start_time_before_context:
             # If this is the first token, store the current time for reporting
             # the time-to-first-token.
-            self.start_time_before_context = now()
+            self.start_time_before_context = monotonic()
         else:
             # The first token is not included in the total tokens generated
             # (for computing eval throughput), because the rest of the tokens
@@ -135,7 +135,7 @@ struct Metrics:
 
     def end_timing(inout self):
         """Ends timing token generation."""
-        self.end_time = now()
+        self.end_time = monotonic()
         for trace in self.traces:
             trace[].end()
 

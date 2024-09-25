@@ -17,7 +17,7 @@ from pathlib import cwd, Path
 from utils import StaticIntTuple
 import sys
 from os import setenv
-from time import now
+from time import monotonic
 
 from max.engine import InferenceSession, Model
 from max.graph.quantization import (
@@ -107,9 +107,9 @@ struct Config:
         model_path = _model_path[Path]
         if not model_path:
             print("Downloading weights...", end="")
-            start_time = now()
+            start_time = monotonic()
             model_path = download_replit(raw_type)
-            print("done. Took", (now() - start_time) / 1e9, "seconds.")
+            print("done. Took", (monotonic() - start_time) / 1e9, "seconds.")
             print("Using checkpoint at", model_path)
             self.config["model-path"] = model_path
         if not model_path.exists():
@@ -240,7 +240,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         # Compile and load the graph, which generates the MLIR and runs
         # optimization passes on it.
         print("Compiling...", end="")
-        start_time = now()
+        start_time = monotonic()
         store_mef = True
         # mef_use_or_gen_path specifies the path that should be used to load
         # the model if it exists, otherwise the model will be built and then
@@ -253,7 +253,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
             store_mef = False
         else:
             print(", building model...", end="")
-            start_time = now()
+            start_time = monotonic()
             var _replit = Replit[GGUFFile, dtype, kv_params](get_default())
             num_blocks = _replit.hyperparams.num_blocks
             model = GGUFFile(model_path)
@@ -261,7 +261,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
                 model,
                 "replit",
             )
-            print("done. Took", (now() - start_time) / 1e9, "seconds.")
+            print("done. Took", (monotonic() - start_time) / 1e9, "seconds.")
             self._model = self._session.load(
                 g,
             )
@@ -270,7 +270,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         if mef_use_or_gen_path != "" and store_mef:
             print("Writing mef to ", mef_use_or_gen_path)
             self._model.export_compiled_model(mef_use_or_gen_path)
-        print("done. Took", (now() - start_time) / 1e9, "seconds.")
+        print("done. Took", (monotonic() - start_time) / 1e9, "seconds.")
 
         # Set up tokenizer.
         self._tokenizer = AutoTokenizer("replit/replit-code-v1_5-3b")
