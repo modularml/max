@@ -237,18 +237,32 @@ class Llama3:
         # and the second copy of n here.
         return np.full((batch_size, self._n_heads, n, n), True)
 
+    def _encode(self, prompt: str) -> list[int]:
+        # Encodes a prompt using the tokenizer, raising a ValueError if the
+        # prompt exceeds the configured maximum length.
+        encoded_prompt = self._tokenizer.encode(prompt)
+        if len(encoded_prompt) >= self.config.max_length:
+            msg = (
+                f"Prompt length of {len(encoded_prompt)} is greater or equal to"
+                " configured max model context length of"
+                f" {self.config.max_length}."
+            )
+            raise ValueError(msg)
+
+        return encoded_prompt
+
     async def _new_context_opaque(
         self, prompt: str, max_new_tokens: int | None = None
     ) -> Llama3Context:
-        encoded_prompt = self._tokenizer.encode(prompt)
-        prompt_size = len(encoded_prompt)
+        encoded_prompt = self._encode(prompt)
+
         max_tokens_to_generate = _max_tokens_to_generate(
-            prompt_size, self.config, max_new_tokens
+            len(encoded_prompt), self.config, max_new_tokens
         )
         seq_id = self._kv_manager.claim(batch_size=1)[0]
         context = Llama3Context(
             prompt=prompt,
-            max_tokens=prompt_size + max_tokens_to_generate,
+            max_tokens=len(encoded_prompt) + max_tokens_to_generate,
             cache_seq_id=seq_id,
         )
 
@@ -261,20 +275,14 @@ class Llama3:
         if self.params.use_opaque:
             return await self._new_context_opaque(prompt, max_new_tokens)
 
-        encoded_prompt = self._tokenizer.encode(prompt)
-        prompt_size = len(encoded_prompt)
-        if prompt_size >= self.config.max_length:
-            raise ValueError(
-                f"Prompt length of {prompt_size} is greater or equal to"
-                " configured max model context length of"
-                f" {self.config.max_length}."
-            )
+        encoded_prompt = self._encode(prompt)
 
         max_tokens_to_generate = _max_tokens_to_generate(
-            prompt_size, self.config, max_new_tokens
+            len(encoded_prompt), self.config, max_new_tokens
         )
         context = Llama3Context(
-            prompt=prompt, max_tokens=prompt_size + max_tokens_to_generate
+            prompt=prompt,
+            max_tokens=len(encoded_prompt) + max_tokens_to_generate,
         )
         context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
         return context
