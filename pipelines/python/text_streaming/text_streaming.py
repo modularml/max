@@ -32,7 +32,8 @@ async def stream_text_to_console(
     # NOTE: This batch_size param also needs to be == config.batch_size of
     # the underlying pipeline config.
     batch_size = max_batch_size
-
+    # Special case UX to see response print as generated when batch_size == 1
+    print_as_generated = batch_size == 1
     responses = {}
 
     # create a dict of request_id: contexts
@@ -47,6 +48,9 @@ async def stream_text_to_console(
     if metrics:
         metrics.prompt_size = prompt_size
         metrics.signpost("begin_generation")
+
+    if print_as_generated:
+        print(prompt, end="", flush=True)
 
     end_loop = False
     first_token = True
@@ -63,13 +67,17 @@ async def stream_text_to_console(
                     first_token = False
                     metrics.signpost("first_token")
                 metrics.new_token()
-            responses[key].append(response_text)
+            if print_as_generated:
+                print(response_text, end="", flush=True)
+            else:
+                responses[key].append(response_text)
     if metrics:
         metrics.signpost("end_generation")
 
     # Print prompt + response for each unique prompt
-    for response in responses.values():
-        print("\n---\n")
-        print("".join(response), flush=True)
+    if not print_as_generated:
+        for response in responses.values():
+            print("\n---\n")
+            print("".join(response), flush=True)
 
     print()
