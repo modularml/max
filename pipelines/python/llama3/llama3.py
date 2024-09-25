@@ -293,10 +293,7 @@ class Llama3:
             if not self.params.use_opaque:
                 self._reset_cache()
 
-        if self.params.use_opaque:
-            req_id_to_logits_dict = self._execute_opaque(req_to_context_dict)
-        else:
-            req_id_to_logits_dict, _, _ = self._execute(req_to_context_dict)
+        req_id_to_logits_dict = self._execute(req_to_context_dict)
 
         for request_id, context in req_to_context_dict.items():
             # TODO: Add a weighted sampler here.
@@ -413,8 +410,11 @@ class Llama3:
 
     def _execute(
         self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> Tuple[dict[str, np.ndarray], ...]:
+    ) -> dict[str, np.ndarray]:
         """Executes the model and returns the raw results."""
+        if self.params.use_opaque:
+            return self._execute_opaque(req_to_context_dict)
+
         batched_np_tensor, max_length = self._batch_tensors_with_padding(
             req_to_context_dict
         )
@@ -444,19 +444,14 @@ class Llama3:
         self._kv_cache.update(k_cache, v_cache)
 
         logits_to_return = {}
-        k_cache_to_return = {}
-        v_cache_to_return = {}
 
         # Since req_to_context_dict dict is ordered as it was passed in from the
-        # input, we just iterate over the req_ids in that order and assign logits that
-        # way.
-        curr_index = 0
-        for req_id in req_to_context_dict.keys():
+        # input, we just iterate over the req_ids in that order and assign
+        # logits that way.
+        for curr_index, req_id in enumerate(req_to_context_dict):
             logits_to_return[req_id] = logits[curr_index]
-            k_cache_to_return[req_id] = k_cache
-            v_cache_to_return[req_id] = v_cache
-            curr_index += 1
-        return logits_to_return, k_cache_to_return, v_cache_to_return
+
+        return logits_to_return
 
 
 def _max_tokens_to_generate(
