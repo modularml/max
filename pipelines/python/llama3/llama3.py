@@ -83,15 +83,14 @@ class Llama3Context:
 
 
 def _llama_graph_opaque(
-    batch_size: int,
     params: Hyperparameters,
     weights: GGUFWeights,
     kv_params: KVCacheParams,
 ) -> Graph:
-    tokens_type = TensorType(DType.int64, shape=[batch_size, "seq_len"])
+    tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
     attn_mask_type = TensorType(
         DType.bool,
-        shape=[batch_size, params.n_heads, "seq_len", "post_seq_len"],
+        shape=["batch_size", params.n_heads, "seq_len", "post_seq_len"],
     )
     cache_type = ContiguousKVCacheCollectionType()
 
@@ -106,13 +105,12 @@ def _llama_graph_opaque(
 
 
 def _llama_graph(
-    batch_size: int,
     params: Hyperparameters,
     weights: GGUFWeights,
     kv_params: KVCacheParams,
 ) -> Graph:
     if params.use_opaque:
-        return _llama_graph_opaque(batch_size, params, weights, kv_params)
+        return _llama_graph_opaque(params, weights, kv_params)
 
     tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
     attn_mask_type = TensorType(
@@ -228,9 +226,7 @@ class Llama3:
             )
         else:
             print("Building model...")
-            graph = _llama_graph(
-                config.batch_size, params, self._weights, self._kv_params
-            )
+            graph = _llama_graph(params, self._weights, self._kv_params)
             print("Compiling...")
             return session.load(
                 graph, weights_registry=self._weights.allocated_weights
@@ -337,7 +333,8 @@ class Llama3:
         direction: PaddingDirection = PaddingDirection.LEFT,
         pad_token: int = 0,
     ) -> tuple[np.ndarray, int]:
-        """Generates a fixed length padded batch tensor, provided a batch of Llama3Context.
+        """
+        Generates a fixed length padded batch tensor, provided a batch of Llama3Context.
         """
 
         # Calculate Max Length to Batch
