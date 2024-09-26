@@ -17,9 +17,11 @@ from dataclasses import dataclass
 
 from max.graph import TensorValue, ValueLike, Weight, ops
 
+from .layer import Layer
+
 
 @dataclass
-class Linear:
+class Linear(Layer):
     """A fully connected layer."""
 
     weight: ValueLike
@@ -35,7 +37,7 @@ class Linear:
 
 
 @dataclass
-class MLP:
+class MLP(Layer):
     """
     Simple multi-layer perceptron composed of three linear layers.
     Uses SiLU activation function.

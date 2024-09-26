@@ -17,9 +17,11 @@ from dataclasses import dataclass
 
 from max.graph import TensorType, TensorValue, ValueLike, ops
 
+from .layer import Layer
+
 
 @dataclass
-class RMSNorm:
+class RMSNorm(Layer):
     weight: ValueLike
     eps: float = 1e-6
 

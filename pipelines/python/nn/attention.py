@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import DimLike, TensorValue, ValueLike, ops
 
+from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import RotaryEmbedding
 
@@ -69,7 +70,7 @@ def generate_attention_mask(
 
 
 @dataclass
-class Attention:
+class Attention(Layer):
     n_heads: int
     n_kv_heads: int
     head_dim: int

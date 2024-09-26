@@ -20,9 +20,11 @@ import numpy as np
 from max.dtype import DType
 from max.graph import DimLike, TensorValue, ValueLike, ops
 
+from .layer import Layer
+
 
 @dataclass
-class RotaryEmbedding:
+class RotaryEmbedding(Layer):
     """
     RotaryEmbedding layer to calculate and apply the frequency tensor for complex exponentials.
     """
