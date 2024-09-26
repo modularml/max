@@ -15,9 +15,11 @@ from dataclasses import dataclass
 
 from max.graph import TensorValue, ValueLike, Weight, ops
 
+from .layer import Layer
+
 
 @dataclass
-class Embedding:
+class Embedding(Layer):
     weights: ValueLike
 
     def __call__(self, indices: ValueLike) -> TensorValue:

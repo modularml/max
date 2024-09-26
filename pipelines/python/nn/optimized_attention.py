@@ -25,6 +25,7 @@ from .kernels import (
     fused_qkv_matmul,
 )
 from .kv_cache_params import KVCacheLayout, KVCacheParams
+from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
 
@@ -79,7 +80,7 @@ def _dim_to_scalar(dim: Dim) -> TensorValue:
 
 
 @dataclass
-class OptimizedAttention:
+class OptimizedAttention(Layer):
     n_heads: int
     kv_params: KVCacheParams
 

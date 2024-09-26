@@ -27,6 +27,7 @@ from .kernels import (
     kv_cache_length,
     value_cache_for_layer,
 )
+from .layer import Layer
 
 if TYPE_CHECKING:
     from .attention import Attention
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class TransformerBlock:
+class TransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
     attention: Attention | OptimizedAttention
@@ -63,7 +64,7 @@ class TransformerBlock:
 
 
 @dataclass
-class Transformer:
+class Transformer(Layer):
     """Transformer model consisting of TransformerBlock layers."""
 
     dim: int
@@ -102,7 +103,7 @@ class Transformer:
 
 
 @dataclass
-class OptimizedTransformerBlock:
+class OptimizedTransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
     attention: Attention | OptimizedAttention
@@ -129,7 +130,7 @@ class OptimizedTransformerBlock:
 
 
 @dataclass
-class OptimizedTransformer:
+class OptimizedTransformer(Layer):
     """Transformer model consisting of OptimizedTransformerBlock layers."""
 
     dim: int
