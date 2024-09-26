@@ -112,6 +112,7 @@ class FetchContiguousKVCacheCollection:
         key_cache: TensorValue,
         value_cache: TensorValue,
         cache_lengths: TensorValue,
+        is_cache_empty: TensorValue,
         seq_ids: TensorValue,
         num_layers: TensorValue,
         batch_size: TensorValue,
@@ -125,6 +126,7 @@ class FetchContiguousKVCacheCollection:
                 key_cache,  # L, B, H, S, D: Layout Dependent (CPU vs GPU)
                 value_cache,  # L, B, H, S, D: Layout Dependent (CPU vs GPU)
                 cache_lengths,
+                is_cache_empty,
                 seq_ids,
                 num_layers,
                 batch_size,
@@ -174,7 +176,7 @@ class ContiguousKVCacheManager:
         cache_lengths_type = TensorType(DType.int32, ("batch_size",))
         seq_ids_type = TensorType(DType.int32, ("seq_len",))
         int_scalar_type = TensorType(DType.int32, (1,))
-
+        is_cache_empty_type = TensorType(DType.bool, (1,))
         fetch_graph = Graph(
             "fetch_kv_collection",
             FetchContiguousKVCacheCollection(self.params),
@@ -182,6 +184,7 @@ class ContiguousKVCacheManager:
                 cache_type,
                 cache_type,
                 cache_lengths_type,
+                is_cache_empty_type,
                 seq_ids_type,
                 int_scalar_type,
                 int_scalar_type,
@@ -247,9 +250,16 @@ class ContiguousKVCacheManager:
 
         seq_ids_tensor = Tensor.zeros((len(seq_ids),), DType.int32)
         cache_lengths = Tensor.zeros((len(seq_ids),), DType.int32)
+        is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
             seq_ids_tensor[i] = seq_id
-            cache_lengths[i] = self.cache_lengths[seq_id]
+            cache_len = self.cache_lengths[seq_id]
+            cache_lengths[i] = cache_len
+            if cache_len != 0:
+                is_cache_empty = False
+
+        is_cache_empty_tensor = Tensor.zeros((1,), DType.bool)
+        is_cache_empty_tensor[0] = is_cache_empty
 
         # Call construct_kv_cache_collection.
         # Construct the KV cache collection by executing the fetch model.
@@ -259,6 +269,7 @@ class ContiguousKVCacheManager:
             key_cache,
             value_cache,
             cache_lengths,
+            is_cache_empty_tensor,
             seq_ids_tensor,
             np.array([self.num_layers]).astype(np.int32),
             np.array([len(seq_ids)]).astype(np.int32),
