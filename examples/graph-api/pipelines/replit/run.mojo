@@ -425,7 +425,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
 
         next_token_tensor = Tensor[DType.int64, 2]((1, 1), self._cpu_device)
         next_token_tensor[0, 0] = token
-        self._set_next_token_tensor(next_token_tensor)
+        self._set_next_token_tensor(next_token_tensor^)
 
         # TODO just pass in valid lengths, not token NDBuffer
         # RUNP-292

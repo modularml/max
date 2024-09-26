@@ -73,8 +73,6 @@ struct KVCache:
             values_tensor.unsafe_ptr(),
             update_size,
         )
-        _ = keys_tensor
-        _ = values_tensor
         self.sequence_length += seqlen
 
     def keys_view(self, device: Device) -> DeviceTensor:

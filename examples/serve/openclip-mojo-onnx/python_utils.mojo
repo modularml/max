@@ -64,7 +64,6 @@ fn tensor_to_numpy[
 ](tensor: Tensor[type], np: PythonObject) raises -> PythonObject:
     var shape = shape_to_python_list(tensor.shape())
     var tensor_as_numpy = np.zeros(shape, get_np_dtype[type](np))
-    _ = shape^
     memcpy_to_numpy(tensor_as_numpy, tensor)
     return tensor_as_numpy^
 
