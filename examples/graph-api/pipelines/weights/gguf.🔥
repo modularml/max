@@ -630,10 +630,7 @@ struct GGUFReader:
         var bytes_tensor: Tensor[DType.uint8] = self.read_bytes(
             sizeof[Scalar[type]]()
         )
-        var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
-        _ = bytes_tensor^
-
-        return result
+        return bytes_tensor.unsafe_ptr().bitcast[type]().load()
 
     @always_inline
     fn gguf_string(inout self) raises -> GGUFString:
@@ -649,8 +646,6 @@ struct GGUFReader:
                 sizeof[Scalar[type]]()
             )
             var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
-            _ = bytes_tensor^
-
             return GGUFValue.from_dtype[type](result)
 
         @always_inline
