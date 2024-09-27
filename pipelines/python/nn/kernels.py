@@ -60,6 +60,7 @@ def flash_attention(
     k_cache: ContiguousKVCache,
     v_cache: ContiguousKVCache,
     attn_mask: TensorValue,
+    valid_lengths: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache."""
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
@@ -67,7 +68,7 @@ def flash_attention(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, k_cache, v_cache, attn_mask, scale],
+        [input, k_cache, v_cache, attn_mask, valid_lengths, scale],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 

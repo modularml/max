@@ -128,6 +128,7 @@ struct KVCacheOptimizedTransformerBlock[
         k_cache: Symbol,
         v_cache: Symbol,
         mask: Symbol,
+        valid_lengths: Symbol,
     ) -> Symbol:
         """Constructs the forward pass over Transformer layer.
         Args:
@@ -154,6 +155,7 @@ struct KVCacheOptimizedTransformerBlock[
             k_cache,
             v_cache,
             mask,
+            valid_lengths,
         )[0]
 
         # add residual
@@ -228,16 +230,15 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         h = self.embedding(tokens)
         seq_len = ops.shape_of(tokens)[1]
         freqs_cis = self.freqs_cis(start_pos, seq_len, tokens.shape()[1])
+
+        valid_length = ops.cast(ops.shape_of(tokens)[1], DType.uint32)
+        valid_lengths = valid_length.broadcast_to(tokens.shape()[0])
+
         for i in range(len(self.layers)):
             k_cache = key_cache_for_layer[type, kv_params](kv_cache, i)
             v_cache = value_cache_for_layer[type, kv_params](kv_cache, i)
             h = self.layers[i](
-                h,
-                start_pos,
-                freqs_cis,
-                k_cache,
-                v_cache,
-                mask,
+                h, start_pos, freqs_cis, k_cache, v_cache, mask, valid_lengths
             )
 
         return self.norm(h) @ self.output, kv_cache

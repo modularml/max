@@ -99,6 +99,7 @@ class OptimizedAttention(Layer):
         k_cache: ContiguousKVCache,
         v_cache: ContiguousKVCache,
         start_pos: TensorValue,
+        valid_lengths: TensorValue,
     ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
@@ -150,6 +151,7 @@ class OptimizedAttention(Layer):
             k_cache=k_cache,
             v_cache=v_cache,
             attn_mask=attn_mask,
+            valid_lengths=valid_lengths,
         )
 
         if self.kv_params.layout == KVCacheLayout.BHSD:

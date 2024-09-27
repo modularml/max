@@ -47,6 +47,7 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         k_cache: Symbol,
         v_cache: Symbol,
         attn_weight: Symbol,
+        valid_lengths: Symbol,
     ) -> Tuple[Symbol, Symbol, Symbol]:
         """Constructs the forward pass for this attention block.
 
@@ -88,7 +89,12 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         var output_type = xq.type()
         attn_out = ops.custom[self._kernel_names.flash_attention_kernel](
             List[Symbol](
-                xq, k_cache, v_cache, attn_weight, ops.rsqrt(head_dim)
+                xq,
+                k_cache,
+                v_cache,
+                attn_weight,
+                valid_lengths,
+                ops.rsqrt(head_dim),
             ),
             output_type,
         )

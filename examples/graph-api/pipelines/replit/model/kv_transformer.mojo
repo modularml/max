@@ -179,6 +179,7 @@ struct KVCacheOptimizedTransformerBlock[
         k_cache: Symbol,
         v_cache: Symbol,
         attn_weight: Symbol,
+        valid_lengths: Symbol,
     ) -> Symbol:
         """Constructs the forward pass over Transformer layer.
         Args:
@@ -202,6 +203,7 @@ struct KVCacheOptimizedTransformerBlock[
             k_cache,
             v_cache,
             attn_weight,
+            valid_lengths,
         )[0]
 
         # add residual
@@ -290,6 +292,10 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         min_val = g.scalar(Scalar[type].MIN)
         attn_mask = ops.select(causal_mask, attention_bias, min_val)
 
+        # construct valid lengths TODO callout need  to make this work for differing batch sizes
+        valid_length = ops.cast(ops.shape_of(tokens)[1], DType.uint32)
+        valid_lengths = valid_length.broadcast_to(tokens.shape()[0])
+
         for i in range(len(self.layers)):
             k_cache = key_cache_for_layer[type, kv_params](kv_cache, i)
             v_cache = value_cache_for_layer[type, kv_params](kv_cache, i)
@@ -299,6 +305,7 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
                 k_cache,
                 v_cache,
                 attn_mask,
+                valid_lengths,
             )
 
         return self.output(self.norm(h)), kv_cache
