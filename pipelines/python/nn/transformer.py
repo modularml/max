@@ -118,9 +118,15 @@ class OptimizedTransformerBlock(Layer):
         k_cache: ContiguousKVCacheType | ValueLike,
         v_cache: ContiguousKVCacheType | ValueLike,
         start_pos: TensorValue,
+        valid_lengths: TensorValue,
     ) -> tuple[TensorValue, TensorValue, TensorValue]:
         attention_out, k_cache_update, v_cache_update = self.attention(
-            self.attention_norm(x), attention_mask, k_cache, v_cache, start_pos
+            self.attention_norm(x),
+            attention_mask,
+            k_cache,
+            v_cache,
+            start_pos,
+            valid_lengths,
         )
 
         h = x + attention_out
@@ -153,6 +159,10 @@ class OptimizedTransformer(Layer):
         # Plumb in the `start_pos` (previous sequence length), needed to
         # construct the attention mask.
         start_pos = kv_cache_length(self.kv_params, kv_cache_collection)
+        valid_length = ops.cast(
+            ops.shape_to_tensor((tokens.shape[1],)), DType.uint32
+        )
+        valid_lengths = ops.broadcast_to(valid_length, shape=[tokens.shape[0]])
         for i, layer in enumerate(self.layers):
             h, _, _ = layer(
                 h,
@@ -160,6 +170,7 @@ class OptimizedTransformer(Layer):
                 key_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 value_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 start_pos,
+                valid_lengths,
             )
 
         return ops.cast(self.output(self.norm(h)), DType.float32)
