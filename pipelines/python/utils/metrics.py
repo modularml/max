@@ -94,7 +94,7 @@ class TextGenerationMetrics:
 
         # Calculate TPOT & token-gen throughput
         end_generation = self._signposts.get("end_generation")
-        if end_generation and first_token:
+        if end_generation and first_token and self.output_size > 1:
             generation_time = (
                 self._signposts["end_generation"]
                 - self._signposts["first_token"]
