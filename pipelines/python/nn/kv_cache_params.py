@@ -34,6 +34,10 @@ VALID_KV_KERNELS = [
     ("bf16", 8, 128, KVCacheLayout.BSHD),
     ("f32", 8, 128, KVCacheLayout.BHSD),
     ("f32", 8, 128, KVCacheLayout.BSHD),
+    ("bf16", 8, 64, KVCacheLayout.BHSD),
+    ("bf16", 8, 64, KVCacheLayout.BSHD),
+    ("f32", 8, 64, KVCacheLayout.BHSD),
+    ("f32", 8, 64, KVCacheLayout.BSHD),
 ]
 
 
