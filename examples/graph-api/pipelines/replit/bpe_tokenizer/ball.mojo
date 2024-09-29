@@ -97,11 +97,11 @@ struct Ball[T: CollectionElement]:
 
     fn _get_node(
         ref [_]self: Self, id: Self.ID
-    ) -> ref [__lifetime_of(self._arena[id].value())] Node[T]:
+    ) -> ref [self._arena[id].value()] Node[T]:
         return self._arena[id].value()
 
     fn __getitem__(
         ref [_]self: Self, id: Self.ID
-    ) -> ref [__lifetime_of(self._get_node(id).value)] T:
+    ) -> ref [self._get_node(id).value] T:
         """Gets a reference to a value in the list."""
         return self._get_node(id).value
