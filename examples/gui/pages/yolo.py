@@ -11,27 +11,19 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import logging
 import os
 import time
 from pathlib import Path
 
-import av
-import av.logging
 import cv2
 import numpy as np
 import streamlit as st
 import torch
 from max import engine
 from shared import menu, modular_cache_dir
-from streamlit_webrtc import webrtc_streamer
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 from ultralytics.models.yolo.segment.predict import ops
-
-# Suppress FFMPEG warnings on each frame for apple silicon, as hardware
-# accelerated conversion of YUV 4:2:0 to RGB is not implemented on aarch64
-av.logging.set_level(logging.ERROR)
 
 st.set_page_config("YOLO", page_icon="🔍")
 menu()
@@ -43,94 +35,12 @@ Segment objects using your webcam. This downloads and converts YOLOv8n to
 ONNX, then compiles it with MAX for faster inference!
 """
 
-CLASS_NAMES = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "airplane",
-    "bus",
-    "train",
-    "truck",
-    "boat",
-    "traffic light",
-    "fire hydrant",
-    "stop sign",
-    "parking meter",
-    "bench",
-    "bird",
-    "cat",
-    "dog",
-    "horse",
-    "sheep",
-    "cow",
-    "elephant",
-    "bear",
-    "zebra",
-    "giraffe",
-    "backpack",
-    "umbrella",
-    "handbag",
-    "tie",
-    "suitcase",
-    "frisbee",
-    "skis",
-    "snowboard",
-    "sports ball",
-    "kite",
-    "baseball bat",
-    "baseball glove",
-    "skateboard",
-    "surfboard",
-    "tennis racket",
-    "bottle",
-    "wine glass",
-    "cup",
-    "fork",
-    "knife",
-    "spoon",
-    "bowl",
-    "banana",
-    "apple",
-    "sandwich",
-    "orange",
-    "broccoli",
-    "carrot",
-    "hot dog",
-    "pizza",
-    "donut",
-    "cake",
-    "chair",
-    "couch",
-    "potted plant",
-    "bed",
-    "dining table",
-    "toilet",
-    "tv",
-    "laptop",
-    "mouse",
-    "remote",
-    "keyboard",
-    "cell phone",
-    "microwave",
-    "oven",
-    "toaster",
-    "sink",
-    "refrigerator",
-    "book",
-    "clock",
-    "vase",
-    "scissors",
-    "teddy bear",
-    "hair drier",
-    "toothbrush",
-]
-
 
 @st.cache_data(show_spinner="Downloading YOLO and exporting to ONNX")
 def download_and_export_yolo(model_path, height, width):
     model = YOLO(model_path)
     model.export(format="onnx", imgsz=(height, width), simplify=True)
+    return model.names
 
 
 @st.cache_resource(show_spinner="Starting MAX Inference Session")
@@ -170,7 +80,7 @@ def resize_and_pad(image, shape):
     )
 
 
-def postprocess(out0, out1, input, frame):
+def postprocess(out0, out1, input, frame, class_names):
     out0 = torch.from_numpy(out0)
     out1 = torch.from_numpy(out1)
 
@@ -180,7 +90,7 @@ def postprocess(out0, out1, input, frame):
         iou_thres=0.70,
         agnostic=False,
         max_det=10,
-        nc=len(CLASS_NAMES),
+        nc=len(class_names),
         classes=None,
     )[0]
 
@@ -188,7 +98,7 @@ def postprocess(out0, out1, input, frame):
         result = Results(
             orig_img=frame,
             path="",
-            names=CLASS_NAMES,
+            names=class_names,
             boxes=pred[:, :6],
         )
     else:
@@ -203,7 +113,7 @@ def postprocess(out0, out1, input, frame):
         result = Results(
             orig_img=frame,
             path="",
-            names=CLASS_NAMES,
+            names=class_names,
             boxes=pred[:, :6],
             masks=masks,
         )
@@ -218,44 +128,43 @@ onnx_path = Path(os.path.dirname(model_path)) / "yolov8n-seg.onnx"
 width = st.sidebar.number_input("Image Width", 64, 2048, 640)
 height = st.sidebar.number_input("Image Height", 64, 2048, 480)
 
-download_and_export_yolo(model_path, height, width)
+class_names = download_and_export_yolo(model_path, height, width)
 yolo = max_yolo_session(onnx_path)
 
 previous_elapsed_ms = []
 
+FRAME_WINDOW = st.image([])
+camera = cv2.VideoCapture(0)
 
-def video_frame_callback(frame: av.VideoFrame):
-    img = frame.to_ndarray(format="bgr24")
-    img = resize_and_pad(img, (height, width))
-    # Preprocess inputs.
-    input = (
-        img[np.newaxis, :, :, ::-1].transpose(0, 3, 1, 2).astype(np.float32)
-        / 255
-    ).copy()
-    start = time.time()
-    outputs = list(yolo.execute_legacy(images=input).values())
-    elapsed_ms = (time.time() - start) * 1000
-    result = postprocess(outputs[0], outputs[1], input, img)
-    img = result.plot()
-    # Calculated average fps and update window title.
-    global previous_elapsed_ms
-    previous_elapsed_ms.append(elapsed_ms)
-    previous_elapsed_ms = previous_elapsed_ms[-100:]
-    fps = 1000.0 / np.average(previous_elapsed_ms)
-    img = cv2.putText(
-        img,
-        f"FPS: {int(fps)}",
-        org=(50, 50),
-        fontFace=cv2.FONT_HERSHEY_COMPLEX,
-        fontScale=1,
-        color=(255, 0, 0),
-        thickness=2,
-    )
-    return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-
-webrtc_streamer(
-    key="example",
-    video_frame_callback=video_frame_callback,
-    media_stream_constraints={"video": True, "audio": False},
-)
+button_placeholder = st.empty()
+if button_placeholder.button("Start Webcam"):
+    button_placeholder.empty()
+    while True:
+        _, img = camera.read()
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = resize_and_pad(img, (height, width))
+        # Preprocess inputs.
+        input = (
+            img[np.newaxis, :, :, ::-1].transpose(0, 3, 1, 2).astype(np.float32)
+            / 255
+        ).copy()
+        start = time.time()
+        outputs = list(yolo.execute_legacy(images=input).values())
+        elapsed_ms = (time.time() - start) * 1000
+        result = postprocess(outputs[0], outputs[1], input, img, class_names)
+        img = result.plot()
+        # Calculated average fps and update window title.
+        # global previous_elapsed_ms
+        previous_elapsed_ms.append(elapsed_ms)
+        previous_elapsed_ms = previous_elapsed_ms[-100:]
+        fps = 1000.0 / np.average(previous_elapsed_ms)
+        img = cv2.putText(
+            img,
+            f"FPS: {int(fps)}",
+            org=(50, 50),
+            fontFace=cv2.FONT_HERSHEY_COMPLEX,
+            fontScale=1,
+            color=(255, 0, 0),
+            thickness=2,
+        )
+        FRAME_WINDOW.image(img)

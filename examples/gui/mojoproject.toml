@@ -6,37 +6,35 @@ platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 max = "*"
-chromadb = "*"
-llama-index = "*"
+
+# RAG specific packages
+chromadb = "==0.5.11"
+llama-index = ">=0.8"
 
 [pypi-dependencies]
 pipelines = { path = "../../pipelines/python", editable = true}
-accelerate = "*"
-diffusers = "*"
-docx2txt = "*"
-EbookLib = "*"
-fastembed = "*"
-ftfy = "*"
-gguf = "*"
-html2text = "*"
-huggingface_hub = "*"
-ipython = "*"
-nbconvert = "*"
-networkx = "*"
-onnxruntime = "*"
-onnxslim = "==0.1.32"
-openai = "*"
-opencv-python = "*"
-pillow = "*"
-protobuf = "*"
-sentencepiece = "*"
-streamlit = "*"
-streamlit-webrtc = "*"
-tokenizers = "*"
+accelerate = "==0.34.2"
+diffusers = "==0.30.3"
+gguf = "==0.10.0"
+onnxruntime = "==1.18.1"
+onnxslim = "==0.1.34"
+opencv-python = "==4.10.0.84"
+pillow = "==10.4.0"
+protobuf = "==4.25.3"
+sentencepiece = "==0.2.0"
+streamlit = "==1.38.0"
+tokenizers = "==0.20.0"
 torch = "==2.4.1"
-transformers = "*"
-ultralytics = "*"
-watchdog = "*"
+transformers = "==4.45.1"
+ultralytics = "==8.2.103"
+
+# RAG specific packages
+docx2txt = "==0.8"
+EbookLib = "==0.18"
+fastembed = "==0.3.6"
+ftfy = "==6.2.3"
+html2text = "==2024.2.26"
+nbconvert = "==7.16.4"
 
 [tasks]
 gui = "streamlit run home.py"
