@@ -84,7 +84,7 @@ struct Llama3InferenceService[
         self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
             self._model.model["tokenizer.ggml.tokens"]._value.unsafe_get[
                 GGUFArray
-            ]()[]
+            ]()
         )
 
         print("Building model...")
@@ -298,7 +298,7 @@ struct Llama3InferenceService_NaiveKVCache[EncodingT: QuantizationEncoding](
         self._tokenizer = TikTokenEncoder.cl100k_base_llama3(
             self._model.model["tokenizer.ggml.tokens"]._value.unsafe_get[
                 GGUFArray
-            ]()[]
+            ]()
         )
 
         print("Building model...")
