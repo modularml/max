@@ -445,7 +445,7 @@ def run[
 
     print("Loading tokenizer...")
     tokenizer = TikTokenEncoder.cl100k_base_llama3(
-        model.model["tokenizer.ggml.tokens"]._value.unsafe_get[GGUFArray]()[]
+        model.model["tokenizer.ggml.tokens"]._value.unsafe_get[GGUFArray]()
     )
 
     if config.get("version")[String] == "3.0":
@@ -522,7 +522,7 @@ def run_naive[encoding: QuantizationEncoding](config: Config) -> None:
 
     print("Loading tokenizer...")
     tokenizer = TikTokenEncoder.cl100k_base_llama3(
-        model.model["tokenizer.ggml.tokens"]._value.unsafe_get[GGUFArray]()[]
+        model.model["tokenizer.ggml.tokens"]._value.unsafe_get[GGUFArray]()
     )
 
     if config.get("version")[String] == "3.0":

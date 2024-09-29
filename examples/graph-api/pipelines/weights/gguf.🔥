@@ -364,38 +364,38 @@ struct GGUFValue:
     @always_inline
     fn destroy(owned self):
         if self._value.isa[GGUFString]():
-            self._value.unsafe_get[GGUFString]()[].destroy()
+            self._value.unsafe_get[GGUFString]().destroy()
         elif self._value.isa[GGUFArray]():
-            self._value.unsafe_get[GGUFArray]()[].destroy()
+            self._value.unsafe_get[GGUFArray]().destroy()
 
     @always_inline
     fn float(self) raises -> Float64:
         if self._value.isa[Float32]():
-            return self._value.unsafe_get[Float32]()[].cast[DType.float64]()
+            return self._value.unsafe_get[Float32]().cast[DType.float64]()
         if self._value.isa[Float64]():
-            return self._value.unsafe_get[Float64]()[]
+            return self._value.unsafe_get[Float64]()
 
         raise "GGUFValue is not a float32 or float64"
 
     fn __int__(self) raises -> Int:
         if self._value.isa[Int8]():
-            return int(self._value.unsafe_get[Int8]()[])
+            return int(self._value.unsafe_get[Int8]())
         if self._value.isa[UInt8]():
-            return int(self._value.unsafe_get[UInt8]()[])
+            return int(self._value.unsafe_get[UInt8]())
         if self._value.isa[UInt16]():
-            return int(self._value.unsafe_get[UInt16]()[])
+            return int(self._value.unsafe_get[UInt16]())
         if self._value.isa[Int16]():
-            return int(self._value.unsafe_get[Int16]()[])
+            return int(self._value.unsafe_get[Int16]())
         if self._value.isa[UInt32]():
-            return int(self._value.unsafe_get[UInt32]()[])
+            return int(self._value.unsafe_get[UInt32]())
         if self._value.isa[Int32]():
-            return int(self._value.unsafe_get[Int32]()[])
+            return int(self._value.unsafe_get[Int32]())
         if self._value.isa[Int64]():
-            return int(self._value.unsafe_get[Int64]()[])
+            return int(self._value.unsafe_get[Int64]())
         if self._value.isa[Float32]():
-            return int(self._value.unsafe_get[Float32]()[])
+            return int(self._value.unsafe_get[Float32]())
         if self._value.isa[Bool]():
-            return int(self._value.unsafe_get[Bool]()[])
+            return int(self._value.unsafe_get[Bool]())
         if self._value.isa[GGUFString]():
             raise "can't convert GGUFString to int"
         if self._value.isa[GGUFArray]():
@@ -405,27 +405,27 @@ struct GGUFValue:
 
     fn __str__(self) -> String:
         if self._value.isa[Int8]():
-            return str(self._value.unsafe_get[Int8]()[])
+            return str(self._value.unsafe_get[Int8]())
         if self._value.isa[UInt8]():
-            return str(self._value.unsafe_get[UInt8]()[])
+            return str(self._value.unsafe_get[UInt8]())
         if self._value.isa[UInt16]():
-            return str(self._value.unsafe_get[UInt16]()[])
+            return str(self._value.unsafe_get[UInt16]())
         if self._value.isa[Int16]():
-            return str(self._value.unsafe_get[Int16]()[])
+            return str(self._value.unsafe_get[Int16]())
         if self._value.isa[UInt32]():
-            return str(self._value.unsafe_get[UInt32]()[])
+            return str(self._value.unsafe_get[UInt32]())
         if self._value.isa[Int32]():
-            return str(self._value.unsafe_get[Int32]()[])
+            return str(self._value.unsafe_get[Int32]())
         if self._value.isa[Int64]():
-            return str(self._value.unsafe_get[Int64]()[])
+            return str(self._value.unsafe_get[Int64]())
         if self._value.isa[Float32]():
-            return str(self._value.unsafe_get[Float32]()[])
+            return str(self._value.unsafe_get[Float32]())
         if self._value.isa[Bool]():
-            return str(self._value.unsafe_get[Bool]()[])
+            return str(self._value.unsafe_get[Bool]())
         if self._value.isa[GGUFString]():
-            return str(self._value.unsafe_get[GGUFString]()[])
+            return str(self._value.unsafe_get[GGUFString]())
         if self._value.isa[GGUFArray]():
-            return str(self._value.unsafe_get[GGUFArray]()[])
+            return str(self._value.unsafe_get[GGUFArray]())
         return "<unknown>"
 
 
