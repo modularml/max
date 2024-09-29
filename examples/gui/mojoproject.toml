@@ -6,10 +6,7 @@ platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 max = "*"
-
-# RAG specific packages
-chromadb = "==0.5.11"
-llama-index = ">=0.8"
+numpy = "1.25.2"
 
 [pypi-dependencies]
 pipelines = { path = "../../pipelines/python", editable = true}
@@ -29,11 +26,13 @@ transformers = "==4.45.1"
 ultralytics = "==8.2.103"
 
 # RAG specific packages
+chromadb = "==0.4.17"
 docx2txt = "==0.8"
 EbookLib = "==0.18"
 fastembed = "==0.3.6"
 ftfy = "==6.2.3"
 html2text = "==2024.2.26"
+llama-index = "==0.11.14"
 nbconvert = "==7.16.4"
 
 [tasks]
