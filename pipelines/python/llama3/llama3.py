@@ -260,11 +260,11 @@ class Llama3:
         max_tokens_to_generate = _max_tokens_to_generate(
             len(encoded_prompt), self.config, max_new_tokens
         )
-        seq_id = self._kv_manager.claim(batch_size=1)[0]
+        seq_id = await self._kv_manager.claim(batch_size=1)
         context = Llama3Context(
             prompt=prompt,
             max_tokens=len(encoded_prompt) + max_tokens_to_generate,
-            cache_seq_id=seq_id,
+            cache_seq_id=seq_id[0],
         )
 
         context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
@@ -300,7 +300,7 @@ class Llama3:
             # as the cache here uses an independent method for _sessions
             # management this should be fixed.
             if not self.params.use_opaque:
-                self._reset_cache()
+                await self.reset_cache()
 
         req_id_to_logits_dict = self._execute(req_to_context_dict)
 
@@ -312,21 +312,22 @@ class Llama3:
 
             # Update context
             context.append(next_token.reshape(1, -1), decoded_token)
-
             # Add back to dictionary
+
             if not context.is_done(self._tokenizer.eos_token_id):
                 res[request_id] = decoded_token
             elif self.params.use_opaque:
-                self._kv_manager.release(context.cache_seq_id)
+                await self._kv_manager.release(context.cache_seq_id)
 
         return res
 
     async def release(self, context: Llama3Context):
-        pass
-
-    def _reset_cache(self):
         if self.params.use_opaque:
-            self._kv_manager.reset_cache()
+            await self._kv_manager.release(context.cache_seq_id)
+
+    async def reset_cache(self):
+        if self.params.use_opaque:
+            await self._kv_manager.reset_cache()
         else:
             self._kv_cache.sequence_length = 0
 

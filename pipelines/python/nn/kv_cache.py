@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import List, TypeAlias
 
+import asyncio
 import numpy as np
 import numpy.typing as npt
 from max.driver import Device, Tensor
@@ -167,6 +168,7 @@ class ContiguousKVCacheManager:
         # Mapping from sequence id to current KV cache length.
         self.cache_lengths: dict[int, int] = {}
         self.device = device
+        self.semaphore = asyncio.BoundedSemaphore(self.max_batch_size)
 
         # Create a graph for the fetch method.
         cache_type = TensorType(
@@ -199,7 +201,7 @@ class ContiguousKVCacheManager:
             block_shape, dtype=self.params.dtype, device=self.device
         )
 
-    def claim(self, batch_size: int) -> List[int]:
+    async def claim(self, batch_size: int) -> List[int]:
         """Assign `batch_size` blocks for incoming requests.
 
         This returns a list of sequence_ids, which identifies a sequence's
@@ -207,11 +209,9 @@ class ContiguousKVCacheManager:
         to fetch specific KVCacheCollection objects.
         """
 
-        if len(self.available) < batch_size:
-            raise ValueError("no remaining slots available in kv cache")
-
         seq_ids = []
         for _ in range(batch_size):
+            await self.semaphore.acquire()
             id = self.available.pop()
             seq_ids.append(id)
             self.cache_lengths[id] = 0
@@ -287,16 +287,18 @@ class ContiguousKVCacheManager:
         for k, v in valid_lengths.items():
             self.cache_lengths[k] += v
 
-    def release(self, seq_id: int) -> None:
+    async def release(self, seq_id: int) -> None:
         """Marks `seq_id` as no longer necessary, their blocks are reintroduced
         to the pool.
         """
+        self.semaphore.release()
         self.available.add(seq_id)
         del self.cache_lengths[seq_id]
 
-    def reset_cache(self) -> None:
+    async def reset_cache(self) -> None:
         """Releases all existing seq_ids, to return the values to the pool."""
         for seq_id in self.cache_lengths:
+            self.semaphore.release()
             self.available.add(seq_id)
 
         self.cache_lengths.clear()
