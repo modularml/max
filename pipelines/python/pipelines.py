@@ -14,6 +14,7 @@
 import asyncio
 
 import click
+import llama3
 from huggingface_hub import hf_hub_download
 from max.driver import CPU, CUDA
 from max.pipelines import TokenGenerator
@@ -22,11 +23,14 @@ from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
 from max.serve.pipelines.deps import token_pipeline
 from max.serve.pipelines.llm import TokenGeneratorPipeline
+from max.serve.pipelines.performance_fake import (
+    PerformanceFakingTokenGenerator,
+    get_performance_fake,
+)
+from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
 
-import llama3
-from text_streaming import stream_text_to_console
 from utils import TextGenerationMetrics, config_to_flag
 
 try:
@@ -105,7 +109,15 @@ def main():
     default=False,
     help="Whether to run the model on the available GPU.",
 )
-def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
+@click.option(
+    "--performance-fake",
+    type=click.Choice(["none", "no-op", "speed-of-light"]),
+    default="none",
+    help="Fake the engine performance (for benchmarking)",
+)
+def run_llama3(
+    prompt, serve, profile_serve, use_gpu, performance_fake, **config_kwargs
+):
     """Runs the Llama3 pipeline."""
     if use_gpu:
         config_kwargs.update(
@@ -142,8 +154,12 @@ def run_llama3(prompt, serve, profile_serve, use_gpu, **config_kwargs):
 
     if serve:
         print("Starting server...")
-        model = llama3.Llama3(config)
         tokenizer = AutoTokenizer.from_pretrained(repo_id)
+        if performance_fake == "none":
+            model = llama3.Llama3(config)
+        else:
+            model = get_performance_fake(tokenizer, performance_fake)
+
         asyncio.run(
             serve_token_generator(
                 model, tokenizer, config.batch_size, profile_serve
