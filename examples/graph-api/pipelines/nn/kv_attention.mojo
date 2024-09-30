@@ -69,7 +69,6 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
 
         # extract shape characteristics of the input
         batch_size, seq_len = input.shape()[0], input.shape()[1]
-        head_dim = g.scalar[type](kv_params.head_size)
 
         # define opaque types for custom op outputs
         # TODO give these guys actual values for num_kv_head and head_size
@@ -112,7 +111,7 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
                 v_cache,
                 attn_mask,
                 valid_lengths,
-                ops.rsqrt(head_dim),
+                g.scalar(isqrt(Float32(kv_params.head_size))),
             ),
             output_type,
         )
