@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from math import rsqrt, ceil, log2
+from math import isqrt, ceil, log2
 
 from max.tensor import Tensor, TensorShape
 from max.graph import ops, Dim, Symbol, TensorType, _OpaqueType as OpaqueType
@@ -65,7 +65,6 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         # extract shape characteristics of the input
         full_seq_len = Dim("full_seq_len")
         batch_size, seq_len = input.shape()[0], input.shape()[1]
-        head_dim = g.scalar[type](kv_params.head_size)
 
         # do QKV projections
         xq_type = input.type()
@@ -94,7 +93,7 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
                 v_cache,
                 attn_weight,
                 valid_lengths,
-                ops.rsqrt(head_dim),
+                g.scalar(isqrt(Float32(kv_params.head_size))),
             ),
             output_type,
         )
