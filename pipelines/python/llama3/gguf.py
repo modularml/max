@@ -192,6 +192,26 @@ def _transformer_opaque(graph, params, weights, kv_params):
             for i in range(params.n_layers)
         ]
 
+        embedding_layer = embedding(
+            params,
+            params.vocab_size,
+            params.hidden_dim,
+            weights.token_embd,
+        )
+
+        # Smaller model variants lack dedicated weights for a final linear
+        # layer, and share the embedding layer.
+        if params.has_dedicated_output_weights:
+            output = linear(
+                params.dtype,
+                params.quantization_encoding,
+                params.vocab_size,
+                params.hidden_dim,
+                weights.output,
+            )
+        else:
+            output = Linear(embedding_layer.weights)
+
         return OptimizedTransformer(
             dim=params.hidden_dim,
             n_heads=params.n_heads,
@@ -201,20 +221,9 @@ def _transformer_opaque(graph, params, weights, kv_params):
                 params.layer_norm_rms_epsilon,
                 weights.output_norm,
             ),
-            output=linear(
-                params.dtype,
-                params.quantization_encoding,
-                params.vocab_size,
-                params.hidden_dim,
-                weights.output,
-            ),
+            output=output,
             theta=params.rope_theta,
-            embedding=embedding(
-                params,
-                params.vocab_size,
-                params.hidden_dim,
-                weights.token_embd,
-            ),
+            embedding=embedding_layer,
             kv_params=kv_params,
         )
 
@@ -311,6 +320,23 @@ def transformer(
             for i in range(params.n_layers)
         ]
 
+        embedding_layer = embedding(
+            params, params.vocab_size, params.hidden_dim, weights.token_embd
+        )
+
+        # Smaller model variants lack dedicated weights for a final linear
+        # layer, and share the embedding layer.
+        if params.has_dedicated_output_weights:
+            output = linear(
+                params.dtype,
+                params.quantization_encoding,
+                params.vocab_size,
+                params.hidden_dim,
+                weights.output,
+            )
+        else:
+            output = Linear(embedding_layer.weights)
+
         return Transformer(
             dim=params.hidden_dim,
             n_heads=params.n_heads,
@@ -320,15 +346,7 @@ def transformer(
                 params.layer_norm_rms_epsilon,
                 weights.output_norm,
             ),
-            output=linear(
-                params.dtype,
-                params.quantization_encoding,
-                params.vocab_size,
-                params.hidden_dim,
-                weights.output,
-            ),
+            output=output,
             theta=params.rope_theta,
-            embedding=embedding(
-                params, params.vocab_size, params.hidden_dim, weights.token_embd
-            ),
+            embedding=embedding_layer,
         )
