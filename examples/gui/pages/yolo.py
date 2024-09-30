@@ -35,6 +35,14 @@ Segment objects using your webcam. This downloads and converts YOLOv8n to
 ONNX, then compiles it with MAX for faster inference!
 """
 
+# First do a quick check to see if a webcam is available
+capture = cv2.VideoCapture(cv2.CAP_ANY)
+if capture.isOpened():
+    capture.release()
+else:
+    st.error("This example is only available on a local machine with a webcam")
+    exit()
+
 
 @st.cache_data(show_spinner="Downloading YOLO and exporting to ONNX")
 def download_and_export_yolo(model_path, height, width):
@@ -133,7 +141,7 @@ yolo = max_yolo_session(onnx_path)
 
 previous_elapsed_ms = []
 
-FRAME_WINDOW = st.image([])
+frame_window = st.image([])
 camera = cv2.VideoCapture(0)
 
 button_placeholder = st.empty()
@@ -167,4 +175,4 @@ if button_placeholder.button("Start Webcam"):
             color=(255, 0, 0),
             thickness=2,
         )
-        FRAME_WINDOW.image(img)
+        frame_window.image(img)
