@@ -226,11 +226,10 @@ class TextGenerationMetrics:
         else:
             self.time_to_first_token = "n/a"
 
-        # TODO: Bring back when prompt_size is fixed
-        # st.sidebar.metric(
-        #     "Input/Output Tokens",
-        #     value=f"{self.prompt_size}/{self.output_size}",
-        # )
+        st.sidebar.metric(
+            "Input/Output Tokens",
+            value=f"{self.prompt_size}/{self.output_size}",
+        )
         st.sidebar.metric(
             "Time to first token", value=f"{self.time_to_first_token:.2f} ms"
         )
@@ -242,11 +241,10 @@ class TextGenerationMetrics:
                 self.time_to_first_token / 1000.0
             )
             self.eval_throughput = (self.output_size - 1) / generation_time
-            # TODO: Bring back when prompt_size is fixed
-            # st.sidebar.metric(
-            #     "Prompt eval throughput (context-encoding):",
-            #     value=f"{self.prompt_eval_throughput:.2f} tokens/s",
-            # )
+            st.sidebar.metric(
+                "Prompt eval throughput (context-encoding):",
+                value=f"{self.prompt_eval_throughput:.2f} tokens/s",
+            )
             st.sidebar.metric(
                 "Eval throughput (token-generation):",
                 value=f"{self.eval_throughput:.2f} tokens/s",
