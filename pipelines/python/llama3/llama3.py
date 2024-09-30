@@ -514,11 +514,16 @@ def _read_hyperparameters(
     else:
         seq_len = config.max_length
 
+    has_dedicated_output_weights = any(
+        tensor.name == "output.weight" for tensor in reader.tensors
+    )
+
     return Hyperparameters(
         dtype=config.quantization_encoding.dtype,
         quantization_encoding=config.quantization_encoding.quantization_encoding,
         feed_forward_length=feed_forward_length,
         seq_len=seq_len,
         force_naive_kv_cache=config.force_naive_kv_cache,
+        has_dedicated_output_weights=has_dedicated_output_weights,
         **configured_params,
     )

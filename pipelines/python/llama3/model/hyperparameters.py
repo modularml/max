@@ -55,6 +55,9 @@ class Hyperparameters:
     force_naive_kv_cache: bool = False
     """Force using the naive KV cache even for configs supporting the opaque KV cache."""
 
+    has_dedicated_output_weights: bool = True
+    """Whether there are dedicated output linear layer weights."""
+
     @property
     def head_dim(self):
         """Dimension of each head."""
