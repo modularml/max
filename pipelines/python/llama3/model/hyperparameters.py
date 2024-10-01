@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 """Llama3 model hyperparameters."""
 
-import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -72,7 +71,5 @@ class Hyperparameters:
     def use_opaque(self):
         """Boolean to use opaque kv caching optimizations."""
         return (
-            self.quantization_encoding is None
-            and "TMP_USE_OPAQUE" in os.environ
-            and not self.force_naive_kv_cache
+            self.quantization_encoding is None and not self.force_naive_kv_cache
         )
