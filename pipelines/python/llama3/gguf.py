@@ -33,7 +33,7 @@ from nn import (
     Transformer,
     TransformerBlock,
 )
-from nn.kv_cache_params import KVCacheParams
+from nn.kv_caching import KVCacheParams
 
 from .model.hyperparameters import Hyperparameters
 

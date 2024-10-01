@@ -31,7 +31,7 @@ from max.graph import (
     ops,
 )
 
-from .kv_cache_params import KVCacheLayout, KVCacheParams
+from .kv_caching import KVCacheLayout, KVCacheParams
 
 
 class KVCache:

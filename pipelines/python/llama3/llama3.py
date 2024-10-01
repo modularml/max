@@ -30,7 +30,7 @@ from nn.kv_cache import (
     ContiguousKVCacheManager,
     KVCache,
 )
-from nn.kv_cache_params import KVCacheParams
+from nn.kv_caching import KVCacheParams
 from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
