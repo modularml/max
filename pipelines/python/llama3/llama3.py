@@ -388,7 +388,7 @@ class Llama3:
             self._batch_tensors_with_padding(req_to_context_dict)
         )
         batch_size = batched_np_tensor.shape[0]
-        valid_lengths = Tensor((batch_size,), DType.uint32, self.config.device)
+        valid_lengths = Tensor((batch_size,), DType.uint32, CPU())
         for n, valid_length in enumerate(unpadded_lengths):
             valid_lengths[n] = valid_length
 
