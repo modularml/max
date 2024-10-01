@@ -201,6 +201,7 @@ def _generation_loop[
         metrics.begin_timing_generation()
 
     for i in range(padded_size, max_tokens + 1):
+        kv_collection = kv_manager.fetch(kv_collection.get_seq_ids())
         tokens_shape = tokens._spec.shape
         if i == padded_size:
             valid_lengths = List[Int](padded_size)
