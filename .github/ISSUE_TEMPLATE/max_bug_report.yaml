@@ -53,5 +53,5 @@ body:
         - What OS did you do install MAX on ?
         - Provide version information for MAX by pasting the output of max -v`
         - Provide version information for Mojo by pasting the output of mojo -v`
-        - Provide Modular CLI version by pasting the output of `modular -v`
+        - Provide Magic CLI version by pasting the output of `magic -v`
       render: shell
