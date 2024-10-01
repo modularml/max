@@ -152,6 +152,7 @@ class OptimizedTransformer(Layer):
         self,
         tokens,
         attention_mask,
+        valid_lengths,
         kv_cache_collection: ContiguousKVCacheCollection,
     ) -> TensorValue:
         h = self.embedding(tokens)
@@ -159,10 +160,7 @@ class OptimizedTransformer(Layer):
         # Plumb in the `start_pos` (previous sequence length), needed to
         # construct the attention mask.
         start_pos = kv_cache_length(self.kv_params, kv_cache_collection)
-        valid_length = ops.cast(
-            ops.shape_to_tensor((tokens.shape[1],)), DType.uint32
-        )
-        valid_lengths = ops.broadcast_to(valid_length, shape=[tokens.shape[0]])
+
         for i, layer in enumerate(self.layers):
             h, _, _ = layer(
                 h,
