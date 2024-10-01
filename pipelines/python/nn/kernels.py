@@ -20,7 +20,7 @@ from .kv_cache import (
     ContiguousKVCacheCollection,
     ContiguousKVCacheType,
 )
-from .kv_cache_params import KVCacheParams
+from .kv_caching import KVCacheParams
 
 
 def fused_qkv_matmul(

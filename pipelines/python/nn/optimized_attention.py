@@ -24,7 +24,8 @@ from .kernels import (
     fused_qk_rope,
     fused_qkv_matmul,
 )
-from .kv_cache_params import KVCacheLayout, KVCacheParams
+
+from .kv_caching import KVCacheLayout, KVCacheParams
 from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
