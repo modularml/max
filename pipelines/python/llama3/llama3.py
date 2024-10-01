@@ -92,11 +92,17 @@ def _llama_graph_opaque(
         DType.bool,
         shape=["batch_size", params.n_heads, "seq_len", "post_seq_len"],
     )
+    valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
     cache_type = ContiguousKVCacheCollectionType()
 
     with Graph(
         "llama3",
-        input_types=[tokens_type, attn_mask_type, cache_type],
+        input_types=[
+            tokens_type,
+            attn_mask_type,
+            valid_lengths_type,
+            cache_type,
+        ],
     ) as graph:
         model = transformer(graph, params, weights, kv_params)
         logits = model(*graph.inputs)
@@ -339,7 +345,7 @@ class Llama3:
         batch: dict[str, Llama3Context],
         direction: PaddingDirection = PaddingDirection.LEFT,
         pad_token: int = 0,
-    ) -> tuple[np.ndarray, int]:
+    ) -> tuple[np.ndarray, int, list[int]]:
         """
         Generates a fixed length padded batch tensor, provided a batch of Llama3Context.
         """
@@ -372,21 +378,25 @@ class Llama3:
         batched_np_tensor = np.stack(tensors)
         # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
         batched_np_tensor = batched_np_tensor.squeeze(axis=1)
-        return batched_np_tensor, max_length
+        return batched_np_tensor, max_length, lengths
 
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, Tensor]:
         # Pad all tensors to the maximum sequence length in the batch.
-        batched_np_tensor, max_length = self._batch_tensors_with_padding(
-            req_to_context_dict
+        batched_np_tensor, max_length, unpadded_lengths = (
+            self._batch_tensors_with_padding(req_to_context_dict)
         )
+        batch_size = batched_np_tensor.shape[0]
+        valid_lengths = Tensor((batch_size,), DType.uint32, self.config.device)
+        for n, valid_length in enumerate(unpadded_lengths):
+            valid_lengths[n] = valid_length
 
         # Grab attention mask.
         # TODO(MSDK-982): verify that the actual desired attention mask shape
         # and padding is correct for batches with different prompt sizes.
         attn_mask = self._attention_mask(
-            batch_size=batched_np_tensor.shape[0],
+            batch_size=batch_size,
             n=max(self._kv_manager.cache_lengths.values()) + max_length,
         )
 
@@ -403,6 +413,7 @@ class Llama3:
         batch_logits = self._model.execute(
             Tensor.from_numpy(next_tokens).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
+            valid_lengths,
             kv_collection,
         )[0]
 
@@ -425,7 +436,7 @@ class Llama3:
         if self.params.use_opaque:
             return self._execute_opaque(req_to_context_dict)
 
-        batched_np_tensor, max_length = self._batch_tensors_with_padding(
+        batched_np_tensor, max_length, _ = self._batch_tensors_with_padding(
             req_to_context_dict
         )
 
