@@ -154,15 +154,15 @@ def run_llama3(
 
     if serve:
         print("Starting server...")
-        tokenizer = AutoTokenizer.from_pretrained(repo_id)
         if performance_fake == "none":
             model = llama3.Llama3(config)
         else:
+            tokenizer = AutoTokenizer.from_pretrained(repo_id)
             model = get_performance_fake(tokenizer, performance_fake)
 
         asyncio.run(
             serve_token_generator(
-                model, tokenizer, config.batch_size, profile_serve
+                model, model._tokenizer, config.batch_size, profile_serve
             )
         )
     else:

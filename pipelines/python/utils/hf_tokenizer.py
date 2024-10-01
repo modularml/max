@@ -80,6 +80,7 @@ def tokenizer_from_gguf(
         for i, type in enumerate(token_type):
             if type == LlamaTokenType.LLAMA_TOKEN_TYPE_CONTROL:
                 special_tokens.append(vocab_list[i])
+    chat_template = gguf_utils.read_string(reader, Keys.Tokenizer.CHAT_TEMPLATE)
 
     # Note: special tokens do not increase the size of the vocabulary, since
     # they are already in the vocab list
@@ -90,6 +91,7 @@ def tokenizer_from_gguf(
         "add_prefix_space": True,
         "legacy": True,
         "clean_up_tokenization_spaces": True,
+        "chat_template": chat_template,
     }
 
     # Set up different processors.
