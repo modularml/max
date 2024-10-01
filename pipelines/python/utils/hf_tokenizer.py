@@ -14,7 +14,7 @@
 """Utilities for creating a HuggingFace tokenizer for a pipeline model."""
 
 import os
-from typing import Union
+from typing import Any, Optional, Union
 
 import gguf
 from gguf import GGUFReader, Keys
@@ -34,7 +34,9 @@ def tokenizer_from_gguf(
 
     architecture = gguf_utils.read_string(reader, gguf.KEY_GENERAL_ARCHITECTURE)
     if architecture != "llama":
-        raise NotImplementedError(f"Unsupported GGUF architecture: {model}")
+        raise NotImplementedError(
+            f"Unsupported GGUF architecture: {architecture}"
+        )
 
     model = gguf_utils.read_string(reader, Keys.Tokenizer.MODEL)
     if model != "gpt2":
@@ -45,7 +47,9 @@ def tokenizer_from_gguf(
         raise ValueError("Unable to find vocab list in GGUF weight file.")
     bpe_vocab = {token: n for n, token in enumerate(vocab_list)}
 
-    merges = gguf_utils.read_string_array(reader, Keys.Tokenizer.MERGES)
+    merges: Optional[list[Any]] = gguf_utils.read_string_array(
+        reader, Keys.Tokenizer.MERGES
+    )
     if merges:
         merges = [tuple(s.split(" ")) for s in merges]
 
@@ -111,12 +115,8 @@ def tokenizer_from_gguf(
     add_bos_token = True
     eos = eos_token
     add_eos_token = False
-    single = (
-        f"{(bos+':0 ') if add_bos_token else ''}$A:0{(' '+eos+':0') if add_eos_token else ''}"
-    )
-    pair = (
-        f"{single}{(' '+bos+':1') if add_bos_token else ''} $B:1{(' '+eos+':1') if add_eos_token else ''}"
-    )
+    single = f"{(bos+':0 ') if add_bos_token else ''}$A:0{(' '+eos+':0') if add_eos_token else ''}"  # type: ignore
+    pair = f"{single}{(' '+bos+':1') if add_bos_token else ''} $B:1{(' '+eos+':1') if add_eos_token else ''}"  # type: ignore
     special_tokens = [(bos_token, bos_token_id)]
     tokenizer.post_processor = processors.TemplateProcessing(
         single=single, pair=pair, special_tokens=special_tokens

@@ -323,13 +323,13 @@ class Llama3:
             if not context.is_done(self._tokenizer.eos_token_id):
                 res[request_id] = decoded_token
             elif self.params.use_opaque:
-                await self._kv_manager.release(context.cache_seq_id)
+                await self._kv_manager.release(context.cache_seq_id)  # type: ignore
 
         return res
 
     async def release(self, context: Llama3Context):
         if self.params.use_opaque:
-            await self._kv_manager.release(context.cache_seq_id)
+            await self._kv_manager.release(context.cache_seq_id)  # type: ignore
 
     async def reset_cache(self):
         if self.params.use_opaque:
@@ -402,7 +402,7 @@ class Llama3:
 
         # Grab kv_collection.
         kv_collection = self._kv_manager.fetch(
-            [ctx.cache_seq_id for ctx in req_to_context_dict.values()]
+            [ctx.cache_seq_id for ctx in req_to_context_dict.values()]  # type: ignore
         )
 
         # Create batched input token tensor.
@@ -422,7 +422,7 @@ class Llama3:
 
         self._kv_manager.step(
             valid_lengths={
-                ctx.cache_seq_id: ctx.next_tokens.shape[1]
+                ctx.cache_seq_id: ctx.next_tokens.shape[1]  # type: ignore
                 for ctx in req_to_context_dict.values()
             }
         )

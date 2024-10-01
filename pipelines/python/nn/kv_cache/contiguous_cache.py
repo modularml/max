@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import numpy as np
-from typing import TypeAlias, List
+from typing import List, NewType
 from max.driver import Device, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession
@@ -47,8 +47,10 @@ class ContiguousKVCacheCollectionType(OpaqueType):
         super().__init__("ContiguousKVCacheCollection")
 
 
-ContiguousKVCache: TypeAlias = OpaqueValue
-ContiguousKVCacheCollection: TypeAlias = OpaqueValue
+ContiguousKVCache = NewType("ContiguousKVCache", ContiguousKVCacheType)
+ContiguousKVCacheCollection = NewType(
+    "ContiguousKVCacheCollection", ContiguousKVCacheCollectionType
+)
 
 
 class FetchContiguousKVCacheCollection:
@@ -64,7 +66,7 @@ class FetchContiguousKVCacheCollection:
         seq_ids: TensorValue,
         num_layers: TensorValue,
         batch_size: TensorValue,
-    ) -> ContiguousKVCacheCollection:
+    ) -> ContiguousKVCacheCollection:  # type: ignore
         """Constructs a ContiguousKVCacheCollection for use downstream."""
         op_name = f"contiguous_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_{self.kv_params.layout}"
         return ops.custom(

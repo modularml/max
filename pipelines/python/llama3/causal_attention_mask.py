@@ -17,7 +17,7 @@ import numpy as np
 
 
 def causal_attention_mask(
-    start_pos: list[int], seq_len: list[int]
+    original_start_pos: list[int], original_seq_len: list[int]
 ) -> np.ndarray:
     # Each example in the batch has a "start position", which is the length
     # of the previously encoded tokens ("context"), and a "sequence length",
@@ -33,8 +33,8 @@ def causal_attention_mask(
     #
     # We call the total length "post_seq_len", referring to the total context
     # length after this pass concludes.
-    start_pos: np.ndarray = np.array(start_pos, dtype=np.int64)
-    seq_len: np.ndarray = np.array(seq_len, dtype=np.int64)
+    start_pos: np.ndarray = np.array(original_start_pos, dtype=np.int64)
+    seq_len: np.ndarray = np.array(original_seq_len, dtype=np.int64)
     post_seq_len = start_pos + seq_len
 
     # Mask shape: for each token being generated, attend to tokens _before_ it
