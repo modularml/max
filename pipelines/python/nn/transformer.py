@@ -19,10 +19,12 @@ from typing import TYPE_CHECKING
 from max.dtype import DType
 from max.graph import OpaqueValue, TensorValue, ValueLike, ops
 
-from .kernels import (
+from .kv_cache import (
     ContiguousKVCacheCollection,
     ContiguousKVCacheType,
     KVCacheParams,
+)
+from .kernels import (
     key_cache_for_layer,
     kv_cache_length,
     value_cache_for_layer,

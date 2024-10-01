@@ -25,15 +25,12 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
-from nn.kv_caching import (
+from nn.kv_cache import (
     NaiveKVCache,
     KVCacheParams,
-)
-from nn.kv_cache import (
-    ContiguousKVCacheCollectionType,
     ContiguousKVCacheManager,
+    ContiguousKVCacheCollectionType,
 )
-from nn.kv_caching import KVCacheParams
 from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf

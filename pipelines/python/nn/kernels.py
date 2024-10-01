@@ -16,11 +16,11 @@ from max.dtype import DType
 from max.graph import TensorType, TensorValue, ops
 
 from .kv_cache import (
+    KVCacheParams,
     ContiguousKVCache,
     ContiguousKVCacheCollection,
     ContiguousKVCacheType,
 )
-from .kv_caching import KVCacheParams
 
 
 def fused_qkv_matmul(

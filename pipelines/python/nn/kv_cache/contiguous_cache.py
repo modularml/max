@@ -10,28 +10,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""KV cache for the Transformer."""
+"""Contiguous KV cache for the Transformer leveraging the mo.opaque pattern."""
 
 from __future__ import annotations
 
-from typing import List, TypeAlias
-
 import asyncio
 import numpy as np
-import numpy.typing as npt
+from typing import TypeAlias, List
 from max.driver import Device, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.graph import (
-    Graph,
     OpaqueType,
     OpaqueValue,
     TensorType,
     TensorValue,
     ops,
+    Graph,
 )
-
-from .kv_caching import KVCacheLayout, KVCacheParams
+from .cache_params import KVCacheLayout, KVCacheParams
 
 
 class ContiguousKVCacheType(OpaqueType):
@@ -68,8 +65,7 @@ class FetchContiguousKVCacheCollection:
         num_layers: TensorValue,
         batch_size: TensorValue,
     ) -> ContiguousKVCacheCollection:
-        """Constructs an initial ContiguousKVCacheCollection for use downstream.
-        """
+        """Constructs a ContiguousKVCacheCollection for use downstream."""
         op_name = f"contiguous_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_{self.kv_params.layout}"
         return ops.custom(
             op_name,
@@ -189,7 +185,6 @@ class ContiguousKVCacheManager:
                 self.params.head_dim,
             ]
 
-    # [0, 1, 2] -> [1, 2, 3]
     def fetch(self, seq_ids: List[int]) -> ContiguousKVCacheCollection:
         """Retrieves the pre-assigned blocks for the given seq_ids."""
 
