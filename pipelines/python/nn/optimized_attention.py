@@ -19,13 +19,12 @@ from max.graph import TensorValue, ValueLike, ops
 from max.graph.type import Dim, DimLike
 
 from .kernels import (
-    ContiguousKVCache,
     flash_attention,
     fused_qk_rope,
     fused_qkv_matmul,
 )
 
-from .kv_caching import KVCacheLayout, KVCacheParams
+from .kv_cache import KVCacheLayout, KVCacheParams, ContiguousKVCache
 from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding

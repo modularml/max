@@ -12,3 +12,10 @@
 # ===----------------------------------------------------------------------=== #
 from .cache_params import KVCacheLayout, KVCacheParams
 from .naive_cache import NaiveKVCache
+from .contiguous_cache import (
+    ContiguousKVCacheType,
+    ContiguousKVCacheCollectionType,
+    ContiguousKVCache,
+    ContiguousKVCacheCollection,
+    ContiguousKVCacheManager,
+)
