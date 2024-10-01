@@ -23,7 +23,8 @@ def causal_attention_mask(
     # of the previously encoded tokens ("context"), and a "sequence length",
     # which is the number of additional tokens to be encoded in this pass.
     #
-    # "Causal attention" means that each token can "see" tokens before it.
+    # "Causal attention" means that each token can "see" tokens before it,
+    # as well as itself.
     # The attention layer adds the mask to the attention scores and then
     # performs a softmax, so for tokens that a given token can "see" the mask
     # wants to produce a 0, meaning to pass the attention through as normal,
@@ -40,6 +41,10 @@ def causal_attention_mask(
     # in the entire sequence including context. Pad all values to the longest
     # sequence length and total length.
     mask_shape = (seq_len.max(), post_seq_len.max())
+
+    # TODO(KERN-782): This should be -inf but softmax saturates with NaNs.
+    fill_val = -10000.0
     return np.stack(
-        [np.triu(np.full(mask_shape, float("-inf")), k=k) for k in start_pos]
+        # Set diagonal to k + 1 so that tokens attend to themselves.
+        [np.triu(np.full(mask_shape, fill_val), k=k + 1) for k in start_pos]
     )
