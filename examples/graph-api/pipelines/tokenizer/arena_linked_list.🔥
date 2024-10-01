@@ -67,8 +67,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         id = len(self._arena)
         node = Node[ElementType](value^, self._tail, None)
         if self._tail:
-            tail = Reference(self.node(self._tail.value()))
-            tail[].value().next = id
+            self.node(self._tail.value()).value().next = id
         else:
             self._head = id
         self._tail = id
@@ -84,11 +83,9 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         node = self.node(id).value()
         self.node(id) = None
         if node.prev:
-            prev = Reference(self.node(node.prev.value()))
-            prev[].value().next = node.next
+            self.node(node.prev.value()).value().next = node.next
         if node.next:
-            next = Reference(self.node(node.next.value()))
-            next[].value().prev = node.prev
+            self.node(node.next.value()).value().prev = node.prev
         if self._head.value() == id:
             self._head = node.next
         if self._tail.value() == id:
