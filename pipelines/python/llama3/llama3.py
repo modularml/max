@@ -25,10 +25,13 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
+from nn.kv_caching import (
+    NaiveKVCache,
+    KVCacheParams,
+)
 from nn.kv_cache import (
     ContiguousKVCacheCollectionType,
     ContiguousKVCacheManager,
-    KVCache,
 )
 from nn.kv_caching import KVCacheParams
 from tokenizers import Tokenizer
@@ -150,7 +153,7 @@ class Llama3:
 
     config: InferenceConfig
     _model: Model
-    _kv_cache: KVCache
+    _kv_cache: NaiveKVCache
     _kv_manager: ContiguousKVCacheManager
     _sessions: set[str]
     _kv_params: KVCacheParams
@@ -203,7 +206,7 @@ class Llama3:
                 device=config.device,
             )
         else:
-            self._kv_cache = KVCache(
+            self._kv_cache = NaiveKVCache(
                 self.params.seq_len,
                 self.config.batch_size,
                 self.params.n_layers,

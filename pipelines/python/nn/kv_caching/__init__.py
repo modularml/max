@@ -11,3 +11,4 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 from .cache_params import KVCacheLayout, KVCacheParams
+from .naive_cache import NaiveKVCache
