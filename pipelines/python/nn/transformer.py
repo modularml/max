@@ -57,7 +57,7 @@ class TransformerBlock(Layer):
     ) -> tuple[TensorValue, TensorValue, TensorValue]:
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x), attention_mask, k_cache, v_cache
-        )
+        )  # type: ignore
 
         h = x + attention_out
         h = h + self.mlp(self.mlp_norm(h))
@@ -129,7 +129,7 @@ class OptimizedTransformerBlock(Layer):
             v_cache,
             start_pos,
             valid_lengths,
-        )
+        )  # type: ignore
 
         h = x + attention_out
         h = h + self.mlp(self.mlp_norm(h))
