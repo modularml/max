@@ -123,7 +123,7 @@ class ContiguousKVCacheManager:
             self.params.dtype,
             self.params.static_cache_shape,
         )
-        cache_lengths_type = TensorType(DType.int32, ("batch_size",))
+        cache_lengths_type = TensorType(DType.int64, ("batch_size",))
         seq_ids_type = TensorType(DType.int32, ("seq_len",))
         int_scalar_type = TensorType(DType.int32, (1,))
         is_cache_empty_type = TensorType(DType.bool, (1,))
@@ -148,6 +148,7 @@ class ContiguousKVCacheManager:
         self.blocks_buf = Tensor.zeros(
             block_shape, dtype=self.params.dtype, device=self.device
         )
+        self.cache_lengths_buf = None
 
     async def claim(self, batch_size: int) -> List[int]:
         """Assign `batch_size` blocks for incoming requests.
@@ -196,7 +197,7 @@ class ContiguousKVCacheManager:
         value_cache = self.blocks_buf[1, 0 : len(seq_ids), :, :, :, :]
 
         seq_ids_tensor = Tensor.zeros((len(seq_ids),), DType.int32)
-        cache_lengths = Tensor.zeros((len(seq_ids),), DType.int32)
+        cache_lengths = Tensor.zeros((len(seq_ids),), DType.int64)
         is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
             seq_ids_tensor[i] = seq_id
@@ -204,6 +205,8 @@ class ContiguousKVCacheManager:
             cache_lengths[i] = cache_len
             if cache_len != 0:
                 is_cache_empty = False
+
+        self.cache_lengths_buf = cache_lengths.to(self.device)
 
         is_cache_empty_tensor = Tensor.zeros((1,), DType.bool)
         is_cache_empty_tensor[0] = is_cache_empty
@@ -215,7 +218,7 @@ class ContiguousKVCacheManager:
         return self.fetch_model.execute(
             key_cache,
             value_cache,
-            cache_lengths,
+            self.cache_lengths_buf,
             is_cache_empty_tensor,
             seq_ids_tensor,
             np.array([self.num_layers]).astype(np.int32),

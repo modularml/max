@@ -399,6 +399,9 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
 
+        self._kv_collection = self._kv_manager.fetch(
+            self._kv_collection.value().get_seq_ids()
+        )
         prev_token_shape = self._next_token_tensor.spec().shape
         results = self._model.execute(
             self._next_token_tensor.take(),
