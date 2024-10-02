@@ -180,6 +180,7 @@ class OptimizedTransformer(Layer):
         # Plumb in the `start_pos` (previous sequence length), needed to
         # construct the attention mask.
         start_pos = kv_cache_length(self.kv_params, kv_cache_collection)
+        start_pos = ops.cast(start_pos, DType.int64)
 
         for i, layer in enumerate(self.layers):
             h, _, _ = layer(

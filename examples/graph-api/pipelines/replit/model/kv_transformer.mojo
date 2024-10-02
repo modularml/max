@@ -42,7 +42,7 @@ def kv_cache_length[
         Symbol: scalar with the length of the ContiguousKVCache.
     """
     alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
-    out_type = TensorType(DType.int64)
+    out_type = TensorType(DType.uint32)
     out = ops.custom[kernel_names.kv_cache_length_kernel](
         List[Symbol](cache), out_type
     )
