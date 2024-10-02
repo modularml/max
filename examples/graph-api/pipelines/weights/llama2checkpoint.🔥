@@ -197,7 +197,7 @@ struct LlamaCFile(LoadableModel):
     fn rope_freqs[type: DType](self) -> TensorRef[type]:
         return TensorRef[type](
             self.weights_ptr.bitcast[type](),
-            TensorShape(self.config.dim / self.config.n_heads // 2),
+            TensorShape(self.config.dim // self.config.n_heads // 2),
         )
 
     fn get[
