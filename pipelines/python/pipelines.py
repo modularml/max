@@ -111,7 +111,7 @@ def main():
 )
 @click.option(
     "--performance-fake",
-    type=click.Choice(["none", "no-op", "speed-of-light"]),
+    type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
     default="none",
     help="Fake the engine performance (for benchmarking)",
 )
