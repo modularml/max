@@ -166,15 +166,6 @@ class OptimizedTransformer(Layer):
         valid_lengths,
         kv_cache_collection: ContiguousKVCacheCollection,
     ) -> TensorValue:
-        # Broadcast the attention mask across heads.
-        # Do so in the graph so that the broadcast can be fused into the
-        # flash attention op.
-        batch, seq_len, post_seq_len = attention_mask.shape
-        attention_mask = ops.broadcast_to(
-            attention_mask,
-            (batch, self.n_heads, seq_len, post_seq_len),
-        )
-
         h = self.embedding(tokens)
 
         # Plumb in the `start_pos` (previous sequence length), needed to
