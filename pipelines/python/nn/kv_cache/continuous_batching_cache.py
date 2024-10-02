@@ -15,12 +15,14 @@
 from __future__ import annotations
 
 from typing import List, NewType
+
 from max.driver import Device
-from max.engine import InferenceSession
+from max.engine import InferenceSession, MojoValue
 from max.graph import (
     OpaqueType,
     OpaqueValue,
 )
+
 from .cache_params import KVCacheParams
 
 
@@ -80,7 +82,7 @@ class ContinuousBatchingKVCacheManager:
     async def claim(self, n_slots: int) -> List[int]:
         raise NotImplementedError()
 
-    def fetch(self, seq_ids: List[int]) -> ContinuousBatchingKVCacheCollection:
+    def fetch(self, seq_ids: List[int]) -> MojoValue:
         raise NotImplementedError()
 
     def step(self, valid_lengths: dict[int, int]) -> None:
