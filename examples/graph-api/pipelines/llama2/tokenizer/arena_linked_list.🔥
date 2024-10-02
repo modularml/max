@@ -111,6 +111,6 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         ref [_]self: Self, id: Self.ID
     ) -> ref [self.node(0).value().value] ElementType:
         """Gets a reference to a value in the list."""
-        node_ref = Reference.address_of(self.node(id))
+        node_ref = Pointer.address_of(self.node(id))
         debug_assert(bool(node_ref[]), "retrieved removed value")
         return node_ref[].value().value
