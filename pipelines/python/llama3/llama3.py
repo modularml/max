@@ -26,10 +26,10 @@ from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
 from nn.kv_cache import (
-    NaiveKVCache,
-    KVCacheParams,
-    ContiguousKVCacheManager,
     ContiguousKVCacheCollectionType,
+    ContiguousKVCacheManager,
+    KVCacheParams,
+    NaiveKVCache,
 )
 from tokenizers import Tokenizer
 
@@ -57,13 +57,24 @@ class Llama3Context:
     """The context for text generation using a Llama 3 model."""
 
     prompt: str
-    max_tokens: int  # Max number of tokens including input.
-    cache_seq_id: Optional[int] = None
-    next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
-    tokens: list[int] = field(default_factory=list)  # Tokens generated so far.
-    decoded: str = ""  # Decoded text sequence from tokens above.
+    """Input prompt string prior to tokenization."""
 
-    def append(self, token_ids: np.ndarray, decoded: str):
+    max_tokens: int
+    """The maximum number of tokens to generate, including the prompt."""
+
+    cache_seq_id: int | None = None
+    """Sequence id to tell the KV cache manager which cache block this owns."""
+
+    next_tokens: np.ndarray = field(default_factory=lambda: np.array([[]]))
+    """A (batch, seq_len) matrix of the input tokens for this iteration."""
+
+    tokens: list[int] = field(default_factory=list)
+    """Tokens generated so far."""
+
+    decoded: str = ""
+    """Decoded text sequence from `self.tokens` above."""
+
+    def append(self, token_ids: np.ndarray, decoded: str) -> None:
         assert token_ids.shape[0] == 1 and token_ids.shape[1] >= 1
         self.next_tokens = token_ids
         self.tokens.extend(token_ids[0])
@@ -78,8 +89,12 @@ class Llama3Context:
 
     @property
     def seq_len(self) -> int:
-        """Returns the total sequence length including the prompt size."""
-        return len(self.tokens) + len(self.next_tokens)
+        """Current sequence length: num tokens input this iteration.
+
+        This will be the prompt size for context encoding, and simply 1 for
+        token generation.
+        """
+        return self.next_tokens.shape[-1]
 
 
 def _llama_graph_opaque(
