@@ -15,19 +15,21 @@
 from __future__ import annotations
 
 import asyncio
-import numpy as np
 from typing import List, NewType
+
+import numpy as np
 from max.driver import Device, Tensor
 from max.dtype import DType
-from max.engine import InferenceSession
+from max.engine import InferenceSession, MojoValue
 from max.graph import (
+    Graph,
     OpaqueType,
     OpaqueValue,
     TensorType,
     TensorValue,
     ops,
-    Graph,
 )
+
 from .cache_params import KVCacheLayout, KVCacheParams
 
 
@@ -188,7 +190,7 @@ class ContiguousKVCacheManager:
                 self.params.head_dim,
             ]
 
-    def fetch(self, seq_ids: List[int]) -> ContiguousKVCacheCollection:
+    def fetch(self, seq_ids: List[int]) -> MojoValue:
         """Retrieves the pre-assigned blocks for the given seq_ids."""
 
         # Grab the first n elements we need from `blocks_buf`.
