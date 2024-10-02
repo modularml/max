@@ -78,15 +78,6 @@ class Transformer(Layer):
     embedding: Embedding
 
     def __call__(self, tokens, attention_mask, k_cache, v_cache):
-        # Broadcast the attention mask across heads.
-        # Do so in the graph so that the broadcast can be fused into the
-        # flash attention op.
-        batch, seq_len, post_seq_len = attention_mask.shape
-        attention_mask = ops.broadcast_to(
-            attention_mask,
-            (batch, self.n_heads, seq_len, post_seq_len),
-        )
-
         h = self.embedding(tokens)
         # Use the embeddings as ground truth for the activation dtype.
         activations_dtype = h.dtype
