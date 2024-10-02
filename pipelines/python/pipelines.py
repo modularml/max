@@ -22,13 +22,15 @@ from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
 from max.serve.pipelines.deps import token_pipeline
-from max.serve.pipelines.llm import TokenGeneratorPipeline
+from max.serve.pipelines.llm import (
+    TokenGeneratorPipeline,
+    TokenGeneratorPipelineConfig,
+)
 from max.serve.pipelines.performance_fake import (
-    PerformanceFakingTokenGenerator,
     get_performance_fake,
 )
 from text_streaming import stream_text_to_console
-from transformers import AutoTokenizer
+from transformers import PreTrainedTokenizerBase, AutoTokenizer
 from uvicorn import Server
 
 from utils import TextGenerationMetrics, config_to_flag
@@ -43,16 +45,21 @@ except ImportError:
 
 async def serve_token_generator(
     model: TokenGenerator,
-    tokenizer: AutoTokenizer,
-    max_batch_size: int = 1,
+    tokenizer: PreTrainedTokenizerBase,
+    max_batch_size: int,
+    server_batch_mode: str,
     profile=False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
     settings = Settings(api_types=[APIType.OPENAI])
     debug_settings = DebugSettings(profiling_enabled=profile)
-
+    batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
+        tg_batch_size=max_batch_size, ce_batch_size=1, ce_batch_timeout=0.1
+    ) if server_batch_mode == "continuous" else TokenGeneratorPipelineConfig.dynamic_homogenous(
+        batch_size=max_batch_size, batch_timeout=0.1
+    )
     pipeline = TokenGeneratorPipeline[llama3.Llama3Context](
-        model, tokenizer, max_batch_size
+        batch_config, model, tokenizer
     )
     pipelines = [pipeline]
 
@@ -115,8 +122,20 @@ def main():
     default="none",
     help="Fake the engine performance (for benchmarking)",
 )
+@click.option(
+    "--server-batch-mode",
+    type=click.Choice(["dynamic", "continuous"]),
+    default="dynamic",
+    help="Configures the servers batching scheme",
+)
 def run_llama3(
-    prompt, serve, profile_serve, use_gpu, performance_fake, **config_kwargs
+    prompt,
+    serve,
+    profile_serve,
+    use_gpu,
+    performance_fake,
+    server_batch_mode,
+    **config_kwargs,
 ):
     """Runs the Llama3 pipeline."""
     if use_gpu:
@@ -153,16 +172,23 @@ def run_llama3(
         )
 
     if serve:
-        print("Starting server...")
         if performance_fake == "none":
+            print(f"Starting server using Llama3, {server_batch_mode} batching")
             model = llama3.Llama3(config)
         else:
+            print(
+                f"Starting server using performance fake '{performance_fake}',"
+                f" {server_batch_mode} batching"
+            )
             tokenizer = AutoTokenizer.from_pretrained(repo_id)
-            model = get_performance_fake(tokenizer, performance_fake)
-
+            model = get_performance_fake(performance_fake, tokenizer)
         asyncio.run(
             serve_token_generator(
-                model, model._tokenizer, config.batch_size, profile_serve
+                model,
+                model._tokenizer,
+                config.batch_size,
+                server_batch_mode,
+                profile_serve,
             )
         )
     else:
