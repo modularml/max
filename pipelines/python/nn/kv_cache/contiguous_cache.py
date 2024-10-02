@@ -200,6 +200,9 @@ class ContiguousKVCacheManager:
         cache_lengths = Tensor.zeros((len(seq_ids),), DType.uint32)
         is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
+            if seq_id not in self.cache_lengths:
+                raise ValueError(f"seq_id: {seq_id} not currently in cache.")
+
             seq_ids_tensor[i] = seq_id
             cache_len = self.cache_lengths[seq_id]
             cache_lengths[i] = cache_len
