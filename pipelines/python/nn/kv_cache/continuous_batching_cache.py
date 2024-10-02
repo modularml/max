@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import List, TypeAlias
+from typing import List, NewType
 from max.driver import Device
 from max.engine import InferenceSession
 from max.graph import (
@@ -39,7 +39,10 @@ class ContinuousBatchingKVCacheCollectionType(OpaqueType):
         super().__init__("ContinuousBatchingKVCacheCollection")
 
 
-ContinuousBatchingKVCacheCollection: TypeAlias = OpaqueValue
+ContinuousBatchingKVCacheCollection = NewType(
+    "ContinuousBatchingKVCacheCollection",
+    ContinuousBatchingKVCacheCollectionType,
+)
 
 
 class ContinuousBatchingKVCacheManager:
