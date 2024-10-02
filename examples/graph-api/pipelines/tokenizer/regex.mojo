@@ -23,7 +23,7 @@ from _mlir._c.ffi import MLIR_func
 def set_locale_unicode():
     empty_string = str("")
     locale = external_call["setlocale", UnsafePointer[UInt8]](
-        0, Reference.address_of(empty_string.as_bytes_span()[0])
+        0, Pointer.address_of(empty_string.as_bytes_span()[0])
     )  # LC_ALL
     if not locale:
         raise "didn't set locale"
@@ -152,8 +152,8 @@ struct _MatchIter[
     regex_lifetime: ImmutableLifetime,
     string_lifetime: ImmutableLifetime,
 ]:
-    var regex: Reference[Regex, regex_lifetime]
-    var string: Reference[String, string_lifetime]
+    var regex: Pointer[Regex, regex_lifetime]
+    var string: Pointer[String, string_lifetime]
     var start: Int
     var next_match: Optional[Match[string_lifetime]]
     # This is a workaround for not having negative lookaheads, expect this
@@ -164,8 +164,8 @@ struct _MatchIter[
 
     def __init__(
         inout self,
-        regex: Reference[Regex, regex_lifetime],
-        string: Reference[String, string_lifetime],
+        regex: Pointer[Regex, regex_lifetime],
+        string: Pointer[String, string_lifetime],
         negative_lookahead_hack: Bool = False,
     ):
         self.regex = regex
@@ -261,7 +261,7 @@ struct Regex:
         self, string: String, negative_lookahead_hack: Bool = False
     ) -> _MatchIter[__lifetime_of(self), __lifetime_of(string)]:
         return _MatchIter(
-            Reference.address_of(self),
-            Reference.address_of(string),
+            Pointer.address_of(self),
+            Pointer.address_of(string),
             negative_lookahead_hack,
         )
