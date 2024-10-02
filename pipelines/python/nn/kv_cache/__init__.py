@@ -19,3 +19,8 @@ from .contiguous_cache import (
     ContiguousKVCacheCollection,
     ContiguousKVCacheManager,
 )
+from .continuous_batching_cache import (
+    ContinuousBatchingKVCacheCollectionType,
+    ContinuousBatchingKVCacheCollection,
+    ContinuousBatchingKVCacheManager,
+)
