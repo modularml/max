@@ -334,8 +334,18 @@ class Llama3:
 
             if not context.is_done(self._tokenizer.eos_token_id):
                 res[request_id] = decoded_token
-            elif self.params.use_opaque:
-                await self._kv_manager.release(context.cache_seq_id)  # type: ignore
+            # TODO: MSDK-1084 Re-enable Cache release
+            # Previously, we were automatically releasing completed sequences
+            # back to the available cache pool, when the sequence completed
+            # during the `next_token` loop. However, with the Contiguous
+            # KV Cache, we cannot change the batch as sequences in the batch
+            # are completed. This resulted in an indexing issue, trying to
+            # retrieve details for a cache which was believed to be free by
+            # the cache manager. We are temporarily stepping around this
+            # auto-release, allowing the pipeline client in serving/benchmarking
+            # to run completed prompts to preserve the batch. This should be
+            # clarified at the API layer, identifying correct behaviour running
+            # a completed sequence, and re-enabled if necessary.
 
         return res
 
