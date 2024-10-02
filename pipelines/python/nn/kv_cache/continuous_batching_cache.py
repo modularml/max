@@ -103,7 +103,18 @@ class ContinuousBatchingKVCacheManager:
         raise NotImplementedError()
 
     def step(self, valid_lengths: dict[int, int]) -> None:
-        raise NotImplementedError()
+        """Update the `cache_lengths` objects to not that a new
+        kv projection step has occured, and that the underlying memory
+        has been written to. This `cache_lengths` value is then used
+        downstream in `fetch` to track what section of memory should
+        be used in the kernels.
+        """
+
+        for id, length in valid_lengths.items():
+            if id not in self.cache_lengths:
+                raise ValueError("seq_id: {id} not in cache.")
+
+            self.cache_lengths[id] += length
 
     async def release(self, seq_id: int) -> None:
         """Release `seq_id` provided, marking this sequence as complete.
