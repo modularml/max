@@ -24,51 +24,6 @@ from .mlp import Linear
 from .rotary_embedding import RotaryEmbedding
 
 
-def generate_attention_mask(
-    attention_mask: ValueLike,
-    start_pos: DimLike,
-    seq_len: DimLike,
-    activation_dtype: DType,
-) -> TensorValue:
-    """Computes Attention mask."""
-    batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
-    # TODO(KERN-782): This should be -inf but softmax saturates with NaNs.
-    fill_val = -10000.0
-    mask_val = ops.broadcast_to(
-        ops.constant(fill_val, activation_dtype),
-        shape=[batch, n_heads, seq_len, seq_len],
-    )
-
-    # Create a lower triangular matrix filled with -10000.0.
-    mask = ops.band_part(mask_val, num_lower=-1, num_upper=0, exclude=True)
-
-    zeros = ops.broadcast_to(
-        ops.constant(0, activation_dtype),
-        shape=[
-            batch,
-            n_heads,
-            seq_len,
-            start_pos,
-        ],
-    )
-
-    x = ops.concat([zeros, mask], axis=-1, new_dim="post_seq_len")
-
-    y = ops.broadcast_to(
-        ops.constant(fill_val, activation_dtype), shape=x.shape
-    )
-
-    select_mask = attention_mask.rebind(
-        (
-            batch,
-            n_heads,
-            x.shape[2],
-            attention_mask.shape[-1],
-        )
-    )
-    return ops.select(select_mask, x, y)
-
-
 @dataclass
 class Attention(Layer):
     n_heads: int
@@ -96,11 +51,10 @@ class Attention(Layer):
         xq: ValueLike,
         xk: ValueLike,
         xv: ValueLike,
-        attention_mask: ValueLike,
+        attn_mask: ValueLike,
         k_cache: ValueLike,
         v_cache: ValueLike,
     ) -> TensorValue:
-        prev_seq_len = k_cache.shape[0]
         batch, seq_len = xq.shape[:2]
 
         k_cache = ops.squeeze(k_cache, axis=1)
@@ -121,14 +75,11 @@ class Attention(Layer):
         values = values.transpose(1, 2)
 
         scale = math.sqrt(1.0 / self.head_dim)
-        mask = generate_attention_mask(
-            attention_mask, prev_seq_len, seq_len, xq.dtype
-        )
         scores = xq @ ops.transpose(keys, 2, 3)
         # Note, the graph compiler currently requires the order of operands
         # to be `scores * scale` in order to pattern match the fused attention
         # operator.
-        return ops.softmax(scores * scale + mask) @ values
+        return ops.softmax(scores * scale + attn_mask) @ values
 
     def __call__(
         self,

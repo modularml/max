@@ -18,7 +18,6 @@ from enum import Enum
 from typing import Optional, Tuple
 
 import gguf
-import max.driver as md
 import numpy as np
 from max.driver import CPU, Tensor
 from max.dtype import DType
@@ -35,6 +34,7 @@ from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
 
+from .causal_attention_mask import causal_attention_mask
 from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
@@ -104,8 +104,7 @@ def _llama_graph_opaque(
 ) -> Graph:
     tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
     attn_mask_type = TensorType(
-        DType.bool,
-        shape=["batch_size", params.n_heads, "seq_len", "post_seq_len"],
+        DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
     )
     valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
     cache_type = ContiguousKVCacheCollectionType()
@@ -120,7 +119,8 @@ def _llama_graph_opaque(
         ],
     ) as graph:
         model = transformer(graph, params, weights, kv_params)
-        logits = model(*graph.inputs)
+        tokens, attention_mask, *kv_cache = graph.inputs
+        logits = model(tokens, attention_mask.cast(params.dtype), *kv_cache)
         graph.output(logits[:, -1])
         return graph
 
@@ -135,8 +135,7 @@ def _llama_graph(
 
     tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
     attn_mask_type = TensorType(
-        DType.bool,
-        shape=["batch_size", params.n_heads, "seq_len", "post_seq_len"],
+        DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
     )
 
     cache_type = TensorType(
@@ -155,7 +154,10 @@ def _llama_graph(
         input_types=[tokens_type, attn_mask_type, cache_type, cache_type],
     ) as graph:
         model = transformer(graph, params, weights, kv_params)
-        logits, k_update, v_update = model(*graph.inputs)
+        tokens, attention_mask, *kv_cache = graph.inputs
+        logits, k_update, v_update = model(
+            tokens, attention_mask.cast(params.dtype), *kv_cache
+        )
         graph.output(logits[:, -1], k_update, v_update)
         return graph
 
@@ -253,11 +255,6 @@ class Llama3:
             return session.load(
                 graph, weights_registry=self._weights.allocated_weights
             )
-
-    def _attention_mask(self, batch_size: int, n: int):
-        # TODO(MSDK-977): We shouldn't be broadcasting attn_mask across kv_heads
-        # and the second copy of n here.
-        return np.full((batch_size, self._n_heads, n, n), True)
 
     def _encode(self, prompt: str) -> list[int]:
         # Encodes a prompt using the tokenizer, raising a ValueError if the
@@ -408,12 +405,12 @@ class Llama3:
             valid_lengths[n] = valid_length
 
         # Grab attention mask.
-        # TODO(MSDK-982): verify that the actual desired attention mask shape
-        # and padding is correct for batches with different prompt sizes.
-        attn_mask = self._attention_mask(
-            batch_size=batch_size,
-            n=max(self._kv_manager.cache_lengths.values()) + max_length,
-        )
+        attn_mask = causal_attention_mask(
+            original_start_pos=list(self._kv_manager.cache_lengths.values()),
+            original_seq_len=[
+                ctx.seq_len for ctx in req_to_context_dict.values()
+            ],
+        ).astype(np.float32)
 
         # Grab kv_collection.
         kv_collection = self._kv_manager.fetch(
@@ -457,10 +454,14 @@ class Llama3:
 
         batch_size = batched_np_tensor.shape[0]
 
-        attn_mask = self._attention_mask(
-            batch_size,
-            self._kv_cache.sequence_length + max_length,
-        )
+        attn_mask = causal_attention_mask(
+            original_start_pos=(
+                [self._kv_cache.sequence_length] * len(req_to_context_dict)
+            ),
+            original_seq_len=[
+                ctx.next_tokens.shape[1] for ctx in req_to_context_dict.values()
+            ],
+        ).astype(np.float32)
 
         logits, k_cache, v_cache = self._model.execute(
             Tensor.from_numpy(batched_np_tensor).to(self.config.device),

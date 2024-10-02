@@ -17,13 +17,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from max.dtype import DType
-from max.graph import OpaqueValue, TensorValue, ValueLike, ops
+from max.graph import TensorValue, ValueLike, ops
 
-from .kv_cache import (
-    ContiguousKVCacheCollection,
-    ContiguousKVCacheType,
-    KVCacheParams,
-)
 from .kernels import (
     key_cache_for_layer,
     kv_cache_length,
@@ -34,6 +29,11 @@ from .layer import Layer
 if TYPE_CHECKING:
     from .attention import Attention
     from .embedding import Embedding
+    from .kv_cache import (
+        ContiguousKVCacheCollection,
+        ContiguousKVCacheType,
+        KVCacheParams,
+    )
     from .mlp import MLP, Linear
     from .norm import RMSNorm
     from .optimized_attention import OptimizedAttention
@@ -78,6 +78,15 @@ class Transformer(Layer):
     embedding: Embedding
 
     def __call__(self, tokens, attention_mask, k_cache, v_cache):
+        # Broadcast the attention mask across heads.
+        # Do so in the graph so that the broadcast can be fused into the
+        # flash attention op.
+        batch, seq_len, post_seq_len = attention_mask.shape
+        attention_mask = ops.broadcast_to(
+            attention_mask,
+            (batch, self.n_heads, seq_len, post_seq_len),
+        )
+
         h = self.embedding(tokens)
         # Use the embeddings as ground truth for the activation dtype.
         activations_dtype = h.dtype
@@ -157,6 +166,15 @@ class OptimizedTransformer(Layer):
         valid_lengths,
         kv_cache_collection: ContiguousKVCacheCollection,
     ) -> TensorValue:
+        # Broadcast the attention mask across heads.
+        # Do so in the graph so that the broadcast can be fused into the
+        # flash attention op.
+        batch, seq_len, post_seq_len = attention_mask.shape
+        attention_mask = ops.broadcast_to(
+            attention_mask,
+            (batch, self.n_heads, seq_len, post_seq_len),
+        )
+
         h = self.embedding(tokens)
 
         # Plumb in the `start_pos` (previous sequence length), needed to
