@@ -16,10 +16,10 @@ from max.dtype import DType
 from max.graph import TensorType, TensorValue, ops
 
 from .kv_cache import (
-    KVCacheParams,
     ContiguousKVCache,
     ContiguousKVCacheCollection,
     ContiguousKVCacheType,
+    KVCacheParams,
 )
 
 
@@ -81,7 +81,7 @@ def kv_cache_length(
     return ops.custom(
         op_name,
         [kv_cache_collection],
-        [TensorType(dtype=DType.int64, shape=[])],
+        [TensorType(dtype=DType.uint32, shape=[])],
     )[0]
 
 

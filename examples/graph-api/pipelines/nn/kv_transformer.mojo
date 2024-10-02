@@ -40,7 +40,7 @@ def kv_cache_length[
         Symbol: scalar with the length of the ContiguousKVCache.
     """
     alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
-    out_type = TensorType(DType.int64)
+    out_type = TensorType(DType.uint32)
     out = ops.custom[kernel_names.kv_cache_length_kernel](
         List[Symbol](cache), out_type
     )
@@ -226,7 +226,9 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
               - mo.opaque KVCacheCollection type.
         """
         g = tokens.graph()
-        start_pos = kv_cache_length[type, kv_params](kv_cache)
+        start_pos = ops.cast(
+            kv_cache_length[type, kv_params](kv_cache), DType.int64
+        )
         h = self.embedding(tokens)
         seq_len = ops.shape_of(tokens)[1]
         freqs_cis = self.freqs_cis(start_pos, seq_len, tokens.shape()[1])

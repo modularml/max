@@ -123,7 +123,7 @@ class ContiguousKVCacheManager:
             self.params.dtype,
             self.params.static_cache_shape,
         )
-        cache_lengths_type = TensorType(DType.int64, ("batch_size",))
+        cache_lengths_type = TensorType(DType.uint32, ("batch_size",))
         seq_ids_type = TensorType(DType.int32, ("seq_len",))
         int_scalar_type = TensorType(DType.int32, (1,))
         is_cache_empty_type = TensorType(DType.bool, (1,))
@@ -197,7 +197,7 @@ class ContiguousKVCacheManager:
         value_cache = self.blocks_buf[1, 0 : len(seq_ids), :, :, :, :]
 
         seq_ids_tensor = Tensor.zeros((len(seq_ids),), DType.int32)
-        cache_lengths = Tensor.zeros((len(seq_ids),), DType.int64)
+        cache_lengths = Tensor.zeros((len(seq_ids),), DType.uint32)
         is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
             seq_ids_tensor[i] = seq_id
