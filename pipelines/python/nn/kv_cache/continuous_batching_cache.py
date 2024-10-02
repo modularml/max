@@ -15,12 +15,11 @@
 from __future__ import annotations
 
 from typing import List, NewType
-
+import asyncio
 from max.driver import Device
 from max.engine import InferenceSession, MojoValue
 from max.graph import (
     OpaqueType,
-    OpaqueValue,
 )
 
 from .cache_params import KVCacheParams
@@ -67,20 +66,38 @@ class ContinuousBatchingKVCacheManager:
     def __init__(
         self,
         params: KVCacheParams,
-        max_batch_size: int,
+        max_cache_size: int,
         max_seq_len: int,
         num_layers: int,
         session: InferenceSession,
         device: Device,
     ) -> None:
         self.params = params
-        self.max_batch_size = max_batch_size
+        self.max_cache_size = max_cache_size
         self.max_seq_len = max_seq_len
         self.num_layers = num_layers
         self.device = device
 
-    async def claim(self, n_slots: int) -> List[int]:
-        raise NotImplementedError()
+        self.available = set(range(self.max_cache_size))
+        self.semaphore = asyncio.BoundedSemaphore(self.max_cache_size)
+        self.cache_lengths = {}
+
+    async def claim(self, n: int) -> List[int]:
+        """Claims `n` blocks of memory in the cache for incoming requests.
+
+        This returns a list of sequence ids, which identify a sequence's
+        location within the cache. This sequence id can then be passed
+        in the fetch function to return the ContinuousBatchingKVCacheCollection
+        for those sequences.
+        """
+        seq_ids = []
+        for _ in range(n):
+            await self.semaphore.acquire()
+            id = self.available.pop()
+            seq_ids.append(id)
+            self.cache_lengths[id] = 0
+
+        return seq_ids
 
     def fetch(self, seq_ids: List[int]) -> MojoValue:
         raise NotImplementedError()
@@ -89,11 +106,28 @@ class ContinuousBatchingKVCacheManager:
         raise NotImplementedError()
 
     async def release(self, seq_id: int) -> None:
-        raise NotImplementedError()
+        """Release `seq_id` provided, marking this sequence as complete.
+        This returns the seq_id back to the available pool of cache memory,
+        allowing it to be reused when a new sequence is claimed.
+        """
+
+        if seq_id not in self.cache_lengths:
+            raise ValueError("`seq_id` provided not in cache.")
+
+        self.available.add(seq_id)
+        self.semaphore.release()
+
+        del self.cache_lengths[seq_id]
 
     async def reset_cache(self) -> None:
-        raise NotImplementedError()
+        """A helper function to reset the entire cache."""
+        for seq_id in self.cache_lengths:
+            self.available.add(seq_id)
+            self.semaphore.release()
+
+        self.cache_lengths.clear()
 
     @property
     def slots_remaining(self) -> int:
-        raise NotImplementedError()
+        """The outstanding cache slots outstanding."""
+        return self.semaphore._value
