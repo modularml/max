@@ -24,32 +24,21 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
+from tokenizers import Tokenizer
+
 from nn.kv_cache import (
     ContiguousKVCacheCollectionType,
     ContiguousKVCacheManager,
     KVCacheParams,
     NaiveKVCache,
 )
-from tokenizers import Tokenizer
-
 from utils import gguf_utils, tokenizer_from_gguf
 
 from .causal_attention_mask import causal_attention_mask
+from .collate_batch import collate_batch
 from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
-
-
-class PaddingDirection(Enum):
-    """
-    Padding (from) direction for attention_mask.
-    """
-
-    LEFT = "left"
-    RIGHT = "right"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 @dataclass
@@ -65,8 +54,8 @@ class Llama3Context:
     cache_seq_id: int | None = None
     """Sequence id to tell the KV cache manager which cache block this owns."""
 
-    next_tokens: np.ndarray = field(default_factory=lambda: np.array([[]]))
-    """A (batch, seq_len) matrix of the input tokens for this iteration."""
+    next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
+    """A (seq_len,) vector of the input tokens for this iteration."""
 
     tokens: list[int] = field(default_factory=list)
     """Tokens generated so far."""
@@ -75,17 +64,15 @@ class Llama3Context:
     """Decoded text sequence from `self.tokens` above."""
 
     def append(self, token_ids: np.ndarray, decoded: str) -> None:
-        assert token_ids.shape[0] == 1 and token_ids.shape[1] >= 1
+        """Appends to the generated tokens and decoded output."""
+        assert len(token_ids.shape) == 1
         self.next_tokens = token_ids
-        self.tokens.extend(token_ids[0])
+        self.tokens.extend(token_ids)
         self.decoded += decoded
 
     def is_done(self, eos: int) -> bool:
-        if self.tokens[-1] == eos:
-            return True
-        if len(self.tokens) > self.max_tokens:
-            return True
-        return False
+        """Returns true if token gen for this context completed, else false."""
+        return self.tokens[-1] == eos or len(self.tokens) > self.max_tokens
 
     @property
     def seq_len(self) -> int:
@@ -285,7 +272,7 @@ class Llama3:
             cache_seq_id=seq_id[0],
         )
 
-        context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
+        context.append(np.array(encoded_prompt), prompt)
         return context
 
     async def new_context(
@@ -303,7 +290,7 @@ class Llama3:
             prompt=prompt,
             max_tokens=len(encoded_prompt) + max_tokens_to_generate,
         )
-        context.append(np.array(encoded_prompt).reshape(1, -1), prompt)
+        context.append(np.array(encoded_prompt), prompt)
         return context
 
     async def next_token(
@@ -329,7 +316,7 @@ class Llama3:
             decoded_token = self._tokenizer.decode(next_token)
 
             # Update context
-            context.append(next_token.reshape(1, -1), decoded_token)
+            context.append(next_token.reshape(-1), decoded_token)
             # Add back to dictionary
 
             if not context.is_done(self._tokenizer.eos_token_id):
@@ -359,57 +346,15 @@ class Llama3:
         else:
             self._kv_cache.sequence_length = 0
 
-    # TODO(MSDK-979): We may not need this if we can figure out how to leverage
-    # the tokenizer's enable_padding() API. Add unit tests if we decide to still
-    # keep this.
-    def _batch_tensors_with_padding(
-        self,
-        batch: dict[str, Llama3Context],
-        direction: PaddingDirection = PaddingDirection.LEFT,
-        pad_token: int = 0,
-    ) -> tuple[np.ndarray, int, list[int]]:
-        """
-        Generates a fixed length padded batch tensor, provided a batch of Llama3Context.
-        """
-
-        # Calculate Max Length to Batch
-        lengths = [request.next_tokens.shape[1] for request in batch.values()]
-        max_length = max(lengths)
-
-        # Create list of tensors, with padding
-        tensors: list[np.ndarray] = []
-        for i, context in enumerate(batch.values()):
-            pad_length = max_length - lengths[i]
-            if pad_length != 0:
-                if direction == PaddingDirection.LEFT:
-                    pad_width = (max_length - lengths[i], 0)
-                else:
-                    pad_width = (0, max_length - lengths[i])
-                tensors.append(
-                    np.pad(
-                        context.next_tokens,
-                        [(0, 0), pad_width],
-                        mode="constant",
-                        constant_values=pad_token,
-                    )
-                )
-            else:
-                # No padding necessary
-                tensors.append(context.next_tokens)
-
-        batched_np_tensor = np.stack(tensors)
-        # Reshape / squeeze batched np tensor from (batch_size, 1, seq_len) to (batch_size, seq_len)
-        batched_np_tensor = batched_np_tensor.squeeze(axis=1)
-        return batched_np_tensor, max_length, lengths
-
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, Tensor]:
-        # Pad all tensors to the maximum sequence length in the batch.
-        batched_np_tensor, max_length, unpadded_lengths = (
-            self._batch_tensors_with_padding(req_to_context_dict)
-        )
-        batch_size = batched_np_tensor.shape[0]
+        context_batch = req_to_context_dict.values()
+        tokens = [ctx.next_tokens for ctx in context_batch]
+
+        # Get valid lengths: unpadded lengths of each token vector in the batch.
+        batch_size = len(context_batch)
+        unpadded_lengths = [ctx.seq_len for ctx in context_batch]
         valid_lengths = Tensor((batch_size,), DType.uint32, CPU())
         for n, valid_length in enumerate(unpadded_lengths):
             valid_lengths[n] = valid_length
@@ -417,23 +362,23 @@ class Llama3:
         # Grab attention mask.
         attn_mask = causal_attention_mask(
             original_start_pos=list(self._kv_manager.cache_lengths.values()),
-            original_seq_len=[
-                ctx.seq_len for ctx in req_to_context_dict.values()
-            ],
+            original_seq_len=[ctx.seq_len for ctx in context_batch],
         ).astype(np.float32)
 
         # Grab kv_collection.
         kv_collection = self._kv_manager.fetch(
-            [ctx.cache_seq_id for ctx in req_to_context_dict.values()]  # type: ignore
+            [ctx.cache_seq_id for ctx in context_batch]
         )
 
-        # Create batched input token tensor.
-        context_batch = list(req_to_context_dict.values())
-        next_tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
+        # Create batched input token tensor by padding all input token tensors
+        # to the maximum sequence length in the batch.
+        next_tokens_batch = collate_batch(
+            tokens, batch_size=self.config.batch_size
+        )
 
-        # Execute Model.
+        # Execute model.
         batch_logits = self._model.execute(
-            Tensor.from_numpy(next_tokens).to(self.config.device),
+            Tensor.from_numpy(next_tokens_batch).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
             valid_lengths,
             kv_collection,
@@ -444,8 +389,7 @@ class Llama3:
 
         self._kv_manager.step(
             valid_lengths={
-                ctx.cache_seq_id: ctx.next_tokens.shape[1]  # type: ignore
-                for ctx in req_to_context_dict.values()
+                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch
             }
         )
 
@@ -458,23 +402,27 @@ class Llama3:
         if self.params.use_opaque:
             return self._execute_opaque(req_to_context_dict)
 
-        batched_np_tensor, max_length, _ = self._batch_tensors_with_padding(
-            req_to_context_dict
+        context_batch = req_to_context_dict.values()
+        tokens = [ctx.next_tokens for ctx in context_batch]
+        batch_size = len(context_batch)
+
+        # Create batched input token tensor by padding all input token tensors
+        # to the maximum sequence length in the batch.
+        next_tokens_batch = collate_batch(
+            tokens, batch_size=self.config.batch_size
         )
 
-        batch_size = batched_np_tensor.shape[0]
-
+        # Grab attention mask.
         attn_mask = causal_attention_mask(
             original_start_pos=(
                 [self._kv_cache.sequence_length] * len(req_to_context_dict)
             ),
-            original_seq_len=[
-                ctx.next_tokens.shape[1] for ctx in req_to_context_dict.values()
-            ],
+            original_seq_len=[ctx.seq_len for ctx in context_batch],
         ).astype(np.float32)
 
+        # Execute model.
         logits, k_cache, v_cache = self._model.execute(
-            Tensor.from_numpy(batched_np_tensor).to(self.config.device),
+            Tensor.from_numpy(next_tokens_batch).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
             Tensor.from_numpy(self._kv_cache.keys_view(batch_size)).to(
                 self.config.device
