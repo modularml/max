@@ -30,51 +30,6 @@ from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
 
 
-def generate_attention_mask(
-    attention_mask: TensorValue,
-    start_pos: TensorValue,
-    seq_len: DimLike,
-    activation_dtype: DType,
-) -> TensorValue:
-    """Computes attention mask.
-
-    Returns:
-        A causal attention mask with -inf in the lower triangle.
-    """
-    fill_val = -10000.0
-    batch, n_heads = attention_mask.shape[0], attention_mask.shape[1]
-    mask_val = ops.broadcast_to(
-        ops.constant(fill_val, activation_dtype),
-        shape=[batch, n_heads, seq_len, seq_len],
-    )
-
-    # Create a lower triangular matrix filled with -inf.
-    mask = ops.band_part(mask_val, num_lower=-1, num_upper=0, exclude=True)
-
-    # Broadcast zero to (seq_len, start_pos).
-    seq_len_val = ops.shape_to_tensor((seq_len,)).reshape(())
-    zeros = ops.broadcast_to(
-        ops.constant(0, activation_dtype),
-        shape=ops.stack(
-            [
-                ops.shape_to_tensor((batch,)).reshape(()),
-                ops.shape_to_tensor((n_heads,)).reshape(()),
-                seq_len_val,
-                ops.cast(start_pos, seq_len_val.dtype),
-            ]
-        ),
-        out_dims=(batch, n_heads, "seq_len", "start_pos"),
-    )
-
-    x = ops.concat([zeros, mask], axis=-1, new_dim="post_seq_len")
-
-    y = ops.broadcast_to(
-        ops.constant(fill_val, activation_dtype), shape=x.shape
-    )
-
-    return ops.select(attention_mask, x, y)
-
-
 def _dim_to_scalar(dim: Dim) -> TensorValue:
     return ops.shape_to_tensor((dim,)).reshape(())
 
@@ -95,7 +50,7 @@ class OptimizedAttention(Layer):
     def __call__(
         self,
         x: TensorValue,
-        mask: ValueLike,
+        attn_mask: ValueLike,
         k_cache: ContiguousKVCache,
         v_cache: ContiguousKVCache,
         start_pos: TensorValue,
@@ -141,10 +96,6 @@ class OptimizedAttention(Layer):
             xq = ops.transpose(xq, 1, 2)
 
         # Calculate Flash Attention.
-        attn_mask = generate_attention_mask(
-            mask, start_pos, seq_len, self.kv_params.dtype
-        )
-
         attn_out = flash_attention(
             self.kv_params,
             input=xq,
