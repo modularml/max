@@ -194,19 +194,20 @@ def _generation_loop[
     if not is_warmup:
         metrics.end_timing_tokenization()
 
-    kv_collection = kv_manager.claim(config.get("batch-size")[Int])
+    seq_ids = kv_manager.claim(config.get("batch-size")[Int])
 
     if not is_warmup:
         metrics.set_tokens_in_prompt(padded_size)
         metrics.begin_timing_generation()
-
     for i in range(padded_size, max_tokens + 1):
-        kv_collection = kv_manager.fetch(kv_collection.get_seq_ids())
+        kv_collection = kv_manager.fetch[kv_manager.CollectionType](seq_ids)
         tokens_shape = tokens._spec.shape
         if i == padded_size:
             valid_lengths = List[Int](padded_size)
         else:
             valid_lengths = List[Int](1)
+
+        kv_collection = kv_manager.fetch[kv_manager.CollectionType](seq_ids)
 
         # Update Mask
         mask = Tensor[DType.bool, rank=2]((1, i), host_device)
@@ -234,7 +235,7 @@ def _generation_loop[
 
         kv_collection = result[1].take().to[kv_manager.CollectionType]()
 
-        kv_manager.step(valid_lengths, kv_collection)
+        kv_manager.step(valid_lengths, kv_collection^)
 
         token = SIMD[DType.int64, 1](sampler.sample(logits).selected)
         tokens = Tensor[DType.int64, rank=2]((1, 1), host_device)
@@ -244,7 +245,7 @@ def _generation_loop[
             metrics.new_token()
             print(tokenizer.decode(token), end="")
 
-    for seq_id in kv_collection.get_seq_ids():
+    for seq_id in seq_ids:
         kv_manager.release(seq_id[])
     _ = kv_manager^
 
