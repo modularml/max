@@ -19,6 +19,8 @@ from typing import Sequence
 
 import numpy as np
 
+from .causal_attention_mask import causal_attention_mask
+
 
 class PaddingDirection(enum.Enum):
     """Padding (from) direction for batch collation."""
@@ -68,3 +70,27 @@ def collate_batch(
         batch = [*batch, *([pad_batch_item] * (batch_size - len(batch)))]
 
     return np.stack([pad(a) for a in batch], axis=0)
+
+
+def batch_padded_tokens_and_mask(
+    start_pos: list[int], tokens: list[np.ndarray]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Batches input tokens and computes a batched attention mask.
+
+    Args:
+        start_pos: index into the end of the KV cache for each batch item.
+        tokens: unpadded input tokens for this batch.
+
+    Returns:
+        A (batched tokens, batch attention mask) pair.
+    """
+    # Grab attention mask.
+    attn_mask = causal_attention_mask(
+        original_start_pos=start_pos,
+        original_seq_len=[len(t) for t in tokens],
+    ).astype(np.float32)
+
+    # Create batched input token tensor by padding all input token tensors
+    # to the maximum sequence length in the batch.
+    next_tokens_batch = collate_batch(tokens, batch_size=len(tokens))
+    return next_tokens_batch, attn_mask
