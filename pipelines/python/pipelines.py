@@ -117,6 +117,13 @@ def main():
     help="Whether to run the model on the available GPU.",
 )
 @click.option(
+    "--num-warmups",
+    type=int,
+    default=1,
+    show_default=True,
+    help="# of warmup iterations to run before the final timed run.",
+)
+@click.option(
     "--performance-fake",
     type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
     default="none",
@@ -133,6 +140,7 @@ def run_llama3(
     serve,
     profile_serve,
     use_gpu,
+    num_warmups,
     performance_fake,
     server_batch_mode,
     **config_kwargs,
@@ -192,7 +200,27 @@ def run_llama3(
             )
         )
     else:
+        # Run warmup iteration with no metrics & printing disabled
+        if num_warmups > 0:
+            warmup_model = llama3.Llama3(config)
+            print("Running warmup...")
+            for i in range(num_warmups):
+                asyncio.run(
+                    stream_text_to_console(
+                        warmup_model,
+                        prompt,
+                        metrics=None,
+                        print_tokens=False,
+                        max_batch_size=config.batch_size,
+                    )
+                )
+
+        # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
+            # FIXME (MSDK-1088): We shouldn't need to reconstruct the pipeline
+            # here, we should be able to re-use the pipeline from the warmup
+            # run, but attempting to do so right now causes the subsequent call
+            # to model.new_context() to hang indefinitely.
             model = llama3.Llama3(config)
             print("Beginning text generation...")
             asyncio.run(

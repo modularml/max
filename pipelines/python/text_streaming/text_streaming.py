@@ -24,6 +24,7 @@ async def stream_text_to_console(
     prompt: str,
     metrics: Optional[TextGenerationMetrics] = None,
     max_batch_size: int = 1,
+    print_tokens: bool = True,
 ):
     # Length of request_id_context_dict should be == batch_size.
     request_id_context = dict()
@@ -49,7 +50,7 @@ async def stream_text_to_console(
         metrics.prompt_size = prompt_size
         metrics.signpost("begin_generation")
 
-    if print_as_generated:
+    if print_tokens and print_as_generated:
         print(prompt, end="", flush=True)
 
     end_loop = False
@@ -67,7 +68,7 @@ async def stream_text_to_console(
                     first_token = False
                     metrics.signpost("first_token")
                 metrics.new_token()
-            if print_as_generated:
+            if print_tokens and print_as_generated:
                 print(response_text, end="", flush=True)
             else:
                 responses[key].append(response_text)
@@ -75,9 +76,10 @@ async def stream_text_to_console(
         metrics.signpost("end_generation")
 
     # Print prompt + response for each unique prompt
-    if not print_as_generated:
+    if print_tokens and not print_as_generated:
         for response in responses.values():
             print("\n---\n")
             print("".join(response), flush=True)
 
-    print()
+    if print_tokens:
+        print()
