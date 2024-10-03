@@ -107,7 +107,9 @@ def _llama_graph_opaque(
     ) as graph:
         model = transformer(graph, params, weights, kv_params)
         tokens, attention_mask, *kv_cache = graph.inputs
-        logits = model(tokens, attention_mask.cast(params.dtype), *kv_cache)
+        logits = model(
+            tokens, attention_mask.cast(params.mask_dtype), *kv_cache
+        )
         graph.output(logits[:, -1])
         return graph
 
@@ -143,7 +145,7 @@ def _llama_graph(
         model = transformer(graph, params, weights, kv_params)
         tokens, attention_mask, *kv_cache = graph.inputs
         logits, k_update, v_update = model(
-            tokens, attention_mask.cast(params.dtype), *kv_cache
+            tokens, attention_mask.cast(params.mask_dtype), *kv_cache
         )
         graph.output(logits[:, -1], k_update, v_update)
         return graph

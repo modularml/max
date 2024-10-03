@@ -73,3 +73,16 @@ class Hyperparameters:
         return (
             self.quantization_encoding is None and not self.force_naive_kv_cache
         )
+
+    @property
+    def mask_dtype(self) -> DType:
+        """Returns the correct dtype for the model's attention mask.
+
+        When `self.quantization_encoding` is set, then `self.dtype` will simply
+        be uint8.
+        So in that case we need to pass a float32 attention mask to match the
+        activations dtype expected by the quantized CPU flash attention kernel.
+        """
+        return (
+            self.dtype if self.quantization_encoding is None else DType.float32
+        )
