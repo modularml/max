@@ -187,7 +187,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
     value includes the length of the inital prompt."""
 
     var _kv_manager: ContiguousKVCacheManager[dtype, kv_params]
-    var _kv_collection: Optional[ContiguousKVCacheCollection[dtype, kv_params]]
+    var _seq_ids: List[Int]
     """KVCache management types"""
 
     var _next_token_tensor: AnyTensor
@@ -301,7 +301,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
             dev,
             cpu_dev,
         )
-        self._kv_collection = None
+        self._seq_ids = List[Int]()
         self._next_token_tensor = AnyTensor()
         self._prompt_attention_mask = Tensor[DType.bool, 2](
             (0, 0), self._cpu_device
@@ -333,14 +333,12 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         """Resets the prompt and model state."""
         self._initial_prompt = prompt
         self._max_seq_len = self._get_max_tokens(len(prompt))
-        if self._kv_collection:
-            for seq_id in self._kv_collection.value().get_seq_ids():
+        if self._seq_ids:
+            for seq_id in self._seq_ids:
                 self._kv_manager.release(seq_id[])
 
-            self._kv_collection = None
-
         curr_batch_size = 1
-        self._kv_collection = self._kv_manager.claim(curr_batch_size)
+        self._seq_ids = self._kv_manager.claim(curr_batch_size)
 
         encoded_prompt, attn_mask = self._tokenizer.encode(
             List(prompt), pad_to_multiple_of=self._pad_to_multiple_of
@@ -394,23 +392,22 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         Sampler: TokenSampler
     ](inout self, sampler: Sampler) -> Optional[String]:
         """Generates the next token, or None if the end has been reached."""
-        if not self._kv_collection:
+        if not self._seq_ids:
             raise "KV Cache not initialized, you must call `reset` before calling `next_token`"
         if self._is_end_of_text or self._max_seq_len - self._cur_seq_len <= 0:
             return None
 
-        self._kv_collection = self._kv_manager.fetch(
-            self._kv_collection.value().get_seq_ids()
-        )
+        kv_collection = self._kv_manager.fetch[
+            ContiguousKVCacheCollection[dtype, kv_params]
+        ](self._seq_ids)
         prev_token_shape = self._next_token_tensor.spec().shape
         results = self._model.execute(
             self._next_token_tensor.take(),
             self._get_attention_mask(),
-            AnyMojoValue(self._kv_collection.take()),
+            AnyMojoValue(kv_collection^),
         )
-
         output = results[0].take()
-        self._kv_collection = (
+        kv_collection = (
             results[1]
             .take()
             .to[ContiguousKVCacheCollection[dtype, kv_params]]()
@@ -437,7 +434,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
             StaticIntTuple[2](prev_token_shape[0], prev_token_shape[1]),
         )
         var valid_lengths = List[Int](prev_token_shape[1])
-        self._kv_manager.step(valid_lengths, self._kv_collection.value())
+        self._kv_manager.step(valid_lengths, kv_collection^)
         return self._tokenizer.decode(token)
 
 
