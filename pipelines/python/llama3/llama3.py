@@ -369,7 +369,7 @@ class Llama3:
 
         # Grab kv_collection.
         kv_collection = self._kv_manager.fetch(
-            [ctx.cache_seq_id for ctx in context_batch]
+            [ctx.cache_seq_id for ctx in context_batch]  # type: ignore
         )
 
         # Execute model.
@@ -385,7 +385,7 @@ class Llama3:
 
         self._kv_manager.step(
             valid_lengths={
-                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch
+                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch  # type: ignore
             }
         )
 

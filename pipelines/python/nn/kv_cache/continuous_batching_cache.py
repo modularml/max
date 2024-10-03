@@ -80,7 +80,7 @@ class ContinuousBatchingKVCacheManager:
 
         self.available = set(range(self.max_cache_size))
         self.semaphore = asyncio.BoundedSemaphore(self.max_cache_size)
-        self.cache_lengths = {}
+        self.cache_lengths = {}  # type: ignore
 
     async def claim(self, n: int) -> List[int]:
         """Claims `n` blocks of memory in the cache for incoming requests.
