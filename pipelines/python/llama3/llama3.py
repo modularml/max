@@ -348,6 +348,31 @@ class Llama3:
         else:
             self._kv_cache.sequence_length = 0
 
+    def _batch_padded_tokens_and_mask(
+        self, start_pos: list[int], tokens: list[np.ndarray]
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Batches input tokens and computes a batched attention mask.
+
+        Args:
+            start_pos: index into the end of the KV cache for each batch item.
+            tokens: unpadded input tokens for this batch.
+
+        Returns:
+            A (batched tokens, batch attention mask) pair.
+        """
+        # Grab attention mask.
+        attn_mask = causal_attention_mask(
+            original_start_pos=start_pos,
+            original_seq_len=[len(t) for t in tokens],
+        ).astype(np.float32)
+
+        # Create batched input token tensor by padding all input token tensors
+        # to the maximum sequence length in the batch.
+        next_tokens_batch = collate_batch(
+            tokens, batch_size=self.config.batch_size
+        )
+        return next_tokens_batch, attn_mask
+
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, Tensor]:
@@ -361,21 +386,15 @@ class Llama3:
         for n, valid_length in enumerate(unpadded_lengths):
             valid_lengths[n] = valid_length
 
-        # Grab attention mask.
-        attn_mask = causal_attention_mask(
-            original_start_pos=list(self._kv_manager.cache_lengths.values()),
-            original_seq_len=[ctx.seq_len for ctx in context_batch],
-        ).astype(np.float32)
+        # Pad tokens and compute attention mask for the batch.
+        next_tokens_batch, attn_mask = self._batch_padded_tokens_and_mask(
+            start_pos=list(self._kv_manager.cache_lengths.values()),
+            tokens=tokens,
+        )
 
         # Grab kv_collection.
         kv_collection = self._kv_manager.fetch(
             [ctx.cache_seq_id for ctx in context_batch]
-        )
-
-        # Create batched input token tensor by padding all input token tensors
-        # to the maximum sequence length in the batch.
-        next_tokens_batch = collate_batch(
-            tokens, batch_size=self.config.batch_size
         )
 
         # Execute model.
@@ -408,19 +427,11 @@ class Llama3:
         tokens = [ctx.next_tokens for ctx in context_batch]
         batch_size = len(context_batch)
 
-        # Create batched input token tensor by padding all input token tensors
-        # to the maximum sequence length in the batch.
-        next_tokens_batch = collate_batch(
-            tokens, batch_size=self.config.batch_size
+        # Pad tokens and compute attention mask for the batch.
+        start_pos = [self._kv_cache.sequence_length] * len(req_to_context_dict)
+        next_tokens_batch, attn_mask = self._batch_padded_tokens_and_mask(
+            start_pos=start_pos, tokens=tokens
         )
-
-        # Grab attention mask.
-        attn_mask = causal_attention_mask(
-            original_start_pos=(
-                [self._kv_cache.sequence_length] * len(req_to_context_dict)
-            ),
-            original_seq_len=[ctx.seq_len for ctx in context_batch],
-        ).astype(np.float32)
 
         # Execute model.
         logits, k_cache, v_cache = self._model.execute(
