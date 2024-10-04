@@ -50,7 +50,7 @@ class Llama3Context:
     max_tokens: int
     """The maximum number of tokens to generate, including the prompt."""
 
-    cache_seq_id: int | None = None
+    _cache_seq_id: int | None = None
     """Sequence id to tell the KV cache manager which cache block this owns."""
 
     next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -68,6 +68,12 @@ class Llama3Context:
         self.next_tokens = token_ids
         self.tokens.extend(token_ids)
         self.decoded += decoded
+
+    @property
+    def cache_seq_id(self) -> int:
+        """Returns the seq id for the KVCacheManager, ensuring it is set."""
+        assert self._cache_seq_id is not None
+        return self._cache_seq_id
 
     def is_done(self, eos: int) -> bool:
         """Returns true if token gen for this context completed, else false."""
@@ -270,7 +276,7 @@ class Llama3:
         context = Llama3Context(
             prompt=prompt,
             max_tokens=len(encoded_prompt) + max_tokens_to_generate,
-            cache_seq_id=seq_id[0],
+            _cache_seq_id=seq_id[0],
         )
 
         context.append(np.array(encoded_prompt), prompt)
@@ -339,7 +345,7 @@ class Llama3:
 
     async def release(self, context: Llama3Context):
         if self.params.use_opaque:
-            await self._kv_manager.release(context.cache_seq_id)  # type: ignore
+            await self._kv_manager.release(context.cache_seq_id)
 
     async def reset_cache(self):
         if self.params.use_opaque:
@@ -384,7 +390,7 @@ class Llama3:
 
         self._kv_manager.step(
             valid_lengths={
-                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch  # type: ignore
+                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch
             }
         )
 
