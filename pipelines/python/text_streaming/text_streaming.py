@@ -75,6 +75,9 @@ async def stream_text_to_console(
     if metrics:
         metrics.signpost("end_generation")
 
+    for context in request_id_context.values():
+        await model.release(context)
+
     # Print prompt + response for each unique prompt
     if print_tokens and not print_as_generated:
         for response in responses.values():
