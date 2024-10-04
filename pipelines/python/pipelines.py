@@ -194,7 +194,7 @@ def run_llama3(
             serve_token_generator(
                 model,
                 model._tokenizer,
-                config.batch_size,
+                config.max_cache_batch_size,
                 server_batch_mode,
                 profile_serve,
             )
@@ -211,7 +211,7 @@ def run_llama3(
                         prompt,
                         metrics=None,
                         print_tokens=False,
-                        max_batch_size=config.batch_size,
+                        max_batch_size=config.max_cache_batch_size,
                     )
                 )
 
@@ -228,7 +228,8 @@ def run_llama3(
                     model,
                     prompt,
                     metrics=metrics,
-                    max_batch_size=config.batch_size,
+                    max_batch_size=config.max_cache_batch_size,
+                    n_duplicate=config.n_duplicate,
                 )
             )
 

@@ -29,21 +29,21 @@ class KVCacheManager(ABC):
     def __init__(
         self,
         params: KVCacheParams,
-        max_cache_size: int,
+        max_cache_batch_size: int,
         max_seq_len: int,
         num_layers: int,
         session: InferenceSession,
         device: Device,
     ) -> None:
         self.params = params
-        self.max_cache_size = max_cache_size
+        self.max_cache_batch_size = max_cache_batch_size
         self.max_seq_len = max_seq_len
         self.num_layers = num_layers
         self.device = device
 
         # Attributes for managing available slots.
-        self.available = set(range(self.max_cache_size))
-        self.semaphore = asyncio.BoundedSemaphore(self.max_cache_size)
+        self.available = set(range(self.max_cache_batch_size))
+        self.semaphore = asyncio.BoundedSemaphore(self.max_cache_batch_size)
         self.cache_lengths: dict[int, int] = {}
 
         # Allocate boolean tensors
@@ -58,7 +58,7 @@ class KVCacheManager(ABC):
         # Create one-op graph, and allocate memory
         self.fetch_model = self.compile_fetch_graph(session=session)
         self.blocks = Tensor.zeros(
-            self.block_shape(self.max_cache_size), self.params.dtype
+            self.block_shape(self.max_cache_batch_size), self.params.dtype
         )
 
         # Cache Lengths buf has to be held on the object

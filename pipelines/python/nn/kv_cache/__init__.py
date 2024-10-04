@@ -31,7 +31,7 @@ from .manager import KVCacheManager
 
 def load_kv_manager(
     params: KVCacheParams,
-    max_cache_size: int,
+    max_cache_batch_size: int,
     max_seq_len: int,
     num_layers: int,
     session: InferenceSession,
@@ -40,7 +40,7 @@ def load_kv_manager(
     if params.cache_type == KVCacheType.CONTINUOUS:
         return ContinuousBatchingKVCacheManager(
             params=params,
-            max_cache_size=max_cache_size,
+            max_cache_batch_size=max_cache_batch_size,
             max_seq_len=max_seq_len,
             num_layers=num_layers,
             session=session,
@@ -49,7 +49,7 @@ def load_kv_manager(
     elif params.cache_type == KVCacheType.CONTIGUOUS:
         return ContiguousKVCacheManager(
             params=params,
-            max_cache_size=max_cache_size,
+            max_cache_batch_size=max_cache_batch_size,
             max_seq_len=max_seq_len,
             num_layers=num_layers,
             session=session,

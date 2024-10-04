@@ -208,7 +208,7 @@ class Llama3:
         if self.params.use_opaque:
             self._kv_manager = load_kv_manager(
                 params=self._kv_params,
-                max_cache_size=config.batch_size,
+                max_cache_batch_size=config.max_cache_batch_size,
                 max_seq_len=config.max_length,
                 num_layers=self.params.n_layers,
                 session=session,
@@ -217,7 +217,7 @@ class Llama3:
         else:
             self._kv_cache = NaiveKVCache(
                 self.params.seq_len,
-                self.config.batch_size,
+                self.config.max_cache_batch_size,
                 self.params.n_layers,
                 self.params.n_kv_heads,
                 self.params.head_dim,

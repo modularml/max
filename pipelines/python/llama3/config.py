@@ -123,8 +123,12 @@ class InferenceConfig:
     max_new_tokens: int = -1
     """Controls the maximum length of the text sequence (does not include the input tokens)."""
 
-    batch_size: int = 1
-    """Batch size of inputs to the model."""
+    n_duplicate: int = 1
+    """Broadcast the static prompt `n_duplicate` times to test batching."""
+    # TODO: MSDK-1095 Remove temporary `n_duplicate` cli flag.
+
+    max_cache_batch_size: int = 1
+    """Maximum cache size of sequences to the model."""
 
     force_naive_kv_cache: bool = False
     """Force using the naive KV cache even for configs supporting the opaque KV cache."""
