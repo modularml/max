@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from .cache_params import KVCacheLayout, KVCacheParams
+from .cache_params import KVCacheLayout, KVCacheParams, KVCacheType
 from .naive_cache import NaiveKVCache
 from .contiguous_cache import (
     ContiguousKVCacheType,
