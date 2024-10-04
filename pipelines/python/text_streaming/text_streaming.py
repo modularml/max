@@ -25,12 +25,20 @@ async def stream_text_to_console(
     metrics: Optional[TextGenerationMetrics] = None,
     max_batch_size: int = 1,
     print_tokens: bool = True,
+    n_duplicate: int = 1,
 ):
+    if n_duplicate > max_batch_size:
+        msg = (
+            f"prompt is duplicated {n_duplicate} times, while"
+            f" max batch size is {max_batch_size}"
+        )
+        raise ValueError(msg)
+
     # Length of request_id_context_dict should be == batch_size.
     request_id_context = dict()
 
     # TODO(MSDK-972): Make this batch_size variable based on size of the request dict.
-    # NOTE: This batch_size param also needs to be == config.batch_size of
+    # NOTE: This batch_size param also needs to be == config.max_cache_size of
     # the underlying pipeline config.
     batch_size = max_batch_size
     # Special case UX to see response print as generated when batch_size == 1
@@ -38,7 +46,7 @@ async def stream_text_to_console(
     responses = {}
 
     # create a dict of request_id: contexts
-    for _ in range(batch_size):
+    for _ in range(n_duplicate):
         # We make the key unique even for the same prompts for now.
         req_id = str(uuid.uuid4())
         context = await model.new_context(prompt)
