@@ -367,15 +367,17 @@ class Llama3:
             valid_lengths[n] = valid_length
 
         # Pad tokens and compute attention mask for the batch.
+        cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
         next_tokens_batch, attn_mask = batch_padded_tokens_and_mask(
-            start_pos=list(self._kv_manager.cache_lengths.values()),
+            start_pos=[
+                self._kv_manager.cache_lengths[seq_id]
+                for seq_id in cache_seq_ids
+            ],
             tokens=tokens,
         )
 
         # Grab kv_collection.
-        kv_collection = self._kv_manager.fetch(
-            [ctx.cache_seq_id for ctx in context_batch]  # type: ignore
-        )
+        kv_collection = self._kv_manager.fetch(cache_seq_ids)
 
         # Execute model.
         batch_logits = self._model.execute(
