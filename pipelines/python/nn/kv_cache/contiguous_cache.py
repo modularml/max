@@ -137,7 +137,6 @@ class ContiguousKVCacheManager(KVCacheManager):
         # refer to this object. As the MojoValue result of the
         # self.fetch_model.execute call, has a borrowed reference
         # to this cache lengths buffer.
-        self.cache_lengths_buf = None
         self.cache_lengths_buf = cache_lengths.to(self.device)
 
         # Grab the first n elements we need from pre-allocated memory

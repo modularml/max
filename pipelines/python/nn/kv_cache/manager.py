@@ -58,7 +58,9 @@ class KVCacheManager(ABC):
         # Create one-op graph, and allocate memory
         self.fetch_model = self.compile_fetch_graph(session=session)
         self.blocks = Tensor.zeros(
-            self.block_shape(self.max_cache_batch_size), self.params.dtype
+            self.block_shape(self.max_cache_batch_size),
+            self.params.dtype,
+            device=self.device,
         )
 
         # Cache Lengths buf has to be held on the object
