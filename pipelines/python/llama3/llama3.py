@@ -27,9 +27,10 @@ from tokenizers import Tokenizer
 
 from nn.kv_cache import (
     ContiguousKVCacheCollectionType,
-    ContiguousKVCacheManager,
+    KVCacheManager,
     KVCacheParams,
     NaiveKVCache,
+    load_kv_manager,
 )
 from utils import gguf_utils, tokenizer_from_gguf
 
@@ -162,7 +163,7 @@ class Llama3:
     config: InferenceConfig
     _model: Model
     _kv_cache: NaiveKVCache
-    _kv_manager: ContiguousKVCacheManager
+    _kv_manager: KVCacheManager
     _sessions: set[str]
     _kv_params: KVCacheParams
     _tokenizer: Tokenizer
@@ -205,9 +206,9 @@ class Llama3:
             self._model._export_mef(export_path)
 
         if self.params.use_opaque:
-            self._kv_manager = ContiguousKVCacheManager(
+            self._kv_manager = load_kv_manager(
                 params=self._kv_params,
-                max_batch_size=config.batch_size,
+                max_cache_size=config.batch_size,
                 max_seq_len=config.max_length,
                 num_layers=self.params.n_layers,
                 session=session,
@@ -272,7 +273,7 @@ class Llama3:
         max_tokens_to_generate = _max_tokens_to_generate(
             len(encoded_prompt), self.config, max_new_tokens
         )
-        seq_id = await self._kv_manager.claim(batch_size=1)
+        seq_id = await self._kv_manager.claim(n=1)
         context = Llama3Context(
             prompt=prompt,
             max_tokens=len(encoded_prompt) + max_tokens_to_generate,

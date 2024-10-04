@@ -10,6 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+from max.engine import InferenceSession
+from max.driver import Device
 from .cache_params import KVCacheLayout, KVCacheParams, KVCacheType
 from .naive_cache import NaiveKVCache
 from .contiguous_cache import (
@@ -24,3 +26,35 @@ from .continuous_batching_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheManager,
 )
+from .manager import KVCacheManager
+
+
+def load_kv_manager(
+    params: KVCacheParams,
+    max_cache_size: int,
+    max_seq_len: int,
+    num_layers: int,
+    session: InferenceSession,
+    device: Device,
+) -> KVCacheManager:
+    if params.cache_type == KVCacheType.CONTINUOUS:
+        return ContinuousBatchingKVCacheManager(
+            params=params,
+            max_cache_size=max_cache_size,
+            max_seq_len=max_seq_len,
+            num_layers=num_layers,
+            session=session,
+            device=device,
+        )
+    elif params.cache_type == KVCacheType.CONTIGUOUS:
+        return ContiguousKVCacheManager(
+            params=params,
+            max_cache_size=max_cache_size,
+            max_seq_len=max_seq_len,
+            num_layers=num_layers,
+            session=session,
+            device=device,
+        )
+    else:
+        msg = f"cache type: {params.cache_type} not supported."
+        raise ValueError(msg)

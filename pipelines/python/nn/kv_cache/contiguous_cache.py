@@ -14,23 +14,22 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import List, NewType
+from typing import NewType, Union
 
 import numpy as np
-from max.driver import Device, Tensor
+from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
 from max.graph import (
     Graph,
     OpaqueType,
-    OpaqueValue,
     TensorType,
     TensorValue,
     ops,
 )
 
 from .cache_params import KVCacheLayout, KVCacheParams
+from .manager import KVCacheManager
 
 
 class ContiguousKVCacheType(OpaqueType):
@@ -86,49 +85,19 @@ class FetchContiguousKVCacheCollection:
         )[0]
 
 
-class ContiguousKVCacheManager:
-    """Manages a Batch-split KV cache across multiple user sessions.
+class ContiguousKVCacheManager(KVCacheManager):
+    def compile_fetch_graph(self, session: InferenceSession) -> Graph:
+        # Create one-op fetch graph
+        cache_lengths_type = TensorType(DType.uint32, ("batch_size",))
+        seq_ids_type = TensorType(DType.int32, ("batch_size",))
+        is_cache_empty_type = TensorType(DType.bool, (1,))
 
-    Each request is assigned a seq_id, which is associated with a set of buffers
-    to store the key and value projections per layer.
-
-    The order of calls for an active request is expected to be:
-    * claim -- assigned blocks to the sequence and give it a unique id
-    * step -- commit context encoding projections
-    * foreach token generated:
-        * fetch -- retrieve blocks based on a seq_id
-        * step -- commit token generation projections
-    * release -- mark blocks as not in use
-    """
-
-    def __init__(
-        self,
-        params: KVCacheParams,
-        max_batch_size: int,
-        max_seq_len: int,
-        num_layers: int,
-        session: InferenceSession,
-        device: Device,
-    ) -> None:
-        self.params = params
-        self.max_batch_size = max_batch_size
-        self.max_seq_len = max_seq_len
-        self.num_layers = num_layers
-        self.available = set(range(self.max_batch_size))
-        # Mapping from sequence id to current KV cache length.
-        self.cache_lengths: dict[int, int] = {}
-        self.device = device
-        self.semaphore = asyncio.BoundedSemaphore(self.max_batch_size)
-
-        # Create a graph for the fetch method.
         cache_type = TensorType(
             self.params.dtype,
-            self.params.static_cache_shape,
+            self.symbolic_cache_shape,
         )
-        cache_lengths_type = TensorType(DType.uint32, ("batch_size",))
-        seq_ids_type = TensorType(DType.int32, ("seq_len",))
         int_scalar_type = TensorType(DType.int32, (1,))
-        is_cache_empty_type = TensorType(DType.bool, (1,))
+
         fetch_graph = Graph(
             "fetch_kv_collection",
             FetchContiguousKVCacheCollection(self.params),
@@ -143,34 +112,50 @@ class ContiguousKVCacheManager:
             ],
         )
 
-        self.fetch_model = session.load(fetch_graph)
+        return session.load(fetch_graph)
 
-        # Initialize Block Buffer.
-        block_shape = self.block_shape(self.max_batch_size)
-        self.blocks_buf = Tensor.zeros(
-            block_shape, dtype=self.params.dtype, device=self.device
-        )
+    def fetch(self, seq_ids: list[int]) -> MojoValue:
+        active_batch_size = len(seq_ids)
+
+        # Lookup table and seq_ids are redundant identical tensors.
+        seq_ids_tensor = Tensor.zeros((active_batch_size,), DType.int32)
+        cache_lengths = Tensor.zeros((active_batch_size,), DType.uint32)
+        is_cache_empty = True
+        for i, seq_id in enumerate(seq_ids):
+            if seq_id not in self.cache_lengths:
+                raise ValueError(f"seq_id: {seq_id} not currently in cache.")
+
+            seq_ids_tensor[i] = seq_id
+            cache_len = self.cache_lengths[seq_id]
+            cache_lengths[i] = cache_len
+            if cache_len != 0:
+                is_cache_empty = False
+
+        # Cache Lengths buf has to be held on the object
+        # and persisted beyond the fetch call, to ensure the object
+        # is not destructed early, and the kernel can continue to
+        # refer to this object. As the MojoValue result of the
+        # self.fetch_model.execute call, has a borrowed reference
+        # to this cache lengths buffer.
         self.cache_lengths_buf = None
+        self.cache_lengths_buf = cache_lengths.to(self.device)
 
-    async def claim(self, batch_size: int) -> List[int]:
-        """Assign `batch_size` blocks for incoming requests.
+        # Grab the first n elements we need from pre-allocated memory
+        key_cache = self.blocks[0, 0 : len(seq_ids), :, :, :, :]
+        value_cache = self.blocks[1, 0 : len(seq_ids), :, :, :, :]
 
-        This returns a list of sequence_ids, which identifies a sequence's
-        entries within the cache. These sequence_ids can then be used downstream
-        to fetch specific KVCacheCollection objects.
-        """
+        return self.fetch_model.execute(
+            key_cache,
+            value_cache,
+            self.cache_lengths_buf,
+            self.true_tensor if is_cache_empty else self.false_tensor,
+            seq_ids_tensor,
+            np.array([self.num_layers]).astype(np.int32),
+            np.array([len(seq_ids)]).astype(np.int32),
+            copy_inputs_to_device=False,
+        )[0]
 
-        seq_ids = []
-        for _ in range(batch_size):
-            await self.semaphore.acquire()
-            id = self.available.pop()
-            seq_ids.append(id)
-            self.cache_lengths[id] = 0
-
-        return seq_ids
-
-    def block_shape(self, n_sequences: int) -> list[int]:
-        """Get the shape of the cache for a given number of sequences."""
+    def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
         if self.params.layout == KVCacheLayout.BHSD:
             return [
                 2,
@@ -190,70 +175,23 @@ class ContiguousKVCacheManager:
                 self.params.head_dim,
             ]
 
-    def fetch(self, seq_ids: List[int]) -> MojoValue:
-        """Retrieves the pre-assigned blocks for the given seq_ids."""
-
-        # Grab the first n elements we need from `blocks_buf`.
-        # B, L, H, S, D -> L, B, H, S, D: Layout dependent
-        key_cache = self.blocks_buf[0, 0 : len(seq_ids), :, :, :, :]
-        value_cache = self.blocks_buf[1, 0 : len(seq_ids), :, :, :, :]
-
-        seq_ids_tensor = Tensor.zeros((len(seq_ids),), DType.int32)
-        cache_lengths = Tensor.zeros((len(seq_ids),), DType.uint32)
-        is_cache_empty = True
-        for i, seq_id in enumerate(seq_ids):
-            if seq_id not in self.cache_lengths:
-                raise ValueError(f"seq_id: {seq_id} not currently in cache.")
-
-            seq_ids_tensor[i] = seq_id
-            cache_len = self.cache_lengths[seq_id]
-            cache_lengths[i] = cache_len
-            if cache_len != 0:
-                is_cache_empty = False
-
-        self.cache_lengths_buf = cache_lengths.to(self.device)
-
-        is_cache_empty_tensor = Tensor.zeros((1,), DType.bool)
-        is_cache_empty_tensor[0] = is_cache_empty
-
-        # Call construct_kv_cache_collection.
-        # Construct the KV cache collection by executing the fetch model.
-        # `key_cache` and `value_cache` should be on the execution device.
-        # All other arguments should be on the host.
-        return self.fetch_model.execute(
-            key_cache,
-            value_cache,
-            self.cache_lengths_buf,
-            is_cache_empty_tensor,
-            seq_ids_tensor,
-            np.array([self.num_layers]).astype(np.int32),
-            np.array([len(seq_ids)]).astype(np.int32),
-            copy_inputs_to_device=False,
-        )[0]
-
-    def step(self, valid_lengths: dict[int, int]) -> None:
-        """Commits changes to the ContiguousKVCache blocks.
-
-        This is used to note that a KV projection step has occured and
-        the values in these buffers have been written to. We note the new tokens
-        in the blocks and update the valid_length counter.
+    @property
+    def symbolic_cache_shape(self) -> list[str]:
+        """Helper function to provide symoblic cache shape for continguous caches.
         """
-
-        for k, v in valid_lengths.items():
-            self.cache_lengths[k] += v
-
-    async def release(self, seq_id: int) -> None:
-        """Marks `seq_id` as no longer necessary, their blocks are reintroduced
-        to the pool.
-        """
-        self.semaphore.release()
-        self.available.add(seq_id)
-        del self.cache_lengths[seq_id]
-
-    async def reset_cache(self) -> None:
-        """Releases all existing seq_ids, to return the values to the pool."""
-        for seq_id in self.cache_lengths:
-            self.semaphore.release()
-            self.available.add(seq_id)
-
-        self.cache_lengths.clear()
+        if self.params.layout == KVCacheLayout.BHSD:
+            return [
+                "num_layers",
+                "batch_size",
+                "n_kv_heads",
+                "seq_len",
+                "head_dim",
+            ]
+        else:
+            return [
+                "num_layers",
+                "batch_size",
+                "seq_len",
+                "n_kv_heads",
+                "head_dim",
+            ]
