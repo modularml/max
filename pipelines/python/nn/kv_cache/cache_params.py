@@ -13,8 +13,9 @@
 """Kernel Names for KV Cache related custom Ops."""
 
 from enum import Enum
-from max.dtype import DType
+
 from max.driver import Device
+from max.dtype import DType
 
 
 class KVCacheLayout(Enum):
@@ -26,10 +27,10 @@ class KVCacheLayout(Enum):
 
 
 VALID_KV_KERNELS = [
-    ("bf16", 1, 10, KVCacheLayout.BHSD),
-    ("bf16", 1, 10, KVCacheLayout.BSHD),
-    ("f32", 1, 10, KVCacheLayout.BHSD),
-    ("f32", 1, 10, KVCacheLayout.BSHD),
+    ("bf16", 1, 16, KVCacheLayout.BHSD),
+    ("bf16", 1, 16, KVCacheLayout.BSHD),
+    ("f32", 1, 16, KVCacheLayout.BHSD),
+    ("f32", 1, 16, KVCacheLayout.BSHD),
     ("bf16", 8, 128, KVCacheLayout.BHSD),
     ("bf16", 8, 128, KVCacheLayout.BSHD),
     ("f32", 8, 128, KVCacheLayout.BHSD),
