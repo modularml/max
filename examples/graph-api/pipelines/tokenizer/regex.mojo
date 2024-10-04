@@ -186,6 +186,9 @@ struct _MatchIter[
     fn __len__(self) -> Int:
         return int(bool(self.next_match))
 
+    fn __hasmore__(self) -> Bool:
+        return self.__len__() > 0
+
     def _next(inout self):
         m = self.regex[].find(self.string[], start=self.start)
         self.next_match = m

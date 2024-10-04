@@ -60,10 +60,13 @@ struct _SplitIter[is_mutable: Bool, lifetime: Lifetime[is_mutable].type]:
         self.done = True
         return StringSlice(unsafe_from_utf8=self.span)
 
-    fn __len__(inout self) -> Int:
+    fn __len__(self) -> Int:
         # Return a number >0 unless max split is -1 (signals end of iteration)
         # or span is empty.
         return 0 if self.done else 1
+
+    fn __hasmore__(self) -> Bool:
+        return self.__len__() > 0
 
 
 def split(
