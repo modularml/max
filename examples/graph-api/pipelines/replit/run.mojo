@@ -14,7 +14,7 @@
 from collections import Optional, Dict
 from memory import UnsafePointer
 from pathlib import cwd, Path
-from utils import StaticIntTuple
+from utils import IndexList
 import sys
 from os import setenv
 from time import monotonic
@@ -431,7 +431,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         # RUNP-292
         tokens_nd = NDBuffer[DType.int64, 2](
             UnsafePointer[Int64](),
-            StaticIntTuple[2](prev_token_shape[0], prev_token_shape[1]),
+            IndexList[2](prev_token_shape[0], prev_token_shape[1]),
         )
         var valid_lengths = List[Int](prev_token_shape[1])
         self._kv_manager.step(valid_lengths, kv_collection^)
