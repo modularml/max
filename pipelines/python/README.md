@@ -29,11 +29,18 @@ The default settings for this pipeline use the 8B set of pretrained weights in
 
 ## Usage
 
-1. Install MAX:
+The easiest way to try out this pipeline is with our Magic command-line tool.
 
-   If MAX is not already installed, follow
-   [the installation instructions](https://docs.modular.com/max/install)
-   to set it up on your system.
+1. Install Magic on macOS and Ubuntu with this command:
+
+   ```shell
+   curl -ssL https://magic.modular.com | bash
+   ```
+
+   Then run the source command that's printed in your terminal.
+
+   To see the available commands, you can run `magic --help`.
+   [Learn more about Magic here](https://docs.modular.com/magic).
 
 2. Clone the MAX examples repository:
 
@@ -50,19 +57,10 @@ The default settings for this pipeline use the 8B set of pretrained weights in
    cd max/pipelines/python/
    ```
 
-3. Run the text completion demo:
-
-   On first execution, the tokenizer library and model weights will be
-   downloaded and placed in a local `.cache/` directory in your current path.
-   The model will then be compiled and text completion will begin from the
-   specified prompt.
-
-   All of the pipelines have been configured to use a common driver, located
-   in the directory hosting all MAX Graph examples. Assuming you're starting
-   at the path of this README, the command invocation will look like:
+3. Now run the Llama 3.1 text completion demo with the following command:
 
    ```shell
-   python3 pipelines.py llama3 --prompt "I believe the meaning of life is"
+   magic run llama3 --prompt "I believe the meaning of life is"
    ```
 
 4. Optionally host a text completion endpoint via MAX Serve.
@@ -74,23 +72,23 @@ The default settings for this pipeline use the 8B set of pretrained weights in
    For e.g.,
 
    ```shell
-   python3 pipelines.py llama3 --quantization-encoding q4_k --serve
+   magic run llama3 --serve
    ```
 
    A request can be submitted via a cURL command.
 
    ```shell
    curl -N http://localhost:8000/v1/chat/completions \
-    -H "Content-Type: application/json" \
-    -d '{
-        "model": "llama3",
-        "stream": true,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Who won the world series in 2020?"}
-        ]
-    }'
-    ```
+   -H "Content-Type: application/json" \
+   -d '{
+       "model": "llama3",
+       "stream": true,
+       "messages": [
+           {"role": "system", "content": "You are a helpful assistant."},
+           {"role": "user", "content": "Who won the world series in 2020?"}
+       ]
+   }'
+   ```
 
 ## Options
 
