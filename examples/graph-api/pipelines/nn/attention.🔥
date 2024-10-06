@@ -162,15 +162,13 @@ struct Attention[model_dtype: DType = DType.float32]:
         )
 
         # Transpose operands to their expected layouts:
-        # q and v: BHSD
-        # k: BHSD
         # k_cache: 1BHSD
         # v_cache: 1BHSD
         return ops.custom["with_mask_flash_attention_split_kv_cpu"](
             List(
-                xq.swapaxes(1, 2),
-                xk.swapaxes(1, 2),
-                xv.swapaxes(1, 2),
+                xq,
+                xk,
+                xv,
                 k_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
                 v_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
                 attn_mask_bcast,
@@ -178,7 +176,7 @@ struct Attention[model_dtype: DType = DType.float32]:
                     Tensor(TensorShape(), isqrt(Float32(self.head_dim)))
                 ),
             ),
-            TensorType(model_dtype, 1, self.n_heads, "seq_len", self.head_dim),
+            TensorType(model_dtype, 1, "seq_len", self.n_heads, self.head_dim),
         )
 
     def naive_attention(
@@ -217,7 +215,7 @@ struct Attention[model_dtype: DType = DType.float32]:
         # Reshape expanded mask to [batch, 1, seq_len, full_seq_len]
         # This implicitly broadcasts across n_heads.
         scores = scores + ops.unsqueeze(expanded_mask, 1)
-        output = ops.softmax(scores) @ values
+        output = (ops.softmax(scores) @ values).swapaxes(1, 2)
         return output
 
     def attention(
@@ -283,7 +281,7 @@ struct Attention[model_dtype: DType = DType.float32]:
 
         output = self.attention(xq, xk, xv, attention_mask, k_cache, v_cache)
 
-        output = output.swapaxes(1, 2).reshape(batch, seq_len, -1)
+        output = output.reshape(batch, seq_len, -1)
 
         return output @ self.wo, xk, xv
 
