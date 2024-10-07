@@ -70,6 +70,7 @@ class KVCacheManager(ABC):
         # self.fetch_model.execute call, has a borrowed reference
         # to this cache lengths buffer.
         self.cache_lengths_buf = None
+        self.lookup_table = None
 
     @abstractmethod
     def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
