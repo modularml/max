@@ -512,31 +512,18 @@ def dispatch[dtype: DType, kv_params: KVCacheStaticParams](config: Config):
 def replit_run():
     config = Config()
 
-    alias replit_kv_params_gpu = KVCacheStaticParams(
+    alias kv_params = KVCacheStaticParams(
         num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
-    )
-
-    alias replit_kv_params_cpu = KVCacheStaticParams(
-        num_heads=8, head_size=128, layout=KVCacheLayout.BHSD
     )
 
     @parameter
     if not sys.info.is_x86():
-        if config.get("experimental-use-gpu")[Bool]:
-            dispatch[DType.float32, replit_kv_params_gpu](config)
-        else:
-            dispatch[DType.float32, replit_kv_params_cpu](config)
+        dispatch[DType.float32, kv_params](config)
     else:
         encoding = config.get("quantization-encoding")[String]
         if encoding == BFloat16Encoding.id():
-            if config.get("experimental-use-gpu")[Bool]:
-                dispatch[DType.bfloat16, replit_kv_params_gpu](config)
-            else:
-                dispatch[DType.bfloat16, replit_kv_params_cpu](config)
+            dispatch[DType.bfloat16, kv_params](config)
         elif encoding == Float32Encoding.id():
-            if config.get("experimental-use-gpu")[Bool]:
-                dispatch[DType.float32, replit_kv_params_gpu](config)
-            else:
-                dispatch[DType.float32, replit_kv_params_cpu](config)
+            dispatch[DType.float32, kv_params](config)
         else:
             raise "--quantization-encoding must be 'bfloat16' or 'float32', got" + encoding

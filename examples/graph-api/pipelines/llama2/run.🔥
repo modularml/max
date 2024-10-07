@@ -496,6 +496,6 @@ def llama2_run():
                 Float32Encoding,
                 "cpu",
                 KVCacheStaticParams(
-                    num_heads=6, head_size=48, layout=KVCacheLayout.BHSD
+                    num_heads=6, head_size=48, layout=KVCacheLayout.BSHD
                 ),
             ](config)
