@@ -155,12 +155,6 @@ struct Attention[model_dtype: DType = DType.float32]:
             g, attention_mask, prev_seq_len, seq_len, model_dtype
         )
 
-        # Broadcast the attention mask across all attention heads.
-        attn_shape = attn_mask.shape()
-        attn_mask_bcast = ops.unsqueeze(attn_mask, axis=1).broadcast_to(
-            attn_shape[0], self.n_heads, attn_shape[1], attn_shape[2]
-        )
-
         # Transpose operands to their expected layouts:
         # k_cache: 1BHSD
         # v_cache: 1BHSD
@@ -171,7 +165,7 @@ struct Attention[model_dtype: DType = DType.float32]:
                 xv,
                 k_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
                 v_cache.swapaxes(0, 1).swapaxes(1, 2).swapaxes(2, 3),
-                attn_mask_bcast,
+                attn_mask,
                 g.constant(
                     Tensor(TensorShape(), isqrt(Float32(self.head_dim)))
                 ),
