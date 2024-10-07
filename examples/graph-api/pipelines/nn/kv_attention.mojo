@@ -94,12 +94,6 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
             List[Symbol](xq, k_cache, freqs_cis_2d), xq.type()
         )
 
-        @parameter
-        if kv_params.layout == KVCacheLayout.BHSD:
-            # Flash Attention shapes differ on CPU and GPU, we need to
-            # transpose on cpu. This'll will be fixed by KERN-626
-            xq = xq.swapaxes(1, 2)
-
         # do flash attention
         seq_len_sym = ops.shape_of(input)[1]
         var attn_mask = attention_mask[type](mask, start_pos, seq_len_sym, type)
@@ -116,12 +110,6 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
             output_type,
         )
 
-        # transpose hidden state to (batch_size, seq_len, num_heads * head_dim)
-        @parameter
-        if kv_params.layout == KVCacheLayout.BHSD:
-            # Flash Attention shapes differ on CPU and GPU, we need to
-            # transpose on cpu. This'll will be fixed by KERN-626
-            attn_out = attn_out.swapaxes(1, 2)
         attn_out = attn_out.reshape(batch_size, seq_len, -1)
 
         # final projection and return

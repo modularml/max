@@ -477,10 +477,10 @@ struct Llama3InferenceService_NaiveKVCache[EncodingT: QuantizationEncoding](
 
 
 def serve[
-    dtype: DType, layout: KVCacheLayout, EncodingT: QuantizationEncoding
+    dtype: DType, EncodingT: QuantizationEncoding
 ](config: Config) -> None:
     alias kv_params = KVCacheStaticParams(
-        num_heads=8, head_size=128, layout=layout
+        num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
     )
     service = Llama3InferenceService[dtype, kv_params, EncodingT](config)
     server = PythonServer.create("0.0.0.0:8000")
@@ -488,19 +488,14 @@ def serve[
     server.serve(service)
 
 
-def serve_naive[
-    layout: KVCacheLayout, EncodingT: QuantizationEncoding
-](config: Config) -> None:
-    alias kv_params = KVCacheStaticParams(
-        num_heads=8, head_size=128, layout=layout
-    )
+def serve_naive[EncodingT: QuantizationEncoding](config: Config) -> None:
     service = Llama3InferenceService_NaiveKVCache[EncodingT](config)
     server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
     server.serve(service)
 
 
-def llama3_serve_dispatch[layout: KVCacheLayout](config: Config):
+def llama3_serve_dispatch(config: Config):
     encoding = config.get("quantization-encoding")[String]
 
     encoding = config.get("quantization-encoding")[String]
@@ -510,24 +505,19 @@ def llama3_serve_dispatch[layout: KVCacheLayout](config: Config):
         config.set("model-path", download_llama3(encoding))
 
     if encoding == Q4_0Encoding.id():
-        serve_naive[layout, Q4_0Encoding](config)
+        serve_naive[Q4_0Encoding](config)
     elif encoding == Q4_KEncoding.id():
-        serve_naive[layout, Q4_KEncoding](config)
+        serve_naive[Q4_KEncoding](config)
     elif encoding == Q6_KEncoding.id():
-        serve_naive[layout, Q6_KEncoding](config)
+        serve_naive[Q6_KEncoding](config)
     elif encoding == BFloat16Encoding.id():
-        serve[DType.bfloat16, layout, BFloat16Encoding](config)
+        serve[DType.bfloat16, BFloat16Encoding](config)
     elif encoding == Float32Encoding.id():
-        serve[DType.float32, layout, Float32Encoding](config)
+        serve[DType.float32, Float32Encoding](config)
     else:
         raise "--quantization-encoding " + encoding + " not supported"
 
 
 def llama3_serve():
     set_locale_unicode()
-
-    config = Config()
-    if config.get("experimental-use-gpu")[Bool]:
-        llama3_serve_dispatch[KVCacheLayout.BSHD](config)
-    else:
-        llama3_serve_dispatch[KVCacheLayout.BHSD](config)
+    llama3_serve_dispatch(Config())

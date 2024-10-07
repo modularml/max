@@ -29,10 +29,6 @@ from pipelines.replit.model.replit import Replit
 from pipelines.replit.weights.hyperparams import HyperParams
 from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
 
-alias replit_kv_params_cpu = KVCacheStaticParams(
-    num_heads=8, head_size=128, layout=KVCacheLayout.BHSD
-)
-
 # fmt: off
 struct TestCheckpoint(LoadableModel):
     var weights: Dict[String, Tensor[DType.float32]]
