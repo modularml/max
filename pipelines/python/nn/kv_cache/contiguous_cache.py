@@ -28,7 +28,7 @@ from max.graph import (
     ops,
 )
 
-from .cache_params import KVCacheLayout, KVCacheParams
+from .cache_params import KVCacheParams
 from .manager import KVCacheManager
 
 
@@ -69,12 +69,12 @@ class FetchContiguousKVCacheCollection:
         batch_size: TensorValue,
     ) -> ContiguousKVCacheCollection:  # type: ignore
         """Constructs a ContiguousKVCacheCollection for use downstream."""
-        op_name = f"contiguous_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_{self.kv_params.layout}"
+        op_name = f"contiguous_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_bshd"
         return ops.custom(
             op_name,
             values=[
-                key_cache,  # L, B, H, S, D: Layout Dependent (CPU vs GPU)
-                value_cache,  # L, B, H, S, D: Layout Dependent (CPU vs GPU)
+                key_cache,  # L, B, S, H, D
+                value_cache,  # L, B, S, H, D
                 cache_lengths,
                 is_cache_empty,
                 seq_ids,
@@ -155,42 +155,23 @@ class ContiguousKVCacheManager(KVCacheManager):
         )[0]
 
     def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
-        if self.params.layout == KVCacheLayout.BHSD:
-            return [
-                2,
-                n_sequences,
-                self.num_layers,
-                self.params.n_kv_heads,
-                self.max_seq_len,
-                self.params.head_dim,
-            ]
-        else:
-            return [
-                2,
-                n_sequences,
-                self.num_layers,
-                self.max_seq_len,
-                self.params.n_kv_heads,
-                self.params.head_dim,
-            ]
+        return [
+            2,
+            n_sequences,
+            self.num_layers,
+            self.max_seq_len,
+            self.params.n_kv_heads,
+            self.params.head_dim,
+        ]
 
     @property
     def symbolic_cache_shape(self) -> list[str]:
         """Helper function to provide symoblic cache shape for continguous caches.
         """
-        if self.params.layout == KVCacheLayout.BHSD:
-            return [
-                "num_layers",
-                "batch_size",
-                "n_kv_heads",
-                "seq_len",
-                "head_dim",
-            ]
-        else:
-            return [
-                "num_layers",
-                "batch_size",
-                "seq_len",
-                "n_kv_heads",
-                "head_dim",
-            ]
+        return [
+            "num_layers",
+            "batch_size",
+            "seq_len",
+            "n_kv_heads",
+            "head_dim",
+        ]

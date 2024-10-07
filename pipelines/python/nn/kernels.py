@@ -32,7 +32,7 @@ def fused_qkv_matmul(
     v_cache: ContiguousKVCache,
 ) -> TensorValue:
     """Computes fused query, key and value projections."""
-    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
+    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd"
     if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         op_name += "_continuous_batch"
 
@@ -50,7 +50,9 @@ def fused_qk_rope(
     freqs_cis_2d: TensorValue,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings."""
-    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
+    op_name = (
+        f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd"
+    )
     if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         op_name += "_continuous_batch"
 
@@ -70,7 +72,7 @@ def flash_attention(
     valid_lengths: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache."""
-    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}"
+    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd"
     if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         op_name += "_continuous_batch"
 
@@ -87,7 +89,7 @@ def kv_cache_length(
     kv_params: KVCacheParams, kv_cache_collection: ContiguousKVCacheCollection
 ) -> TensorValue:
     """Calculates the length of the passed kv_cache collection."""
-    op_name = f"kv_cache_length_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
+    op_name = f"kv_cache_length_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}"
     if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         op_name += "_continuous_batch"
 
@@ -102,7 +104,7 @@ def key_cache_for_layer(
     kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
 ) -> ContiguousKVCacheType:
     """Returns the key cache for a specific layer from a collection."""
-    op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
+    op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}"
     if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         op_name += "_continuous_batch"
 
@@ -117,7 +119,7 @@ def value_cache_for_layer(
     kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
 ) -> ContiguousKVCacheType:
     """Returns the value cache for a specific layer from a collection."""
-    op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_{kv_params.layout}_{kv_params.dtype_shorthand}"
+    op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}"
     if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         op_name += "_continuous_batch"
 

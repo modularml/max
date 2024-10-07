@@ -18,27 +18,13 @@ from max.driver import Device
 from max.dtype import DType
 
 
-class KVCacheLayout(Enum):
-    BHSD = "bhsd"
-    BSHD = "bshd"
-
-    def __str__(self) -> str:
-        return self.value
-
-
 VALID_KV_KERNELS = [
-    ("bf16", 1, 16, KVCacheLayout.BHSD),
-    ("bf16", 1, 16, KVCacheLayout.BSHD),
-    ("f32", 1, 16, KVCacheLayout.BHSD),
-    ("f32", 1, 16, KVCacheLayout.BSHD),
-    ("bf16", 8, 128, KVCacheLayout.BHSD),
-    ("bf16", 8, 128, KVCacheLayout.BSHD),
-    ("f32", 8, 128, KVCacheLayout.BHSD),
-    ("f32", 8, 128, KVCacheLayout.BSHD),
-    ("bf16", 8, 64, KVCacheLayout.BHSD),
-    ("bf16", 8, 64, KVCacheLayout.BSHD),
-    ("f32", 8, 64, KVCacheLayout.BHSD),
-    ("f32", 8, 64, KVCacheLayout.BSHD),
+    ("bf16", 1, 16),
+    ("f32", 1, 16),
+    ("bf16", 8, 128),
+    ("f32", 8, 128),
+    ("bf16", 8, 64),
+    ("f32", 8, 64),
 ]
 
 
@@ -70,9 +56,6 @@ class KVCacheParams:
         self.dtype = dtype
         self.n_kv_heads = n_kv_heads
         self.head_dim = head_dim
-        self.layout = (
-            KVCacheLayout.BHSD if device.is_host else KVCacheLayout.BSHD
-        )
         self.cache_strategy = cache_strategy
 
         # Validate inputs.
@@ -80,12 +63,11 @@ class KVCacheParams:
             self.dtype_shorthand,
             n_kv_heads,
             head_dim,
-            self.layout,
         ) not in VALID_KV_KERNELS:
             raise ValueError(
                 "Unsupported KV Cache Configuration: got dtype:"
                 f" {self.dtype_shorthand}, n_kv_heads: {n_kv_heads}, head_dim:"
-                f" {head_dim}, layout: {self.layout}"
+                f" {head_dim}"
             )
 
     @property
@@ -95,19 +77,10 @@ class KVCacheParams:
 
     @property
     def static_cache_shape(self) -> tuple[str, str, str, str, str]:
-        if self.layout == KVCacheLayout.BHSD:
-            return (
-                "num_layers",
-                "batch_size",
-                "n_kv_heads",
-                "seq_len",
-                "head_dim",
-            )
-        else:
-            return (
-                "num_layers",
-                "batch_size",
-                "seq_len",
-                "n_kv_heads",
-                "head_dim",
-            )
+        return (
+            "num_layers",
+            "batch_size",
+            "seq_len",
+            "n_kv_heads",
+            "head_dim",
+        )
