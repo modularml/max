@@ -83,9 +83,9 @@ class FetchContinuousBatchingKVCacheCollection:
             )
             raise ValueError(msg)
 
-        if lookup_table.dtype != DType.int32:
+        if lookup_table.dtype != DType.uint32:
             msg = (
-                "expected lookup_table to be dtype: int32, got"
+                "expected lookup_table to be dtype: uint32, got"
                 f" {lookup_table.dtype}"
             )
             raise ValueError(msg)
@@ -126,6 +126,7 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
     def compile_fetch_graph(self, session: InferenceSession) -> Graph:
         # Create one-op fetch graph
         cache_lengths_type = TensorType(DType.uint32, ("batch_size",))
+        lookup_table_type = TensorType(DType.uint32, ("batch_size",))
         seq_ids_type = TensorType(DType.int32, ("batch_size",))
         is_cache_empty_type = TensorType(DType.bool, (1,))
 
@@ -138,7 +139,7 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
             input_types=[
                 blocks_type,
                 cache_lengths_type,
-                seq_ids_type,
+                lookup_table_type,
                 is_cache_empty_type,
                 seq_ids_type,
             ],
@@ -151,6 +152,7 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
 
         # Lookup table and seq_ids are redundant identical tensors.
         seq_ids_tensor = Tensor.zeros((active_batch_size,), DType.int32)
+        lookup_table_tensor = Tensor.zeros((active_batch_size,), DType.uint32)
         cache_lengths = Tensor.zeros((active_batch_size,), DType.uint32)
         is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
@@ -158,6 +160,7 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
                 raise ValueError(f"seq_id: {seq_id} not currently in cache.")
 
             seq_ids_tensor[i] = seq_id
+            lookup_table_tensor[i] = seq_id
             cache_len = self.cache_lengths[seq_id]
             cache_lengths[i] = cache_len
             if cache_len != 0:
@@ -168,12 +171,13 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
         # is not destructed early, and the kernel can continue to
         # refer to this object.
         self.cache_lengths_buf = cache_lengths.to(self.device)
+        self.lookup_table = lookup_table_tensor.to(self.device)
 
         # lookup_table and seq_ids are redundant identical tensors.
         return self.fetch_model.execute(
             self.blocks,
             self.cache_lengths_buf,
-            seq_ids_tensor,
+            self.lookup_table,
             self.true_tensor if is_cache_empty else self.false_tensor,
             seq_ids_tensor,
         )[0]
