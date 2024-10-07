@@ -625,16 +625,8 @@ def llama3_run():
     set_locale_unicode()
 
     config = Config()
-    if config.get("experimental-use-gpu")[Bool]:
-        run_dispatch[
-            KVCacheStaticParams(
-                num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
-            )
-        ](config)
-
-    else:
-        run_dispatch[
-            KVCacheStaticParams(
-                num_heads=8, head_size=128, layout=KVCacheLayout.BHSD
-            )
-        ](config)
+    run_dispatch[
+        KVCacheStaticParams(
+            num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
+        )
+    ](config)
