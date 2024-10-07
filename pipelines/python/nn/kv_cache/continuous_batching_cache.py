@@ -22,7 +22,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
 from max.graph import Graph, OpaqueType, TensorType, TensorValue, ops
 
-from .cache_params import KVCacheLayout, KVCacheParams
+from .cache_params import KVCacheParams
 from .manager import KVCacheManager
 
 
@@ -108,7 +108,7 @@ class FetchContinuousBatchingKVCacheCollection:
             )
             raise ValueError(msg)
 
-        op_name = f"continuous_batching_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_{self.kv_params.layout}"
+        op_name = f"continuous_batching_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_bshd"
         return ops.custom(
             op_name,
             values=[
@@ -179,43 +179,23 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
         )[0]
 
     def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
-        if self.params.layout == KVCacheLayout.BHSD:
-            return [
-                n_sequences,
-                2,
-                self.num_layers,
-                self.params.n_kv_heads,
-                self.max_seq_len,
-                self.params.head_dim,
-            ]
-        else:
-            return [
-                n_sequences,
-                2,
-                self.num_layers,
-                self.max_seq_len,
-                self.params.n_kv_heads,
-                self.params.head_dim,
-            ]
+        return [
+            n_sequences,
+            2,
+            self.num_layers,
+            self.max_seq_len,
+            self.params.n_kv_heads,
+            self.params.head_dim,
+        ]
 
     @property
     def symbolic_block_shape(self) -> list[Union[str, int]]:
         """Get the symbolic shape of the cache memory allocation."""
-        if self.params.layout == KVCacheLayout.BHSD:
-            return [
-                "batch_size",
-                2,
-                "num_layers",
-                "n_kv_heads",
-                "max_seq_len",
-                "head_dim",
-            ]
-        else:
-            return [
-                "batch_size",
-                2,
-                "num_layers",
-                "max_seq_len",
-                "n_kv_heads",
-                "head_dim",
-            ]
+        return [
+            "batch_size",
+            2,
+            "num_layers",
+            "max_seq_len",
+            "n_kv_heads",
+            "head_dim",
+        ]

@@ -24,7 +24,7 @@ from .kernels import (
     fused_qkv_matmul,
 )
 
-from .kv_cache import KVCacheLayout, KVCacheParams, ContiguousKVCache
+from .kv_cache import KVCacheParams, ContiguousKVCache
 from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
@@ -92,9 +92,6 @@ class OptimizedAttention(Layer):
         ]
         xq = fused_qk_rope(self.kv_params, xq, k_cache, freqs_cis)
 
-        if self.kv_params.layout == KVCacheLayout.BHSD:
-            xq = ops.transpose(xq, 1, 2)
-
         # Calculate Flash Attention.
         attn_out = flash_attention(
             self.kv_params,
@@ -104,9 +101,6 @@ class OptimizedAttention(Layer):
             attn_mask=attn_mask,
             valid_lengths=valid_lengths,
         )
-
-        if self.kv_params.layout == KVCacheLayout.BHSD:
-            attn_out = ops.transpose(attn_out, 1, 2)
 
         attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
 

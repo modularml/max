@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 from max.engine import InferenceSession
 from max.driver import Device
-from .cache_params import KVCacheLayout, KVCacheParams, KVCacheStrategy
+from .cache_params import KVCacheParams, KVCacheStrategy
 from .naive_cache import NaiveKVCache
 from .contiguous_cache import (
     ContiguousKVCacheType,
