@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 from max.engine import InferenceSession
 from max.driver import Device
-from .cache_params import KVCacheLayout, KVCacheParams, KVCacheType
+from .cache_params import KVCacheLayout, KVCacheParams, KVCacheStrategy
 from .naive_cache import NaiveKVCache
 from .contiguous_cache import (
     ContiguousKVCacheType,
@@ -37,7 +37,7 @@ def load_kv_manager(
     session: InferenceSession,
     device: Device,
 ) -> KVCacheManager:
-    if params.cache_type == KVCacheType.CONTINUOUS:
+    if params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         return ContinuousBatchingKVCacheManager(
             params=params,
             max_cache_batch_size=max_cache_batch_size,
@@ -46,7 +46,7 @@ def load_kv_manager(
             session=session,
             device=device,
         )
-    elif params.cache_type == KVCacheType.CONTIGUOUS:
+    elif params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
         return ContiguousKVCacheManager(
             params=params,
             max_cache_batch_size=max_cache_batch_size,
@@ -56,5 +56,5 @@ def load_kv_manager(
             device=device,
         )
     else:
-        msg = f"cache type: {params.cache_type} not supported."
+        msg = f"cache type: {params.cache_strategy} not supported."
         raise ValueError(msg)

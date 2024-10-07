@@ -42,12 +42,19 @@ VALID_KV_KERNELS = [
 ]
 
 
-class KVCacheType(Enum):
+class KVCacheStrategy(str, Enum):
+    NAIVE = "naive"
     CONTIGUOUS = "contiguous"
-    CONTINUOUS = "continuous_batch"
+    CONTINUOUS = "continuous"
 
     def __str__(self) -> str:
         return self.value
+
+    def __repr__(self) -> str:
+        return self.value
+
+    def uses_opaque(self) -> bool:
+        return self != KVCacheStrategy.NAIVE
 
 
 class KVCacheParams:
@@ -57,7 +64,7 @@ class KVCacheParams:
         n_kv_heads: int,
         head_dim: int,
         device: Device,
-        cache_type: KVCacheType = KVCacheType.CONTIGUOUS,
+        cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS,
     ):
         # Initialize static attributes.
         self.dtype = dtype
@@ -66,7 +73,7 @@ class KVCacheParams:
         self.layout = (
             KVCacheLayout.BHSD if device.is_host else KVCacheLayout.BSHD
         )
-        self.cache_type = cache_type
+        self.cache_strategy = cache_strategy
 
         # Validate inputs.
         if (

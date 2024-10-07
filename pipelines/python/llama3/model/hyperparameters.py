@@ -17,6 +17,7 @@ from typing import Optional
 
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
+from nn.kv_cache import KVCacheStrategy
 
 
 @dataclass
@@ -51,8 +52,8 @@ class Hyperparameters:
     feed_forward_length: int = 500
     """Dimensions in the attention projection layers."""
 
-    force_naive_kv_cache: bool = False
-    """Force using the naive KV cache even for configs supporting the opaque KV cache."""
+    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS
+    """Force using a specific KV cache strategy, 'naive', 'contiguous' or 'continuous'."""
 
     has_dedicated_output_weights: bool = True
     """Whether there are dedicated output linear layer weights."""
@@ -71,7 +72,8 @@ class Hyperparameters:
     def use_opaque(self):
         """Boolean to use opaque kv caching optimizations."""
         return (
-            self.quantization_encoding is None and not self.force_naive_kv_cache
+            self.quantization_encoding is None
+            and self.cache_strategy.uses_opaque()
         )
 
     @property

@@ -31,6 +31,7 @@ from nn.kv_cache import (
     KVCacheParams,
     NaiveKVCache,
     load_kv_manager,
+    KVCacheStrategy,
 )
 from utils import gguf_utils, tokenizer_from_gguf
 
@@ -192,6 +193,7 @@ class Llama3:
             head_dim=self.params.head_dim,
             dtype=dtype,
             device=config.device,
+            cache_strategy=config.cache_strategy,
         )
 
         session = InferenceSession(device=config.device)
@@ -499,12 +501,20 @@ def _read_hyperparameters(
         tensor.name == "output.weight" for tensor in reader.tensors
     )
 
+    # If a quantization encoding is provided, the only caching strategy
+    # available is the naive path. As such, overwrite this value to be
+    # naive.
+    if config.quantization_encoding.quantization_encoding:
+        cache_strategy = KVCacheStrategy.NAIVE
+    else:
+        cache_strategy = config.cache_strategy
+
     return Hyperparameters(
         dtype=config.quantization_encoding.dtype,
         quantization_encoding=config.quantization_encoding.quantization_encoding,
         feed_forward_length=feed_forward_length,
         seq_len=seq_len,
-        force_naive_kv_cache=config.force_naive_kv_cache,
+        cache_strategy=cache_strategy,
         has_dedicated_output_weights=has_dedicated_output_weights,
         **configured_params,
     )

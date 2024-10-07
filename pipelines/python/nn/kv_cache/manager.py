@@ -22,7 +22,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
 from max.graph import Graph, OpaqueType, TensorType, TensorValue, ops
 
-from .cache_params import KVCacheParams, KVCacheLayout, KVCacheType
+from .cache_params import KVCacheParams, KVCacheLayout, KVCacheStrategy
 
 
 class KVCacheManager(ABC):

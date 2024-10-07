@@ -20,6 +20,7 @@ from typing import Optional, Union
 from max.driver import CPU, Device
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
+from nn.kv_cache import KVCacheStrategy
 
 
 class SupportedVersions(str, Enum):
@@ -130,8 +131,8 @@ class InferenceConfig:
     max_cache_batch_size: int = 1
     """Maximum cache size of sequences to the model."""
 
-    force_naive_kv_cache: bool = False
-    """Force using the naive KV cache even for configs supporting the opaque KV cache."""
+    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS
+    """Force using a specific KV cache strategy, 'naive', 'contiguous' or 'continuous'."""
 
     @staticmethod
     def help():
@@ -159,6 +160,9 @@ class InferenceConfig:
                 "Controls the maximum length of the text sequence (does not"
                 " include the input tokens)."
             ),
-            "batch_size": "Batch size of inputs to the model.",
-            "force_naive_kv_cache": "If set, force using the naive KV cache.",
+            "max_cache_batch_size": "Maximum size of sequences kept in cache.",
+            "cache_strategy": (
+                "Controls the batching strategy: naive, contiguous or"
+                " continuous"
+            ),
         }
