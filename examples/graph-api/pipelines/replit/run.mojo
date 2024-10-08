@@ -38,7 +38,6 @@ from max.driver._cuda import cuda_device
 from max.serve.kv_cache.types import (
     ContiguousKVCacheCollection,
     ContiguousKVCacheManager,
-    KVCacheLayout,
     KVCacheStaticParams,
 )
 from pipelines.weights.gguf import GGUFFile
@@ -512,9 +511,7 @@ def dispatch[dtype: DType, kv_params: KVCacheStaticParams](config: Config):
 def replit_run():
     config = Config()
 
-    alias kv_params = KVCacheStaticParams(
-        num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
-    )
+    alias kv_params = KVCacheStaticParams(num_heads=8, head_size=128)
 
     @parameter
     if not sys.info.is_x86():

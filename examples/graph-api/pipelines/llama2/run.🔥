@@ -42,7 +42,6 @@ from max.serve.kv_cache.types import (
     ContiguousKVCache,
     ContiguousKVCacheManager,
     ContiguousKVCacheCollection,
-    KVCacheLayout,
     KVCacheStaticParams,
 )
 
@@ -347,9 +346,7 @@ def _generate_text_with_tokenizer[
 
 
 # TODO: Delete this when we clean up quantize-tinystories
-def generate_text[
-    layout: KVCacheLayout
-](
+def generate_text(
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
@@ -361,7 +358,7 @@ def generate_text[
     if params.n_kv_heads == 6 and params.head_dim == 48:
         _generate_text_with_tokenizer[
             BPETokenizer,
-            KVCacheStaticParams(num_heads=6, head_size=48, layout=layout),
+            KVCacheStaticParams(num_heads=6, head_size=48),
         ](
             mojo_tokenizer,
             compiled_model,
@@ -486,16 +483,12 @@ def llama2_run():
                 LlamaCFile,
                 Float32Encoding,
                 "cuda",
-                KVCacheStaticParams(
-                    num_heads=6, head_size=48, layout=KVCacheLayout.BSHD
-                ),
+                KVCacheStaticParams(num_heads=6, head_size=48),
             ](config)
         else:
             run[
                 LlamaCFile,
                 Float32Encoding,
                 "cpu",
-                KVCacheStaticParams(
-                    num_heads=6, head_size=48, layout=KVCacheLayout.BSHD
-                ),
+                KVCacheStaticParams(num_heads=6, head_size=48),
             ](config)

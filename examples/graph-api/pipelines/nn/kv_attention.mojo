@@ -16,12 +16,7 @@ import mo
 from max.tensor import Tensor, TensorShape
 from max.graph import ops, Dim, Symbol, TensorType, _OpaqueType as OpaqueType
 from max.graph.quantization import Float32Encoding, QuantizationEncoding
-from kv_cache.types import (
-    ContiguousKVCache,
-    KVCacheLayout,
-    KVCacheStaticParams,
-    KVCacheKernelNames,
-)
+from kv_cache.types import ContiguousKVCache, KVCacheStaticParams
 from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names
 
 from pipelines.nn import Linear

@@ -17,10 +17,6 @@ from max.engine import InferenceSession, TensorMap
 from max.graph import _testing, Graph, TensorType, Symbol, Type
 from max.tensor import Tensor, TensorShape
 from max.driver import cpu_device
-from max.serve.kv_cache.types import (
-    KVCacheLayout,
-    KVCacheStaticParams,
-)
 
 from pipelines.nn import Embedding, Linear
 from pipelines.replit.model.block import MPTMLP

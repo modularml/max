@@ -18,7 +18,6 @@ from max.graph.quantization import Float32Encoding, QuantizationEncoding
 from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names
 from kv_cache.types import (
     ContiguousKVCache,
-    KVCacheLayout,
     KVCacheStaticParams,
 )
 

@@ -22,7 +22,6 @@ from pipelines.nn import Embedding, Linear, RMSNorm, FeedForward
 from max.serve.kv_cache.types import (
     ContiguousKVCacheCollection,
     ContiguousKVCache,
-    KVCacheLayout,
     KVCacheStaticParams,
 )
 from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names

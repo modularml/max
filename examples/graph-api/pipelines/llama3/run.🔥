@@ -48,7 +48,6 @@ from kv_cache.types import (
     ContiguousKVCache,
     ContiguousKVCacheCollection,
     KVCacheStaticParams,
-    KVCacheLayout,
 )
 
 from ..metrics.metrics import Metrics
@@ -625,8 +624,4 @@ def llama3_run():
     set_locale_unicode()
 
     config = Config()
-    run_dispatch[
-        KVCacheStaticParams(
-            num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
-        )
-    ](config)
+    run_dispatch[KVCacheStaticParams(num_heads=8, head_size=128)](config)
