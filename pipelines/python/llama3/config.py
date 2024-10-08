@@ -128,7 +128,7 @@ class InferenceConfig:
     """Broadcast the static prompt `n_duplicate` times to test batching."""
     # TODO: MSDK-1095 Remove temporary `n_duplicate` cli flag.
 
-    max_cache_batch_size: int = 1
+    max_cache_batch_size: int = 16
     """Maximum cache size of sequences to the model."""
 
     cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS
