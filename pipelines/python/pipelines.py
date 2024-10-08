@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import asyncio
+import os
 
 import click
 import llama3
@@ -235,4 +236,7 @@ def run_llama3(
 
 
 if __name__ == "__main__":
+    if directory := os.getenv("BUILD_WORKSPACE_DIRECTORY"):
+        os.chdir(directory)
+
     main()
