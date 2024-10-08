@@ -29,9 +29,9 @@ from nn.kv_cache import (
     ContiguousKVCacheCollectionType,
     KVCacheManager,
     KVCacheParams,
+    KVCacheStrategy,
     NaiveKVCache,
     load_kv_manager,
-    KVCacheStrategy,
 )
 from utils import gguf_utils, tokenizer_from_gguf
 
@@ -326,9 +326,7 @@ class Llama3:
         for request_id, context in req_to_context_dict.items():
             # TODO: Add a weighted sampler here.
             # Get argmax of the logits of the last (non-padded) token.
-            next_token = req_id_to_logits_dict[request_id].argmax(axis=-1)[
-                unpadded_last_token_index[request_id]
-            ]
+            next_token = req_id_to_logits_dict[request_id].argmax(axis=-1)[-1]
             decoded_token = self._tokenizer.decode(next_token)
 
             # Update context
