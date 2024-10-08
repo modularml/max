@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 from math import isqrt
 
-import mo
 from max.tensor import Tensor, TensorShape
 from max.graph import ops, Dim, Symbol, TensorType, _OpaqueType as OpaqueType
 from max.graph.quantization import Float32Encoding, QuantizationEncoding
