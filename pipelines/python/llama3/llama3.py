@@ -35,8 +35,7 @@ from nn.kv_cache import (
 )
 from utils import gguf_utils, tokenizer_from_gguf
 
-from .causal_attention_mask import causal_attention_mask
-from .collate_batch import batch_padded_tokens_and_mask, collate_batch
+from .collate_batch import batch_padded_tokens_and_mask
 from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
@@ -304,7 +303,8 @@ class Llama3:
         return context
 
     async def next_token(
-        self, req_to_context_dict: dict[str, Llama3Context]
+        self,
+        req_to_context_dict: dict[str, Llama3Context],
     ) -> dict[str, str | None]:
         # TODO(MSDK-889) - Consider moving request/cache mgmt out of next_token.
 
@@ -317,12 +317,18 @@ class Llama3:
             if not self.params.use_opaque:
                 await self.reset_cache()
 
-        req_id_to_logits_dict = self._execute(req_to_context_dict)
+        req_id_to_logits_dict, unpadded_last_token_index = self._execute(
+            req_to_context_dict
+        )
 
+        context_batch = req_to_context_dict.values()
+        tokens = [ctx.next_tokens for ctx in context_batch]
         for request_id, context in req_to_context_dict.items():
             # TODO: Add a weighted sampler here.
-            # Get argmax of the logits of the last token.
-            next_token = req_id_to_logits_dict[request_id].argmax(axis=-1)[-1]
+            # Get argmax of the logits of the last (non-padded) token.
+            next_token = req_id_to_logits_dict[request_id].argmax(axis=-1)[
+                unpadded_last_token_index[request_id]
+            ]
             decoded_token = self._tokenizer.decode(next_token)
 
             # Update context
@@ -358,7 +364,7 @@ class Llama3:
 
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> dict[str, Tensor]:
+    ) -> tuple[dict[str, Tensor], dict[str, int]]:
         context_batch = req_to_context_dict.values()
         tokens = [ctx.next_tokens for ctx in context_batch]
 
@@ -371,12 +377,14 @@ class Llama3:
 
         # Pad tokens and compute attention mask for the batch.
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
-        next_tokens_batch, attn_mask = batch_padded_tokens_and_mask(
-            start_pos=[
-                self._kv_manager.cache_lengths[seq_id]
-                for seq_id in cache_seq_ids
-            ],
-            tokens=tokens,
+        next_tokens_batch, unpadded_last_token_index, attn_mask = (
+            batch_padded_tokens_and_mask(
+                start_pos=[
+                    self._kv_manager.cache_lengths[seq_id]
+                    for seq_id in cache_seq_ids
+                ],
+                tokens=tokens,
+            )
         )
 
         # Grab kv_collection.
@@ -399,11 +407,24 @@ class Llama3:
             }
         )
 
-        return dict(zip(req_to_context_dict, batch_logits))
+        unpadded_last_token_index_to_return = {}
+
+        # Since req_to_context_dict dict is ordered as it was passed in from the
+        # input, we just iterate over the req_ids in that order and assign
+        # unpadded_last_token_index that way.
+        for curr_index, req_id in enumerate(req_to_context_dict):
+            unpadded_last_token_index_to_return[
+                req_id
+            ] = unpadded_last_token_index[curr_index]
+
+        return (
+            dict(zip(req_to_context_dict, batch_logits)),
+            unpadded_last_token_index_to_return,
+        )
 
     def _execute(
         self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> dict[str, np.ndarray]:
+    ) -> tuple[dict[str, np.ndarray], dict[str, int]]:
         """Executes the model and returns the raw results."""
         if self.params.use_opaque:
             return self._execute_opaque(req_to_context_dict)
@@ -414,8 +435,8 @@ class Llama3:
 
         # Pad tokens and compute attention mask for the batch.
         start_pos = [self._kv_cache.sequence_length] * len(req_to_context_dict)
-        next_tokens_batch, attn_mask = batch_padded_tokens_and_mask(
-            start_pos=start_pos, tokens=tokens
+        next_tokens_batch, unpadded_last_token_index, attn_mask = (
+            batch_padded_tokens_and_mask(start_pos=start_pos, tokens=tokens)
         )
 
         # Execute model.
@@ -437,14 +458,17 @@ class Llama3:
         self._kv_cache.update(k_cache, v_cache)
 
         logits_to_return = {}
+        unpadded_last_token_index_to_return = {}
 
         # Since req_to_context_dict dict is ordered as it was passed in from the
         # input, we just iterate over the req_ids in that order and assign
-        # logits that way.
+        # logits that way. Do the same for unpadded, last tokens.
         for curr_index, req_id in enumerate(req_to_context_dict):
             logits_to_return[req_id] = logits[curr_index]
-
-        return logits_to_return
+            unpadded_last_token_index_to_return[
+                req_id
+            ] = unpadded_last_token_index[curr_index]
+        return logits_to_return, unpadded_last_token_index_to_return
 
 
 def _max_tokens_to_generate(
