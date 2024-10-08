@@ -19,17 +19,14 @@ from typing import TYPE_CHECKING
 from max.dtype import DType
 from max.graph import TensorValue, ValueLike, ops
 
-from .kernels import (
-    key_cache_for_layer,
-    kv_cache_length,
-    value_cache_for_layer,
-)
+from .kernels import key_cache_for_layer, value_cache_for_layer
 from .layer import Layer
 
 if TYPE_CHECKING:
     from .attention import Attention
     from .embedding import Embedding
     from .kv_cache import (
+        ContiguousKVCache,
         ContiguousKVCacheCollection,
         ContiguousKVCacheType,
         KVCacheParams,
@@ -43,7 +40,7 @@ if TYPE_CHECKING:
 class TransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
-    attention: Attention | OptimizedAttention
+    attention: Attention
     mlp: MLP
     attention_norm: RMSNorm
     mlp_norm: RMSNorm
@@ -108,7 +105,7 @@ class Transformer(Layer):
 class OptimizedTransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
-    attention: Attention | OptimizedAttention
+    attention: OptimizedAttention
     mlp: MLP
     attention_norm: RMSNorm
     mlp_norm: RMSNorm
@@ -119,17 +116,15 @@ class OptimizedTransformerBlock(Layer):
         attention_mask: ValueLike,
         k_cache: ContiguousKVCacheType | ValueLike,
         v_cache: ContiguousKVCacheType | ValueLike,
-        start_pos: TensorValue,
         valid_lengths: TensorValue,
-    ) -> tuple[TensorValue, TensorValue, TensorValue]:
+    ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x),
             attention_mask,
             k_cache,
             v_cache,
-            start_pos,
             valid_lengths,
-        )  # type: ignore
+        )
 
         h = x + attention_out
         h = h + self.mlp(self.mlp_norm(h))
@@ -159,18 +154,12 @@ class OptimizedTransformer(Layer):
     ) -> TensorValue:
         h = self.embedding(tokens)
 
-        # Plumb in the `start_pos` (previous sequence length), needed to
-        # construct the attention mask.
-        start_pos = kv_cache_length(self.kv_params, kv_cache_collection)
-        start_pos = ops.cast(start_pos, DType.int64)
-
         for i, layer in enumerate(self.layers):
             h, _, _ = layer(
                 h,
                 attention_mask,
                 key_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 value_cache_for_layer(self.kv_params, i, kv_cache_collection),
-                start_pos,
                 valid_lengths,
             )
 

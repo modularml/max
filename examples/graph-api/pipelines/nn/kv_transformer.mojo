@@ -184,11 +184,9 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
     var theta: Float64
     var rope_scaling: Optional[Symbol]
 
-    def freqs_cis(
-        self, start_pos: Symbol, seq_len: Symbol, seq_len_dim: Dim
-    ) -> Symbol:
+    def freqs_cis(self, seq_len: Symbol, seq_len_dim: Dim) -> Symbol:
         """Constructs the RoPE positional embeddings."""
-        g = start_pos.graph()
+        g = seq_len.graph()
         n = self.dim // self.n_heads
         iota = g.range[DType.float32](0, n - 1, 2)
         if self.rope_scaling:
@@ -198,12 +196,7 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         freqs = t.reshape(-1, 1) * freqs.reshape(1, -1)
 
         var retval = ops.stack(List(ops.cos(freqs), ops.sin(freqs)), axis=-1)
-        return ops.cast(
-            retval[
-                start_pos : start_pos + seq_len, out_dims = List(seq_len_dim)
-            ],
-            type,
-        )
+        return ops.cast(retval, type)
 
     def __call__(
         self,
@@ -230,7 +223,7 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         )
         h = self.embedding(tokens)
         seq_len = ops.shape_of(tokens)[1]
-        freqs_cis = self.freqs_cis(start_pos, seq_len, tokens.shape()[1])
+        freqs_cis = self.freqs_cis(seq_len, tokens.shape()[1])
 
         valid_length = ops.cast(ops.shape_of(tokens)[1], DType.uint32)
         valid_lengths = valid_length.broadcast_to(tokens.shape()[0])

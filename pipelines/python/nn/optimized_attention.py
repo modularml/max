@@ -23,8 +23,7 @@ from .kernels import (
     fused_qk_rope,
     fused_qkv_matmul,
 )
-
-from .kv_cache import KVCacheParams, ContiguousKVCache
+from .kv_cache import ContiguousKVCache, KVCacheParams
 from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
@@ -53,7 +52,6 @@ class OptimizedAttention(Layer):
         attn_mask: ValueLike,
         k_cache: ContiguousKVCache,
         v_cache: ContiguousKVCache,
-        start_pos: TensorValue,
         valid_lengths: TensorValue,
     ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
         # Get attributes from input.
@@ -82,14 +80,6 @@ class OptimizedAttention(Layer):
         # Cast freqs_cis to xq's dtype to match the fused_qk_rope kernel.
         freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
 
-        # Slice out `freqs_cis` for our current position in the sequence.
-        freqs_cis = freqs_cis[
-            (
-                slice(start_pos, start_pos + _dim_to_scalar(seq_len)),
-                "seq_len",
-            ),
-            :,
-        ]
         xq = fused_qk_rope(self.kv_params, xq, k_cache, freqs_cis)
 
         # Calculate Flash Attention.
