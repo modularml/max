@@ -179,7 +179,8 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
             self.cache_lengths_buf,
             self.lookup_table,
             self.true_tensor if is_cache_empty else self.false_tensor,
-            seq_ids_tensor,
+            seq_ids_tensor.to(self.device),
+            copy_inputs_to_device=False,
         )[0]
 
     def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
