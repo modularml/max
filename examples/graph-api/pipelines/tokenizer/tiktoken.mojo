@@ -105,7 +105,7 @@ struct TikTokenEncoder(Tokenizer):
     def cl100k_base_llama3(tokens: GGUFArray) -> Self:
         bpe = BPETokenizer()
         decode_map = _decode_map()
-        for i in range(tokens.n):
+        for i in range(int(tokens.n)):
             encoded = str(tokens.data[i])
             bpe.add_token(_decode_token(encoded, decode_map), i)
         return Self.cl100k_base_llama3(bpe)

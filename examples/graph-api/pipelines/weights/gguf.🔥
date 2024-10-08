@@ -263,7 +263,7 @@ struct GGUFArray:
     @always_inline
     fn __str__(self) -> String:
         var res = String("[ ")
-        for i in range(min(self.n, self.max_print_size)):
+        for i in range(min(int(self.n), int(self.max_print_size))):
             res += str(self.data[i])
             res += " "
         res += "]"
