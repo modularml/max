@@ -24,7 +24,6 @@ from ..model.kv_attention import KVCacheOptimizedAttention
 from kv_cache.types import (
     ContiguousKVCacheCollection,
     ContiguousKVCache,
-    KVCacheLayout,
     KVCacheStaticParams,
 )
 from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names

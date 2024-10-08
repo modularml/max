@@ -25,7 +25,7 @@ from max.graph.quantization import QuantizationEncoding
 from max.serve.http import PythonServer, PythonService
 from max.tensor import TensorShape, TensorSpec
 
-from kv_cache.types import KVCacheLayout, KVCacheStaticParams
+from kv_cache.types import KVCacheStaticParams
 from .kv_cache import KVCache
 from .model.llama import Llama3, Llama3_NaiveKVCache
 from ..tokenizer.tiktoken import TikTokenEncoder
@@ -479,9 +479,7 @@ struct Llama3InferenceService_NaiveKVCache[EncodingT: QuantizationEncoding](
 def serve[
     dtype: DType, EncodingT: QuantizationEncoding
 ](config: Config) -> None:
-    alias kv_params = KVCacheStaticParams(
-        num_heads=8, head_size=128, layout=KVCacheLayout.BSHD
-    )
+    alias kv_params = KVCacheStaticParams(num_heads=8, head_size=128)
     service = Llama3InferenceService[dtype, kv_params, EncodingT](config)
     server = PythonServer.create("0.0.0.0:8000")
     print("Listening on port 8000!")
