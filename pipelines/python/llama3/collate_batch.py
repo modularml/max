@@ -34,7 +34,7 @@ def collate_batch(
     direction: PaddingDirection = PaddingDirection.LEFT,
     pad_value: int = 0,
     batch_size: int | None = None,
-) -> np.ndarray:
+) -> tuple[np.ndarray, list[int]]:
     """Generates a single batch tensor from a batch of inputs.
 
     These input tensors may have different lengths. The `pad_value` will be used
@@ -44,7 +44,9 @@ def collate_batch(
     size.
 
     Returns:
-        A matrix with all rows padded to the max sequence length.
+        A tuple of:
+            A matrix with all rows padded to the max sequence length.
+            A list with last token indices prior to any padding.
 
     Raises:
         ValueError: if the batch is empty.
@@ -69,12 +71,17 @@ def collate_batch(
         pad_batch_item = np.array([pad_value] * pad_to)
         batch = [*batch, *([pad_batch_item] * (batch_size - len(batch)))]
 
-    return np.stack([pad(a) for a in batch], axis=0)
+    # Generate unpadded last token index.
+    unpadded_last_token_index = [
+        -1 if direction == PaddingDirection.LEFT else len(a) - 1 for a in batch
+    ]
+
+    return np.stack([pad(a) for a in batch], axis=0), unpadded_last_token_index
 
 
 def batch_padded_tokens_and_mask(
     start_pos: list[int], tokens: list[np.ndarray]
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, list[int], np.ndarray]:
     """Batches input tokens and computes a batched attention mask.
 
     Args:
@@ -82,7 +89,7 @@ def batch_padded_tokens_and_mask(
         tokens: unpadded input tokens for this batch.
 
     Returns:
-        A (batched tokens, batch attention mask) pair.
+        A (batched tokens, unpadded last token indices, batch attention mask) pair.
     """
     # Grab attention mask.
     attn_mask = causal_attention_mask(
@@ -92,5 +99,7 @@ def batch_padded_tokens_and_mask(
 
     # Create batched input token tensor by padding all input token tensors
     # to the maximum sequence length in the batch.
-    next_tokens_batch = collate_batch(tokens, batch_size=len(tokens))
-    return next_tokens_batch, attn_mask
+    next_tokens_batch, unpadded_last_token_index = collate_batch(
+        tokens, batch_size=len(tokens)
+    )
+    return next_tokens_batch, unpadded_last_token_index, attn_mask
