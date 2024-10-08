@@ -104,7 +104,7 @@ class KVCacheManager(ABC):
 
     def step(self, valid_lengths: dict[int, int]) -> None:
         """Update the `cache_lengths` objects to not that a new
-        kv projection step has occured, and that the underlying memory
+        kv projection step has occurred, and that the underlying memory
         has been written to. This `cache_lengths` value is then used
         downstream in `fetch` to track what section of memory should
         be used in the kernels.
@@ -126,9 +126,8 @@ class KVCacheManager(ABC):
             raise ValueError("`seq_id` provided not in cache.")
 
         self.available.add(seq_id)
-        self.semaphore.release()
-
         del self.cache_lengths[seq_id]
+        self.semaphore.release()
 
     async def reset_cache(self) -> None:
         """A helper function to reset the entire cache."""
