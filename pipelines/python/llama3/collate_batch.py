@@ -31,7 +31,7 @@ class PaddingDirection(enum.Enum):
 
 def collate_batch(
     batch: Sequence[np.ndarray],
-    direction: PaddingDirection = PaddingDirection.LEFT,
+    direction: PaddingDirection = PaddingDirection.RIGHT,
     pad_value: int = 0,
     batch_size: int | None = None,
 ) -> tuple[np.ndarray, list[int]]:
