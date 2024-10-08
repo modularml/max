@@ -10,9 +10,19 @@ platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 python = ">=3.9,<3.13"
 max = "*"
 pip = ">=24.0,<25"
-pytorch = ">=2.4.0,<3"
 tritonclient-http = ">=2.26.0,<3"
 tree = ">=2.1.3,<3"
 numpy = "<2.0"
 transformers = "4.40.1.*"
 networkx = "3.1.*"
+
+# For performance, prefer pytorch over anything else.
+# The linux ARM package doesn't exist there, so prefer PyPi instead. 
+[target.linux-64.dependencies]
+pytorch = {version = "==2.4.1", channel = "pytorch"}
+[target.osx-arm64.dependencies]
+pytorch = {version = "==2.4.1", channel = "pytorch"}
+[target.linux-aarch64.pypi-dependencies]
+torch = "==2.4.1"
+[pypi-options]
+extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
