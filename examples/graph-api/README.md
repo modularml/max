@@ -50,4 +50,4 @@ in their README files within the [pipelines](./pipelines/) sub-repository.
 
 A basic Mojo Graph API example that provides an introduction to how to
 stage and run a computational graph on MAX, following the
-[getting started guide](https://docs.modular.com/max/graph/get-started).
+[getting started guide](https://docs.modular.com/max/tutorials/get-started-with-max-graph).
