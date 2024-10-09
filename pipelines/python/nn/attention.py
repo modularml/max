@@ -58,9 +58,9 @@ class Attention(Layer):
         # Broadcast the attention mask across heads.
         # Do so in the graph so that the broadcast can be fused downstream ops.
         batch, seq_len, post_seq_len = attn_mask.shape
-        attn_mask = ops.broadcast_to(
-            attn_mask, (batch, self.n_heads, seq_len, post_seq_len)
-        )
+        attn_mask = attn_mask.reshape(
+            (batch, 1, seq_len, post_seq_len)
+        ).broadcast_to((batch, self.n_heads, seq_len, post_seq_len))
 
         k_cache = ops.squeeze(k_cache, axis=1)
         v_cache = ops.squeeze(v_cache, axis=1)
