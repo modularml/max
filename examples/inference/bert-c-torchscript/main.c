@@ -48,7 +48,11 @@ char *readFileOrExit(const char *filepath) {
   rewind(file);
 
   char *buffer = (char *)malloc(fileSize * sizeof(char));
-  fread(buffer, fileSize, 1, file);
+  size_t count = fread(buffer, fileSize, 1, file);
+  if (count != 1) {
+    printf("failed to read %s. Aborting.\n", filepath);
+    abort();
+  }
   fclose(file);
   return buffer;
 }
@@ -75,21 +79,21 @@ int main(int argc, char **argv) {
       (int64_t *)readFileOrExit("inputs/input_ids_shape.bin");
   M_TorchInputSpec *inputIdsInputSpec =
       M_newTorchInputSpec(inputIdsShape, /*dimNames=*/NULL, /*rankSize=*/2,
-                          /*dtype=*/M_INT32, status);
+                          /*type=*/M_INT32, status);
   CHECK(status);
 
   int64_t *attentionMaskShape =
       (int64_t *)readFileOrExit("inputs/attention_mask_shape.bin");
   M_TorchInputSpec *attentionMaskInputSpec =
       M_newTorchInputSpec(attentionMaskShape, /*dimNames=*/NULL, /*rankSize=*/2,
-                          /*dtype=*/M_INT32, status);
+                          /*type=*/M_INT32, status);
   CHECK(status);
 
   int64_t *tokenTypeIdsShape =
       (int64_t *)readFileOrExit("inputs/token_type_ids_shape.bin");
   M_TorchInputSpec *tokenTypeIdsInputSpec =
       M_newTorchInputSpec(tokenTypeIdsShape, /*dimNames=*/NULL, /*rankSize=*/2,
-                          /*dtype=*/M_INT32, status);
+                          /*type=*/M_INT32, status);
   CHECK(status);
 
   M_TorchInputSpec *inputSpecs[3] = {inputIdsInputSpec, attentionMaskInputSpec,
