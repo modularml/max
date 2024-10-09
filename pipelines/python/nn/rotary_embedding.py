@@ -18,7 +18,7 @@ from typing import Optional
 
 import numpy as np
 from max.dtype import DType
-from max.graph import DimLike, TensorValue, ValueLike, ops
+from max.graph import DimLike, TensorValue, TensorValueLike, ops
 
 from .layer import Layer
 
@@ -37,7 +37,7 @@ class RotaryEmbedding(Layer):
     """The maximum sequence length for model's input."""
     rope_scaling: Optional[np.ndarray]
     """Scaling factor for the positional frequencies."""
-    _freqs_cis: Optional[ValueLike] = None
+    _freqs_cis: Optional[TensorValueLike] = None
 
     def freqs_cis_base(self) -> TensorValue:
         """
@@ -81,7 +81,7 @@ class RotaryEmbedding(Layer):
         return self._freqs_cis
 
     def __call__(
-        self, x: ValueLike, start_pos: int, seq_len: int
+        self, x: TensorValueLike, start_pos: int, seq_len: int
     ) -> TensorValue:
         """Applies rotary positional embeddings (RoPE) to `x`.
 

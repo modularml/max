@@ -13,16 +13,16 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, ValueLike, Weight, ops
+from max.graph import TensorValue, TensorValueLike, Weight, ops
 
 from .layer import Layer
 
 
 @dataclass
 class Embedding(Layer):
-    weights: ValueLike
+    weights: TensorValueLike
 
-    def __call__(self, indices: ValueLike) -> TensorValue:
+    def __call__(self, indices: TensorValueLike) -> TensorValue:
         result = ops.gather(self.weights, indices, axis=0)
         if (
             isinstance(self.weights, Weight)

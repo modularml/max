@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, ValueLike, ops
+from max.graph import TensorValue, TensorValueLike, ops
 from max.graph.type import Dim, DimLike
 
 from .kernels import (
@@ -49,7 +49,7 @@ class OptimizedAttention(Layer):
     def __call__(
         self,
         x: TensorValue,
-        attn_mask: ValueLike,
+        attn_mask: TensorValueLike,
         k_cache: ContiguousKVCache,
         v_cache: ContiguousKVCache,
         valid_lengths: TensorValue,
