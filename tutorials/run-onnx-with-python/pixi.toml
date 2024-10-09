@@ -5,9 +5,6 @@ name = "max-onnx-resnet"
 platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
-[tasks]
-test = "python3 download-model.py && python3 run.py"
-
 [dependencies]
 python = ">=3.9,<3.13"
 max = ">=24.5.0a,<24.6"
@@ -19,4 +16,12 @@ datasets = "==2.18"
 
 [pypi-dependencies]
 pillow = "==10.3.0"
+
+[feature.test.tasks]
+test = "python3 download-model.py && python3 run.py"
+
+[environments]
+test = { features = ["test"] }
+
+[feature.test.pypi-dependencies]
 python-dateutil = "==2.9.0"
