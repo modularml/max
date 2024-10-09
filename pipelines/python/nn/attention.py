@@ -17,7 +17,7 @@ import math
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import DimLike, TensorValue, ValueLike, ops
+from max.graph import DimLike, TensorValue, TensorValueLike, ops
 
 from .layer import Layer
 from .mlp import Linear
@@ -48,12 +48,12 @@ class Attention(Layer):
 
     def attention(
         self,
-        xq: ValueLike,
-        xk: ValueLike,
-        xv: ValueLike,
-        attn_mask: ValueLike,
-        k_cache: ValueLike,
-        v_cache: ValueLike,
+        xq: TensorValueLike,
+        xk: TensorValueLike,
+        xv: TensorValueLike,
+        attn_mask: TensorValueLike,
+        k_cache: TensorValueLike,
+        v_cache: TensorValueLike,
     ) -> TensorValue:
         # Broadcast the attention mask across heads.
         # Do so in the graph so that the broadcast can be fused downstream ops.
@@ -88,10 +88,10 @@ class Attention(Layer):
 
     def __call__(
         self,
-        x: ValueLike,
-        attention_mask: ValueLike,
-        k_cache: ValueLike,
-        v_cache: ValueLike,
+        x: TensorValueLike,
+        attention_mask: TensorValueLike,
+        k_cache: TensorValueLike,
+        v_cache: TensorValueLike,
     ) -> TensorValue:
         """Computes attention on x, reusing the KV cache.
 

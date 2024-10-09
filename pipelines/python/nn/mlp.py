@@ -15,7 +15,7 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, ValueLike, Weight, ops
+from max.graph import TensorValue, TensorValueLike, Weight, ops
 
 from .layer import Layer
 
@@ -24,7 +24,7 @@ from .layer import Layer
 class Linear(Layer):
     """A fully connected layer."""
 
-    weight: ValueLike
+    weight: TensorValueLike
 
     def __call__(self, x: TensorValue) -> TensorValue:
         weight = TensorValue(self.weight)
@@ -47,5 +47,5 @@ class MLP(Layer):
     down_proj: Linear
     up_proj: Linear
 
-    def __call__(self, x: ValueLike) -> TensorValue:
+    def __call__(self, x: TensorValueLike) -> TensorValue:
         return self.down_proj((ops.silu(self.gate_proj(x)) * self.up_proj(x)))

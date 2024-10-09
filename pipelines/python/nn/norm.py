@@ -15,17 +15,17 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorType, TensorValue, ValueLike, ops
+from max.graph import TensorType, TensorValue, TensorValueLike, ops
 
 from .layer import Layer
 
 
 @dataclass
 class RMSNorm(Layer):
-    weight: ValueLike
+    weight: TensorValueLike
     eps: float = 1e-6
 
-    def __call__(self, x: ValueLike) -> TensorValue:
+    def __call__(self, x: TensorValueLike) -> TensorValue:
         return ops.custom(
             "rms_norm",
             [x, ops.cast(self.weight, x.dtype), ops.cast(self.eps, x.dtype)],

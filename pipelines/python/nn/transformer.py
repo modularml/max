@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from max.dtype import DType
-from max.graph import TensorValue, ValueLike, ops
+from max.graph import TensorValue, TensorValueLike, ops
 
 from .kernels import key_cache_for_layer, value_cache_for_layer
 from .layer import Layer
@@ -47,10 +47,10 @@ class TransformerBlock(Layer):
 
     def __call__(
         self,
-        x: ValueLike,
-        attention_mask: ValueLike,
-        k_cache: ContiguousKVCacheType | ValueLike,
-        v_cache: ContiguousKVCacheType | ValueLike,
+        x: TensorValueLike,
+        attention_mask: TensorValueLike,
+        k_cache: ContiguousKVCacheType | TensorValueLike,
+        v_cache: ContiguousKVCacheType | TensorValueLike,
     ) -> tuple[TensorValue, TensorValue, TensorValue]:
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x), attention_mask, k_cache, v_cache
@@ -112,10 +112,10 @@ class OptimizedTransformerBlock(Layer):
 
     def __call__(
         self,
-        x: ValueLike,
-        attention_mask: ValueLike,
-        k_cache: ContiguousKVCacheType | ValueLike,
-        v_cache: ContiguousKVCacheType | ValueLike,
+        x: TensorValueLike,
+        attention_mask: TensorValueLike,
+        k_cache: ContiguousKVCacheType | TensorValueLike,
+        v_cache: ContiguousKVCacheType | TensorValueLike,
         valid_lengths: TensorValue,
     ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
         attention_out, k_cache_update, v_cache_update = self.attention(
