@@ -23,7 +23,7 @@ from _mlir._c.ffi import MLIR_func
 def set_locale_unicode():
     empty_string = str("")
     locale = external_call["setlocale", UnsafePointer[UInt8]](
-        0, Pointer.address_of(empty_string.as_bytes_span()[0])
+        0, Pointer.address_of(empty_string.as_bytes()[0])
     )  # LC_ALL
     if not locale:
         raise "didn't set locale"
@@ -257,7 +257,7 @@ struct Regex:
     ) -> Optional[Match[__lifetime_of(string)]]:
         groups = self._c[].exec(string, start=start)
         if groups:
-            return Match(string.as_bytes_span(), groups^)
+            return Match(string.as_bytes(), groups^)
         return None
 
     def findall(

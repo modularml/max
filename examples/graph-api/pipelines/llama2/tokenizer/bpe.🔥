@@ -89,7 +89,7 @@ struct BPETokenizer(Tokenizer):
         """
 
         var model = BPETokenizer()
-        span = data.as_bytes_span()
+        span = data.as_bytes()
 
         _max_token_len = read[Int32](span)
         while len(span):
