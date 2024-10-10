@@ -28,4 +28,4 @@ if [[ -n "$CONDA_PREFIX" ]]; then
 fi
 
 # Execute model
-mojo text-to-image.🔥 --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT"
+mojo text_to_image.🔥 --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT"
