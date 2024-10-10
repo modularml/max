@@ -33,8 +33,8 @@ from max.serve.pipelines.performance_fake import (
 from text_streaming import stream_text_to_console
 from transformers import PreTrainedTokenizerBase, AutoTokenizer
 from uvicorn import Server
-
 from utils import TextGenerationMetrics, config_to_flag
+from nn.kv_cache import KVCacheStrategy
 
 try:
     import rich.traceback
@@ -47,18 +47,23 @@ except ImportError:
 async def serve_token_generator(
     model: TokenGenerator,
     tokenizer: PreTrainedTokenizerBase,
-    max_batch_size: int,
+    kv_cache_strategy: KVCacheStrategy,
+    kv_cache_size: int,
     server_batch_mode: str,
     profile=False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
     settings = Settings(api_types=[APIType.OPENAI])
     debug_settings = DebugSettings(profiling_enabled=profile)
-    batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
-        tg_batch_size=max_batch_size, ce_batch_size=1, ce_batch_timeout=0.1
-    ) if server_batch_mode == "continuous" else TokenGeneratorPipelineConfig.dynamic_homogenous(
-        batch_size=max_batch_size, batch_timeout=0.1
-    )
+    if server_batch_mode == "continuous":
+        assert kv_cache_strategy == KVCacheStrategy.CONTINUOUS
+        batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
+            tg_batch_size=kv_cache_size, ce_batch_size=1, ce_batch_timeout=0.1
+        )
+    else:
+        batch_config = TokenGeneratorPipelineConfig.dynamic_homogenous(
+            batch_size=kv_cache_size, batch_timeout=0.1
+        )
     pipeline = TokenGeneratorPipeline[llama3.Llama3Context](
         batch_config, model, tokenizer
     )
@@ -184,6 +189,7 @@ def run_llama3(
         if performance_fake == "none":
             print(f"Starting server using Llama3, {server_batch_mode} batching")
             model = llama3.Llama3(config)
+            caching_strategy = config.cache_strategy
         else:
             print(
                 f"Starting server using performance fake '{performance_fake}',"
@@ -191,10 +197,12 @@ def run_llama3(
             )
             tokenizer = AutoTokenizer.from_pretrained(repo_id)
             model = get_performance_fake(performance_fake, tokenizer)
+            caching_strategy = KVCacheStrategy.CONTINUOUS
         asyncio.run(
             serve_token_generator(
                 model,
                 model._tokenizer,
+                caching_strategy,
                 config.max_cache_batch_size,
                 server_batch_mode,
                 profile_serve,
