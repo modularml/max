@@ -18,8 +18,7 @@ from typing import Optional
 
 import numpy as np
 from max.dtype import DType
-from max.graph import DimLike, TensorValue, TensorValueLike, ops
-from max.graph.type import Dim
+from max.graph import Dim, DimLike, TensorValue, TensorValueLike, ops
 
 from .layer import Layer
 
