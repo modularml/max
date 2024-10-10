@@ -131,7 +131,7 @@ class InferenceConfig:
     max_cache_batch_size: int = 16
     """Maximum cache size of sequences to the model."""
 
-    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS
+    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTINUOUS
     """Force using a specific KV cache strategy, 'naive', 'contiguous' or 'continuous'."""
 
     @staticmethod
