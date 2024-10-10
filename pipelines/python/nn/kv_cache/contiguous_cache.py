@@ -22,7 +22,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
 from max.graph import (
     Graph,
-    OpaqueType,
+    _OpaqueType,
     TensorType,
     TensorValue,
     ops,
@@ -32,7 +32,7 @@ from .cache_params import KVCacheParams
 from .manager import KVCacheManager
 
 
-class ContiguousKVCacheType(OpaqueType):
+class ContiguousKVCacheType(_OpaqueType):
     """Contiguous Mojo KV cache type."""
 
     def __init__(self) -> None:
@@ -40,7 +40,7 @@ class ContiguousKVCacheType(OpaqueType):
         super().__init__("ContiguousKVCache")
 
 
-class ContiguousKVCacheCollectionType(OpaqueType):
+class ContiguousKVCacheCollectionType(_OpaqueType):
     """Collection of contiguous Mojo KV caches type."""
 
     def __init__(self) -> None:

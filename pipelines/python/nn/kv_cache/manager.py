@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from max.driver import Device, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
-from max.graph import Graph, OpaqueType, TensorType, TensorValue, ops
+from max.graph import Graph, _OpaqueType, TensorType, TensorValue, ops
 
 from .cache_params import KVCacheParams, KVCacheStrategy
 

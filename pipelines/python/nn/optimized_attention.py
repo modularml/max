@@ -15,8 +15,7 @@
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
-from max.graph.type import Dim, DimLike
+from max.graph import Dim, DimLike, TensorValue, TensorValueLike, ops
 
 from .kernels import (
     flash_attention,
