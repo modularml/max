@@ -163,4 +163,10 @@ class OptimizedTransformer(Layer):
                 valid_lengths,
             )
 
-        return ops.cast(self.output(self.norm(h)), DType.float32)
+        # Perf optimization: we slice / gather along the seq_len dimension
+        # to turn this into a <batch_size, hidden_dim> tensor before applying
+        # RMS norm.
+        # TODO(MSDK-1167): This approach only works for batch size with context
+        # encoding. We'll need to either reshape and gather or use gather_nd
+        # for batch sizes > 1.
+        return ops.cast(self.output(self.norm(h[:, -1])), DType.float32)

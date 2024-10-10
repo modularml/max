@@ -116,7 +116,7 @@ def _llama_graph_opaque(
         logits = model(
             tokens, attention_mask.cast(params.mask_dtype), *kv_cache
         )
-        graph.output(logits[:, -1])
+        graph.output(logits)
         return graph
 
 
