@@ -29,10 +29,6 @@ from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
 
 
-def _dim_to_scalar(dim: Dim) -> TensorValue:
-    return ops.shape_to_tensor((dim,)).reshape(())
-
-
 @dataclass
 class OptimizedAttention(Layer):
     n_heads: int
