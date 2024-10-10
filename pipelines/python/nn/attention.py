@@ -62,9 +62,6 @@ class Attention(Layer):
             (batch, 1, seq_len, post_seq_len)
         ).broadcast_to((batch, self.n_heads, seq_len, post_seq_len))
 
-        k_cache = ops.squeeze(k_cache, axis=1)
-        v_cache = ops.squeeze(v_cache, axis=1)
-
         keys = ops.concat(
             [k_cache, xk.transpose(0, 1)], new_dim="post_seq_len"
         ).transpose(0, 1)
@@ -98,9 +95,9 @@ class Attention(Layer):
         Args:
             x: Activations with shape (batch, seq_len, dim).
             k_cache: Previously computed keys with shape
-                (prev_seq_len, 1, batch, n_kv_heads, head_dim).
+                (prev_seq_len, batch, n_kv_heads, head_dim).
             v_cache: Previously computed values with shape
-                (prev_seq_len, 1, batch, n_kv_heads, head_dim).
+                (prev_seq_len, batch, n_kv_heads, head_dim).
 
         Returns the result of multi-headed self attention on the input.
         """
