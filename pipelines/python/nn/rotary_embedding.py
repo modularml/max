@@ -19,6 +19,7 @@ from typing import Optional
 import numpy as np
 from max.dtype import DType
 from max.graph import DimLike, TensorValue, TensorValueLike, ops
+from max.graph.type import Dim
 
 from .layer import Layer
 
@@ -81,7 +82,7 @@ class RotaryEmbedding(Layer):
         return self._freqs_cis
 
     def __call__(
-        self, x: TensorValueLike, start_pos: int, seq_len: int
+        self, x: TensorValueLike, start_pos: Dim, seq_len: Dim
     ) -> TensorValue:
         """Applies rotary positional embeddings (RoPE) to `x`.
 
@@ -98,8 +99,8 @@ class RotaryEmbedding(Layer):
 
         complex = ops.as_interleaved_complex(v)
 
-        start_pos_val = TensorValue.from_dim(start_pos)
-        seq_len_val = TensorValue.from_dim(seq_len)
+        start_pos_val = TensorValue(start_pos)
+        seq_len_val = TensorValue(seq_len)
         freqs_cis_sliced = self.freqs_cis[
             (slice(start_pos_val, start_pos_val + seq_len_val), seq_len),
         ]
