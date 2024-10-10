@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -157,6 +158,17 @@ def _llama_graph(
         return graph
 
 
+async def run_with_default_executor(fn, *args):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, fn, *args)
+
+
+# These aren't thread safe, but we don't want them running on the main
+# thread. Guard them with an async lock for now.
+_TOKENIZER_LOCK = asyncio.Lock()
+_ENGINE_LOCK = asyncio.Lock()
+
+
 class Llama3:
     """The overall interface to the Llama 3 model."""
 
@@ -252,10 +264,17 @@ class Llama3:
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    def _encode(self, prompt: str) -> list[int]:
+    async def _encode(self, prompt: str) -> list[int]:
         # Encodes a prompt using the tokenizer, raising a ValueError if the
         # prompt exceeds the configured maximum length.
-        encoded_prompt = self._tokenizer.encode(prompt)
+
+        # Don't run compute-bound work on the main thread
+        # however, it's not thread-safe, so make sure only one can
+        # run at a time.
+        async with _TOKENIZER_LOCK:
+            encoded_prompt = await run_with_default_executor(
+                self._tokenizer.encode, prompt
+            )
         if len(encoded_prompt) >= self.config.max_length:
             msg = (
                 f"Prompt length of {len(encoded_prompt)} is greater or equal to"
@@ -269,7 +288,7 @@ class Llama3:
     async def _new_context_opaque(
         self, prompt: str, max_new_tokens: int | None = None
     ) -> Llama3Context:
-        encoded_prompt = self._encode(prompt)
+        encoded_prompt = await self._encode(prompt)
 
         max_tokens_to_generate = _max_tokens_to_generate(
             len(encoded_prompt), self.config, max_new_tokens
@@ -290,7 +309,7 @@ class Llama3:
         if self.params.use_opaque:
             return await self._new_context_opaque(prompt, max_new_tokens)
 
-        encoded_prompt = self._encode(prompt)
+        encoded_prompt = await self._encode(prompt)
 
         max_tokens_to_generate = _max_tokens_to_generate(
             len(encoded_prompt), self.config, max_new_tokens
@@ -317,9 +336,15 @@ class Llama3:
             if not self.params.use_opaque:
                 await self.reset_cache()
 
-        req_id_to_logits_dict, unpadded_last_token_index = self._execute(
-            req_to_context_dict
-        )
+        # Don't run compute-bound work on the main thread
+        # however, it's not thread-safe, so make sure only one can
+        # run at a time.
+        async with _ENGINE_LOCK:
+            req_id_to_logits_dict, unpadded_last_token_index = (
+                await run_with_default_executor(
+                    self._execute, req_to_context_dict
+                )
+            )
 
         context_batch = req_to_context_dict.values()
         tokens = [ctx.next_tokens for ctx in context_batch]
