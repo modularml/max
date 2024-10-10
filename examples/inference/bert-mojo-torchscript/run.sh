@@ -30,4 +30,4 @@ fi
 # Download model from HuggingFace
 python3 ../common/bert-torchscript/download-model.py -o "$MODEL_PATH" --mlm
 
-mojo simple-inference.🔥 "$INPUT_EXAMPLE"
+mojo simple_inference.🔥 "$INPUT_EXAMPLE"

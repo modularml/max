@@ -81,7 +81,7 @@ def split[dtype: DType](x: Tensor[dtype], i: Int) -> Tensor[dtype]:
 def main():
     # Parse args.
     USAGE = (
-        "Usage: ./text-to-image.🔥 --prompt <str> [--negative-prompt <str>]"
+        "Usage: ./text_to_image.🔥 --prompt <str> [--negative-prompt <str>]"
         " [--num-steps <int>] [--seed <int>] [-o <str>]"
     )
 
