@@ -149,7 +149,7 @@ class OptimizedTransformer(Layer):
         self,
         tokens,
         attention_mask,
-        valid_lengths,
+        valid_lengths: TensorValue,
         kv_cache_collection: ContiguousKVCacheCollection,
     ) -> TensorValue:
         h = self.embedding(tokens)
@@ -163,10 +163,10 @@ class OptimizedTransformer(Layer):
                 valid_lengths,
             )
 
-        # Perf optimization: we slice / gather along the seq_len dimension
-        # to turn this into a <batch_size, hidden_dim> tensor before applying
-        # RMS norm.
-        # TODO(MSDK-1167): This approach only works for batch size with context
-        # encoding. We'll need to either reshape and gather or use gather_nd
-        # for batch sizes > 1.
-        return ops.cast(self.output(self.norm(h[:, -1])), DType.float32)
+        # Predict using the last non-pad token (right-padded).
+        # `gather_nd` expects a static last dimension, so we unsqueeze.
+        last_token = ops.gather_nd(
+            h, indices=ops.unsqueeze(valid_lengths - 1, -1), batch_dims=1
+        )
+        # Always return float32 logits, no matter the activation type
+        return ops.cast(self.output(self.norm(last_token)), DType.float32)
