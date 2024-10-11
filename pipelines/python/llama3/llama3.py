@@ -350,7 +350,7 @@ class Llama3:
             logits = await run_with_default_executor(
                 self._execute, req_to_context_dict
             )
-            tokens, = await run_with_default_executor(self._sampler, logits)
+            (tokens,) = await run_with_default_executor(self._sampler, logits)
             tokens = tokens.to(CPU())
 
         next_tokens = dict(zip(req_to_context_dict, tokens.to_numpy()))
@@ -411,6 +411,7 @@ class Llama3:
                     for seq_id in cache_seq_ids
                 ],
                 tokens=tokens,
+                pad_to_multiple_of=self.config.pad_to_multiple_of,
             )
         )
 
@@ -445,7 +446,9 @@ class Llama3:
         # Pad tokens and compute attention mask for the batch.
         start_pos = [self._kv_cache.sequence_length] * len(req_to_context_dict)
         next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
-            start_pos=start_pos, tokens=tokens
+            start_pos=start_pos,
+            tokens=tokens,
+            pad_to_multiple_of=self.config.pad_to_multiple_of,
         )
 
         # Execute model.
