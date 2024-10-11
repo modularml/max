@@ -22,7 +22,7 @@ import numpy as np
 from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType
+from max.graph import Graph, TensorType, ops
 from max.graph.weights import GGUFWeights
 from tokenizers import Tokenizer
 
@@ -169,11 +169,17 @@ _TOKENIZER_LOCK = asyncio.Lock()
 _ENGINE_LOCK = asyncio.Lock()
 
 
+def _argmax_sampler(dtype: DType):
+    logits_type = TensorType(dtype, ["batch", "vocab_size"])
+    return Graph("argmax", ops.argmax, input_types=[logits_type])
+
+
 class Llama3:
     """The overall interface to the Llama 3 model."""
 
     config: InferenceConfig
     _model: Model
+    _sampler: Model
     _kv_cache: NaiveKVCache
     _kv_manager: KVCacheManager
     _sessions: set[str]
@@ -213,6 +219,8 @@ class Llama3:
         self._model = self._load_model(
             session, config, self.params, gguf_reader
         )
+        # logits are always float32 for now
+        self._sampler = session.load(_argmax_sampler(DType.float32))
 
         if export_path := config.save_to_serialized_model_path:
             print(f"Exporting serialized model to {export_path}...")
@@ -322,8 +330,7 @@ class Llama3:
         return context
 
     async def next_token(
-        self,
-        req_to_context_dict: dict[str, Llama3Context],
+        self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, str | None]:
         # TODO(MSDK-889) - Consider moving request/cache mgmt out of next_token.
 
@@ -340,24 +347,21 @@ class Llama3:
         # however, it's not thread-safe, so make sure only one can
         # run at a time.
         async with _ENGINE_LOCK:
-            req_id_to_logits_dict, unpadded_last_token_index = (
-                await run_with_default_executor(
-                    self._execute, req_to_context_dict
-                )
+            logits = await run_with_default_executor(
+                self._execute, req_to_context_dict
             )
+            tokens, = await run_with_default_executor(self._sampler, logits)
+            tokens = tokens.to(CPU())
 
-        context_batch = req_to_context_dict.values()
-        tokens = [ctx.next_tokens for ctx in context_batch]
+        next_tokens = dict(zip(req_to_context_dict, tokens.to_numpy()))
         for request_id, context in req_to_context_dict.items():
-            # TODO: Add a weighted sampler here.
-            # Get argmax of the logits of the last (non-padded) token.
-            next_token = req_id_to_logits_dict[request_id].argmax(axis=-1)
+            next_token = next_tokens[request_id].astype(np.int64)
             decoded_token = self._tokenizer.decode(next_token)
 
             # Update context
             context.append(next_token.reshape(-1), decoded_token)
-            # Add back to dictionary
 
+            # Mark completed requests by not including them in the response.
             if not context.is_done(self._tokenizer.eos_token_id):
                 res[request_id] = decoded_token
             # TODO: MSDK-1084 Re-enable Cache release
@@ -387,7 +391,7 @@ class Llama3:
 
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> tuple[dict[str, Tensor], dict[str, int]]:
+    ) -> Tensor:
         context_batch = req_to_context_dict.values()
         tokens = [ctx.next_tokens for ctx in context_batch]
 
@@ -414,15 +418,12 @@ class Llama3:
         kv_collection = self._kv_manager.fetch(cache_seq_ids)
 
         # Execute model.
-        batch_logits = self._model.execute(
+        logits = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
             valid_lengths,
             kv_collection,
         )[0]
-
-        # Copy logits from device to host.
-        batch_logits = np.from_dlpack(batch_logits.to(CPU()))
 
         self._kv_manager.step(
             valid_lengths={
@@ -430,24 +431,9 @@ class Llama3:
             }
         )
 
-        unpadded_last_token_index_to_return = {}
+        return logits
 
-        # Since req_to_context_dict dict is ordered as it was passed in from the
-        # input, we just iterate over the req_ids in that order and assign
-        # unpadded_last_token_index that way.
-        for curr_index, req_id in enumerate(req_to_context_dict):
-            unpadded_last_token_index_to_return[
-                req_id
-            ] = unpadded_last_token_index[curr_index]
-
-        return (
-            dict(zip(req_to_context_dict, batch_logits)),
-            unpadded_last_token_index_to_return,
-        )
-
-    def _execute(
-        self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> tuple[dict[str, np.ndarray], dict[str, int]]:
+    def _execute(self, req_to_context_dict: dict[str, Llama3Context]) -> Tensor:
         """Executes the model and returns the raw results."""
         if self.params.use_opaque:
             return self._execute_opaque(req_to_context_dict)
@@ -458,8 +444,8 @@ class Llama3:
 
         # Pad tokens and compute attention mask for the batch.
         start_pos = [self._kv_cache.sequence_length] * len(req_to_context_dict)
-        next_tokens_batch, unpadded_last_token_index, attn_mask = (
-            batch_padded_tokens_and_mask(start_pos=start_pos, tokens=tokens)
+        next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
+            start_pos=start_pos, tokens=tokens
         )
 
         # Execute model.
@@ -474,24 +460,11 @@ class Llama3:
             ),
         )
 
-        logits = np.from_dlpack(logits.to(CPU()))
         k_cache = np.from_dlpack(k_cache.to(CPU()))
         v_cache = np.from_dlpack(v_cache.to(CPU()))
-
         self._kv_cache.update(k_cache, v_cache)
 
-        logits_to_return = {}
-        unpadded_last_token_index_to_return = {}
-
-        # Since req_to_context_dict dict is ordered as it was passed in from the
-        # input, we just iterate over the req_ids in that order and assign
-        # logits that way. Do the same for unpadded, last tokens.
-        for curr_index, req_id in enumerate(req_to_context_dict):
-            logits_to_return[req_id] = logits[curr_index]
-            unpadded_last_token_index_to_return[
-                req_id
-            ] = unpadded_last_token_index[curr_index]
-        return logits_to_return, unpadded_last_token_index_to_return
+        return logits
 
 
 def _max_tokens_to_generate(
