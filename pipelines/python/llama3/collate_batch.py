@@ -64,7 +64,6 @@ def collate_batch(
 
     max_len = max((len(a) for a in batch), default=0)
     pad_to = math.ceil(max_len / pad_to_multiple_of) * pad_to_multiple_of
-    print(f"pad_to: {pad_to}")
 
     def pad(a: np.ndarray) -> np.ndarray:
         npad = pad_to - len(a)
