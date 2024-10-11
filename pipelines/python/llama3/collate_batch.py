@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import math
 import enum
 from typing import Sequence
 
@@ -34,6 +35,7 @@ def collate_batch(
     direction: PaddingDirection = PaddingDirection.RIGHT,
     pad_value: int = 0,
     batch_size: int | None = None,
+    pad_to_multiple_of: int = 1,
 ) -> tuple[np.ndarray, list[int]]:
     """Generates a single batch tensor from a batch of inputs.
 
@@ -60,7 +62,9 @@ def collate_batch(
         msg = "Collate only supports rank 1 tensors for now."
         raise NotImplementedError(msg)
 
-    pad_to = max((len(a) for a in batch), default=0)
+    max_len = max((len(a) for a in batch), default=0)
+    pad_to = math.ceil(max_len / pad_to_multiple_of) * pad_to_multiple_of
+    print(f"pad_to: {pad_to}")
 
     def pad(a: np.ndarray) -> np.ndarray:
         npad = pad_to - len(a)
@@ -80,7 +84,9 @@ def collate_batch(
 
 
 def batch_padded_tokens_and_mask(
-    start_pos: list[int], tokens: list[np.ndarray]
+    start_pos: list[int],
+    tokens: list[np.ndarray],
+    pad_to_multiple_of: int = 1,
 ) -> tuple[np.ndarray, list[int], np.ndarray]:
     """Batches input tokens and computes a batched attention mask.
 
@@ -95,11 +101,12 @@ def batch_padded_tokens_and_mask(
     attn_mask = causal_attention_mask(
         original_start_pos=start_pos,
         original_seq_len=[len(t) for t in tokens],
+        pad_to_multiple_of=pad_to_multiple_of,
     ).astype(np.float32)
 
     # Create batched input token tensor by padding all input token tensors
     # to the maximum sequence length in the batch.
     next_tokens_batch, unpadded_last_token_index = collate_batch(
-        tokens, batch_size=len(tokens)
+        tokens, batch_size=len(tokens), pad_to_multiple_of=pad_to_multiple_of
     )
     return next_tokens_batch, unpadded_last_token_index, attn_mask
