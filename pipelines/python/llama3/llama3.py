@@ -22,7 +22,7 @@ import numpy as np
 from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType, ops
+from max.graph import Graph, TensorType, BufferType, ops
 from max.graph.weights import GGUFWeights
 from tokenizers import Tokenizer
 
@@ -134,27 +134,38 @@ def _llama_graph(
         DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
     )
 
-    cache_type = TensorType(
+    cache_type = BufferType(
         DType.float32,
         shape=[
-            "start_pos",
+            params.seq_len,
             params.n_layers,
             "batch_size",
             params.n_kv_heads,
             params.head_dim,
         ],
     )
+    start_pos_type = TensorType(DType.int64, shape=[])
 
     with Graph(
         "llama3",
-        input_types=[tokens_type, attn_mask_type, cache_type, cache_type],
+        input_types=[
+            tokens_type,
+            attn_mask_type,
+            cache_type,
+            cache_type,
+            start_pos_type,
+        ],
     ) as graph:
         model = transformer(graph, params, weights, kv_params)
-        tokens, attention_mask, *kv_cache = graph.inputs
-        logits, k_update, v_update = model(
-            tokens, attention_mask.cast(params.mask_dtype), *kv_cache
+        tokens, attention_mask, k_cache, v_cache, start_pos = graph.inputs
+        logits, end_pos = model(
+            tokens,
+            attention_mask.cast(params.mask_dtype),
+            k_cache,
+            v_cache,
+            start_pos,
         )
-        graph.output(logits[:, -1], k_update, v_update)
+        graph.output(logits[:, -1], end_pos)
         return graph
 
 
@@ -242,6 +253,7 @@ class Llama3:
                 self.params.n_layers,
                 self.params.n_kv_heads,
                 self.params.head_dim,
+                device=config.device,
             )
 
         self._n_heads = self.params.n_heads
@@ -452,20 +464,19 @@ class Llama3:
         )
 
         # Execute model.
-        logits, k_cache, v_cache = self._model.execute(
+        logits, end_pos = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
-            Tensor.from_numpy(self._kv_cache.keys_view(batch_size)).to(
-                self.config.device
-            ),
-            Tensor.from_numpy(self._kv_cache.values_view(batch_size)).to(
-                self.config.device
+            self._kv_cache.keys,
+            self._kv_cache.values,
+            Tensor.scalar(
+                self._kv_cache.sequence_length, DType.int64, self.config.device
             ),
         )
 
-        k_cache = np.from_dlpack(k_cache.to(CPU()))
-        v_cache = np.from_dlpack(v_cache.to(CPU()))
-        self._kv_cache.update(k_cache, v_cache)
+        end_pos = end_pos.to(CPU()).item()
+
+        self._kv_cache.sequence_length = end_pos
 
         return logits
 

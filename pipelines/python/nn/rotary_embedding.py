@@ -81,7 +81,7 @@ class RotaryEmbedding(Layer):
         return self._freqs_cis
 
     def __call__(
-        self, x: TensorValueLike, start_pos: Dim, seq_len: Dim
+        self, x: TensorValueLike, start_pos: TensorValue, seq_len: Dim
     ) -> TensorValue:
         """Applies rotary positional embeddings (RoPE) to `x`.
 
@@ -98,10 +98,9 @@ class RotaryEmbedding(Layer):
 
         complex = ops.as_interleaved_complex(v)
 
-        start_pos_val = TensorValue(start_pos)
         seq_len_val = TensorValue(seq_len)
         freqs_cis_sliced = self.freqs_cis[
-            (slice(start_pos_val, start_pos_val + seq_len_val), seq_len),
+            (slice(start_pos, start_pos + seq_len_val), seq_len),
         ]
 
         freqs_cis_bcast = ops.unsqueeze(ops.unsqueeze(freqs_cis_sliced, 1), 0)
