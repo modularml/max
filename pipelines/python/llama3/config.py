@@ -134,6 +134,9 @@ class InferenceConfig:
     cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTINUOUS
     """Force using a specific KV cache strategy, 'naive', 'contiguous' or 'continuous'."""
 
+    pad_to_multiple_of: int = 1
+    """Pad input tensors to be a multiple of value provided."""
+
     @staticmethod
     def help():
         return {
