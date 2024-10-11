@@ -13,11 +13,14 @@
 
 from __future__ import annotations
 
+import math
 import numpy as np
 
 
 def causal_attention_mask(
-    original_start_pos: list[int], original_seq_len: list[int]
+    original_start_pos: list[int],
+    original_seq_len: list[int],
+    pad_to_multiple_of: int = 1,
 ) -> np.ndarray:
     # Each example in the batch has a "start position", which is the length
     # of the previously encoded tokens ("context"), and a "sequence length",
@@ -35,15 +38,22 @@ def causal_attention_mask(
     # length after this pass concludes.
     start_pos: np.ndarray = np.array(original_start_pos, dtype=np.int64)
     seq_len: np.ndarray = np.array(original_seq_len, dtype=np.int64)
-    post_seq_len = start_pos + seq_len
+
+    # Provided `pad_to_multiple_of` ensure the padded_length is cleanly divisible
+    # by this multiple.
+    padded_length = (
+        math.ceil(seq_len.max() / pad_to_multiple_of) * pad_to_multiple_of
+    )
 
     # Mask shape: for each token being generated, attend to tokens _before_ it
     # in the entire sequence including context. Pad all values to the longest
     # sequence length and total length.
-    mask_shape = (seq_len.max(), post_seq_len.max())
+    post_seq_len = (start_pos + padded_length).max()
+    mask_shape = (padded_length, post_seq_len)
 
     # TODO(KERN-782): This should be -inf but softmax saturates with NaNs.
     fill_val = -10000.0
+
     return np.stack(
         # Set diagonal to k + 1 so that tokens attend to themselves.
         [np.triu(np.full(mask_shape, fill_val), k=k + 1) for k in start_pos]
