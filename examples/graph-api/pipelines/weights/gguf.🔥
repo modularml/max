@@ -800,21 +800,12 @@ struct GGUFFile(LoadableModel):
             self.size += pad(size_cur, self.alignment)
 
     fn __moveinit__(inout self, owned other: GGUFFile):
-        @always_inline
-        fn exchange[T: Movable](inout old_var: T, owned new_value: T) -> T:
-            var old_value = old_var^
-            old_var = new_value^
-            return old_value^
-
         self.header = other.header
-
-        self.kv = exchange(other.kv, List[GGUFKV]())
-        self.infos = exchange(other.infos, List[GGUFTensorInfo]())
-
+        self.kv = other.kv^
+        self.infos = other.infos^
         self.alignment = other.alignment
         self.offset = other.offset
         self.size = other.size
-
         self.fp = other.fp^
 
     fn __del__(owned self):
