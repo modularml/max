@@ -51,15 +51,22 @@ class TransformerBlock(Layer):
         attention_mask: TensorValueLike,
         k_cache: ContiguousKVCacheType | TensorValueLike,
         v_cache: ContiguousKVCacheType | TensorValueLike,
+        start_pos: TensorValue,
+        layer_index: int,
     ) -> tuple[TensorValue, TensorValue, TensorValue]:
-        attention_out, k_cache_update, v_cache_update = self.attention(
-            self.attention_norm(x), attention_mask, k_cache, v_cache
-        )  # type: ignore
+        attention_out = self.attention(
+            self.attention_norm(x),
+            attention_mask,
+            k_cache,
+            v_cache,
+            start_pos,
+            layer_index,
+        )
 
         h = x + attention_out
         h = h + self.mlp(self.mlp_norm(h))
 
-        return h, k_cache_update, v_cache_update
+        return h
 
 
 @dataclass
@@ -74,30 +81,28 @@ class Transformer(Layer):
     theta: float
     embedding: Embedding
 
-    def __call__(self, tokens, attention_mask, k_cache, v_cache):
+    def __call__(self, tokens, attention_mask, k_cache, v_cache, start_pos):
         h = self.embedding(tokens)
         # Use the embeddings as ground truth for the activation dtype.
         activations_dtype = h.dtype
         kv_cache_dtype = k_cache.dtype
 
-        k_cache_updates = []
-        v_cache_updates = []
         for i in range(len(self.layers)):
-            h, k_cache_layer_update, v_cache_layer_update = self.layers[i](
+            h = self.layers[i](
                 h,
                 attention_mask,
-                ops.cast(k_cache[:, i], activations_dtype),
-                ops.cast(v_cache[:, i], activations_dtype),
+                k_cache,
+                v_cache,
+                start_pos,
+                i,
             )
-            k_cache_updates.append(ops.transpose(k_cache_layer_update, 0, 1))
-            v_cache_updates.append(ops.transpose(v_cache_layer_update, 0, 1))
 
+        seq_len = TensorValue(tokens.shape[1])
         return (
             # Cast outputs back to the KV cache dtype, which may differ from
             # the activations dtype.
             ops.cast(self.output(self.norm(h)), kv_cache_dtype),
-            ops.cast(ops.stack(k_cache_updates, axis=1), kv_cache_dtype),
-            ops.cast(ops.stack(v_cache_updates, axis=1), kv_cache_dtype),
+            start_pos + seq_len,
         )
 
 

@@ -17,7 +17,7 @@ import math
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import DimLike, TensorValue, TensorValueLike, ops
+from max.graph import BufferValue, DimLike, TensorValue, TensorValueLike, ops
 
 from .layer import Layer
 from .mlp import Linear
@@ -52,8 +52,8 @@ class Attention(Layer):
         xk: TensorValueLike,
         xv: TensorValueLike,
         attn_mask: TensorValueLike,
-        k_cache: TensorValueLike,
-        v_cache: TensorValueLike,
+        keys: TensorValueLike,
+        values: TensorValueLike,
     ) -> TensorValue:
         # Broadcast the attention mask across heads.
         # Do so in the graph so that the broadcast can be fused downstream ops.
@@ -62,12 +62,8 @@ class Attention(Layer):
             (batch, 1, seq_len, post_seq_len)
         ).broadcast_to((batch, self.n_heads, seq_len, post_seq_len))
 
-        keys = ops.concat(
-            [k_cache, xk.transpose(0, 1)], new_dim="post_seq_len"
-        ).transpose(0, 1)
-        values = ops.concat(
-            [v_cache, xv.transpose(0, 1)], new_dim="post_seq_len"
-        ).transpose(0, 1)
+        keys = keys.transpose(0, 1)
+        values = values.transpose(0, 1)
 
         keys = self.repeat_kv(keys)
         values = self.repeat_kv(values)
@@ -87,22 +83,24 @@ class Attention(Layer):
         self,
         x: TensorValueLike,
         attention_mask: TensorValueLike,
-        k_cache: TensorValueLike,
-        v_cache: TensorValueLike,
+        k_cache: BufferValue,
+        v_cache: BufferValue,
+        start_pos: TensorValue,
+        layer_index: int,
     ) -> TensorValue:
         """Computes attention on x, reusing the KV cache.
 
         Args:
             x: Activations with shape (batch, seq_len, dim).
-            k_cache: Previously computed keys with shape
-                (prev_seq_len, batch, n_kv_heads, head_dim).
-            v_cache: Previously computed values with shape
-                (prev_seq_len, batch, n_kv_heads, head_dim).
+            k_cache: The full keys cache buffer with shape
+                (max_seq_len, n_layers, batch, n_kv_heads, head_dim).
+            v_cache: The full values cache buffer with shape
+                (max_seq_len, n_layers, batch, n_kv_heads, head_dim).
+            start_pos: Scalar of the current position in the kv_cache.
 
         Returns the result of multi-headed self attention on the input.
         """
         batch, seq_len = x.shape[0], x.shape[1]
-        start_pos = k_cache.shape[0]
         # matmul weights
         xq = self.wq(x)
         xk = self.wk(x)
@@ -115,9 +113,27 @@ class Attention(Layer):
 
         xq = self.rope(xq, start_pos, seq_len)
         xk = self.rope(xk, start_pos, seq_len)
+
+        # Write xk and xv back the to cache at start_pos.
+        # cache[start_pos:start_pos+seq_len, layer_index] = ...
+        seq_len_val = TensorValue(seq_len)
+        slice_seq_len = (slice(start_pos, start_pos + seq_len_val), seq_len)
+        k_cache[slice_seq_len, layer_index] = xk.transpose(0, 1).cast(
+            k_cache.dtype
+        )
+        v_cache[slice_seq_len, layer_index] = xv.transpose(0, 1).cast(
+            k_cache.dtype
+        )
+
+        # Then slice the correct keys and values for attention.
+        # ... = cache[0:start_pos+seq_len, layer_index]
+        slice_post_seq_len = (slice(0, start_pos + seq_len_val), "post_seq_len")
+        keys = k_cache[slice_post_seq_len, layer_index].cast(xq.dtype)
+        values = v_cache[slice_post_seq_len, layer_index].cast(xq.dtype)
+
         output = (
-            self.attention(xq, xk, xv, attention_mask, k_cache, v_cache)
+            self.attention(xq, xk, xv, attention_mask, keys, values)
             .transpose(1, 2)
             .reshape([batch, seq_len, -1])
         )
-        return self.wo(output), xk, xv
+        return self.wo(output)
