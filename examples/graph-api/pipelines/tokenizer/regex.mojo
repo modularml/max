@@ -209,11 +209,11 @@ struct _MatchIter[
 
 
 @value
-struct Match[lifetime: ImmutableOrigin](Formattable):
-    var _string: Span[UInt8, lifetime]
+struct Match[origin: ImmutableOrigin](Formattable):
+    var _string: Span[UInt8, origin]
     var _groups: List[_CRegexMatch]
 
-    fn __getitem__(self, group: Int) -> StringSlice[lifetime]:
+    fn __getitem__(self, group: Int) -> StringSlice[origin]:
         var m = self._groups[group]
         return StringSlice(unsafe_from_utf8=self._string[m.start : m.end])
 
