@@ -26,12 +26,12 @@ from .max_heap import MinHeap, OrderedElement
 
 # TODO(MSTDL-590): upstream split/lines into stdlib
 @value
-struct _SplitIter[is_mutable: Bool, lifetime: Origin[is_mutable].type]:
+struct _SplitIter[is_mutable: Bool, origin: Origin[is_mutable].type]:
     """Iterator over splits of a string. Returns string slices, preventing
     allocating a new String for each slice of the original string, and
     allows specifing a maximum number of splits."""
 
-    var span: Span[UInt8, lifetime]
+    var span: Span[UInt8, origin]
     var split: String
     var max: Optional[Int]
     var done: Bool
@@ -39,7 +39,7 @@ struct _SplitIter[is_mutable: Bool, lifetime: Origin[is_mutable].type]:
     fn __iter__(self) -> Self:
         return self
 
-    fn __next__(inout self) -> StringSlice[lifetime]:
+    fn __next__(inout self) -> StringSlice[origin]:
         """Return the next split slice via StringRef.find()."""
         # If we've already split `max` times, return the final slice.
         if self.max and self.max.value() == 0:
