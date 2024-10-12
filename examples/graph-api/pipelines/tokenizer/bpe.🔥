@@ -71,12 +71,12 @@ struct _SplitIter[is_mutable: Bool, lifetime: Origin[is_mutable].type]:
 
 def split(
     string: String, split: String, /, max: Int = -2
-) -> _SplitIter[False, __lifetime_of(string)]:
+) -> _SplitIter[False, __origin_of(string)]:
     """Iterate over string slice references. Splits at most `max` times."""
     return _SplitIter(string.as_bytes(), split, max, False)
 
 
-def lines(string: String) -> _SplitIter[False, __lifetime_of(string)]:
+def lines(string: String) -> _SplitIter[False, __origin_of(string)]:
     return split(string, "\n")
 
 

@@ -254,7 +254,7 @@ struct Regex:
 
     def find(
         self, string: String, start: Int = 0
-    ) -> Optional[Match[__lifetime_of(string)]]:
+    ) -> Optional[Match[__origin_of(string)]]:
         groups = self._c[].exec(string, start=start)
         if groups:
             return Match(string.as_bytes(), groups^)
@@ -262,7 +262,7 @@ struct Regex:
 
     def findall(
         self, string: String, negative_lookahead_hack: Bool = False
-    ) -> _MatchIter[__lifetime_of(self), __lifetime_of(string)]:
+    ) -> _MatchIter[__origin_of(self), __origin_of(string)]:
         return _MatchIter(
             Pointer.address_of(self),
             Pointer.address_of(string),
