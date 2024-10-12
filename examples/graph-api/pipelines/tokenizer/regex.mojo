@@ -149,8 +149,8 @@ struct _CRegexMatch:
 
 @value
 struct _MatchIter[
-    regex_lifetime: ImmutableLifetime,
-    string_lifetime: ImmutableLifetime,
+    regex_lifetime: ImmutableOrigin,
+    string_lifetime: ImmutableOrigin,
 ]:
     var regex: Pointer[Regex, regex_lifetime]
     var string: Pointer[String, string_lifetime]
@@ -209,7 +209,7 @@ struct _MatchIter[
 
 
 @value
-struct Match[lifetime: ImmutableLifetime](Formattable):
+struct Match[lifetime: ImmutableOrigin](Formattable):
     var _string: Span[UInt8, lifetime]
     var _groups: List[_CRegexMatch]
 
