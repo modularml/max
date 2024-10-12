@@ -149,13 +149,13 @@ struct _CRegexMatch:
 
 @value
 struct _MatchIter[
-    regex_lifetime: ImmutableOrigin,
-    string_lifetime: ImmutableOrigin,
+    regex_origin: ImmutableOrigin,
+    string_origin: ImmutableOrigin,
 ]:
-    var regex: Pointer[Regex, regex_lifetime]
-    var string: Pointer[String, string_lifetime]
+    var regex: Pointer[Regex, regex_origin]
+    var string: Pointer[String, string_origin]
     var start: Int
-    var next_match: Optional[Match[string_lifetime]]
+    var next_match: Optional[Match[string_origin]]
     # This is a workaround for not having negative lookaheads, expect this
     # interface to change. This allows using capture groups to tell the regex
     # to "match" only part of the match, and continue at the end of the capture
@@ -164,8 +164,8 @@ struct _MatchIter[
 
     def __init__(
         inout self,
-        regex: Pointer[Regex, regex_lifetime],
-        string: Pointer[String, string_lifetime],
+        regex: Pointer[Regex, regex_origin],
+        string: Pointer[String, string_origin],
         negative_lookahead_hack: Bool = False,
     ):
         self.regex = regex
@@ -178,7 +178,7 @@ struct _MatchIter[
     fn __iter__(self) -> Self:
         return self
 
-    def __next__(inout self) -> Match[string_lifetime]:
+    def __next__(inout self) -> Match[string_origin]:
         m = self.next_match.value()
         self._next()
         return m^
