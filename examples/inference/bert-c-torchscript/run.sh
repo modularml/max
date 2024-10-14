@@ -21,18 +21,11 @@ cd "$CURRENT_DIR"
 # remove the build artifacts
 rm -rf build
 
-# Allow user to override MAX_PKG_DIR in environment to support nightly version
-# but default to standard release
-
-# If CONDA_PREFIX is set, use it as the default value for MAX_PKG_DIR
 if [[ -n "$CONDA_PREFIX" ]]; then
+  # Required for the CMake build
   MAX_PKG_DIR="${MAX_PKG_DIR:-$CONDA_PREFIX}"
-
-  # If CONDA_PREFIX is set, install requirements
-  python3 -m pip install -r requirements.txt
 else
-  # Otherwise, use the value from the modular CLI
-  MAX_PKG_DIR="${MAX_PKG_DIR:-$(modular config max.path)}"
+  echo "This script should be run with Conda. Try \`magic run run.sh\`." && false
 fi
 
 export MAX_PKG_DIR
