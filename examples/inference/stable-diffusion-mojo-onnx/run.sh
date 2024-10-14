@@ -22,10 +22,5 @@ PPROMPT="Cute puppy chewing on a stick"
 # Make sure we're running from inside the directory containing this file.
 cd "$(dirname "$0")"
 
-# If CONDA_PREFIX is set, install requirements
-if [[ -n "$CONDA_PREFIX" ]]; then
-    python3 -m pip install -r requirements.txt
-fi
-
 # Execute model
 mojo text_to_image.🔥 --seed 7 --num-steps 20 --prompt "$PPROMPT" --negative-prompt "$NPROMPT"

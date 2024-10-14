@@ -3,17 +3,16 @@ name = "BERT Python Torchscript"
 version = "1.0.0"
 description = "MAX Examples"
 authors = ["Modular <hello@modular.com>"]
-channels = ["pytorch", "conda-forge", "https://conda.modular.com/max-nightly/"]
+channels = ["conda-forge", "https://conda.modular.com/max-nightly/", "pytorch"]
 platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
 max = "*"
-pip = ">=24.0,<25"
 tritonclient-http = ">=2.26.0,<3"
 tree = ">=2.1.3,<3"
 numpy = "<2.0"
-transformers = "4.40.1.*"
+transformers = ">=4.44.0"
 networkx = "3.1.*"
 
 # For performance, prefer pytorch over anything else.
