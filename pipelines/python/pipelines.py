@@ -209,14 +209,14 @@ def run_llama3(
             )
         )
     else:
+        model = llama3.Llama3(config)
         # Run warmup iteration with no metrics & printing disabled
         if num_warmups > 0:
-            warmup_model = llama3.Llama3(config)
             print("Running warmup...")
             for i in range(num_warmups):
                 asyncio.run(
                     stream_text_to_console(
-                        warmup_model,
+                        model,
                         prompt,
                         metrics=None,
                         print_tokens=False,
@@ -226,11 +226,6 @@ def run_llama3(
 
         # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
-            # FIXME (MSDK-1088): We shouldn't need to reconstruct the pipeline
-            # here, we should be able to re-use the pipeline from the warmup
-            # run, but attempting to do so right now causes the subsequent call
-            # to model.new_context() to hang indefinitely.
-            model = llama3.Llama3(config)
             print("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
