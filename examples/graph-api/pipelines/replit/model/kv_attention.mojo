@@ -75,7 +75,9 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         s_k = start_pos + seq_len_sym
 
         # reshape Q
-        xq = xq.reshape(batch_size, seq_len, self.n_heads, kv_params.head_size)
+        xq = xq.reshape(
+            batch_size, seq_len, self.n_heads, int(kv_params.head_size)
+        )
 
         # Calculate out mask
         var output_type = xq.type()
