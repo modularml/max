@@ -85,21 +85,6 @@ def flash_attention(
     )[0]
 
 
-def kv_cache_length(
-    kv_params: KVCacheParams, kv_cache_collection: ContiguousKVCacheCollection
-) -> TensorValue:
-    """Calculates the length of the passed kv_cache collection."""
-    op_name = f"kv_cache_length_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}"
-    if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        op_name += "_continuous_batch"
-
-    return ops.custom(
-        op_name,
-        [kv_cache_collection],
-        [TensorType(dtype=DType.uint32, shape=[])],
-    )[0]
-
-
 def key_cache_for_layer(
     kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
 ) -> ContiguousKVCacheType:
