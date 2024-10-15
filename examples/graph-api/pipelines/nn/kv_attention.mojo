@@ -83,7 +83,9 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
             xq_type,
         )
 
-        xq = xq.reshape(batch_size, seq_len, self.n_heads, kv_params.head_size)
+        xq = xq.reshape(
+            batch_size, seq_len, self.n_heads, int(kv_params.head_size)
+        )
         xq = ops.custom[self._kernel_names.fused_qk_rope_kernel](
             List[Symbol](xq, k_cache, freqs_cis_2d), xq.type()
         )
