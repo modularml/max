@@ -206,23 +206,23 @@ def run_llama3(
             )
         )
     else:
-        model = llama3.Llama3(config)
-        # Run warmup iteration with no metrics & printing disabled
-        if num_warmups > 0:
-            print("Running warmup...")
-            for i in range(num_warmups):
-                asyncio.run(
-                    stream_text_to_console(
-                        model,
-                        prompt,
-                        metrics=None,
-                        print_tokens=False,
-                        max_batch_size=config.max_cache_batch_size,
-                    )
-                )
-
         # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
+            model = llama3.Llama3(config)
+            # Run warmup iteration with no metrics & printing disabled
+            if num_warmups > 0:
+                print("Running warmup...")
+                for i in range(num_warmups):
+                    asyncio.run(
+                        stream_text_to_console(
+                            model,
+                            prompt,
+                            metrics=None,
+                            print_tokens=False,
+                            max_batch_size=config.max_cache_batch_size,
+                        )
+                    )
+
             print("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
