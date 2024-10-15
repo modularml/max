@@ -12,15 +12,15 @@
 # ===----------------------------------------------------------------------=== #
 """Abstract base class for KVCacheManager for KV Cache."""
 
+import asyncio
+from abc import ABC, abstractmethod
 from typing import List, Union
 
-import asyncio
 import numpy as np
-from abc import ABC, abstractmethod
 from max.driver import Device, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
-from max.graph import Graph, _OpaqueType, TensorType, TensorValue, ops
+from max.graph import Graph, TensorType, TensorValue, _OpaqueType, ops
 
 from .cache_params import KVCacheParams, KVCacheStrategy
 
@@ -56,32 +56,20 @@ class KVCacheManager(ABC):
         self.false_tensor[0] = False
 
         # Create one-op graph, and allocate memory
-        self.fetch_model = self.compile_fetch_graph(session=session)
         self.blocks = Tensor.zeros(
             self.block_shape(self.max_cache_batch_size),
             self.params.dtype,
             device=self.device,
         )
 
-        # Cache Lengths buf has to be held on the object
-        # and persisted beyond the fetch call, to ensure the object
-        # is not destructed early, and the kernel can continue to
-        # refer to this object. As the MojoValue result of the
-        # self.fetch_model.execute call, has a borrowed reference
-        # to this cache lengths buffer.
-        self.cache_lengths_buf = None
-        self.lookup_table = None
-
     @abstractmethod
     def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
         ...
 
     @abstractmethod
-    def compile_fetch_graph(self, session: InferenceSession) -> Graph:
-        ...
-
-    @abstractmethod
-    def fetch(self, seq_ids: list[int]) -> MojoValue:
+    def fetch(
+        self, seq_ids: list[int]
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         ...
 
     async def claim(self, n: int) -> List[int]:

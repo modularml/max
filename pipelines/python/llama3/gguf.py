@@ -18,7 +18,6 @@ from max.dtype import DType
 from max.graph import Graph, ops
 from max.graph.quantization import QuantizationEncoding
 from max.graph.weights import GGUFWeights
-
 from nn import (
     MLP,
     Attention,
@@ -33,7 +32,12 @@ from nn import (
     Transformer,
     TransformerBlock,
 )
-from nn.kv_cache import KVCacheParams
+from nn.kv_cache import (
+    FetchContiguousKVCacheCollection,
+    FetchContinuousBatchingKVCacheCollection,
+    KVCacheParams,
+    KVCacheStrategy,
+)
 
 from .model.hyperparameters import Hyperparameters
 
@@ -212,6 +216,15 @@ def _transformer_opaque(graph, params, weights, kv_params):
         else:
             output = Linear(embedding_layer.weights)
 
+        if kv_params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
+            kv_collection_cls = FetchContiguousKVCacheCollection
+        elif kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
+            kv_collection_cls = FetchContinuousBatchingKVCacheCollection
+        else:
+            raise ValueError(
+                "Unsupported caching strategy " + str(kv_params.cache_strategy)
+            )
+
         return OptimizedTransformer(
             dim=params.hidden_dim,
             n_heads=params.n_heads,
@@ -225,6 +238,7 @@ def _transformer_opaque(graph, params, weights, kv_params):
             theta=params.rope_theta,
             embedding=embedding_layer,
             kv_params=kv_params,
+            kv_collection_constructor=kv_collection_cls(kv_params),
         )
 
 

@@ -22,10 +22,8 @@ import numpy as np
 from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType, BufferType, ops
+from max.graph import BufferType, Graph, TensorType, ops
 from max.graph.weights import GGUFWeights
-from tokenizers import Tokenizer
-
 from nn.kv_cache import (
     ContiguousKVCacheCollectionType,
     KVCacheManager,
@@ -34,6 +32,8 @@ from nn.kv_cache import (
     NaiveKVCache,
     load_kv_manager,
 )
+from tokenizers import Tokenizer
+
 from utils import gguf_utils, tokenizer_from_gguf
 
 from .collate_batch import batch_padded_tokens_and_mask
@@ -101,7 +101,61 @@ def _llama_graph_opaque(
         DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
     )
     valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
-    cache_type = ContiguousKVCacheCollectionType()
+
+    if kv_params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
+        kv_cache_args = [
+            # key_cache
+            TensorType(
+                params.dtype,
+                shape=[
+                    "num_layers",
+                    "batch_size",
+                    "max_seq_len",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # value_cache
+            TensorType(
+                params.dtype,
+                shape=[
+                    "num_layers",
+                    "batch_size",
+                    "max_seq_len",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # cache_lengths
+            TensorType(DType.uint32, shape=["batch_size"]),
+            # is_cache_empty
+            TensorType(DType.bool, shape=[1]),
+        ]
+    elif kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
+        kv_cache_args = [
+            # kv_blocks
+            TensorType(
+                params.dtype,
+                shape=[
+                    "num_blocks",
+                    2,
+                    "num_layers",
+                    "max_seq_len",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # cache_lengths
+            TensorType(DType.uint32, shape=["batch_size"]),
+            # lookup_table
+            TensorType(DType.uint32, shape=["batch_size"]),
+            # is_cache_empty
+            TensorType(DType.bool, shape=[1]),
+        ]
+    else:
+        raise ValueError(
+            "Unsupported caching strategy " + str(kv_params.cache_strategy)
+        )
 
     with Graph(
         "llama3",
@@ -109,13 +163,16 @@ def _llama_graph_opaque(
             tokens_type,
             attn_mask_type,
             valid_lengths_type,
-            cache_type,
+            *kv_cache_args,
         ],
     ) as graph:
         model = transformer(graph, params, weights, kv_params)
-        tokens, attention_mask, *kv_cache = graph.inputs
+        tokens, attention_mask, valid_lengths, *kv_cache = graph.inputs
         logits = model(
-            tokens, attention_mask.cast(params.mask_dtype), *kv_cache
+            tokens,
+            attention_mask.cast(params.mask_dtype),
+            valid_lengths,
+            kv_cache,
         )
         graph.output(logits)
         return graph
@@ -428,14 +485,15 @@ class Llama3:
         )
 
         # Grab kv_collection.
-        kv_collection = self._kv_manager.fetch(cache_seq_ids)
+        kv_cache_tensors = self._kv_manager.fetch(cache_seq_ids)
 
         # Execute model.
         logits = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
-            valid_lengths,
-            kv_collection,
+            valid_lengths.to(self.config.device),
+            *kv_cache_tensors,
+            copy_inputs_to_device=False,
         )[0]
 
         self._kv_manager.step(

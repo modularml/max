@@ -14,12 +14,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 
 from .kernels import key_cache_for_layer, value_cache_for_layer
+from .kv_cache import (
+    FetchContiguousKVCacheCollection,
+    FetchContinuousBatchingKVCacheCollection,
+)
 from .layer import Layer
 
 if TYPE_CHECKING:
@@ -149,15 +153,23 @@ class OptimizedTransformer(Layer):
     theta: float
     embedding: Embedding
     kv_params: KVCacheParams
+    kv_collection_constructor: Union[
+        FetchContiguousKVCacheCollection,
+        FetchContinuousBatchingKVCacheCollection,
+    ]
 
     def __call__(
         self,
-        tokens,
-        attention_mask,
+        tokens: TensorValue,
+        attention_mask: TensorValue,
         valid_lengths: TensorValue,
-        kv_cache_collection: ContiguousKVCacheCollection,
+        kv_cache_params: tuple[
+            TensorValue, TensorValue, TensorValue, TensorValue
+        ],
     ) -> TensorValue:
         h = self.embedding(tokens)
+
+        kv_cache_collection = self.kv_collection_constructor(*kv_cache_params)
 
         for i, layer in enumerate(self.layers):
             h, _, _ = layer(

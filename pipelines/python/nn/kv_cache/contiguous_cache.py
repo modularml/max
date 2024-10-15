@@ -20,13 +20,7 @@ import numpy as np
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, MojoValue
-from max.graph import (
-    Graph,
-    _OpaqueType,
-    TensorType,
-    TensorValue,
-    ops,
-)
+from max.graph import Graph, TensorType, TensorValue, _OpaqueType, ops
 
 from .cache_params import KVCacheParams
 from .manager import KVCacheManager
@@ -64,11 +58,13 @@ class FetchContiguousKVCacheCollection:
         value_cache: TensorValue,
         cache_lengths: TensorValue,
         is_cache_empty: TensorValue,
-        seq_ids: TensorValue,
-        num_layers: TensorValue,
-        batch_size: TensorValue,
     ) -> ContiguousKVCacheCollection:  # type: ignore
         """Constructs a ContiguousKVCacheCollection for use downstream."""
+
+        key_shape = ops.shape_to_tensor(key_cache.shape)
+        num_layers = key_shape[0]
+        batch_size = key_shape[1]
+
         op_name = f"contiguous_kv_cache_collection_h{self.kv_params.n_kv_heads}_d{self.kv_params.head_dim}_bshd"
         return ops.custom(
             op_name,
@@ -77,7 +73,6 @@ class FetchContiguousKVCacheCollection:
                 value_cache,  # L, B, S, H, D
                 cache_lengths,
                 is_cache_empty,
-                seq_ids,
                 num_layers,
                 batch_size,
             ],
@@ -114,45 +109,32 @@ class ContiguousKVCacheManager(KVCacheManager):
 
         return session.load(fetch_graph)
 
-    def fetch(self, seq_ids: list[int]) -> MojoValue:
+    def fetch(
+        self, seq_ids: list[int]
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         active_batch_size = len(seq_ids)
 
         # Lookup table and seq_ids are redundant identical tensors.
-        seq_ids_tensor = Tensor.zeros((active_batch_size,), DType.int32)
         cache_lengths = Tensor.zeros((active_batch_size,), DType.uint32)
         is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
             if seq_id not in self.cache_lengths:
                 raise ValueError(f"seq_id: {seq_id} not currently in cache.")
 
-            seq_ids_tensor[i] = seq_id
             cache_len = self.cache_lengths[seq_id]
             cache_lengths[i] = cache_len
             if cache_len != 0:
                 is_cache_empty = False
 
-        # Cache Lengths buf has to be held on the object
-        # and persisted beyond the fetch call, to ensure the object
-        # is not destructed early, and the kernel can continue to
-        # refer to this object. As the MojoValue result of the
-        # self.fetch_model.execute call, has a borrowed reference
-        # to this cache lengths buffer.
-        self.cache_lengths_buf = cache_lengths.to(self.device)
+        cache_lengths = cache_lengths.to(self.device)
 
         # Grab the first n elements we need from pre-allocated memory
         key_cache = self.blocks[0, 0 : len(seq_ids), :, :, :, :]
         value_cache = self.blocks[1, 0 : len(seq_ids), :, :, :, :]
-
-        return self.fetch_model.execute(
-            key_cache,
-            value_cache,
-            self.cache_lengths_buf,
-            self.true_tensor if is_cache_empty else self.false_tensor,
-            seq_ids_tensor,
-            np.array([self.num_layers]).astype(np.int32),
-            np.array([len(seq_ids)]).astype(np.int32),
-            copy_inputs_to_device=False,
-        )[0]
+        is_cache_empty_buf = (
+            self.true_tensor if is_cache_empty else self.false_tensor
+        )
+        return (key_cache, value_cache, cache_lengths, is_cache_empty_buf)
 
     def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
         return [
