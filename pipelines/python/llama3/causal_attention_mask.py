@@ -53,8 +53,9 @@ def causal_attention_mask(
 
     # TODO(KERN-782): This should be -inf but softmax saturates with NaNs.
     fill_val = -10000.0
+    fill_matrix = np.full(mask_shape, fill_val, dtype=np.float32)
 
     return np.stack(
         # Set diagonal to k + 1 so that tokens attend to themselves.
-        [np.triu(np.full(mask_shape, fill_val), k=k + 1) for k in start_pos]
+        [np.triu(fill_matrix, k=k + 1) for k in start_pos]
     )

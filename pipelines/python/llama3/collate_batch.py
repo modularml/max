@@ -67,6 +67,8 @@ def collate_batch(
 
     def pad(a: np.ndarray) -> np.ndarray:
         npad = pad_to - len(a)
+        if npad == 0:
+            return a
         padding = (npad, 0) if direction == PaddingDirection.LEFT else (0, npad)
         return np.pad(a, padding, mode="constant", constant_values=pad_value)
 
@@ -101,7 +103,7 @@ def batch_padded_tokens_and_mask(
         original_start_pos=start_pos,
         original_seq_len=[len(t) for t in tokens],
         pad_to_multiple_of=pad_to_multiple_of,
-    ).astype(np.float32)
+    )
 
     # Create batched input token tensor by padding all input token tensors
     # to the maximum sequence length in the batch.
