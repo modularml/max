@@ -32,7 +32,6 @@ class KVCacheManager(ABC):
         max_cache_batch_size: int,
         max_seq_len: int,
         num_layers: int,
-        session: InferenceSession,
         device: Device,
     ) -> None:
         self.params = params
@@ -70,6 +69,10 @@ class KVCacheManager(ABC):
     def fetch(
         self, seq_ids: list[int]
     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        ...
+
+    @abstractmethod
+    def input_symbols(self) -> List[TensorType]:
         ...
 
     async def claim(self, n: int) -> List[int]:

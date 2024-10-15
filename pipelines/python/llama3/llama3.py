@@ -91,141 +91,6 @@ class Llama3Context:
         return self.next_tokens.shape[-1]
 
 
-def _llama_graph_opaque(
-    params: Hyperparameters,
-    weights: GGUFWeights,
-    kv_params: KVCacheParams,
-) -> Graph:
-    tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-    attn_mask_type = TensorType(
-        DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
-    )
-    valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
-
-    if kv_params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
-        kv_cache_args = [
-            # key_cache
-            TensorType(
-                params.dtype,
-                shape=[
-                    "num_layers",
-                    "batch_size",
-                    "max_seq_len",
-                    "num_kv_heads",
-                    "head_dim",
-                ],
-            ),
-            # value_cache
-            TensorType(
-                params.dtype,
-                shape=[
-                    "num_layers",
-                    "batch_size",
-                    "max_seq_len",
-                    "num_kv_heads",
-                    "head_dim",
-                ],
-            ),
-            # cache_lengths
-            TensorType(DType.uint32, shape=["batch_size"]),
-            # is_cache_empty
-            TensorType(DType.bool, shape=[1]),
-        ]
-    elif kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        kv_cache_args = [
-            # kv_blocks
-            TensorType(
-                params.dtype,
-                shape=[
-                    "num_blocks",
-                    2,
-                    "num_layers",
-                    "max_seq_len",
-                    "num_kv_heads",
-                    "head_dim",
-                ],
-            ),
-            # cache_lengths
-            TensorType(DType.uint32, shape=["batch_size"]),
-            # lookup_table
-            TensorType(DType.uint32, shape=["batch_size"]),
-            # is_cache_empty
-            TensorType(DType.bool, shape=[1]),
-        ]
-    else:
-        raise ValueError(
-            "Unsupported caching strategy " + str(kv_params.cache_strategy)
-        )
-
-    with Graph(
-        "llama3",
-        input_types=[
-            tokens_type,
-            attn_mask_type,
-            valid_lengths_type,
-            *kv_cache_args,
-        ],
-    ) as graph:
-        model = transformer(graph, params, weights, kv_params)
-        tokens, attention_mask, valid_lengths, *kv_cache = graph.inputs
-        logits = model(
-            tokens,
-            attention_mask.cast(params.mask_dtype),
-            valid_lengths,
-            kv_cache,
-        )
-        graph.output(logits)
-        return graph
-
-
-def _llama_graph(
-    params: Hyperparameters,
-    weights: GGUFWeights,
-    kv_params: KVCacheParams,
-) -> Graph:
-    if params.use_opaque:
-        return _llama_graph_opaque(params, weights, kv_params)
-
-    tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-    attn_mask_type = TensorType(
-        DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
-    )
-
-    cache_type = BufferType(
-        DType.float32,
-        shape=[
-            params.seq_len,
-            params.n_layers,
-            "batch_size",
-            params.n_kv_heads,
-            params.head_dim,
-        ],
-    )
-    start_pos_type = TensorType(DType.int64, shape=[])
-
-    with Graph(
-        "llama3",
-        input_types=[
-            tokens_type,
-            attn_mask_type,
-            cache_type,
-            cache_type,
-            start_pos_type,
-        ],
-    ) as graph:
-        model = transformer(graph, params, weights, kv_params)
-        tokens, attention_mask, k_cache, v_cache, start_pos = graph.inputs
-        logits, end_pos = model(
-            tokens,
-            attention_mask.cast(params.mask_dtype),
-            k_cache,
-            v_cache,
-            start_pos,
-        )
-        graph.output(logits[:, -1], end_pos)
-        return graph
-
-
 async def run_with_default_executor(fn, *args):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, fn, *args)
@@ -281,6 +146,24 @@ class Llama3:
             cache_strategy=config.cache_strategy,
         )
 
+        if self.params.use_opaque:
+            self._kv_manager = load_kv_manager(
+                params=self._kv_params,
+                max_cache_batch_size=config.max_cache_batch_size,
+                max_seq_len=config.max_length,
+                num_layers=self.params.n_layers,
+                device=config.device,
+            )
+        else:
+            self._kv_cache = NaiveKVCache(
+                self.params.seq_len,
+                self.config.max_cache_batch_size,
+                self.params.n_layers,
+                self.params.n_kv_heads,
+                self.params.head_dim,
+                device=config.device,
+            )
+
         session = InferenceSession(device=config.device)
 
         self._tokenizer = tokenizer_from_gguf(gguf_reader)
@@ -294,26 +177,85 @@ class Llama3:
             print(f"Exporting serialized model to {export_path}...")
             self._model._export_mef(export_path)
 
-        if self.params.use_opaque:
-            self._kv_manager = load_kv_manager(
-                params=self._kv_params,
-                max_cache_batch_size=config.max_cache_batch_size,
-                max_seq_len=config.max_length,
-                num_layers=self.params.n_layers,
-                session=session,
-                device=config.device,
+        self._n_heads = self.params.n_heads
+
+    def _llama_graph_opaque(
+        self,
+        weights: GGUFWeights,
+    ) -> Graph:
+        tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
+        attn_mask_type = TensorType(
+            DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
+        )
+        valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
+
+        kv_cache_args = self._kv_manager.input_symbols()
+
+        with Graph(
+            "llama3",
+            input_types=[
+                tokens_type,
+                attn_mask_type,
+                valid_lengths_type,
+                *kv_cache_args,
+            ],
+        ) as graph:
+            model = transformer(graph, self.params, weights, self._kv_params)
+            tokens, attention_mask, valid_lengths, *kv_cache = graph.inputs
+            logits = model(
+                tokens,
+                attention_mask.cast(self.params.mask_dtype),
+                valid_lengths,
+                kv_cache,
             )
-        else:
-            self._kv_cache = NaiveKVCache(
+            graph.output(logits)
+            return graph
+
+    def _llama_graph(
+        self,
+        weights: GGUFWeights,
+    ) -> Graph:
+        if self.params.use_opaque:
+            return self._llama_graph_opaque(weights)
+
+        tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
+        attn_mask_type = TensorType(
+            DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
+        )
+
+        cache_type = BufferType(
+            DType.float32,
+            shape=[
                 self.params.seq_len,
-                self.config.max_cache_batch_size,
                 self.params.n_layers,
+                "batch_size",
                 self.params.n_kv_heads,
                 self.params.head_dim,
-                device=config.device,
-            )
+            ],
+        )
+        start_pos_type = TensorType(DType.int64, shape=[])
 
-        self._n_heads = self.params.n_heads
+        with Graph(
+            "llama3",
+            input_types=[
+                tokens_type,
+                attn_mask_type,
+                cache_type,
+                cache_type,
+                start_pos_type,
+            ],
+        ) as graph:
+            model = transformer(graph, self.params, weights, self._kv_params)
+            tokens, attention_mask, k_cache, v_cache, start_pos = graph.inputs
+            logits, end_pos = model(
+                tokens,
+                attention_mask.cast(self.params.mask_dtype),
+                k_cache,
+                v_cache,
+                start_pos,
+            )
+            graph.output(logits[:, -1], end_pos)
+            return graph
 
     def _load_model(
         self,
@@ -335,7 +277,7 @@ class Llama3:
             )
         else:
             print("Building model...")
-            graph = _llama_graph(params, self._weights, self._kv_params)
+            graph = self._llama_graph(self._weights)
             print("Compiling...")
             return session.load(
                 graph, weights_registry=self._weights.allocated_weights
