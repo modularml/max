@@ -63,7 +63,13 @@ def collate_batch(
         raise NotImplementedError(msg)
 
     max_len = max((len(a) for a in batch), default=0)
-    pad_to = math.ceil(max_len / pad_to_multiple_of) * pad_to_multiple_of
+
+    # If max_len is 1, we are presumably in a token generation phase batch.
+    # W scenario, padding from 1 -> 2, does not result in a performance gain.
+    if max_len == 1:
+        pad_to = 1
+    else:
+        pad_to = math.ceil(max_len / pad_to_multiple_of) * pad_to_multiple_of
 
     def pad(a: np.ndarray) -> np.ndarray:
         npad = pad_to - len(a)

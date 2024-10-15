@@ -41,9 +41,14 @@ def causal_attention_mask(
 
     # Provided `pad_to_multiple_of` ensure the padded_length is cleanly divisible
     # by this multiple.
-    padded_length = (
-        math.ceil(seq_len.max() / pad_to_multiple_of) * pad_to_multiple_of
-    )
+    # If max_len is 1, we are presumably in a token generation phase batch.
+    # W scenario, padding from 1 -> 2, does not result in a performance gain.
+    if seq_len.max() == 1:
+        padded_length = 1
+    else:
+        padded_length = (
+            math.ceil(seq_len.max() / pad_to_multiple_of) * pad_to_multiple_of
+        )
 
     # Mask shape: for each token being generated, attend to tokens _before_ it
     # in the entire sequence including context. Pad all values to the longest
