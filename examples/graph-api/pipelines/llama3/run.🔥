@@ -591,10 +591,11 @@ def run_naive[encoding: QuantizationEncoding](config: Config) -> None:
 
 def run_dispatch[kv_params: KVCacheStaticParams](config: Config):
     encoding = config.get("quantization-encoding")[String]
-    if config.get("version")[String] == "3.1":
-        config.set("model-path", download_llama3_1(encoding))
-    else:
-        config.set("model-path", download_llama3(encoding))
+    if config.get("model-path")[Path] == Path(""):
+        if config.get("version")[String] == "3.1":
+            config.set("model-path", download_llama3_1(encoding))
+        else:
+            config.set("model-path", download_llama3(encoding))
 
     if encoding == Q4_0Encoding.id():
         run_naive[Q4_0Encoding](config)
