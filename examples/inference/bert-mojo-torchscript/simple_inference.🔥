@@ -15,7 +15,7 @@
 from max.engine import InputSpec, InferenceSession, Model
 from pathlib import Path
 from python import Python, PythonObject
-from max.tensor import TensorSpec
+from max.tensor import Tensor, TensorSpec
 import sys
 
 
@@ -55,7 +55,7 @@ def execute(model: Model, text: String, transformers: PythonObject) -> String:
         if input_ids[0][i] == tokenizer.mask_token_id:
             mask_idx = i
 
-    predicted_token_id = logits.argmax()[mask_idx]
+    predicted_token_id = argmax(logits)[mask_idx]
     return str(
         tokenizer.decode(
             predicted_token_id,
@@ -63,6 +63,19 @@ def execute(model: Model, text: String, transformers: PythonObject) -> String:
             clean_up_tokenization_spaces=True,
         )
     )
+
+
+def argmax(t: Tensor) -> List[Int]:
+    var res = List[Int](capacity=t.dim(1))
+    for i in range(t.dim(1)):
+        var max_val = Scalar[t.type].MIN
+        var max_idx = 0
+        for j in range(t.dim(0)):
+            if t[i, j] > max_val:
+                max_val = t[i, j]
+                max_idx = j
+        res.append(max_idx)
+    return res
 
 
 def load_model(session: InferenceSession) -> Model:
