@@ -10,23 +10,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from max.engine import InferenceSession
 from max.driver import Device
+from max.engine import InferenceSession
+
 from .cache_params import KVCacheParams, KVCacheStrategy
-from .naive_cache import NaiveKVCache
 from .contiguous_cache import (
-    ContiguousKVCacheType,
-    ContiguousKVCacheCollectionType,
     ContiguousKVCache,
     ContiguousKVCacheCollection,
+    ContiguousKVCacheCollectionType,
     ContiguousKVCacheManager,
+    ContiguousKVCacheType,
+    FetchContiguousKVCacheCollection,
 )
 from .continuous_batching_cache import (
-    ContinuousBatchingKVCacheCollectionType,
     ContinuousBatchingKVCacheCollection,
+    ContinuousBatchingKVCacheCollectionType,
     ContinuousBatchingKVCacheManager,
+    FetchContinuousBatchingKVCacheCollection,
 )
 from .manager import KVCacheManager
+from .naive_cache import NaiveKVCache
 
 
 def load_kv_manager(
