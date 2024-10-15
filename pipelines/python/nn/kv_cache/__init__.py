@@ -37,7 +37,6 @@ def load_kv_manager(
     max_cache_batch_size: int,
     max_seq_len: int,
     num_layers: int,
-    session: InferenceSession,
     device: Device,
 ) -> KVCacheManager:
     if params.cache_strategy == KVCacheStrategy.CONTINUOUS:
@@ -46,7 +45,6 @@ def load_kv_manager(
             max_cache_batch_size=max_cache_batch_size,
             max_seq_len=max_seq_len,
             num_layers=num_layers,
-            session=session,
             device=device,
         )
     elif params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
@@ -55,7 +53,6 @@ def load_kv_manager(
             max_cache_batch_size=max_cache_batch_size,
             max_seq_len=max_seq_len,
             num_layers=num_layers,
-            session=session,
             device=device,
         )
     else:

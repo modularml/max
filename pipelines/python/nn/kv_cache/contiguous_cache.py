@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import NewType, Union
+from typing import NewType, Union, List
 
 import numpy as np
 from max.driver import Tensor
@@ -156,4 +156,34 @@ class ContiguousKVCacheManager(KVCacheManager):
             "seq_len",
             "n_kv_heads",
             "head_dim",
+        ]
+
+    def input_symbols(self) -> List[TensorType]:
+        return [
+            # key_cache
+            TensorType(
+                self.params.dtype,
+                shape=[
+                    "num_layers",
+                    "batch_size",
+                    "max_seq_len",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # value_cache
+            TensorType(
+                self.params.dtype,
+                shape=[
+                    "num_layers",
+                    "batch_size",
+                    "max_seq_len",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # cache_lengths
+            TensorType(DType.uint32, shape=["batch_size"]),
+            # is_cache_empty
+            TensorType(DType.bool, shape=[1]),
         ]

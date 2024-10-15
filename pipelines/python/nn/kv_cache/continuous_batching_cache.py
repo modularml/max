@@ -144,3 +144,25 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
             self.params.n_kv_heads,
             self.params.head_dim,
         ]
+
+    def input_symbols(self) -> List[TensorType]:
+        return [
+            # kv_blocks
+            TensorType(
+                self.params.dtype,
+                shape=[
+                    "num_blocks",
+                    2,
+                    "num_layers",
+                    "max_seq_len",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # cache_lengths
+            TensorType(DType.uint32, shape=["batch_size"]),
+            # lookup_table
+            TensorType(DType.uint32, shape=["batch_size"]),
+            # is_cache_empty
+            TensorType(DType.bool, shape=[1]),
+        ]
