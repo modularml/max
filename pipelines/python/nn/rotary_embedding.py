@@ -102,6 +102,10 @@ class RotaryEmbedding(Layer):
         freqs_cis_sliced = self.freqs_cis[
             (slice(start_pos, start_pos + seq_len_val), seq_len),
         ]
+        # TODO(MSDK-1188): Ideally this cast would happen inside of the cached
+        # self.freqs_cis property instead of here, but complex.dtype is not
+        # known at that point.
+        freqs_cis_sliced = ops.cast(freqs_cis_sliced, complex.dtype)
 
         freqs_cis_bcast = ops.unsqueeze(ops.unsqueeze(freqs_cis_sliced, 1), 0)
 
