@@ -49,21 +49,27 @@ async def serve_token_generator(
     tokenizer: PreTrainedTokenizerBase,
     kv_cache_strategy: KVCacheStrategy,
     kv_cache_size: int,
-    server_batch_mode: str,
     profile=False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
     settings = Settings(api_types=[APIType.OPENAI])
     debug_settings = DebugSettings(profiling_enabled=profile)
-    if server_batch_mode == "continuous":
-        assert kv_cache_strategy == KVCacheStrategy.CONTINUOUS
+    if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
         batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
             tg_batch_size=kv_cache_size, ce_batch_size=1, ce_batch_timeout=0.1
         )
-    else:
+    elif kv_cache_strategy == KVCacheStrategy.NAIVE:
         batch_config = TokenGeneratorPipelineConfig.dynamic_homogenous(
             batch_size=kv_cache_size, batch_timeout=0.1
         )
+    else:
+        raise ValueError(
+            f"{kv_cache_strategy} caching strategy is not supported by Serving."
+        )
+    print(
+        f"Server configured with {kv_cache_strategy} caching with batch size"
+        f" {kv_cache_size}."
+    )
     pipeline = TokenGeneratorPipeline[llama3.Llama3Context](
         batch_config, model, tokenizer
     )
@@ -135,12 +141,6 @@ def main():
     default="none",
     help="Fake the engine performance (for benchmarking)",
 )
-@click.option(
-    "--server-batch-mode",
-    type=click.Choice(["dynamic", "continuous"]),
-    default="dynamic",
-    help="Configures the servers batching scheme",
-)
 def run_llama3(
     prompt,
     serve,
@@ -148,7 +148,6 @@ def run_llama3(
     use_gpu,
     num_warmups,
     performance_fake,
-    server_batch_mode,
     **config_kwargs,
 ):
     """Runs the Llama3 pipeline."""
@@ -187,13 +186,12 @@ def run_llama3(
 
     if serve:
         if performance_fake == "none":
-            print(f"Starting server using Llama3, {server_batch_mode} batching")
+            print(f"Starting server using Llama3.")
             model = llama3.Llama3(config)
             caching_strategy = config.cache_strategy
         else:
             print(
-                f"Starting server using performance fake '{performance_fake}',"
-                f" {server_batch_mode} batching"
+                f"Starting server using performance fake '{performance_fake}'."
             )
             tokenizer = AutoTokenizer.from_pretrained(repo_id)
             model = get_performance_fake(performance_fake, tokenizer)
@@ -204,7 +202,6 @@ def run_llama3(
                 model._tokenizer,
                 caching_strategy,
                 config.max_cache_batch_size,
-                server_batch_mode,
                 profile_serve,
             )
         )
