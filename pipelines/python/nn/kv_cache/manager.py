@@ -112,7 +112,7 @@ class KVCacheManager(ABC):
 
         for id, length in valid_lengths.items():
             if id not in self.cache_lengths:
-                raise ValueError("seq_id: {id} not in cache.")
+                raise ValueError(f"seq_id: {id} not in cache.")
 
             self.cache_lengths[id] += length
 
@@ -123,7 +123,7 @@ class KVCacheManager(ABC):
         """
 
         if seq_id not in self.cache_lengths:
-            raise ValueError("`seq_id` provided not in cache.")
+            raise ValueError(f"seq_id: {id} not in cache.")
 
         self.available.add(seq_id)
         del self.cache_lengths[seq_id]
