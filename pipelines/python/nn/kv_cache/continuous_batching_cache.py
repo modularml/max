@@ -26,6 +26,14 @@ from .cache_params import KVCacheParams
 from .manager import KVCacheManager
 
 
+class ContinuousBatchingKVCacheType(_OpaqueType):
+    """Continuous Mojo KV Cache type."""
+
+    def __init__(self) -> None:
+        """Creates an opaque type containing a continuous batching KV Cache."""
+        super().__init__("ContinuousBatchingKVCache")
+
+
 class ContinuousBatchingKVCacheCollectionType(_OpaqueType):
     """This is a "view" of the cache for the given sequences
     in the batch.
@@ -41,6 +49,9 @@ class ContinuousBatchingKVCacheCollectionType(_OpaqueType):
         super().__init__("ContinuousBatchingKVCacheCollection")
 
 
+ContinuousBatchingKVCache = NewType(
+    "ContinuousBatchingKVCache", ContinuousBatchingKVCacheType
+)
 ContinuousBatchingKVCacheCollection = NewType(
     "ContinuousBatchingKVCacheCollection",
     ContinuousBatchingKVCacheCollectionType,

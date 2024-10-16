@@ -25,7 +25,6 @@ from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType, ops
 from max.graph.weights import GGUFWeights
 from nn.kv_cache import (
-    ContiguousKVCacheCollectionType,
     KVCacheManager,
     KVCacheParams,
     KVCacheStrategy,

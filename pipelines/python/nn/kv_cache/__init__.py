@@ -14,18 +14,12 @@ from max.driver import Device
 from max.engine import InferenceSession
 
 from .cache_params import KVCacheParams, KVCacheStrategy
-from .contiguous_cache import (
-    ContiguousKVCache,
-    ContiguousKVCacheCollection,
-    ContiguousKVCacheCollectionType,
-    ContiguousKVCacheManager,
-    ContiguousKVCacheType,
-    FetchContiguousKVCacheCollection,
-)
 from .continuous_batching_cache import (
+    ContinuousBatchingKVCache,
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     ContinuousBatchingKVCacheManager,
+    ContinuousBatchingKVCacheType,
     FetchContinuousBatchingKVCacheCollection,
 )
 from .manager import KVCacheManager
@@ -41,14 +35,6 @@ def load_kv_manager(
 ) -> KVCacheManager:
     if params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         return ContinuousBatchingKVCacheManager(
-            params=params,
-            max_cache_batch_size=max_cache_batch_size,
-            max_seq_len=max_seq_len,
-            num_layers=num_layers,
-            device=device,
-        )
-    elif params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
-        return ContiguousKVCacheManager(
             params=params,
             max_cache_batch_size=max_cache_batch_size,
             max_seq_len=max_seq_len,

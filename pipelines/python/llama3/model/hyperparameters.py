@@ -52,8 +52,8 @@ class Hyperparameters:
     feed_forward_length: int = 500
     """Dimensions in the attention projection layers."""
 
-    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS
-    """Force using a specific KV cache strategy, 'naive', 'contiguous' or 'continuous'."""
+    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTINUOUS
+    """Force using a specific KV cache strategy, 'naive' or 'continuous'."""
 
     has_dedicated_output_weights: bool = True
     """Whether there are dedicated output linear layer weights."""
