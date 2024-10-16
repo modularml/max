@@ -48,7 +48,6 @@ class KVCacheParams:
         dtype: DType,
         n_kv_heads: int,
         head_dim: int,
-        device: Device,
         cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTINUOUS,
     ):
         # Initialize static attributes.

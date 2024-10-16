@@ -141,7 +141,6 @@ class Llama3:
             n_kv_heads=self.params.n_kv_heads,
             head_dim=self.params.head_dim,
             dtype=dtype,
-            device=config.device,
             cache_strategy=config.cache_strategy,
         )
 
