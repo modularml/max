@@ -14,9 +14,8 @@
 
 from __future__ import annotations
 
-import math
 import enum
-from typing import Sequence
+import math
 
 import numpy as np
 
@@ -31,7 +30,7 @@ class PaddingDirection(enum.Enum):
 
 
 def collate_batch(
-    batch: Sequence[np.ndarray],
+    batch: list[np.ndarray],
     direction: PaddingDirection = PaddingDirection.RIGHT,
     pad_value: int = 0,
     batch_size: int | None = None,
@@ -80,12 +79,12 @@ def collate_batch(
 
     if batch_size is not None:
         pad_batch_item = np.array([pad_value] * pad_to)
-        batch = [*batch, *([pad_batch_item] * (batch_size - len(batch)))]
+        batch.extend(([pad_batch_item] * (batch_size - len(batch))))
 
     # Generate unpadded last token index.
-    unpadded_last_token_index = [
-        -1 if direction == PaddingDirection.LEFT else len(a) - 1 for a in batch
-    ]
+    unpadded_last_token_index = [-1] * len(
+        batch
+    ) if direction == PaddingDirection.LEFT else [len(a) - 1 for a in batch]
 
     return np.stack([pad(a) for a in batch], axis=0), unpadded_last_token_index
 
