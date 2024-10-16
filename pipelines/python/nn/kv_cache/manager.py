@@ -16,13 +16,11 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import List, Union
 
-import numpy as np
 from max.driver import Device, Tensor
 from max.dtype import DType
-from max.engine import InferenceSession, MojoValue
-from max.graph import Graph, TensorType, TensorValue, _OpaqueType, ops
+from max.graph import TensorType
 
-from .cache_params import KVCacheParams, KVCacheStrategy
+from .cache_params import KVCacheParams
 
 
 class KVCacheManager(ABC):
