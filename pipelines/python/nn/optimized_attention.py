@@ -22,7 +22,7 @@ from .kernels import (
     fused_qk_rope,
     fused_qkv_matmul,
 )
-from .kv_cache import ContiguousKVCache, KVCacheParams
+from .kv_cache import KVCacheParams, ContinuousBatchingKVCache
 from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
@@ -45,10 +45,12 @@ class OptimizedAttention(Layer):
         self,
         x: TensorValue,
         attn_mask: TensorValueLike,
-        k_cache: ContiguousKVCache,
-        v_cache: ContiguousKVCache,
+        k_cache: ContinuousBatchingKVCache,
+        v_cache: ContinuousBatchingKVCache,
         valid_lengths: TensorValue,
-    ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
+    ) -> tuple[
+        TensorValue, ContinuousBatchingKVCache, ContinuousBatchingKVCache
+    ]:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
 

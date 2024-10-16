@@ -21,7 +21,6 @@ from max.graph import TensorValue, TensorValueLike, ops
 
 from .kernels import key_cache_for_layer, value_cache_for_layer
 from .kv_cache import (
-    FetchContiguousKVCacheCollection,
     FetchContinuousBatchingKVCacheCollection,
 )
 from .layer import Layer
@@ -30,9 +29,8 @@ if TYPE_CHECKING:
     from .attention import Attention
     from .embedding import Embedding
     from .kv_cache import (
-        ContiguousKVCache,
-        ContiguousKVCacheCollection,
-        ContiguousKVCacheType,
+        ContinuousBatchingKVCache,
+        ContinuousBatchingKVCacheType,
         KVCacheParams,
     )
     from .mlp import MLP, Linear
@@ -53,8 +51,8 @@ class TransformerBlock(Layer):
         self,
         x: TensorValueLike,
         attention_mask: TensorValueLike,
-        k_cache: ContiguousKVCacheType | TensorValueLike,
-        v_cache: ContiguousKVCacheType | TensorValueLike,
+        k_cache: ContinuousBatchingKVCacheType | TensorValueLike,
+        v_cache: ContinuousBatchingKVCacheType | TensorValueLike,
         start_pos: TensorValue,
         layer_index: int,
     ) -> tuple[TensorValue, TensorValue, TensorValue]:
@@ -123,10 +121,12 @@ class OptimizedTransformerBlock(Layer):
         self,
         x: TensorValueLike,
         attention_mask: TensorValueLike,
-        k_cache: ContiguousKVCacheType | TensorValueLike,
-        v_cache: ContiguousKVCacheType | TensorValueLike,
+        k_cache: ContinuousBatchingKVCacheType | TensorValueLike,
+        v_cache: ContinuousBatchingKVCacheType | TensorValueLike,
         valid_lengths: TensorValue,
-    ) -> tuple[TensorValue, ContiguousKVCache, ContiguousKVCache]:
+    ) -> tuple[
+        TensorValue, ContinuousBatchingKVCache, ContinuousBatchingKVCache
+    ]:
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x),
             attention_mask,
@@ -153,10 +153,7 @@ class OptimizedTransformer(Layer):
     theta: float
     embedding: Embedding
     kv_params: KVCacheParams
-    kv_collection_constructor: Union[
-        FetchContiguousKVCacheCollection,
-        FetchContinuousBatchingKVCacheCollection,
-    ]
+    kv_collection_constructor: FetchContinuousBatchingKVCacheCollection
 
     def __call__(
         self,

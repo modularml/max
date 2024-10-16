@@ -30,7 +30,6 @@ VALID_KV_KERNELS = [
 
 class KVCacheStrategy(str, Enum):
     NAIVE = "naive"
-    CONTIGUOUS = "contiguous"
     CONTINUOUS = "continuous"
 
     def __str__(self) -> str:
@@ -50,7 +49,7 @@ class KVCacheParams:
         n_kv_heads: int,
         head_dim: int,
         device: Device,
-        cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTIGUOUS,
+        cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTINUOUS,
     ):
         # Initialize static attributes.
         self.dtype = dtype

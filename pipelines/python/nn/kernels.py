@@ -16,11 +16,10 @@ from max.dtype import DType
 from max.graph import TensorType, TensorValue, ops
 
 from .kv_cache import (
-    ContiguousKVCache,
-    ContiguousKVCacheCollection,
-    ContiguousKVCacheType,
+    ContinuousBatchingKVCache,
+    ContinuousBatchingKVCacheCollection,
+    ContinuousBatchingKVCacheType,
     KVCacheParams,
-    KVCacheStrategy,
 )
 
 
@@ -28,13 +27,11 @@ def fused_qkv_matmul(
     kv_params: KVCacheParams,
     input: TensorValue,
     wqkv: TensorValue,
-    k_cache: ContiguousKVCache,
-    v_cache: ContiguousKVCache,
+    k_cache: ContinuousBatchingKVCache,
+    v_cache: ContinuousBatchingKVCache,
 ) -> TensorValue:
     """Computes fused query, key and value projections."""
-    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd"
-    if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        op_name += "_continuous_batch"
+    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
@@ -46,15 +43,11 @@ def fused_qkv_matmul(
 def fused_qk_rope(
     kv_params: KVCacheParams,
     input: TensorValue,
-    k_cache: ContiguousKVCache,
+    k_cache: ContinuousBatchingKVCache,
     freqs_cis_2d: TensorValue,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings."""
-    op_name = (
-        f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd"
-    )
-    if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        op_name += "_continuous_batch"
+    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
@@ -66,15 +59,13 @@ def fused_qk_rope(
 def flash_attention(
     kv_params: KVCacheParams,
     input: TensorValue,
-    k_cache: ContiguousKVCache,
-    v_cache: ContiguousKVCache,
+    k_cache: ContinuousBatchingKVCache,
+    v_cache: ContinuousBatchingKVCache,
     attn_mask: TensorValue,
     valid_lengths: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache."""
-    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd"
-    if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        op_name += "_continuous_batch"
+    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     # NOTE: The scale argument to the flash attentionkernel is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
@@ -86,30 +77,30 @@ def flash_attention(
 
 
 def key_cache_for_layer(
-    kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
-) -> ContiguousKVCacheType:
+    kv_params: KVCacheParams,
+    i: int,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+) -> ContinuousBatchingKVCacheType:
     """Returns the key cache for a specific layer from a collection."""
-    op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}"
-    if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        op_name += "_continuous_batch"
+    op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}_continuous_batch"
 
     return ops.custom(
         op_name,
         [ops.constant(i, dtype=DType.int64), kv_collection],
-        [ContiguousKVCacheType()],
+        [ContinuousBatchingKVCacheType()],
     )[0]
 
 
 def value_cache_for_layer(
-    kv_params: KVCacheParams, i: int, kv_collection: ContiguousKVCacheCollection
-) -> ContiguousKVCacheType:
+    kv_params: KVCacheParams,
+    i: int,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+) -> ContinuousBatchingKVCacheType:
     """Returns the value cache for a specific layer from a collection."""
-    op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}"
-    if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
-        op_name += "_continuous_batch"
+    op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}_continuous_batch"
 
     return ops.custom(
         op_name,
         [ops.constant(i, dtype=DType.int64), kv_collection],
-        [ContiguousKVCacheType()],
+        [ContinuousBatchingKVCacheType()],
     )[0]

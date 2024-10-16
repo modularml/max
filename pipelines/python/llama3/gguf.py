@@ -33,7 +33,6 @@ from nn import (
     TransformerBlock,
 )
 from nn.kv_cache import (
-    FetchContiguousKVCacheCollection,
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
     KVCacheStrategy,
@@ -216,9 +215,7 @@ def _transformer_opaque(graph, params, weights, kv_params):
         else:
             output = Linear(embedding_layer.weights)
 
-        if kv_params.cache_strategy == KVCacheStrategy.CONTIGUOUS:
-            kv_collection_cls = FetchContiguousKVCacheCollection
-        elif kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
+        if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
             kv_collection_cls = FetchContinuousBatchingKVCacheCollection
         else:
             raise ValueError(
