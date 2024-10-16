@@ -14,7 +14,6 @@
 
 from max.driver import Device, Tensor
 from max.dtype import DType
-import numpy as np
 
 
 class NaiveKVCache:

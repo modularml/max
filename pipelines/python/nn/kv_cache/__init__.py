@@ -11,7 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 from max.driver import Device
-from max.engine import InferenceSession
 
 from .cache_params import KVCacheParams, KVCacheStrategy
 from .continuous_batching_cache import (
@@ -44,3 +43,17 @@ def load_kv_manager(
     else:
         msg = f"cache type: {params.cache_strategy} not supported."
         raise ValueError(msg)
+
+
+__all__ = [
+    "KVCacheParams",
+    "KVCacheStrategy",
+    "ContinuousBatchingKVCache",
+    "ContinuousBatchingKVCacheCollection",
+    "ContinuousBatchingKVCacheCollectionType",
+    "ContinuousBatchingKVCacheManager",
+    "ContinuousBatchingKVCacheType",
+    "FetchContinuousBatchingKVCacheCollection",
+    "KVCacheManager",
+    "NaiveKVCache",
+]

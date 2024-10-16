@@ -14,13 +14,12 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import List, NewType, Union
 
-from max.driver import Device, Tensor
+from max.driver import Tensor
 from max.dtype import DType
-from max.engine import InferenceSession, MojoValue
-from max.graph import Graph, TensorType, TensorValue, _OpaqueType, ops
+from max.engine import MojoValue
+from max.graph import TensorType, TensorValue, _OpaqueType, ops
 
 from .cache_params import KVCacheParams
 from .manager import KVCacheManager

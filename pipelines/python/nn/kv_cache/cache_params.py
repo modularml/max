@@ -14,7 +14,6 @@
 
 from enum import Enum
 
-from max.driver import Device
 from max.dtype import DType
 
 
