@@ -35,7 +35,7 @@ def collate_batch(
     pad_value: int = 0,
     batch_size: int | None = None,
     pad_to_multiple_of: int = 1,
-) -> tuple[np.ndarray, list[int]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Generates a single batch tensor from a batch of inputs.
 
     These input tensors may have different lengths. The `pad_value` will be used
@@ -79,12 +79,14 @@ def collate_batch(
 
     if batch_size is not None:
         pad_batch_item = np.array([pad_value] * pad_to)
-        batch.extend(([pad_batch_item] * (batch_size - len(batch))))
+        batch.extend([pad_batch_item] * (batch_size - len(batch)))
 
     # Generate unpadded last token index.
-    unpadded_last_token_index = [-1] * len(
-        batch
-    ) if direction == PaddingDirection.LEFT else [len(a) - 1 for a in batch]
+    unpadded_last_token_index = np.full(
+        len(batch), -1
+    ) if direction == PaddingDirection.LEFT else np.array(
+        [len(a) - 1 for a in batch]
+    )
 
     return np.stack([pad(a) for a in batch], axis=0), unpadded_last_token_index
 
@@ -93,7 +95,7 @@ def batch_padded_tokens_and_mask(
     start_pos: list[int],
     tokens: list[np.ndarray],
     pad_to_multiple_of: int = 1,
-) -> tuple[np.ndarray, list[int], np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Batches input tokens and computes a batched attention mask.
 
     Args:

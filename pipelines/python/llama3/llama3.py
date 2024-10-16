@@ -413,15 +413,13 @@ class Llama3:
 
         # Pad tokens and compute attention mask for the batch.
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
-        next_tokens_batch, unpadded_last_token_index, attn_mask = (
-            batch_padded_tokens_and_mask(
-                start_pos=[
-                    self._kv_manager.cache_lengths[seq_id]
-                    for seq_id in cache_seq_ids
-                ],
-                tokens=tokens,
-                pad_to_multiple_of=self.config.pad_to_multiple_of,
-            )
+        next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
+            start_pos=[
+                self._kv_manager.cache_lengths[seq_id]
+                for seq_id in cache_seq_ids
+            ],
+            tokens=tokens,
+            pad_to_multiple_of=self.config.pad_to_multiple_of,
         )
 
         # Grab kv_collection.
