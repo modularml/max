@@ -209,8 +209,8 @@ struct _MatchIter[
 
 
 @value
-struct Match[origin: ImmutableOrigin](Formattable):
-    var _string: Span[UInt8, origin]
+struct Match[origin: ImmutableOrigin](Writable):
+    var _string: Span[Byte, origin]
     var _groups: List[_CRegexMatch]
 
     fn __getitem__(self, group: Int) -> StringSlice[origin]:
@@ -220,7 +220,7 @@ struct Match[origin: ImmutableOrigin](Formattable):
     fn __str__(self) -> String:
         return str(self[0])
 
-    fn format_to(self, inout writer: Formatter):
+    fn write_to[W: Writer](self, inout writer: W):
         # TODO: Avoid intermediate String allocation.
         writer.write(str(self))
 

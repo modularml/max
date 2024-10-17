@@ -22,7 +22,7 @@ from ..weights.gguf import GGUFArray, GGUFString
 from . import Tokenizer
 
 
-def _next_rune(inout span: Span[UInt8, _]) -> Int:
+def _next_rune(inout span: Span[Byte, _]) -> Int:
     if not span[0] & 0x80:
         result = int(span[0])
         span = span[1:]

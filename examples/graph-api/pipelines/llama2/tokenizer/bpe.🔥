@@ -45,7 +45,7 @@ struct MergeOption(OrderedElement):
         )
 
 
-def read[T: CollectionElement](inout span: Span[UInt8, _]) -> T:
+def read[T: CollectionElement](inout span: Span[Byte, _]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     value = span.unsafe_ptr().bitcast[T]()[]
     span = span[sizeof[T]() :]
