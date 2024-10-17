@@ -12,32 +12,94 @@
 # ===----------------------------------------------------------------------=== #
 """Naive KV cache for the Transformer."""
 
+from typing import List
 from max.driver import Device, Tensor
 from max.dtype import DType
+from max.graph import TensorType, BufferType
+from .manager import KVCacheManager
+from .cache_params import KVCacheParams
 
 
-class NaiveKVCache:
-    keys: Tensor
-    values: Tensor
-    sequence_length: int
-
+class NaiveKVCacheManager(KVCacheManager):
     def __init__(
         self,
-        max_length: int,
-        max_batch_size: int,
-        n_layers: int,
-        n_kv_heads: int,
-        head_dim: int,
+        params: KVCacheParams,
+        max_cache_batch_size: int,
+        max_seq_len: int,
+        num_layers: int,
         device: Device,
-    ):
+    ) -> None:
+        super().__init__(
+            params=params,
+            max_cache_batch_size=max_cache_batch_size,
+            max_seq_len=max_seq_len,
+            num_layers=num_layers,
+            device=device,
+        )
+
         self.keys = Tensor.zeros(
-            shape=(max_length, n_layers, max_batch_size, n_kv_heads, head_dim),
-            dtype=DType.float32,
+            shape=self.cache_shape,
+            dtype=self.params.dtype,
             device=device,
         )
+
         self.values = Tensor.zeros(
-            shape=(max_length, n_layers, max_batch_size, n_kv_heads, head_dim),
-            dtype=DType.float32,
-            device=device,
+            shape=self.cache_shape, dtype=self.params.dtype, device=device
         )
-        self.sequence_length = 0
+
+        self.device = device
+
+    @property
+    def cache_shape(self) -> list[int]:
+        return [
+            self.max_seq_len,
+            self.num_layers,
+            self.max_cache_batch_size,
+            self.params.n_kv_heads,
+            self.params.head_dim,
+        ]
+
+    def fetch(
+        self, seq_ids: list[int]
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        return (
+            self.keys,
+            self.values,
+            Tensor.scalar(self.max_sequence_length, DType.int64, self.device),
+            # TODO: MSDK-1201 - This next variable is not used upstream.
+            # It is included here, as a placeholder, until we can dynamically
+            # return a number of tensors from both `fetch` and `input_symbols`.
+            Tensor.scalar(self.max_sequence_length, DType.int64, self.device),
+        )
+
+    def input_symbols(
+        self,
+    ) -> tuple[TensorType, TensorType, TensorType, TensorType]:
+        return (
+            # k_cache
+            BufferType(
+                self.params.dtype,
+                shape=[
+                    "max_seq_len",
+                    "num_layers",
+                    "batch_size",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # v_cache
+            BufferType(
+                self.params.dtype,
+                shape=[
+                    "max_seq_len",
+                    "num_layers",
+                    "batch_size",
+                    "num_kv_heads",
+                    "head_dim",
+                ],
+            ),
+            # start_pos
+            TensorType(DType.int64, shape=[]),
+            # null_op - this isnt used for the naive cache
+            TensorType(DType.int64, shape=[]),
+        )

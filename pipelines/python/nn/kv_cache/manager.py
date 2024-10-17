@@ -52,17 +52,6 @@ class KVCacheManager(ABC):
         self.false_tensor = Tensor.zeros((1,), DType.bool)
         self.false_tensor[0] = False
 
-        # Create one-op graph, and allocate memory
-        self.blocks = Tensor.zeros(
-            self.block_shape(self.max_cache_batch_size),
-            self.params.dtype,
-            device=self.device,
-        )
-
-    @abstractmethod
-    def block_shape(self, n_sequences: int) -> list[Union[str, int]]:
-        ...
-
     @abstractmethod
     def fetch(
         self, seq_ids: list[int]
@@ -70,7 +59,9 @@ class KVCacheManager(ABC):
         ...
 
     @abstractmethod
-    def input_symbols(self) -> List[TensorType]:
+    def input_symbols(
+        self,
+    ) -> tuple[TensorType, TensorType, TensorType, TensorType]:
         ...
 
     async def claim(self, n: int) -> List[int]:
@@ -130,3 +121,8 @@ class KVCacheManager(ABC):
     def slots_remaining(self) -> int:
         """The outstanding cache slots outstanding."""
         return self.semaphore._value
+
+    @property
+    def max_sequence_length(self) -> int:
+        """The maximum sequence length in current cache."""
+        return max(self.cache_lengths.values())

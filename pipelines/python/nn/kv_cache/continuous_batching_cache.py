@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, NewType, Union
 
-from max.driver import Tensor
+from max.driver import Device, Tensor
 from max.dtype import DType
 from max.engine import MojoValue
 from max.graph import TensorType, TensorValue, _OpaqueType, ops
@@ -113,6 +113,29 @@ class FetchContinuousBatchingKVCacheCollection:
 
 
 class ContinuousBatchingKVCacheManager(KVCacheManager):
+    def __init__(
+        self,
+        params: KVCacheParams,
+        max_cache_batch_size: int,
+        max_seq_len: int,
+        num_layers: int,
+        device: Device,
+    ) -> None:
+        super().__init__(
+            params=params,
+            max_cache_batch_size=max_cache_batch_size,
+            max_seq_len=max_seq_len,
+            num_layers=num_layers,
+            device=device,
+        )
+
+        # Allocate memory for the KV cache blocks.
+        self.blocks = Tensor.zeros(
+            self.block_shape(self.max_cache_batch_size),
+            self.params.dtype,
+            device=self.device,
+        )
+
     def fetch(
         self, seq_ids: List[int]
     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
@@ -155,8 +178,10 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
             self.params.head_dim,
         ]
 
-    def input_symbols(self) -> List[TensorType]:
-        return [
+    def input_symbols(
+        self,
+    ) -> tuple[TensorType, TensorType, TensorType, TensorType]:
+        return (
             # kv_blocks
             TensorType(
                 self.params.dtype,
@@ -175,4 +200,4 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
             TensorType(DType.uint32, shape=["batch_size"]),
             # is_cache_empty
             TensorType(DType.bool, shape=[1]),
-        ]
+        )
