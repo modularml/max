@@ -363,9 +363,6 @@ class Llama3:
     async def release(self, context: Llama3Context):
         await self._kv_manager.release(context.cache_seq_id)
 
-    async def reset_cache(self):
-        await self._kv_manager.reset_cache()
-
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> Tensor:
