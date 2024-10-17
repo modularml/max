@@ -22,7 +22,7 @@ from .continuous_batching_cache import (
     FetchContinuousBatchingKVCacheCollection,
 )
 from .manager import KVCacheManager
-from .naive_cache import NaiveKVCache
+from .naive_cache import NaiveKVCacheManager
 
 
 def load_kv_manager(
@@ -34,6 +34,14 @@ def load_kv_manager(
 ) -> KVCacheManager:
     if params.cache_strategy == KVCacheStrategy.CONTINUOUS:
         return ContinuousBatchingKVCacheManager(
+            params=params,
+            max_cache_batch_size=max_cache_batch_size,
+            max_seq_len=max_seq_len,
+            num_layers=num_layers,
+            device=device,
+        )
+    elif params.cache_strategy == KVCacheStrategy.NAIVE:
+        return NaiveKVCacheManager(
             params=params,
             max_cache_batch_size=max_cache_batch_size,
             max_seq_len=max_seq_len,
@@ -55,5 +63,5 @@ __all__ = [
     "ContinuousBatchingKVCacheType",
     "FetchContinuousBatchingKVCacheCollection",
     "KVCacheManager",
-    "NaiveKVCache",
+    "NaiveKVCacheManager",
 ]

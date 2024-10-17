@@ -28,7 +28,6 @@ from nn.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     KVCacheStrategy,
-    NaiveKVCache,
     load_kv_manager,
 )
 from tokenizers import Tokenizer
@@ -51,7 +50,7 @@ class Llama3Context:
     max_tokens: int
     """The maximum number of tokens to generate, including the prompt."""
 
-    _cache_seq_id: int | None = None
+    cache_seq_id: int
     """Sequence id to tell the KV cache manager which cache block this owns."""
 
     next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -69,12 +68,6 @@ class Llama3Context:
         self.next_tokens = token_ids
         self.tokens.extend(token_ids)
         self.decoded += decoded
-
-    @property
-    def cache_seq_id(self) -> int:
-        """Returns the seq id for the KVCacheManager, ensuring it is set."""
-        assert self._cache_seq_id is not None
-        return self._cache_seq_id
 
     def is_done(self, eos: int) -> bool:
         """Returns true if token gen for this context completed, else false."""
@@ -112,9 +105,7 @@ class Llama3:
     config: InferenceConfig
     _model: Model
     _sampler: Model
-    _kv_cache: NaiveKVCache
     _kv_manager: KVCacheManager
-    _sessions: set[str]
     _kv_params: KVCacheParams
     _tokenizer: Tokenizer
 
@@ -131,8 +122,6 @@ class Llama3:
         if self.params.vocab_size < 0:
             self.params.vocab_size = self._tokenizer.vocab_size
 
-        self._sessions = set[str]()
-
         dtype = (
             DType.float32 if self.params.quantization_encoding
             is not None else self.params.dtype
@@ -144,23 +133,13 @@ class Llama3:
             cache_strategy=config.cache_strategy,
         )
 
-        if self.params.use_opaque:
-            self._kv_manager = load_kv_manager(
-                params=self._kv_params,
-                max_cache_batch_size=config.max_cache_batch_size,
-                max_seq_len=config.max_length,
-                num_layers=self.params.n_layers,
-                device=config.device,
-            )
-        else:
-            self._kv_cache = NaiveKVCache(
-                self.params.seq_len,
-                self.config.max_cache_batch_size,
-                self.params.n_layers,
-                self.params.n_kv_heads,
-                self.params.head_dim,
-                device=config.device,
-            )
+        self._kv_manager = load_kv_manager(
+            params=self._kv_params,
+            max_cache_batch_size=config.max_cache_batch_size,
+            max_seq_len=config.max_length,
+            num_layers=self.params.n_layers,
+            device=config.device,
+        )
 
         session = InferenceSession(device=config.device)
 
@@ -314,7 +293,7 @@ class Llama3:
         context = Llama3Context(
             prompt=prompt,
             max_tokens=len(encoded_prompt) + max_tokens_to_generate,
-            _cache_seq_id=seq_id[0],
+            cache_seq_id=seq_id[0],
         )
 
         context.append(np.array(encoded_prompt), prompt)
@@ -331,9 +310,11 @@ class Llama3:
         max_tokens_to_generate = _max_tokens_to_generate(
             len(encoded_prompt), self.config, max_new_tokens
         )
+        seq_id = await self._kv_manager.claim(n=1)
         context = Llama3Context(
             prompt=prompt,
             max_tokens=len(encoded_prompt) + max_tokens_to_generate,
+            cache_seq_id=seq_id[0],
         )
         context.append(np.array(encoded_prompt), prompt)
         return context
@@ -341,16 +322,7 @@ class Llama3:
     async def next_token(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, str | None]:
-        # TODO(MSDK-889) - Consider moving request/cache mgmt out of next_token.
-
         res = {}
-        if self._sessions ^ req_to_context_dict.keys():
-            self._sessions = set(req_to_context_dict.keys())
-            # TODO: MSDK-1020 We should not reset the cache here unilaterally
-            # as the cache here uses an independent method for _sessions
-            # management this should be fixed.
-            if not self.params.use_opaque:
-                await self.reset_cache()
 
         # Don't run compute-bound work on the main thread
         # however, it's not thread-safe, so make sure only one can
@@ -389,14 +361,10 @@ class Llama3:
         return res
 
     async def release(self, context: Llama3Context):
-        if self.params.use_opaque:
-            await self._kv_manager.release(context.cache_seq_id)
+        await self._kv_manager.release(context.cache_seq_id)
 
     async def reset_cache(self):
-        if self.params.use_opaque:
-            await self._kv_manager.reset_cache()
-        else:
-            self._kv_cache.sequence_length = 0
+        await self._kv_manager.reset_cache()
 
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
@@ -448,31 +416,37 @@ class Llama3:
             return self._execute_opaque(req_to_context_dict)
 
         context_batch = req_to_context_dict.values()
+        cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
         tokens = [ctx.next_tokens for ctx in context_batch]
         batch_size = len(context_batch)
 
         # Pad tokens and compute attention mask for the batch.
-        start_pos = [self._kv_cache.sequence_length] * len(req_to_context_dict)
+        max_seq_len = self._kv_manager.max_sequence_length
+        start_pos = [max_seq_len] * len(req_to_context_dict)
         next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
             start_pos=start_pos,
             tokens=tokens,
             pad_to_multiple_of=self.config.pad_to_multiple_of,
         )
 
+        keys, values, seq_len, _ = self._kv_manager.fetch(cache_seq_ids)
+
         # Execute model.
         logits, end_pos = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self.config.device),
             Tensor.from_numpy(attn_mask).to(self.config.device),
-            self._kv_cache.keys,
-            self._kv_cache.values,
-            Tensor.scalar(
-                self._kv_cache.sequence_length, DType.int64, self.config.device
-            ),
+            keys,
+            values,
+            seq_len,
         )
 
         end_pos = end_pos.to(CPU()).item()
 
-        self._kv_cache.sequence_length = end_pos
+        self._kv_manager.step(
+            valid_lengths={
+                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch
+            }
+        )
 
         return logits
 
