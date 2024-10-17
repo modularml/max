@@ -52,8 +52,6 @@ async def serve_token_generator(
     profile=False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
-    settings = Settings(api_types=[APIType.OPENAI])
-    debug_settings = DebugSettings(profiling_enabled=profile)
     if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
         batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
             tg_batch_size=kv_cache_size, ce_batch_size=1, ce_batch_timeout=0.1
@@ -75,6 +73,8 @@ async def serve_token_generator(
     )
     pipelines = [pipeline]
 
+    settings = Settings(api_types=[APIType.OPENAI], request_limit=kv_cache_size)
+    debug_settings = DebugSettings(profiling_enabled=profile)
     app = fastapi_app(settings, debug_settings, pipelines)
     app.dependency_overrides[token_pipeline] = lambda: pipeline
 
