@@ -62,6 +62,16 @@ class NaiveKVCacheManager(KVCacheManager):
     def fetch(
         self, seq_ids: list[int]
     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        existing_keys = list(self.cache_lengths.keys())
+        for i, seq_id in enumerate(seq_ids):
+            if existing_keys[i] != seq_id:
+                msg = (
+                    "seq_ids passed, are different than current inflight"
+                    " batch.Naive Caching currently does not support mutating"
+                    " inflight batches."
+                )
+                raise ValueError(msg)
+
         return (
             self.keys,
             self.values,
