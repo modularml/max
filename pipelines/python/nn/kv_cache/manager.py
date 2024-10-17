@@ -109,14 +109,6 @@ class KVCacheManager(ABC):
         del self.cache_lengths[seq_id]
         self.semaphore.release()
 
-    async def reset_cache(self) -> None:
-        """A helper function to reset the entire cache."""
-        for seq_id in self.cache_lengths:
-            self.available.add(seq_id)
-            self.semaphore.release()
-
-        self.cache_lengths.clear()
-
     @property
     def slots_remaining(self) -> int:
         """The outstanding cache slots outstanding."""
