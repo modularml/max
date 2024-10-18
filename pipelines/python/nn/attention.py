@@ -93,9 +93,9 @@ class Attention(Layer):
         Args:
             x: Activations with shape (batch, seq_len, dim).
             k_cache: The full keys cache buffer with shape
-                (max_seq_len, n_layers, batch, n_kv_heads, head_dim).
+                (max_seq_len, n_layers, max_batch, n_kv_heads, head_dim).
             v_cache: The full values cache buffer with shape
-                (max_seq_len, n_layers, batch, n_kv_heads, head_dim).
+                (max_seq_len, n_layers, max_batch, n_kv_heads, head_dim).
             start_pos: Scalar of the current position in the kv_cache.
 
         Returns the result of multi-headed self attention on the input.
@@ -115,21 +115,31 @@ class Attention(Layer):
         xk = self.rope(xk, start_pos, seq_len)
 
         # Write xk and xv back the to cache at start_pos.
-        # cache[start_pos:start_pos+seq_len, layer_index] = ...
+        # The cache can have a larger max batch size than the current input.
+        # We slice down to the active batch size.
+        # cache[start_pos:start_pos+seq_len, layer_index, batch_size] = ...
         seq_len_val = TensorValue(seq_len)
         slice_seq_len = (slice(start_pos, start_pos + seq_len_val), seq_len)
-        k_cache[slice_seq_len, layer_index] = xk.transpose(0, 1).cast(
-            k_cache.dtype
-        )
-        v_cache[slice_seq_len, layer_index] = xv.transpose(0, 1).cast(
-            k_cache.dtype
-        )
+        batch_val = TensorValue(batch)
+        slice_batch = (slice(0, batch_val), batch)
+        k_cache[slice_seq_len, layer_index, slice_batch] = xk.transpose(
+            0, 1
+        ).cast(k_cache.dtype)
+        v_cache[slice_seq_len, layer_index, slice_batch] = xv.transpose(
+            0, 1
+        ).cast(k_cache.dtype)
 
         # Then slice the correct keys and values for attention.
-        # ... = cache[0:start_pos+seq_len, layer_index]
+        # The cache can have a larger max batch size than the current input.
+        # We slice down to the active batch size.
+        # ... = cache[0:start_pos+seq_len, layer_index, batch_size]
         slice_post_seq_len = (slice(0, start_pos + seq_len_val), "post_seq_len")
-        keys = k_cache[slice_post_seq_len, layer_index].cast(xq.dtype)
-        values = v_cache[slice_post_seq_len, layer_index].cast(xq.dtype)
+        keys = k_cache[slice_post_seq_len, layer_index, slice_batch].cast(
+            xq.dtype
+        )
+        values = v_cache[slice_post_seq_len, layer_index, slice_batch].cast(
+            xq.dtype
+        )
 
         output = (
             self.attention(xq, xk, xv, attention_mask, keys, values)
