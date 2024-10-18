@@ -372,9 +372,7 @@ class Llama3:
         # Get valid lengths: unpadded lengths of each token vector in the batch.
         batch_size = len(context_batch)
         unpadded_lengths = [ctx.seq_len for ctx in context_batch]
-        valid_lengths = Tensor((batch_size,), DType.uint32, CPU())
-        for n, valid_length in enumerate(unpadded_lengths):
-            valid_lengths[n] = valid_length
+        valid_lengths = Tensor.from_numpy(np.array(unpadded_lengths, np.uint32))
 
         # Pad tokens and compute attention mask for the batch.
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
