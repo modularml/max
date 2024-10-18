@@ -130,7 +130,7 @@ class Llama3:
             n_kv_heads=self.params.n_kv_heads,
             head_dim=self.params.head_dim,
             dtype=dtype,
-            cache_strategy=config.cache_strategy,
+            cache_strategy=self.params.cache_strategy,
         )
 
         self._kv_manager = load_kv_manager(
