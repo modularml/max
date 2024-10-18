@@ -205,7 +205,7 @@ class Llama3:
             shape=[
                 self.params.seq_len,
                 self.params.n_layers,
-                "batch_size",
+                "max_batch_size",
                 self.params.n_kv_heads,
                 self.params.head_dim,
             ],
