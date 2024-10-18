@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import List, NewType, Union
 
+import numpy as np
+
 from max.driver import Device, Tensor
 from max.dtype import DType
 from max.engine import MojoValue
@@ -142,20 +144,19 @@ class ContinuousBatchingKVCacheManager(KVCacheManager):
         active_batch_size = len(seq_ids)
 
         # Lookup table and seq_ids are redundant identical tensors.
-        lookup_table_tensor = Tensor.zeros((active_batch_size,), DType.uint32)
-        cache_lengths = Tensor.zeros((active_batch_size,), DType.uint32)
+        lookup_table_tensor = Tensor.from_numpy(np.array(seq_ids, np.uint32))
+        cache_lengths_np = np.zeros(active_batch_size, np.uint32)
         is_cache_empty = True
         for i, seq_id in enumerate(seq_ids):
             if seq_id not in self.cache_lengths:
                 raise ValueError(f"seq_id: {seq_id} not currently in cache.")
 
-            lookup_table_tensor[i] = seq_id
             cache_len = self.cache_lengths[seq_id]
-            cache_lengths[i] = cache_len
+            cache_lengths_np[i] = cache_len
             if cache_len != 0:
                 is_cache_empty = False
 
-        cache_lengths = cache_lengths.to(self.device)
+        cache_lengths = Tensor.from_numpy(cache_lengths_np).to(self.device)
         lookup_table_tensor = lookup_table_tensor.to(self.device)
         is_cache_empty_buf = (
             self.true_tensor if is_cache_empty else self.false_tensor
