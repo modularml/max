@@ -117,7 +117,7 @@ class Attention(Layer):
         # Write xk and xv back the to cache at start_pos.
         # The cache can have a larger max batch size than the current input.
         # We slice down to the active batch size.
-        # cache[start_pos:start_pos+seq_len, layer_index, batch_size] = ...
+        # cache[start_pos:start_pos+seq_len, layer_index, :batch] = ...
         seq_len_val = TensorValue(seq_len)
         slice_seq_len = (slice(start_pos, start_pos + seq_len_val), seq_len)
         batch_val = TensorValue(batch)
@@ -132,7 +132,7 @@ class Attention(Layer):
         # Then slice the correct keys and values for attention.
         # The cache can have a larger max batch size than the current input.
         # We slice down to the active batch size.
-        # ... = cache[0:start_pos+seq_len, layer_index, batch_size]
+        # ... = cache[0:start_pos+seq_len, layer_index, :batch]
         slice_post_seq_len = (slice(0, start_pos + seq_len_val), "post_seq_len")
         keys = k_cache[slice_post_seq_len, layer_index, slice_batch].cast(
             xq.dtype
