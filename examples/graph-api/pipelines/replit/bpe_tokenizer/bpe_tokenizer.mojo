@@ -116,7 +116,7 @@ struct Tokenizer:
         var merges = Dict[StringPair, MergeScore]()
         for n in range(num_merges):
             var merge = merge_storage[str(n)].value
-            var split = str(merge).split(" ")
+            var split = str(merge).split(maxsplit=1)
             if len(split) != 2:
                 raise "Invalid merge: " + str(merge)
             var merged = split[0] + split[1]
