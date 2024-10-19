@@ -281,30 +281,9 @@ class Llama3:
 
         return encoded_prompt
 
-    async def _new_context_opaque(
-        self, prompt: str, max_new_tokens: int | None = None
-    ) -> Llama3Context:
-        encoded_prompt = await self._encode(prompt)
-
-        max_tokens_to_generate = _max_tokens_to_generate(
-            len(encoded_prompt), self.config, max_new_tokens
-        )
-        seq_id = await self._kv_manager.claim(n=1)
-        context = Llama3Context(
-            prompt=prompt,
-            max_tokens=len(encoded_prompt) + max_tokens_to_generate,
-            cache_seq_id=seq_id[0],
-        )
-
-        context.append(np.array(encoded_prompt), prompt)
-        return context
-
     async def new_context(
         self, prompt: str, max_new_tokens: int | None = None
     ) -> Llama3Context:
-        if self.params.use_opaque:
-            return await self._new_context_opaque(prompt, max_new_tokens)
-
         encoded_prompt = await self._encode(prompt)
 
         max_tokens_to_generate = _max_tokens_to_generate(
