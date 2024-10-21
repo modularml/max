@@ -177,7 +177,7 @@ def _transformer_opaque(graph, params, weights, kv_params):
                     params,
                     rope,
                     weights.blk[i],
-                    ops.constant(i, DType.uint32),  # layer_idx
+                    layer_idx=ops.constant(i, DType.uint32),
                 ),
                 mlp=feed_forward(
                     params.dtype,

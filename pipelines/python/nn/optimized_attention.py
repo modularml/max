@@ -24,7 +24,7 @@ from .kernels import (
 )
 from .kv_cache import (
     KVCacheParams,
-    ContinuousBatchingKVCache,
+    ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
 )
 from .layer import Layer
@@ -51,12 +51,8 @@ class OptimizedAttention(Layer):
         x: TensorValue,
         attn_mask: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
-        k_cache: ContinuousBatchingKVCache,
-        v_cache: ContinuousBatchingKVCache,
         valid_lengths: TensorValue,
-    ) -> tuple[
-        TensorValue, ContinuousBatchingKVCache, ContinuousBatchingKVCache
-    ]:
+    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
 
@@ -99,4 +95,4 @@ class OptimizedAttention(Layer):
 
         attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
 
-        return self.wo(attn_out), k_cache, v_cache
+        return self.wo(attn_out), kv_collection

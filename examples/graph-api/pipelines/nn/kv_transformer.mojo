@@ -46,67 +46,6 @@ def kv_cache_length[
     return out
 
 
-def key_cache_for_layer[
-    type: DType, kv_params: KVCacheStaticParams
-](cache: Symbol, layer_idx: Int) -> Symbol:
-    """Retrieve the ContiguousKVCache object for the keys of layer at layer_idx.
-
-    Args:
-        cache: KVCacheCollection mo.opaque type.
-
-    Returns:
-        Symbol: mo.opaque ContiguousKVCache type corresponding to key_cache for layer_idx.
-    """
-    alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
-
-    g = cache.graph()
-
-    layer_idx_tens = Tensor[DType.int64](
-        TensorShape(
-            1,
-        )
-    )
-    layer_idx_tens[0] = layer_idx
-    layer_idx_sym = g.constant(layer_idx_tens)
-
-    out_type = _OpaqueType(ContiguousKVCache[type, kv_params].id())
-    out = ops.custom[kernel_names.key_cache_for_layer_kernel](
-        List[Symbol](layer_idx_sym, cache), out_type
-    )
-    return out
-
-
-def value_cache_for_layer[
-    type: DType, kv_params: KVCacheStaticParams
-](cache: Symbol, layer_idx: Int) -> Symbol:
-    """Retrieve the ContiguousKVCache object for the keys of layer at layer_idx.
-
-    Args:
-        cache: KVCacheCollection mo.opaque type.
-
-    Returns:
-        Symbol: mo.opaque ContiguousKVCache type corresponding to value_cache for layer_idx.
-
-    """
-    alias kernel_names = _kv_cache_kernel_names[type, kv_params]()
-
-    g = cache.graph()
-
-    layer_idx_tens = Tensor[DType.int64](
-        TensorShape(
-            1,
-        )
-    )
-    layer_idx_tens[0] = layer_idx
-    layer_idx_sym = g.constant(layer_idx_tens)
-
-    out_type = _OpaqueType(ContiguousKVCache[type, kv_params].id())
-    out = ops.custom[kernel_names.value_cache_for_layer_kernel](
-        List[Symbol](layer_idx_sym, cache), out_type
-    )
-    return out
-
-
 @value
 struct KVCacheOptimizedTransformerBlock[
     type: DType, kv_params: KVCacheStaticParams
@@ -125,8 +64,6 @@ struct KVCacheOptimizedTransformerBlock[
         start_pos: Symbol,
         freqs_cis: Symbol,
         kv_collection: Symbol,
-        k_cache: Symbol,
-        v_cache: Symbol,
         mask: Symbol,
         valid_lengths: Symbol,
     ) -> Symbol:
@@ -137,10 +74,8 @@ struct KVCacheOptimizedTransformerBlock[
                 the number of entries in the cache.
             freqs_cis: Positional frequencies tensor with shape
                 (seq_len, head_dim // 2, 2).
-            k_cache: Previously computed keys. This is a mo.opaque ContiguousKVCache object
-                with logical shape (batch, n_kv_heads, prev_seq_len, head_dim).
-            v_cache: Previously computed values. This is a mo.opaque ContiguousKVCache object
-                with logical shape (batch, n_kv_heads, prev_seq_len, head_dim).
+            kv_collection: The KVCacheCollection object containing our KVCache entries for each layer
+            valid_lengths: The unpadded lengths of each sequence in the batch.
 
         Returns:
             Symbol: representing hidden_state with shape:
@@ -153,8 +88,6 @@ struct KVCacheOptimizedTransformerBlock[
             start_pos,
             freqs_cis,
             kv_collection,
-            k_cache,
-            v_cache,
             mask,
             valid_lengths,
         )[0]
@@ -231,15 +164,11 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         valid_lengths = valid_length.broadcast_to(tokens.shape()[0])
 
         for i in range(len(self.layers)):
-            k_cache = key_cache_for_layer[type, kv_params](kv_collection, i)
-            v_cache = value_cache_for_layer[type, kv_params](kv_collection, i)
             h = self.layers[i](
                 h,
                 start_pos,
                 freqs_cis,
                 kv_collection,
-                k_cache,
-                v_cache,
                 mask,
                 valid_lengths,
             )

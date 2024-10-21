@@ -47,20 +47,17 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         input: Symbol,
         start_pos: Symbol,
         kv_collection: Symbol,
-        k_cache: Symbol,
-        v_cache: Symbol,
         attn_weight: Symbol,
         valid_lengths: Symbol,
-    ) -> Tuple[Symbol, Symbol, Symbol]:
+    ) -> Tuple[Symbol, Symbol]:
         """Constructs the forward pass for this attention block.
 
         input: Activations with shape (batch_size, seq_len, num_heads * head_dim)
         start_pos: Scalar with index of starting token, effectively tracks
             the number of entries in the cache.
-        k_cache: Previously computed keys. This is a mo.opaque ContiguousKVCache object
-            with logical shape (batch, prev_seq_len, n_kv_heads, head_dim).
-        v_cache: Previously computed values. This is a mo.opaque ContiguousKVCache object
-            with logical shape (batch, prev_seq_len, n_kv_heads, head_dim).
+        kv_collection: The Collection object containing the KVCache for our layer
+        attn_weight: The causal mask and position encoding for this batch
+        valid_lengths: The unpadded length of sequences in our batch
         """
 
         g = input.graph()
@@ -101,4 +98,4 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         attn_out = attn_out.reshape(batch_size, seq_len, -1)
 
         # final projection and return
-        return self.wo(attn_out), k_cache, v_cache
+        return self.wo(attn_out), kv_collection

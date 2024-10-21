@@ -45,11 +45,9 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         start_pos: Symbol,
         freqs_cis: Symbol,
         kv_collection: Symbol,
-        k_cache: Symbol,
-        v_cache: Symbol,
         mask: Symbol,
         valid_lengths: Symbol,
-    ) -> Tuple[Symbol, Symbol, Symbol]:
+    ) -> Tuple[Symbol, Symbol]:
         """Constructs the forward pass for this attention block
 
         input: Activations with shape (batch_size, seq_len, num_heads * head_dim)
@@ -57,23 +55,12 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
             the number of entries in the cache.
         freqs_cis: Positional frequencies tensor with shape
             (seq_len, head_dim // 2, 2).
-        k_cache: Previously computed keys. This is a mo.opaque ContiguousKVCache object
-            with logical shape (batch, prev_seq_len, n_kv_heads, head_dim).
-        v_cache: Previously computed values. This is a mo.opaque ContiguousKVCache object
-            with logical shape (batch, prev_seq_len, n_kv_heads, head_dim).
         """
 
         g = input.graph()
 
         # extract shape characteristics of the input
         batch_size, seq_len = input.shape()[0], input.shape()[1]
-
-        # define opaque types for custom op outputs
-        # TODO give these guys actual values for num_kv_head and head_size
-        # We only use these types to get `id()`, and the actual value of this
-        # string is not used.
-        var k_cache_type = OpaqueType(ContiguousKVCache[type, kv_params].id())
-        var v_cache_type = OpaqueType(ContiguousKVCache[type, kv_params].id())
 
         # reshape our rope positional frequencies
         f_shape = ops.shape_of(freqs_cis)
@@ -114,7 +101,7 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         attn_out = attn_out.reshape(batch_size, seq_len, -1)
 
         # final projection and return
-        return attn_out @ self.wo, k_cache, v_cache
+        return attn_out @ self.wo, kv_collection
 
 
 def attention_mask[

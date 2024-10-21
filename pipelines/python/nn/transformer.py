@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Union
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 
-from .kernels import key_cache_for_layer, value_cache_for_layer
 from .kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
 )
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
     from .kv_cache import (
         ContinuousBatchingKVCache,
         ContinuousBatchingKVCacheType,
+        ContinuousBatchingKVCacheCollection,
         ContinuousBatchingKVCacheCollectionType,
         KVCacheParams,
     )
@@ -123,25 +123,19 @@ class OptimizedTransformerBlock(Layer):
         x: TensorValueLike,
         attention_mask: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
-        k_cache: ContinuousBatchingKVCacheType | TensorValueLike,
-        v_cache: ContinuousBatchingKVCacheType | TensorValueLike,
         valid_lengths: TensorValue,
-    ) -> tuple[
-        TensorValue, ContinuousBatchingKVCache, ContinuousBatchingKVCache
-    ]:
-        attention_out, k_cache_update, v_cache_update = self.attention(
+    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+        attention_out, kv_collection = self.attention(
             self.attention_norm(x),
             attention_mask,
             kv_collection,
-            k_cache,
-            v_cache,
             valid_lengths,
         )
 
         h = x + attention_out
         h = h + self.mlp(self.mlp_norm(h))
 
-        return h, k_cache_update, v_cache_update
+        return h, kv_collection
 
 
 @dataclass
@@ -172,12 +166,10 @@ class OptimizedTransformer(Layer):
         kv_cache_collection = self.kv_collection_constructor(*kv_cache_params)
 
         for i, layer in enumerate(self.layers):
-            h, _, _ = layer(
+            h, _ = layer(
                 h,
                 attention_mask,
                 kv_cache_collection,
-                key_cache_for_layer(self.kv_params, i, kv_cache_collection),
-                value_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 valid_lengths,
             )
 
