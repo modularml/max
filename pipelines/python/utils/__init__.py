@@ -13,5 +13,6 @@
 """Pipeline utilities."""
 
 from .config_to_flag import config_to_flag
+from .custom_options import DevicesOptionType
 from .hf_tokenizer import tokenizer_from_gguf
 from .metrics import TextGenerationMetrics
