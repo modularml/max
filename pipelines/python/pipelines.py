@@ -51,6 +51,7 @@ async def serve_token_generator(
     kv_cache_strategy: KVCacheStrategy,
     kv_cache_size: int,
     profile=False,
+    prefer_ce_over_tg: bool = True,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
     if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
@@ -70,11 +71,14 @@ async def serve_token_generator(
         f" {kv_cache_size}."
     )
     pipeline = TokenGeneratorPipeline[llama3.Llama3Context](
-        batch_config, model, tokenizer
+        batch_config, model, tokenizer, prefer_ce_over_tg
     )
     pipelines = [pipeline]
 
-    settings = Settings(api_types=[APIType.OPENAI], request_limit=kv_cache_size)
+    # limit the number of inflight requests to just a few more than the number
+    # of active slots on the GPU
+    request_limit = kv_cache_size + 16
+    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
     debug_settings = DebugSettings(profiling_enabled=profile)
     app = fastapi_app(settings, debug_settings, pipelines)
     app.dependency_overrides[token_pipeline] = lambda: pipeline
@@ -147,6 +151,13 @@ def main():
     default="none",
     help="Fake the engine performance (for benchmarking)",
 )
+@click.option(
+    "--disable-prefer-ce-over-tg",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Disable preference of context encoding over token generation.",
+)
 def run_llama3(
     prompt,
     serve,
@@ -154,6 +165,7 @@ def run_llama3(
     use_gpu,
     num_warmups,
     performance_fake,
+    disable_prefer_ce_over_tg,
     **config_kwargs,
 ):
     """Runs the Llama3 pipeline."""
@@ -209,6 +221,7 @@ def run_llama3(
                 caching_strategy,
                 config.max_cache_batch_size,
                 profile_serve,
+                not disable_prefer_ce_over_tg,
             )
         )
     else:
