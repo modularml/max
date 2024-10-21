@@ -91,8 +91,8 @@ class OptimizedAttention(Layer):
         attn_out = flash_attention(
             self.kv_params,
             input=xq,
-            k_cache=k_cache,
-            v_cache=v_cache,
+            kv_collection=kv_collection,
+            layer_idx=self.layer_idx,
             attn_mask=attn_mask,
             valid_lengths=valid_lengths,
         )

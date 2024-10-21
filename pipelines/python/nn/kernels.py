@@ -61,8 +61,8 @@ def fused_qk_rope(
 def flash_attention(
     kv_params: KVCacheParams,
     input: TensorValue,
-    k_cache: ContinuousBatchingKVCache,
-    v_cache: ContinuousBatchingKVCache,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+    layer_idx: TensorValue,
     attn_mask: TensorValue,
     valid_lengths: TensorValue,
 ) -> TensorValue:
@@ -73,7 +73,7 @@ def flash_attention(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, k_cache, v_cache, attn_mask, valid_lengths, scale],
+        [input, kv_collection, layer_idx, attn_mask, valid_lengths, scale],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 

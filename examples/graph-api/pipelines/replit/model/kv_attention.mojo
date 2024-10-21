@@ -89,8 +89,8 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         attn_out = ops.custom[self._kernel_names.flash_attention_kernel](
             List[Symbol](
                 xq,
-                k_cache,
-                v_cache,
+                kv_collection,
+                self.layer_idx,
                 attn_weight,
                 valid_lengths,
                 g.scalar(isqrt(Float32(kv_params.head_size))),
