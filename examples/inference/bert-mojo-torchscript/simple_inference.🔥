@@ -70,9 +70,9 @@ def argmax(t: Tensor) -> List[Int]:
     for i in range(t.dim(1)):
         var max_val = Scalar[t.type].MIN
         var max_idx = 0
-        for j in range(t.dim(0)):
-            if t[i, j] > max_val:
-                max_val = t[i, j]
+        for j in range(t.dim(2)):
+            if t[0, i, j] > max_val:
+                max_val = t[0, i, j]
                 max_idx = j
         res.append(max_idx)
     return res
