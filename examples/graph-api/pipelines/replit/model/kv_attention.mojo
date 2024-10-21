@@ -39,10 +39,14 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
     var wqkv: Symbol
     var wo: Linear
 
+    # scalar layer_idx used to retrieve kv cache objects
+    var layer_idx: Symbol
+
     def __call__(
         self,
         input: Symbol,
         start_pos: Symbol,
+        kv_collection: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
         attn_weight: Symbol,
@@ -68,7 +72,8 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         # do QKV projections
         xq_type = input.type()
         xq = ops.custom[self._kernel_names.fused_qkv_matmul_kernel](
-            List[Symbol](input, self.wqkv, k_cache, v_cache), xq_type
+            List[Symbol](input, self.wqkv, kv_collection, self.layer_idx),
+            xq_type,
         )
 
         seq_len_sym = ops.shape_of(input)[1]

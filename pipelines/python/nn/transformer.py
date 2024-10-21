@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from .kv_cache import (
         ContinuousBatchingKVCache,
         ContinuousBatchingKVCacheType,
+        ContinuousBatchingKVCacheCollectionType,
         KVCacheParams,
     )
     from .mlp import MLP, Linear
@@ -121,6 +122,7 @@ class OptimizedTransformerBlock(Layer):
         self,
         x: TensorValueLike,
         attention_mask: TensorValueLike,
+        kv_collection: ContinuousBatchingKVCacheCollectionType,
         k_cache: ContinuousBatchingKVCacheType | TensorValueLike,
         v_cache: ContinuousBatchingKVCacheType | TensorValueLike,
         valid_lengths: TensorValue,
@@ -130,6 +132,7 @@ class OptimizedTransformerBlock(Layer):
         attention_out, k_cache_update, v_cache_update = self.attention(
             self.attention_norm(x),
             attention_mask,
+            kv_collection,
             k_cache,
             v_cache,
             valid_lengths,
@@ -172,6 +175,7 @@ class OptimizedTransformer(Layer):
             h, _, _ = layer(
                 h,
                 attention_mask,
+                kv_cache_collection,
                 key_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 value_cache_for_layer(self.kv_params, i, kv_cache_collection),
                 valid_lengths,

@@ -36,11 +36,15 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
     var wqkv: Symbol
     var wo: Linear
 
+    # scalar index of the current layer. Used to retrieve the kv cache objects inside of each kernel.
+    var layer_idx: Symbol
+
     def __call__(
         self,
         input: Symbol,
         start_pos: Symbol,
         freqs_cis: Symbol,
+        kv_collection: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
         mask: Symbol,
@@ -79,7 +83,7 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
         xq_type = input.type()
 
         xq = ops.custom[self._kernel_names.fused_qkv_matmul_kernel](
-            List[Symbol](input, self.wqkv, k_cache, v_cache),
+            List[Symbol](input, self.wqkv, kv_collection, self.layer_idx),
             xq_type,
         )
 

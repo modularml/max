@@ -175,6 +175,7 @@ struct KVCacheOptimizedTransformerBlock[
         self,
         input: Symbol,
         start_pos: Symbol,
+        kv_collection: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
         attn_weight: Symbol,
@@ -185,10 +186,11 @@ struct KVCacheOptimizedTransformerBlock[
             input: Activations with shape (batch_size, seq_len, num_heads * head_dim)
             start_pos: Scalar with index of starting token, effectively tracks
                 the number of entries in the cache.
+            kv_collection: The KVCacheCollection object for this model.
             k_cache: Previously computed keys. This is a mo.opaque ContiguousKVCache object
-                with logical shape (batch, n_kv_heads, prev_seq_len, head_dim).
+                with logical shape (batch, n_kv_heads, prev_seq_len, head_dim). TODO to be removed by
             v_cache: Previously computed values. This is a mo.opaque ContiguousKVCache object
-                with logical shape (batch, n_kv_heads, prev_seq_len, head_dim).
+                with logical shape (batch, n_kv_heads, prev_seq_len, head_dim). TODO to be removed by
 
         Returns:
             Symbol: representing hidden_state with shape:
@@ -199,6 +201,7 @@ struct KVCacheOptimizedTransformerBlock[
         attention_out = self.attention(
             self.attention_norm(input),
             start_pos,
+            kv_collection,
             k_cache,
             v_cache,
             attn_weight,
@@ -234,14 +237,14 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
     def __call__(
         self,
         tokens: Symbol,
-        kv_cache: Symbol,
+        kv_collection: Symbol,
         attention_mask: Symbol,
     ) -> (Symbol, Symbol):
         """Constructs our model graph.
         Args:
             tokens: Token IDs tensor with type Int64 and shape:
                 (batch_size, prompt_seq_len).
-            kv_cache: our mo.opaque KVCacheCollection object storing KVCache
+            kv_collection: our mo.opaque KVCacheCollection object storing KVCache
                 entries for each layer. Has logical shape:
                 (num_layers, 2, batch_size, cache_seq_len, num_heads, head_size)
             attention_mask: The attention mask for our given sequence
@@ -262,7 +265,7 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         seq_len = Dim("seq_len")
         seq_len_sym = ops.shape_of(tokens)[1]
         full_seq_len_sym = ops.shape_of(attention_mask)[1]
-        start_pos = kv_cache_length[type, kv_params](kv_cache)
+        start_pos = kv_cache_length[type, kv_params](kv_collection)
 
         # build our ALIBI biases
         attention_bias = attn_bias[type](
@@ -296,15 +299,16 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         valid_lengths = valid_length.broadcast_to(tokens.shape()[0])
 
         for i in range(len(self.layers)):
-            k_cache = key_cache_for_layer[type, kv_params](kv_cache, i)
-            v_cache = value_cache_for_layer[type, kv_params](kv_cache, i)
+            k_cache = key_cache_for_layer[type, kv_params](kv_collection, i)
+            v_cache = value_cache_for_layer[type, kv_params](kv_collection, i)
             h = self.layers[i](
                 h,
                 start_pos,
+                kv_collection,
                 k_cache,
                 v_cache,
                 attn_mask,
                 valid_lengths,
             )
 
-        return self.output(self.norm(h)), kv_cache
+        return self.output(self.norm(h)), kv_collection

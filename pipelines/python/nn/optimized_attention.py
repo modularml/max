@@ -22,7 +22,11 @@ from .kernels import (
     fused_qk_rope,
     fused_qkv_matmul,
 )
-from .kv_cache import KVCacheParams, ContinuousBatchingKVCache
+from .kv_cache import (
+    KVCacheParams,
+    ContinuousBatchingKVCache,
+    ContinuousBatchingKVCacheCollectionType,
+)
 from .layer import Layer
 from .mlp import Linear
 from .rotary_embedding import OptimizedRotaryEmbedding
@@ -32,6 +36,7 @@ from .rotary_embedding import OptimizedRotaryEmbedding
 class OptimizedAttention(Layer):
     n_heads: int
     kv_params: KVCacheParams
+    layer_idx: TensorValue
 
     wqkv: TensorValue
     wo: Linear
@@ -45,6 +50,7 @@ class OptimizedAttention(Layer):
         self,
         x: TensorValue,
         attn_mask: TensorValueLike,
+        kv_collection: ContinuousBatchingKVCacheCollectionType,
         k_cache: ContinuousBatchingKVCache,
         v_cache: ContinuousBatchingKVCache,
         valid_lengths: TensorValue,
@@ -59,8 +65,8 @@ class OptimizedAttention(Layer):
             self.kv_params,
             input=x,
             wqkv=self.wqkv,
-            k_cache=k_cache,
-            v_cache=v_cache,
+            kv_collection=kv_collection,
+            layer_idx=self.layer_idx,
         )
 
         # Apply rope.
