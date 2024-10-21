@@ -111,33 +111,3 @@ def flash_attention_with_causal_mask(
         [input, k_cache, v_cache, valid_lengths, scale],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
-
-
-def key_cache_for_layer(
-    kv_params: KVCacheParams,
-    i: int,
-    kv_collection: ContinuousBatchingKVCacheCollection,
-) -> ContinuousBatchingKVCacheType:
-    """Returns the key cache for a specific layer from a collection."""
-    op_name = f"key_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}_continuous_batch"
-
-    return ops.custom(
-        op_name,
-        [ops.constant(i, dtype=DType.int64), kv_collection],
-        [ContinuousBatchingKVCacheType()],
-    )[0]
-
-
-def value_cache_for_layer(
-    kv_params: KVCacheParams,
-    i: int,
-    kv_collection: ContinuousBatchingKVCacheCollection,
-) -> ContinuousBatchingKVCacheType:
-    """Returns the value cache for a specific layer from a collection."""
-    op_name = f"value_cache_for_layer_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_{kv_params.dtype_shorthand}_continuous_batch"
-
-    return ops.custom(
-        op_name,
-        [ops.constant(i, dtype=DType.int64), kv_collection],
-        [ContinuousBatchingKVCacheType()],
-    )[0]
