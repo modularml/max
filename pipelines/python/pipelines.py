@@ -16,6 +16,7 @@ import os
 
 import click
 import llama3
+import replit
 from huggingface_hub import hf_hub_download
 from max.driver import CPU, CUDA
 from max.pipelines import TokenGenerator
@@ -236,6 +237,85 @@ def run_llama3(
                     metrics=metrics,
                     max_batch_size=config.max_cache_batch_size,
                     n_duplicate=config.n_duplicate,
+                )
+            )
+
+
+@main.command(name="replit")
+@config_to_flag(replit.InferenceConfig)
+@click.option(
+    "--prompt",
+    type=str,
+    default='def hello():\n  print("hello world")\n',
+    help="The text prompt to use for further generation.",
+)
+@click.option(
+    "--serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
+)
+@click.option(
+    "--use-gpu",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to run the model on the available GPU.",
+)
+@click.option(
+    "--profile-serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to enable pyinstrument profiling on the serving endpoint.",
+)
+@click.option(
+    "--server-batch-mode",
+    type=click.Choice(["dynamic", "continuous"]),
+    default="dynamic",
+    help="Configures the servers batching scheme",
+)
+def run_replit(
+    prompt, serve, use_gpu, profile_serve, server_batch_mode, **config_kwargs
+):
+    """Runs the Replit pipeline."""
+    device = CUDA() if use_gpu else CPU()
+    config_kwargs.update({"device": device})
+
+    config = replit.InferenceConfig(**config_kwargs)
+
+    if config.weight_path is None:
+        weight_filename = config.quantization_encoding.hf_model_name(
+            config.version
+        )
+        config.weight_path = hf_hub_download(
+            repo_id="modularai/replit-code-1.5",
+            filename=weight_filename,
+        )
+
+    if serve:
+        print("Starting server...")
+        model = replit.Replit(config)
+        asyncio.run(
+            serve_token_generator(
+                model,
+                model.tokenizer,
+                config.max_cache_batch_size,
+                server_batch_mode,
+                profile_serve,
+            )
+        )
+    else:
+        with TextGenerationMetrics(print_report=True) as metrics:
+            model = replit.Replit(config)
+            print("Beginning text generation...")
+            asyncio.run(
+                stream_text_to_console(
+                    model,
+                    prompt,
+                    metrics=metrics,
+                    max_batch_size=config.batch_size,
                 )
             )
 
