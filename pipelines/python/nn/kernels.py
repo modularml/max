@@ -18,6 +18,7 @@ from max.graph import TensorType, TensorValue, ops
 from .kv_cache import (
     ContinuousBatchingKVCache,
     ContinuousBatchingKVCacheCollection,
+    ContinuousBatchingKVCacheCollectionType,
     ContinuousBatchingKVCacheType,
     KVCacheParams,
 )
@@ -27,15 +28,15 @@ def fused_qkv_matmul(
     kv_params: KVCacheParams,
     input: TensorValue,
     wqkv: TensorValue,
-    k_cache: ContinuousBatchingKVCache,
-    v_cache: ContinuousBatchingKVCache,
+    kv_collection: ContinuousBatchingKVCacheCollectionType,
+    layer_idx: TensorValue,
 ) -> TensorValue:
     """Computes fused query, key and value projections."""
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
-        [input, wqkv, k_cache, v_cache],
+        [input, wqkv, kv_collection, layer_idx],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 

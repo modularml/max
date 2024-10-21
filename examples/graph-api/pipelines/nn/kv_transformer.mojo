@@ -124,6 +124,7 @@ struct KVCacheOptimizedTransformerBlock[
         input: Symbol,
         start_pos: Symbol,
         freqs_cis: Symbol,
+        kv_collection: Symbol,
         k_cache: Symbol,
         v_cache: Symbol,
         mask: Symbol,
@@ -151,6 +152,7 @@ struct KVCacheOptimizedTransformerBlock[
             self.attention_norm(input),
             start_pos,
             freqs_cis,
+            kv_collection,
             k_cache,
             v_cache,
             mask,
@@ -202,13 +204,13 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         self,
         tokens: Symbol,
         mask: Symbol,
-        kv_cache: Symbol,
+        kv_collection: Symbol,
     ) -> (Symbol, Symbol):
         """Constructs our model graph
         Args:
             tokens: Token IDs tensor with type Int64 and shape:
                 (batch_size, prompt_seq_len).
-            kv_cache: our mo.opaque KVCacheCollection object storing KVCache
+            kv_collection: our mo.opaque KVCacheCollection object storing KVCache
                 entries for each layer. Has logical shape:
                 (num_layers, 2, batch_size, cache_seq_len, num_heads, head_size)
 
@@ -219,7 +221,7 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         """
         g = tokens.graph()
         start_pos = ops.cast(
-            kv_cache_length[type, kv_params](kv_cache), DType.int64
+            kv_cache_length[type, kv_params](kv_collection), DType.int64
         )
         h = self.embedding(tokens)
         seq_len = ops.shape_of(tokens)[1]
@@ -229,10 +231,17 @@ struct KVCacheOptimizedTransformer[type: DType, kv_params: KVCacheStaticParams]:
         valid_lengths = valid_length.broadcast_to(tokens.shape()[0])
 
         for i in range(len(self.layers)):
-            k_cache = key_cache_for_layer[type, kv_params](kv_cache, i)
-            v_cache = value_cache_for_layer[type, kv_params](kv_cache, i)
+            k_cache = key_cache_for_layer[type, kv_params](kv_collection, i)
+            v_cache = value_cache_for_layer[type, kv_params](kv_collection, i)
             h = self.layers[i](
-                h, start_pos, freqs_cis, k_cache, v_cache, mask, valid_lengths
+                h,
+                start_pos,
+                freqs_cis,
+                kv_collection,
+                k_cache,
+                v_cache,
+                mask,
+                valid_lengths,
             )
 
-        return self.norm(h) @ self.output, kv_cache
+        return self.norm(h) @ self.output, kv_collection

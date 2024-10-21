@@ -283,6 +283,7 @@ struct Llama3[
                 dim=params.dims,
                 wqkv=wqkv.swapaxes(0, 1),
                 wo=weight("attn_output", layer),
+                layer_idx=g.scalar(UInt32(layer)),
             )
 
             var feed_forward = FeedForward(
@@ -323,7 +324,7 @@ struct Llama3[
             theta=500000.0,
             rope_scaling=rope_scaling,
         )
-        outputs = model(tokens=g[0], mask=g[1], kv_cache=g[2])
+        outputs = model(tokens=g[0], mask=g[1], kv_collection=g[2])
         logits = outputs[0]
         g.output(List[Symbol](logits[-1, axis=1], outputs[1]))
         return g

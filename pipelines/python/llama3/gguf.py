@@ -106,7 +106,7 @@ def embedding(
     )
 
 
-def _attention_opaque(kv_params, params, rope, weights):
+def _attention_opaque(kv_params, params, rope, weights, layer_idx):
     wq = ops.transpose(
         weights.attn_q.weight.allocate(
             params.dtype,
@@ -149,6 +149,7 @@ def _attention_opaque(kv_params, params, rope, weights):
             weights.attn_output,
         ),
         rope=rope,
+        layer_idx=layer_idx,
     )
 
 
@@ -172,7 +173,11 @@ def _transformer_opaque(graph, params, weights, kv_params):
         layers = [
             OptimizedTransformerBlock(
                 attention=_attention_opaque(
-                    kv_params, params, rope, weights.blk[i]
+                    kv_params,
+                    params,
+                    rope,
+                    weights.blk[i],
+                    ops.constant(i, DType.uint32),  # layer_idx
                 ),
                 mlp=feed_forward(
                     params.dtype,

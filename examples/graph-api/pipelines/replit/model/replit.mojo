@@ -105,6 +105,7 @@ struct Replit[T: LoadableModel, dtype: DType, kv_params: KVCacheStaticParams]:
                 dim=self.hyperparams.d_model,
                 wqkv=weight("attn_qkv", layer),
                 wo=Linear(weight("attn_output", layer).swapaxes(0, 1)),
+                layer_idx=g.scalar(UInt32(layer)),
             )
 
             feed_forward = MPTMLP(
@@ -135,7 +136,7 @@ struct Replit[T: LoadableModel, dtype: DType, kv_params: KVCacheStaticParams]:
             output=output.swapaxes(0, 1),
         )
 
-        outputs = model(tokens=g[0], attention_mask=g[1], kv_cache=g[2])
+        outputs = model(tokens=g[0], attention_mask=g[1], kv_collection=g[2])
         logits = outputs[0]
 
         g.output(List[Symbol](logits[-1, axis=1], outputs[1]))
