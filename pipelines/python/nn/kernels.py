@@ -44,15 +44,16 @@ def fused_qkv_matmul(
 def fused_qk_rope(
     kv_params: KVCacheParams,
     input: TensorValue,
-    k_cache: ContinuousBatchingKVCache,
+    kv_collection: ContinuousBatchingKVCacheCollection,
     freqs_cis_2d: TensorValue,
+    layer_idx: TensorValue,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings."""
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
-        [input, k_cache, freqs_cis_2d],
+        [input, kv_collection, freqs_cis_2d, layer_idx],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 

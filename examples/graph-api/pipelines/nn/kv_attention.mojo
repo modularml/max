@@ -91,7 +91,8 @@ struct KVCacheOptimizedAttention[type: DType, kv_params: KVCacheStaticParams]:
             batch_size, seq_len, self.n_heads, int(kv_params.head_size)
         )
         xq = ops.custom[self._kernel_names.fused_qk_rope_kernel](
-            List[Symbol](xq, k_cache, freqs_cis_2d), xq.type()
+            List[Symbol](xq, kv_collection, freqs_cis_2d, self.layer_idx),
+            xq.type(),
         )
 
         # do flash attention

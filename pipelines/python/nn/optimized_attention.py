@@ -83,7 +83,9 @@ class OptimizedAttention(Layer):
         # Cast freqs_cis to xq's dtype to match the fused_qk_rope kernel.
         freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
 
-        xq = fused_qk_rope(self.kv_params, xq, k_cache, freqs_cis)
+        xq = fused_qk_rope(
+            self.kv_params, xq, kv_collection, freqs_cis, self.layer_idx
+        )
 
         # Calculate Flash Attention.
         attn_out = flash_attention(
