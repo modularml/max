@@ -63,9 +63,6 @@ class Hyperparameters:
     prioritizes certain tokens based on their position within the input sequence.
     """
 
-    use_opaque: bool = True
-    """Whether to use the mo.opaque optimizated kernels."""
-
     @property
     def head_dim(self):
         """Dimension of each head."""
