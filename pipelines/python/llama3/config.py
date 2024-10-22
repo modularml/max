@@ -137,6 +137,15 @@ class InferenceConfig:
     pad_to_multiple_of: int = 2
     """Pad input tensors to be a multiple of value provided."""
 
+    def __post_init__(self) -> None:
+        # Ensure quantization_encoding and kv cache strategy is consistent.
+        # If a quantizated encoding is provided, we must use the naive strategy.
+        if self.quantization_encoding not in [
+            SupportedEncodings.float32,
+            SupportedEncodings.bfloat16,
+        ]:
+            self.cache_strategy = KVCacheStrategy.NAIVE
+
     @staticmethod
     def help():
         return {

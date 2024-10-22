@@ -52,9 +52,6 @@ class Hyperparameters:
     feed_forward_length: int = 500
     """Dimensions in the attention projection layers."""
 
-    cache_strategy: KVCacheStrategy = KVCacheStrategy.CONTINUOUS
-    """Force using a specific KV cache strategy, 'naive' or 'continuous'."""
-
     has_dedicated_output_weights: bool = True
     """Whether there are dedicated output linear layer weights."""
 
@@ -67,14 +64,6 @@ class Hyperparameters:
     def kv_weight_dim(self):
         """Dimension of the key and value attention weights."""
         return self.head_dim * self.n_kv_heads
-
-    @property
-    def use_opaque(self):
-        """Boolean to use opaque kv caching optimizations."""
-        return (
-            self.quantization_encoding is None
-            and self.cache_strategy.uses_opaque()
-        )
 
     @property
     def mask_dtype(self) -> DType:

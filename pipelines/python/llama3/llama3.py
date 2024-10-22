@@ -130,7 +130,7 @@ class Llama3:
             n_kv_heads=self.params.n_kv_heads,
             head_dim=self.params.head_dim,
             dtype=dtype,
-            cache_strategy=self.params.cache_strategy,
+            cache_strategy=self.config.cache_strategy,
         )
 
         self._kv_manager = load_kv_manager(
@@ -177,7 +177,9 @@ class Llama3:
                 *kv_cache_args,
             ],
         ) as graph:
-            model = transformer(graph, self.params, weights, self._kv_params)
+            model = transformer(
+                graph, self.config, self.params, weights, self._kv_params
+            )
             tokens, attention_mask, valid_lengths, *kv_cache = graph.inputs
             logits = model(
                 tokens,
@@ -192,7 +194,7 @@ class Llama3:
         self,
         weights: GGUFWeights,
     ) -> Graph:
-        if self.params.use_opaque:
+        if self.config.cache_strategy == KVCacheStrategy.CONTINUOUS:
             return self._llama_graph_opaque(weights)
 
         tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
@@ -222,7 +224,9 @@ class Llama3:
                 start_pos_type,
             ],
         ) as graph:
-            model = transformer(graph, self.params, weights, self._kv_params)
+            model = transformer(
+                graph, self.config, self.params, weights, self._kv_params
+            )
             tokens, attention_mask, k_cache, v_cache, start_pos = graph.inputs
             logits, end_pos = model(
                 tokens,
@@ -386,7 +390,7 @@ class Llama3:
 
     def _execute(self, req_to_context_dict: dict[str, Llama3Context]) -> Tensor:
         """Executes the model and returns the raw results."""
-        if self.params.use_opaque:
+        if self.config.cache_strategy == KVCacheStrategy.CONTINUOUS:
             return self._execute_opaque(req_to_context_dict)
 
         context_batch = req_to_context_dict.values()
@@ -479,20 +483,11 @@ def _read_hyperparameters(
         tensor.name == "output.weight" for tensor in reader.tensors
     )
 
-    # If a quantization encoding is provided, the only caching strategy
-    # available is the naive path. As such, overwrite this value to be
-    # naive.
-    if config.quantization_encoding.quantization_encoding:
-        cache_strategy = KVCacheStrategy.NAIVE
-    else:
-        cache_strategy = config.cache_strategy
-
     return Hyperparameters(
         dtype=config.quantization_encoding.dtype,
         quantization_encoding=config.quantization_encoding.quantization_encoding,
         feed_forward_length=feed_forward_length,
         seq_len=seq_len,
-        cache_strategy=cache_strategy,
         has_dedicated_output_weights=has_dedicated_output_weights,
         **configured_params,
     )

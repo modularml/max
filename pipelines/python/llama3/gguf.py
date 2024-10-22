@@ -14,6 +14,7 @@
 
 from typing import Optional, Union
 
+from llama3.config import InferenceConfig
 from max.dtype import DType
 from max.graph import Graph, ops
 from max.graph.quantization import QuantizationEncoding
@@ -289,11 +290,12 @@ def attention(
 
 def transformer(
     graph: Graph,
+    config: InferenceConfig,
     params: Hyperparameters,
     weights: GGUFWeights,
     kv_params: KVCacheParams,
 ):
-    if params.use_opaque:
+    if config.cache_strategy == KVCacheStrategy.CONTINUOUS:
         return _transformer_opaque(graph, params, weights, kv_params)
 
     with graph:
