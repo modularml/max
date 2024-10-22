@@ -21,10 +21,10 @@ from max.graph.quantization import QuantizationEncoding
 from max.graph.weights import GGUFWeights
 from nn import (
     MLP,
-    Attention,
+    AttentionWithRope,
     Embedding,
     Linear,
-    OptimizedAttention,
+    NaiveAttentionWithRope,
     OptimizedRotaryEmbedding,
     OptimizedTransformer,
     OptimizedTransformerBlock,
@@ -33,6 +33,7 @@ from nn import (
     Transformer,
     TransformerBlock,
 )
+from nn.attention.attention_with_rope import AttentionWithRope
 from nn.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
@@ -138,7 +139,7 @@ def _attention_opaque(kv_params, params, rope, weights, layer_idx):
 
     wqkv = ops.concat((wq, wk, wv), axis=1).transpose(0, 1)
 
-    return OptimizedAttention(
+    return AttentionWithRope(
         n_heads=params.n_heads,
         kv_params=kv_params,
         wqkv=wqkv,
@@ -251,7 +252,7 @@ def attention(
     rope: Union[OptimizedRotaryEmbedding, RotaryEmbedding],
     weights: GGUFWeights,
 ):
-    return Attention(
+    return NaiveAttentionWithRope(
         n_heads=params.n_heads,
         n_kv_heads=params.n_kv_heads,
         head_dim=params.head_dim,

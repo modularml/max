@@ -14,26 +14,21 @@
 
 from dataclasses import dataclass
 
-from max.dtype import DType
-from max.graph import Dim, DimLike, TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, TensorValueLike, ops
 
-from .kernels import (
-    flash_attention,
-    fused_qk_rope,
-    fused_qkv_matmul,
-)
-from .kv_cache import (
-    KVCacheParams,
+from ..layer import Layer
+from ..mlp import Linear
+from ..rotary_embedding import OptimizedRotaryEmbedding
+from ..kernels import flash_attention, fused_qk_rope, fused_qkv_matmul
+from ..kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
+    KVCacheParams,
 )
-from .layer import Layer
-from .mlp import Linear
-from .rotary_embedding import OptimizedRotaryEmbedding
 
 
 @dataclass
-class OptimizedAttention(Layer):
+class AttentionWithRope(Layer):
     n_heads: int
     kv_params: KVCacheParams
     layer_idx: TensorValue

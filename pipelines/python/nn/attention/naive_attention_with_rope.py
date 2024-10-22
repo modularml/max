@@ -10,22 +10,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
-"""The attention mechanism used within the model."""
+"""An attention layer, using only native max graph operations, the naive cache, and ROPE."""
 
 import math
 from dataclasses import dataclass
 
-from max.dtype import DType
-from max.graph import BufferValue, DimLike, TensorValue, TensorValueLike, ops
+from max.graph import BufferValue, TensorValue, TensorValueLike, ops
 
-from .layer import Layer
-from .mlp import Linear
-from .rotary_embedding import RotaryEmbedding
+from ..layer import Layer
+from ..mlp import Linear
+from ..rotary_embedding import RotaryEmbedding
 
 
 @dataclass
-class Attention(Layer):
+class NaiveAttentionWithRope(Layer):
     n_heads: int
     n_kv_heads: int
     head_dim: int

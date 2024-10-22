@@ -11,30 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .attention import NaiveAttentionWithRope, AttentionWithRope
-from .embedding import Embedding
-from .mlp import MLP, Linear
-from .norm import RMSNorm, LPLayerNorm
-from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
-from .transformer import (
-    OptimizedTransformer,
-    OptimizedTransformerBlock,
-    Transformer,
-    TransformerBlock,
-)
+"""The attention mechanism used within the model."""
+
+from .naive_attention_with_rope import NaiveAttentionWithRope
+from .attention_with_rope import AttentionWithRope
 
 __all__ = [
-    "AttentionWithRope",
     "NaiveAttentionWithRope",
-    "Embedding",
-    "MLP",
-    "Linear",
-    "LPLayerNorm",
-    "RMSNorm",
-    "OptimizedRotaryEmbedding",
-    "RotaryEmbedding",
-    "OptimizedTransformer",
-    "OptimizedTransformerBlock",
-    "Transformer",
-    "TransformerBlock",
+    "AttentionWithRope",
 ]
