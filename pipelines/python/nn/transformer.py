@@ -25,7 +25,7 @@ from .kv_cache import (
 from .layer import Layer
 
 if TYPE_CHECKING:
-    from .attention import Attention
+    from .attention import NaiveAttentionWithRope, AttentionWithRope
     from .embedding import Embedding
     from .kv_cache import (
         ContinuousBatchingKVCache,
@@ -36,14 +36,13 @@ if TYPE_CHECKING:
     )
     from .mlp import MLP, Linear
     from .norm import RMSNorm
-    from .optimized_attention import OptimizedAttention
 
 
 @dataclass
 class TransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
-    attention: Attention
+    attention: NaiveAttentionWithRope
     mlp: MLP
     attention_norm: RMSNorm
     mlp_norm: RMSNorm
@@ -113,7 +112,7 @@ class Transformer(Layer):
 class OptimizedTransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
-    attention: OptimizedAttention
+    attention: AttentionWithRope
     mlp: MLP
     attention_norm: RMSNorm
     mlp_norm: RMSNorm
