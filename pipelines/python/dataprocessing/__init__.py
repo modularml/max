@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from .causal_attention_mask import causal_attention_mask
+from .causal_attention_mask_with_alibi import causal_attention_mask_with_alibi
 from .collate_batch import (
     collate_batch,
     batch_padded_tokens_and_mask,
@@ -20,6 +21,7 @@ from .collate_batch import (
 
 __all__ = [
     "causal_attention_mask",
+    "causal_attention_mask_with_alibi",
     "collate_batch",
     "batch_padded_tokens_and_mask",
     "PaddingDirection",
