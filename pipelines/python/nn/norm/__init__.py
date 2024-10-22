@@ -11,23 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-"""Normalization layer."""
+from .lp_norm import LPLayerNorm
+from .rms_norm import RMSNorm
 
-from dataclasses import dataclass
-
-from max.graph import TensorType, TensorValue, TensorValueLike, ops
-
-from .layer import Layer
-
-
-@dataclass
-class RMSNorm(Layer):
-    weight: TensorValueLike
-    eps: float = 1e-6
-
-    def __call__(self, x: TensorValueLike) -> TensorValue:
-        return ops.custom(
-            "rms_norm",
-            [x, ops.cast(self.weight, x.dtype), ops.cast(self.eps, x.dtype)],
-            [TensorType(dtype=x.dtype, shape=x.shape)],
-        )[0]
+__all__ = ["LPLayerNorm", "RMSNorm"]
