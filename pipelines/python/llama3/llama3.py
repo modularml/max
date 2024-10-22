@@ -30,11 +30,11 @@ from nn.kv_cache import (
     KVCacheStrategy,
     load_kv_manager,
 )
+from dataprocessing import batch_padded_tokens_and_mask
 from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
 
-from .collate_batch import batch_padded_tokens_and_mask
 from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
