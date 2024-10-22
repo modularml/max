@@ -48,9 +48,9 @@ struct _SplitIter[is_mutable: Bool, origin: Origin[is_mutable].type]:
 
         var next_newline: Int
         # If we've already split `max` times, return the final slice.
-        var split = self.split._strref_dangerous()
+        var split = self.split.as_string_slice()
         var slice = StringSlice(unsafe_from_utf8=self.span)
-        if (next_newline := slice._strref_dangerous().find(split)) != -1:
+        if (next_newline := slice.find(split)) != -1:
             var line = self.span[:next_newline]
             # advance the span start until the end of the found match
             self.span = self.span[next_newline + len(self.split) :]
