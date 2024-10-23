@@ -35,7 +35,7 @@ class RotaryEmbedding(Layer):
     """Hyperparameter used to control the frequency scaling of the sinusoidal components of the embeddings."""
     max_seq_len: int
     """The maximum sequence length for model's input."""
-    rope_scaling: Optional[np.ndarray]
+    rope_scaling: Optional[np.ndarray] = None
     """Scaling factor for the positional frequencies."""
     _freqs_cis: Optional[TensorValueLike] = None
 
