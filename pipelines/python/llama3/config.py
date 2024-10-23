@@ -12,12 +12,11 @@
 # ===----------------------------------------------------------------------=== #
 """All configurable parameters for Llama3."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
-from max.driver import CPU, Device
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
 from nn.kv_cache import KVCacheStrategy
@@ -95,9 +94,26 @@ _ENCODING_TO_MODEL_NAME_LLAMA3_1 = {
 }
 
 
+@dataclass(frozen=True)
+class DeviceSpec:
+    id: int
+    """Provided id for this device."""
+
+    device_type: Literal["cpu", "cuda"] = "cpu"
+    """Type of specified device."""
+
+    @staticmethod
+    def cpu(id: int = -1):
+        return DeviceSpec(id, "cpu")
+
+    @staticmethod
+    def cuda(id: int = -1):
+        return DeviceSpec(id, "cuda")
+
+
 @dataclass
 class InferenceConfig:
-    device: Device = field(default_factory=CPU)
+    device_spec: DeviceSpec = DeviceSpec.cpu()
     """Device to run inference upon."""
 
     weight_path: Optional[Union[str, Path]] = None
