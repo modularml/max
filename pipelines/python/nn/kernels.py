@@ -16,10 +16,8 @@ from max.dtype import DType
 from max.graph import TensorType, TensorValue, ops
 
 from .kv_cache import (
-    ContinuousBatchingKVCache,
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
-    ContinuousBatchingKVCacheType,
     KVCacheParams,
 )
 
@@ -81,8 +79,8 @@ def flash_attention(
 def flash_attention_with_causal_mask(
     kv_params: KVCacheParams,
     input: TensorValue,
-    k_cache: ContinuousBatchingKVCache,
-    v_cache: ContinuousBatchingKVCache,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+    layer_idx: TensorValue,
     valid_lengths: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache.
@@ -102,12 +100,20 @@ def flash_attention_with_causal_mask(
         )
         raise ValueError(msg)
 
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected uint32 layer_idx but got {layer_idx.dtype}"
+        raise ValueError(msg)
+
+    if valid_lengths.dtype != DType.uint32:
+        msg = f"expected uint32 valid_lengths but got {valid_lengths.dtype}"
+        raise ValueError(msg)
+
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_causal_mask_continuous_batch"
 
-    # NOTE: The scale argument to the flash attentionkernel is constrained to float32.
+    # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, k_cache, v_cache, valid_lengths, scale],
+        [input, kv_collection, layer_idx, valid_lengths, scale],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
