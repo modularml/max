@@ -29,9 +29,9 @@ if TYPE_CHECKING:
     from .embedding import Embedding
     from .kv_cache import (
         ContinuousBatchingKVCache,
-        ContinuousBatchingKVCacheType,
         ContinuousBatchingKVCacheCollection,
         ContinuousBatchingKVCacheCollectionType,
+        ContinuousBatchingKVCacheType,
         KVCacheParams,
     )
     from .mlp import MLP, Linear
@@ -120,13 +120,11 @@ class OptimizedTransformerBlock(Layer):
     def __call__(
         self,
         x: TensorValueLike,
-        attention_mask: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
         valid_lengths: TensorValue,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         attention_out, kv_collection = self.attention(
             self.attention_norm(x),
-            attention_mask,
             kv_collection,
             valid_lengths,
         )
@@ -154,7 +152,6 @@ class OptimizedTransformer(Layer):
     def __call__(
         self,
         tokens: TensorValue,
-        attention_mask: TensorValue,
         valid_lengths: TensorValue,
         kv_cache_params: tuple[
             TensorValue, TensorValue, TensorValue, TensorValue
@@ -167,7 +164,6 @@ class OptimizedTransformer(Layer):
         for i, layer in enumerate(self.layers):
             h, _ = layer(
                 h,
-                attention_mask,
                 kv_cache_collection,
                 valid_lengths,
             )

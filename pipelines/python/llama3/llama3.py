@@ -19,7 +19,7 @@ from typing import Optional
 
 import gguf
 import numpy as np
-from dataprocessing import batch_padded_tokens_and_mask
+from dataprocessing import batch_padded_tokens_and_mask, collate_batch
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -165,9 +165,6 @@ class Llama3:
         weights: GGUFWeights,
     ) -> Graph:
         tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-        attn_mask_type = TensorType(
-            DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
-        )
         valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
 
         kv_cache_args = self._kv_manager.input_symbols()
@@ -176,7 +173,6 @@ class Llama3:
             "llama3",
             input_types=[
                 tokens_type,
-                attn_mask_type,
                 valid_lengths_type,
                 *kv_cache_args,
             ],
@@ -184,10 +180,9 @@ class Llama3:
             model = transformer(
                 graph, self.config, self.params, weights, self._kv_params
             )
-            tokens, attention_mask, valid_lengths, *kv_cache = graph.inputs
+            tokens, valid_lengths, *kv_cache = graph.inputs
             logits = model(
                 tokens,
-                attention_mask.cast(self.params.mask_dtype),
                 valid_lengths,
                 kv_cache,
             )
@@ -363,12 +358,10 @@ class Llama3:
 
         # Pad tokens and compute attention mask for the batch.
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
-        next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
-            start_pos=[
-                self._kv_manager.cache_lengths[seq_id]
-                for seq_id in cache_seq_ids
-            ],
-            tokens=tokens,
+
+        next_tokens_batch, _ = collate_batch(
+            tokens,
+            batch_size=len(tokens),
             pad_to_multiple_of=self.config.pad_to_multiple_of,
         )
 
@@ -378,7 +371,6 @@ class Llama3:
         # Execute model.
         logits = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self._device),
-            Tensor.from_numpy(attn_mask).to(self._device),
             valid_lengths.to(self._device),
             *kv_cache_tensors,
             copy_inputs_to_device=False,

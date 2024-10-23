@@ -14,17 +14,21 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 
-from ..layer import Layer
-from ..mlp import Linear
-from ..rotary_embedding import OptimizedRotaryEmbedding
-from ..kernels import flash_attention, fused_qk_rope, fused_qkv_matmul
+from ..kernels import (
+    flash_attention_with_causal_mask,
+    fused_qk_rope,
+    fused_qkv_matmul,
+)
 from ..kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
 )
+from ..layer import Layer
+from ..mlp import Linear
+from ..rotary_embedding import OptimizedRotaryEmbedding
 
 
 @dataclass
@@ -44,7 +48,6 @@ class AttentionWithRope(Layer):
     def __call__(
         self,
         x: TensorValue,
-        attn_mask: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
         valid_lengths: TensorValue,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
@@ -79,12 +82,11 @@ class AttentionWithRope(Layer):
         )
 
         # Calculate Flash Attention.
-        attn_out = flash_attention(
+        attn_out = flash_attention_with_causal_mask(
             self.kv_params,
             input=xq,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
-            attn_mask=attn_mask,
             valid_lengths=valid_lengths,
         )
 
