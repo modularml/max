@@ -18,7 +18,6 @@ import click
 import llama3
 import replit
 from huggingface_hub import hf_hub_download
-from max.driver import CPU, CUDA
 from max.pipelines import TokenGenerator
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
@@ -28,14 +27,13 @@ from max.serve.pipelines.llm import (
     TokenGeneratorPipeline,
     TokenGeneratorPipelineConfig,
 )
-from max.serve.pipelines.performance_fake import (
-    get_performance_fake,
-)
-from text_streaming import stream_text_to_console
-from transformers import PreTrainedTokenizerBase, AutoTokenizer
-from uvicorn import Server
-from utils import TextGenerationMetrics, config_to_flag, DevicesOptionType
+from max.serve.pipelines.performance_fake import get_performance_fake
 from nn.kv_cache import KVCacheStrategy
+from text_streaming import stream_text_to_console
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
+from uvicorn import Server
+
+from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag
 
 try:
     import rich.traceback
@@ -172,12 +170,12 @@ def run_llama3(
     if use_gpu:
         config_kwargs.update(
             {
-                "device": CUDA(id=use_gpu[0]),
+                "device_spec": llama3.DeviceSpec.cuda(id=use_gpu[0]),
                 "quantization_encoding": llama3.SupportedEncodings.bfloat16,
             }
         )
     else:
-        config_kwargs.update({"device": CPU()})
+        config_kwargs.update({"device_spec": llama3.DeviceSpec.cpu()})
     config = llama3.InferenceConfig(**config_kwargs)
     # By default, use the Modular HF repository as a reference for tokenizer
     # configuration, etc. when no repository is specified.

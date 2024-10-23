@@ -19,7 +19,8 @@ from typing import Optional
 
 import gguf
 import numpy as np
-from max.driver import CPU, Tensor
+from dataprocessing import batch_padded_tokens_and_mask
+from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType, ops
@@ -30,7 +31,6 @@ from nn.kv_cache import (
     KVCacheStrategy,
     load_kv_manager,
 )
-from dataprocessing import batch_padded_tokens_and_mask
 from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
@@ -126,6 +126,10 @@ class Llama3:
             DType.float32 if self.params.quantization_encoding
             is not None else self.params.dtype
         )
+        device_spec = self.config.device_spec
+        self._device = CPU(
+            device_spec.id
+        ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
         self._kv_params = KVCacheParams(
             n_kv_heads=self.params.n_kv_heads,
             head_dim=self.params.head_dim,
@@ -138,10 +142,10 @@ class Llama3:
             max_cache_batch_size=config.max_cache_batch_size,
             max_seq_len=config.max_length,
             num_layers=self.params.n_layers,
-            device=config.device,
+            device=self._device,
         )
 
-        session = InferenceSession(device=config.device)
+        session = InferenceSession(device=self._device)
 
         self._tokenizer = tokenizer_from_gguf(gguf_reader)
         self._model = self._load_model(
@@ -373,9 +377,9 @@ class Llama3:
 
         # Execute model.
         logits = self._model.execute(
-            Tensor.from_numpy(next_tokens_batch).to(self.config.device),
-            Tensor.from_numpy(attn_mask).to(self.config.device),
-            valid_lengths.to(self.config.device),
+            Tensor.from_numpy(next_tokens_batch).to(self._device),
+            Tensor.from_numpy(attn_mask).to(self._device),
+            valid_lengths.to(self._device),
             *kv_cache_tensors,
             copy_inputs_to_device=False,
         )[0]
@@ -411,8 +415,8 @@ class Llama3:
 
         # Execute model.
         logits, end_pos = self._model.execute(
-            Tensor.from_numpy(next_tokens_batch).to(self.config.device),
-            Tensor.from_numpy(attn_mask).to(self.config.device),
+            Tensor.from_numpy(next_tokens_batch).to(self._device),
+            Tensor.from_numpy(attn_mask).to(self._device),
             keys,
             values,
             seq_len,
