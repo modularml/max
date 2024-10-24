@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, ops
+from max.graph import TensorValue, TensorValueLike, ops
 
 from ..kernels import (
     flash_attention_with_causal_mask,
@@ -24,40 +24,24 @@ from ..kernels import (
 from ..kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
-    KVCacheParams,
-    KVCacheStrategy,
 )
-from ..layer import Layer
-from ..mlp import Linear
 from ..rotary_embedding import OptimizedRotaryEmbedding
+from .interfaces import AttentionImpl
 
 
 @dataclass
-class AttentionWithRope(Layer):
-    n_heads: int
-    kv_params: KVCacheParams
-    layer_idx: TensorValue
-
-    wqkv: TensorValue
-    wo: Linear
-
+class AttentionWithRope(AttentionImpl):
     # This class will not use the RotaryEmbedding to
     # calculate rope, but it already includes a freqs_cis
     # calculation, which we will borrow
     rope: OptimizedRotaryEmbedding
 
-    def __post_init__(self) -> None:
-        if self.kv_params.cache_strategy == KVCacheStrategy.NAIVE:
-            raise ValueError(
-                f"{self.kv_params.cache_strategy} cache strategy, not supported"
-                " in Attention layer."
-            )
-
     def __call__(
         self,
-        x: TensorValue,
+        x: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
         valid_lengths: TensorValue,
+        **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         # Get attributes from input.
         batch_size, seq_len = x.shape[0], x.shape[1]
