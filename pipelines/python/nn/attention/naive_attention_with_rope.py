@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from max.graph import BufferValue, TensorValue, TensorValueLike, ops
 
+from nn.kv_cache import KVCacheParams, KVCacheStrategy
 from ..layer import Layer
 from ..mlp import Linear
 from ..rotary_embedding import RotaryEmbedding
@@ -25,8 +26,7 @@ from ..rotary_embedding import RotaryEmbedding
 @dataclass
 class NaiveAttentionWithRope(Layer):
     n_heads: int
-    n_kv_heads: int
-    head_dim: int
+    kv_params: KVCacheParams
     dim: int
 
     wq: Linear
@@ -36,13 +36,27 @@ class NaiveAttentionWithRope(Layer):
 
     rope: RotaryEmbedding
 
+    def __post_init__(self) -> None:
+        if self.kv_params.cache_strategy != KVCacheStrategy.NAIVE:
+            raise ValueError(
+                f"{self.kv_params.cache_strategy} cache strategy, not supported"
+                " in Attention layer."
+            )
+
     def repeat_kv(self, kv: TensorValue) -> TensorValue:
         """Repeats key/value tensors to match the number of query heads."""
         batch = kv.shape[0]
-        kv = ops.reshape(kv, [batch, -1, self.n_kv_heads, 1, self.head_dim])
+        kv = ops.reshape(
+            kv,
+            [batch, -1, self.kv_params.n_kv_heads, 1, self.kv_params.head_dim],
+        )
 
-        kv = ops.tile(kv, [1, 1, 1, self.n_heads // self.n_kv_heads, 1])
-        return ops.reshape(kv, [batch, -1, self.n_heads, self.head_dim])
+        kv = ops.tile(
+            kv, [1, 1, 1, self.n_heads // self.kv_params.n_kv_heads, 1]
+        )
+        return ops.reshape(
+            kv, [batch, -1, self.n_heads, self.kv_params.head_dim]
+        )
 
     def attention(
         self,
@@ -70,7 +84,7 @@ class NaiveAttentionWithRope(Layer):
         keys = keys.transpose(1, 2)
         values = values.transpose(1, 2)
 
-        scale = math.sqrt(1.0 / self.head_dim)
+        scale = math.sqrt(1.0 / self.kv_params.head_dim)
         scores = xq @ ops.transpose(keys, 2, 3)
         # Note, the graph compiler currently requires the order of operands
         # to be `scores * scale` in order to pattern match the fused attention
@@ -104,10 +118,28 @@ class NaiveAttentionWithRope(Layer):
         xk = self.wk(x)
         xv = self.wv(x)
 
-        xq = ops.reshape(xq, [batch, seq_len, self.n_heads, self.head_dim])
+        xq = ops.reshape(
+            xq, [batch, seq_len, self.n_heads, self.kv_params.head_dim]
+        )
 
-        xk = ops.reshape(xk, [batch, seq_len, self.n_kv_heads, self.head_dim])
-        xv = ops.reshape(xv, [batch, seq_len, self.n_kv_heads, self.head_dim])
+        xk = ops.reshape(
+            xk,
+            [
+                batch,
+                seq_len,
+                self.kv_params.n_kv_heads,
+                self.kv_params.head_dim,
+            ],
+        )
+        xv = ops.reshape(
+            xv,
+            [
+                batch,
+                seq_len,
+                self.kv_params.n_kv_heads,
+                self.kv_params.head_dim,
+            ],
+        )
 
         xq = self.rope(xq, start_pos, seq_len)
         xk = self.rope(xk, start_pos, seq_len)

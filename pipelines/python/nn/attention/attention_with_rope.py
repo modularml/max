@@ -25,6 +25,7 @@ from ..kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
+    KVCacheStrategy,
 )
 from ..layer import Layer
 from ..mlp import Linear
@@ -44,6 +45,13 @@ class AttentionWithRope(Layer):
     # calculate rope, but it already includes a freqs_cis
     # calculation, which we will borrow
     rope: OptimizedRotaryEmbedding
+
+    def __post_init__(self) -> None:
+        if self.kv_params.cache_strategy == KVCacheStrategy.NAIVE:
+            raise ValueError(
+                f"{self.kv_params.cache_strategy} cache strategy, not supported"
+                " in Attention layer."
+            )
 
     def __call__(
         self,

@@ -254,8 +254,7 @@ def attention(
 ):
     return NaiveAttentionWithRope(
         n_heads=params.n_heads,
-        n_kv_heads=params.n_kv_heads,
-        head_dim=params.head_dim,
+        kv_params=kv_params,
         dim=params.hidden_dim,
         wk=linear(
             params.dtype,
