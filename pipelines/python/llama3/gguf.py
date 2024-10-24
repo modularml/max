@@ -25,9 +25,9 @@ from nn import (
     Embedding,
     Linear,
     NaiveAttentionWithRope,
+    NaiveTransformer,
+    NaiveTransformerBlock,
     OptimizedRotaryEmbedding,
-    OptimizedTransformer,
-    OptimizedTransformerBlock,
     RMSNorm,
     RotaryEmbedding,
     Transformer,
@@ -173,7 +173,7 @@ def _transformer_opaque(graph, params, weights, kv_params):
         )
 
         layers = [
-            OptimizedTransformerBlock(
+            TransformerBlock(
                 attention=_attention_opaque(
                     kv_params,
                     params,
@@ -229,7 +229,7 @@ def _transformer_opaque(graph, params, weights, kv_params):
                 "Unsupported caching strategy " + str(kv_params.cache_strategy)
             )
 
-        return OptimizedTransformer(
+        return Transformer(
             dim=params.hidden_dim,
             n_heads=params.n_heads,
             layers=layers,
@@ -315,7 +315,7 @@ def transformer(
         )
 
         layers = [
-            TransformerBlock(
+            NaiveTransformerBlock(
                 attention=attention(kv_params, params, rope, weights.blk[i]),
                 mlp=feed_forward(
                     params.dtype,
@@ -355,7 +355,7 @@ def transformer(
         else:
             output = Linear(embedding_layer.weights)
 
-        return Transformer(
+        return NaiveTransformer(
             dim=params.hidden_dim,
             n_heads=params.n_heads,
             layers=layers,
