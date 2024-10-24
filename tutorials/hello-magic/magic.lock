@@ -147,13 +147,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-c-1.9.4-hcb278e6_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-3.0.2-py311h2dc5d0c_0.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/linux-64/max-core-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/linux-64/max-python-24.6.0.dev2024102319-3.11release.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/linux-64/max-core-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/linux-64/max-python-24.6.0.dev2024102406-3.11release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mkl-2023.0.0-h84fe81f_26648.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpc-1.3.1-h24ddda3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.1-h90cbb55_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mpmath-1.3.0-pyhd8ed1ab_0.conda
@@ -183,7 +183,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pycparser-2.22-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.9.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pydantic-core-2.23.4-py311h9e33e62_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.5.2-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.6.0-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.18.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pysocks-1.7.1-pyha2e5f31_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.11.10-hc5c86c4_3_cpython.conda
@@ -354,12 +354,12 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/lz4-c-1.9.4-hb7217d7_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/markupsafe-3.0.2-py311h56c23cb_0.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-core-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-python-24.6.0.dev2024102319-3.11release.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-core-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-python-24.6.0.dev2024102406-3.11release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mpc-1.3.1-h8f1351a_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mpfr-4.2.1-hb693164_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mpmath-1.3.0-pyhd8ed1ab_0.conda
@@ -388,7 +388,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pycparser-2.22-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.9.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pydantic-core-2.23.4-py311h481aa64_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.5.2-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.6.0-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.18.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pysocks-1.7.1-pyha2e5f31_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.11.10-hc51fdd5_3_cpython.conda
@@ -593,13 +593,13 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-c-1.9.4-hcb278e6_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/markupsafe-3.0.2-py311h2dc5d0c_0.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/linux-64/max-core-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/linux-64/max-python-24.6.0.dev2024102319-3.11release.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/linux-64/max-core-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/linux-64/max-python-24.6.0.dev2024102406-3.11release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mkl-2023.0.0-h84fe81f_26648.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpc-1.3.1-h24ddda3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.1-h90cbb55_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mpmath-1.3.0-pyhd8ed1ab_0.conda
@@ -629,7 +629,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pycparser-2.22-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.9.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pydantic-core-2.23.4-py311h9e33e62_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.5.2-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.6.0-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.18.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pysocks-1.7.1-pyha2e5f31_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.11.10-hc5c86c4_3_cpython.conda
@@ -803,12 +803,12 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/lz4-c-1.9.4-hb7217d7_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/markdown-it-py-3.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/markupsafe-3.0.2-py311h56c23cb_0.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-core-24.6.0.dev2024102319-release.conda
-      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-python-24.6.0.dev2024102319-3.11release.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-core-24.6.0.dev2024102406-release.conda
+      - conda: https://conda.modular.com/max-nightly/osx-arm64/max-python-24.6.0.dev2024102406-3.11release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102319-release.conda
+      - conda: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102406-release.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mpc-1.3.1-h8f1351a_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/mpfr-4.2.1-hb693164_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mpmath-1.3.0-pyhd8ed1ab_0.conda
@@ -837,7 +837,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pycparser-2.22-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-2.9.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pydantic-core-2.23.4-py311h481aa64_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.5.2-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.6.0-pyh3cfb1c2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pygments-2.18.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pysocks-1.7.1-pyha2e5f31_6.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.11.10-hc51fdd5_3_cpython.conda
@@ -4942,61 +4942,61 @@ packages:
   timestamp: 1729351536390
 - kind: conda
   name: max
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: release
   subdir: noarch
   noarch: python
-  url: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102319-release.conda
-  sha256: 3155d2a4b95c78c3b4fd60102ba0cc4652a7a3ba6f33e6599956d43dd8f8f005
-  md5: 61bc70247274c17df67a6eca235614e9
+  url: https://conda.modular.com/max-nightly/noarch/max-24.6.0.dev2024102406-release.conda
+  sha256: ab46590545266bda481dfe7c0c41fa0a482fb098f4f56e00f528b28d0c0939da
+  md5: 8a256f81e3eaee3d71c9edc635809872
   depends:
-  - max-core ==24.6.0.dev2024102319 release
-  - max-python >=24.6.0.dev2024102319,<25.0a0
-  - mojo-jupyter ==24.6.0.dev2024102319 release
-  - mblack ==24.6.0.dev2024102319 release
+  - max-core ==24.6.0.dev2024102406 release
+  - max-python >=24.6.0.dev2024102406,<25.0a0
+  - mojo-jupyter ==24.6.0.dev2024102406 release
+  - mblack ==24.6.0.dev2024102406 release
   license: LicenseRef-Modular-Proprietary
-  size: 9858
-  timestamp: 1729712453412
+  size: 9857
+  timestamp: 1729752793886
 - kind: conda
   name: max-core
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: release
   subdir: linux-64
-  url: https://conda.modular.com/max-nightly/linux-64/max-core-24.6.0.dev2024102319-release.conda
-  sha256: 0a4bac7cea903edf58cb0d43f6b12319399f3e9ff74fee64a886b898876c6905
-  md5: af1f95c157adb7344649f005fea39d43
+  url: https://conda.modular.com/max-nightly/linux-64/max-core-24.6.0.dev2024102406-release.conda
+  sha256: 87acd681d3c1c801331ee790cc12cd3f8b9bcf927cf6ae375752edd2eba3426b
+  md5: f8d9f4c6c1aea9d3bc511069e76a98ad
   depends:
-  - mblack ==24.6.0.dev2024102319 release
+  - mblack ==24.6.0.dev2024102406 release
   arch: x86_64
   platform: linux
   license: LicenseRef-Modular-Proprietary
-  size: 248400146
-  timestamp: 1729712453410
+  size: 248528368
+  timestamp: 1729752793884
 - kind: conda
   name: max-core
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: release
   subdir: osx-arm64
-  url: https://conda.modular.com/max-nightly/osx-arm64/max-core-24.6.0.dev2024102319-release.conda
-  sha256: 3e8f2736682508f851061a39f9e7a515409b2ca68e9e02dcbf68e5c1bef585cd
-  md5: bc9863bfe5070a403a1c38262e69351f
+  url: https://conda.modular.com/max-nightly/osx-arm64/max-core-24.6.0.dev2024102406-release.conda
+  sha256: a95faedf9b6c7f53a536dd5844652e4df4df9f64e90b6ea76eba75b6696f841c
+  md5: 784a1c2488a45a105758d463e59dc84b
   depends:
-  - mblack ==24.6.0.dev2024102319 release
+  - mblack ==24.6.0.dev2024102406 release
   arch: arm64
   platform: osx
   license: LicenseRef-Modular-Proprietary
-  size: 213320842
-  timestamp: 1729713436032
+  size: 213483897
+  timestamp: 1729752680707
 - kind: conda
   name: max-python
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: 3.11release
   subdir: linux-64
-  url: https://conda.modular.com/max-nightly/linux-64/max-python-24.6.0.dev2024102319-3.11release.conda
-  sha256: 4dfca4d5d9c96b3b6301abe26c19b9d86090466f357ad7305e6b16f7d0e38a9b
-  md5: 339f5b636eb89be56675b00203d96a49
+  url: https://conda.modular.com/max-nightly/linux-64/max-python-24.6.0.dev2024102406-3.11release.conda
+  sha256: 295af08914daa69b1ee3b709f81596f2a2feef18793c9c0e0e8aa5311985bfb4
+  md5: e9ae7bb91744e3cfea2fc66c01131b2f
   depends:
-  - max-core ==24.6.0.dev2024102319 release
+  - max-core ==24.6.0.dev2024102406 release
   - python 3.11.*
   - numpy >=1.18,<2.0
   - fastapi
@@ -5010,18 +5010,18 @@ packages:
   arch: x86_64
   platform: linux
   license: LicenseRef-Modular-Proprietary
-  size: 123649189
-  timestamp: 1729712453417
+  size: 123819735
+  timestamp: 1729752793892
 - kind: conda
   name: max-python
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: 3.11release
   subdir: osx-arm64
-  url: https://conda.modular.com/max-nightly/osx-arm64/max-python-24.6.0.dev2024102319-3.11release.conda
-  sha256: 8b793f062955d72c04d35854bbc62dbbc03a06e6d7c903a528d1ab9c4f379cac
-  md5: 463de0b9f90efd4ef8ade63644de7942
+  url: https://conda.modular.com/max-nightly/osx-arm64/max-python-24.6.0.dev2024102406-3.11release.conda
+  sha256: e33bfa31f778a98318be98b43c1767d0985387a995247f7fa4a9f76bd2bdc2bf
+  md5: 2ccc23f881f9bcc85bc7ee7fd0d21448
   depends:
-  - max-core ==24.6.0.dev2024102319 release
+  - max-core ==24.6.0.dev2024102406 release
   - python 3.11.*
   - numpy >=1.18,<2.0
   - fastapi
@@ -5035,17 +5035,17 @@ packages:
   arch: arm64
   platform: osx
   license: LicenseRef-Modular-Proprietary
-  size: 114124709
-  timestamp: 1729713436035
+  size: 114281707
+  timestamp: 1729752680710
 - kind: conda
   name: mblack
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: release
   subdir: noarch
   noarch: python
-  url: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102319-release.conda
-  sha256: 87ccc8709840f0fc3b8e695430f3edd5883178b621d62e6e99ac3866315f3964
-  md5: df9a60a24673bb2a31de3f21bb3b4f84
+  url: https://conda.modular.com/max-nightly/noarch/mblack-24.6.0.dev2024102406-release.conda
+  sha256: f62dd64362c56bf9daea56977b24eb34a8bbbc62a2a37c560505a13f89ca4402
+  md5: b48e6841fa2681ad97b161baec3ee8fd
   depends:
   - python >=3.9,<3.13
   - click >=8.0.0
@@ -5055,8 +5055,8 @@ packages:
   - platformdirs >=2
   - python
   license: MIT
-  size: 130609
-  timestamp: 1729712453416
+  size: 130599
+  timestamp: 1729752793890
 - kind: conda
   name: mdurl
   version: 0.1.2
@@ -5095,21 +5095,21 @@ packages:
   timestamp: 1674673370494
 - kind: conda
   name: mojo-jupyter
-  version: 24.6.0.dev2024102319
+  version: 24.6.0.dev2024102406
   build: release
   subdir: noarch
   noarch: python
-  url: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102319-release.conda
-  sha256: 42d083077508808ee0077d5f883cee76ca76d2470d09e294c8559dcd169fa43a
-  md5: 7c55f00fa227712b5c2db8db9e28bd66
+  url: https://conda.modular.com/max-nightly/noarch/mojo-jupyter-24.6.0.dev2024102406-release.conda
+  sha256: c2459d4ff495a275a593134cf0c87e73617f3c984a8063fc24f711b58ab7fbd5
+  md5: 7a3b017fb6ffdab20c77f7aaeac38bfc
   depends:
-  - max-core ==24.6.0.dev2024102319 release
+  - max-core ==24.6.0.dev2024102406 release
   - python >=3.9,<3.13
   - jupyter_client >=8.6.2,<8.7
   - python
   license: LicenseRef-Modular-Proprietary
-  size: 22885
-  timestamp: 1729712453417
+  size: 22878
+  timestamp: 1729752793891
 - kind: conda
   name: mpc
   version: 1.3.1
@@ -5995,23 +5995,22 @@ packages:
   timestamp: 1726525278048
 - kind: conda
   name: pydantic-settings
-  version: 2.5.2
-  build: pyhd8ed1ab_0
+  version: 2.6.0
+  build: pyh3cfb1c2_0
   subdir: noarch
   noarch: python
-  url: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.5.2-pyhd8ed1ab_0.conda
-  sha256: 4017175a64868dbd515a402bf9626ce47f3621054ccf1b6a7fb3c363a79e37e1
-  md5: 7ad1384e9e7c9338840533b9a2c413f8
+  url: https://conda.anaconda.org/conda-forge/noarch/pydantic-settings-2.6.0-pyh3cfb1c2_0.conda
+  sha256: 179323abb925a0365f97c8aa3852831a4d97d372188c38cfae6b01a920101698
+  md5: e85fa45f47606185c8582d698c2aafe7
   depends:
   - pydantic >=2.7.0
   - python >=3.8
   - python-dotenv >=0.21.0
   license: MIT
-  license_family: MIT
   purls:
   - pkg:pypi/pydantic-settings?source=hash-mapping
-  size: 29217
-  timestamp: 1726062669585
+  size: 30737
+  timestamp: 1729718029389
 - kind: conda
   name: pygments
   version: 2.18.0
