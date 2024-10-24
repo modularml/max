@@ -10,31 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+"""The transformer mechanism used within the model."""
 
-from .attention import AttentionWithRope, NaiveAttentionWithRope
-from .embedding import Embedding
-from .mlp import MLP, Linear
-from .norm import LPLayerNorm, RMSNorm
-from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
-from .transformer import (
-    NaiveTransformer,
-    NaiveTransformerBlock,
-    Transformer,
-    TransformerBlock,
-)
+from .naive_transformer import NaiveTransformer, NaiveTransformerBlock
+from .transformer import Transformer, TransformerBlock
 
 __all__ = [
-    "AttentionWithRope",
-    "NaiveAttentionWithRope",
-    "Embedding",
-    "Linear",
-    "LPLayerNorm",
-    "MLP",
     "NaiveTransformer",
     "NaiveTransformerBlock",
-    "OptimizedRotaryEmbedding",
-    "RMSNorm",
-    "RotaryEmbedding",
     "Transformer",
     "TransformerBlock",
 ]
