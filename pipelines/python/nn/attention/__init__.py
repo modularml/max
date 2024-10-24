@@ -10,13 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
 """The attention mechanism used within the model."""
 
-from .naive_attention_with_rope import NaiveAttentionWithRope
+from .attention import Attention
 from .attention_with_rope import AttentionWithRope
+from .naive_attention_with_rope import NaiveAttentionWithRope
 
 __all__ = [
-    "NaiveAttentionWithRope",
+    "Attention",
     "AttentionWithRope",
+    "NaiveAttentionWithRope",
 ]
