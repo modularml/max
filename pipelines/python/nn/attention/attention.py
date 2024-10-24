@@ -14,42 +14,28 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 
-from ..layer import Layer
-from ..mlp import Linear
 from ..kernels import flash_attention, fused_qkv_matmul
 from ..kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
-    KVCacheParams,
-    KVCacheStrategy,
 )
+from .interfaces import AttentionImpl
 
 
 @dataclass
-class Attention(Layer):
-    n_heads: int
-    kv_params: KVCacheParams
-    layer_idx: TensorValue
-
-    wqkv: TensorValue
-    wo: Linear
-
-    def __post_init__(self) -> None:
-        if self.kv_params.cache_strategy == KVCacheStrategy.NAIVE:
-            raise ValueError(
-                f"{self.kv_params.cache_strategy} cache strategy, not supported"
-                " in Attention layer."
-            )
-
+class Attention(AttentionImpl):
     def __call__(
         self,
         x: TensorValue,
-        attn_mask: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
         valid_lengths: TensorValue,
+        **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+        if "attn_mask" not in kwargs:
+            raise ValueError("attn_mask not passed as input to Attention")
+
         # Get attributes from inputs
         batch_size, seq_len = x.shape[0], x.shape[1]
 
@@ -78,7 +64,7 @@ class Attention(Layer):
             input=xq,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
-            attn_mask=attn_mask,
+            attn_mask=kwargs["attn_mask"],
             valid_lengths=valid_lengths,
         )
 

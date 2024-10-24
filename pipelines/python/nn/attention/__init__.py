@@ -14,10 +14,12 @@
 
 from .attention import Attention
 from .attention_with_rope import AttentionWithRope
+from .interfaces import AttentionImpl
 from .naive_attention_with_rope import NaiveAttentionWithRope
 
 __all__ = [
     "Attention",
+    "AttentionImpl",
     "AttentionWithRope",
     "NaiveAttentionWithRope",
 ]
