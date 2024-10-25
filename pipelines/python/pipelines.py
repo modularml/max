@@ -291,19 +291,17 @@ def run_replit(
     prompt, serve, use_gpu, profile_serve, server_batch_mode, **config_kwargs
 ):
     """Runs the Replit pipeline."""
-    device = CUDA() if use_gpu else CPU()
-    config_kwargs.update({"device": device})
+    if use_gpu:
+        config_kwargs.update(
+            {
+                "device_spec": replit.DeviceSpec.cuda(id=use_gpu[0]),
+                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+            }
+        )
+    else:
+        config_kwargs.update({"device_spec": replit.DeviceSpec.cpu()})
 
     config = replit.InferenceConfig(**config_kwargs)
-
-    if config.weight_path is None:
-        weight_filename = config.quantization_encoding.hf_model_name(
-            config.version
-        )
-        config.weight_path = hf_hub_download(
-            repo_id="modularai/replit-code-1.5",
-            filename=weight_filename,
-        )
 
     if serve:
         print("Starting server...")
