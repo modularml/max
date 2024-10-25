@@ -49,18 +49,3 @@ class MLP(Layer):
 
     def __call__(self, x: TensorValueLike) -> TensorValue:
         return self.down_proj((ops.silu(self.gate_proj(x)) * self.up_proj(x)))
-
-
-@dataclass
-class FeedForward(Layer):
-    """
-    Simple perceptron composed of an up projection and a down projection.
-    Uses GELU activation function.
-
-    """
-
-    down_proj: Linear
-    up_proj: Linear
-
-    def __call__(self, x: TensorValueLike) -> TensorValue:
-        return self.down_proj(ops.gelu(self.up_proj(x)))
