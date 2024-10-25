@@ -13,7 +13,6 @@
 
 
 from .config import (
-    DeviceSpec,
     InferenceConfig,
     SupportedEncodings,
     SupportedVersions,
