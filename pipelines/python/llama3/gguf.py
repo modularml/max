@@ -239,7 +239,6 @@ def _transformer_opaque(graph, params, weights, kv_params):
                 weights.output_norm,
             ),
             output=output,
-            theta=params.rope_theta,
             embedding=embedding_layer,
             kv_params=kv_params,
             kv_collection_constructor=kv_collection_cls(kv_params),

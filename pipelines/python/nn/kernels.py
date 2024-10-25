@@ -61,7 +61,7 @@ def flash_attention(
     input: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollection,
     layer_idx: TensorValue,
-    attn_mask: TensorValue,
+    attention_mask: TensorValue,
     valid_lengths: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache."""
@@ -71,7 +71,7 @@ def flash_attention(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, kv_collection, layer_idx, attn_mask, valid_lengths, scale],
+        [input, kv_collection, layer_idx, attention_mask, valid_lengths, scale],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 

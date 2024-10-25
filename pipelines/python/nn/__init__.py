@@ -11,7 +11,12 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .attention import AttentionWithRope, NaiveAttentionWithRope
+from .attention import (
+    AttentionWithRope,
+    NaiveAttentionWithRope,
+    AttentionImpl,
+    Attention,
+)
 from .embedding import Embedding
 from .linear import MLP, FeedForward, Linear
 from .norm import LPLayerNorm, RMSNorm
@@ -24,6 +29,8 @@ from .transformer import (
 )
 
 __all__ = [
+    "Attention",
+    "AttentionImpl",
     "AttentionWithRope",
     "NaiveAttentionWithRope",
     "Embedding",
