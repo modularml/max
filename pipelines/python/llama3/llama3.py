@@ -27,7 +27,7 @@ from dataprocessing import (
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import BufferType, Graph, TensorType, ops
+from max.graph import BufferType, Graph, TensorType
 from max.graph.weights import GGUFWeights
 from nn.kv_cache import (
     KVCacheManager,
@@ -35,6 +35,7 @@ from nn.kv_cache import (
     KVCacheStrategy,
     load_kv_manager,
 )
+from nn.sampling import token_sampler
 from tokenizers import Tokenizer
 
 from utils import gguf_utils, tokenizer_from_gguf
@@ -98,11 +99,6 @@ _TOKENIZER_LOCK = asyncio.Lock()
 _ENGINE_LOCK = asyncio.Lock()
 
 
-def _argmax_sampler(dtype: DType):
-    logits_type = TensorType(dtype, ["batch", "vocab_size"])
-    return Graph("argmax", ops.argmax, input_types=[logits_type])
-
-
 class Llama3:
     """The overall interface to the Llama 3 model."""
 
@@ -156,7 +152,7 @@ class Llama3:
             session, config, self.params, gguf_reader
         )
         # logits are always float32 for now
-        self._sampler = session.load(_argmax_sampler(DType.float32))
+        self._sampler = session.load(token_sampler(config.top_k, DType.float32))
 
         if export_path := config.save_to_serialized_model_path:
             print(f"Exporting serialized model to {export_path}...")
