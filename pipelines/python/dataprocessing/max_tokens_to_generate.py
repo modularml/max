@@ -11,20 +11,14 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .causal_attention_mask import causal_attention_mask
-from .causal_attention_mask_with_alibi import causal_attention_mask_with_alibi
-from .collate_batch import (
-    collate_batch,
-    batch_padded_tokens_and_mask,
-    PaddingDirection,
-)
-from .max_tokens_to_generate import max_tokens_to_generate
 
-__all__ = [
-    "causal_attention_mask",
-    "causal_attention_mask_with_alibi",
-    "collate_batch",
-    "batch_padded_tokens_and_mask",
-    "PaddingDirection",
-    "max_tokens_to_generate",
-]
+def max_tokens_to_generate(
+    prompt_size: int,
+    max_length: int,
+    max_new_tokens: int = -1,
+) -> int:
+    """Returns the max number of new tokens to generate."""
+    _difference_between_max_and_prompt = max(max_length - prompt_size, 0)
+    if max_new_tokens < 0:
+        return _difference_between_max_and_prompt
+    return min(max_new_tokens, _difference_between_max_and_prompt)
