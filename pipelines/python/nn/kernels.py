@@ -22,6 +22,50 @@ from .kv_cache import (
 )
 
 
+def fused_qkv_ragged_matmul(
+    kv_params: KVCacheParams,
+    input: TensorValue,
+    input_row_offset: TensorValue,
+    wqkv: TensorValue,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+    layer_idx: TensorValue,
+) -> TensorValue:
+    """Computes fused query, key, and value projections with ragged input.
+
+    `input` and `input_row_offset` are used together to implement the ragged tensor.
+    `input_row_offset` indicates where each batch starts and ends in `input`
+    """
+    if input.dtype != wqkv.dtype:
+        msg = (
+            "expected input and wqkv to have the same dtype, but got"
+            f" {input.dtype} and {wqkv.dtype}, respectively."
+        )
+        raise ValueError(msg)
+
+    if input.rank != 2:
+        msg = f"expected input to have rank 2, was {input.rank}"
+        raise ValueError(msg)
+
+    if input_row_offset.dtype != DType.uint32:
+        msg = (
+            "expected input_row_offset to have dtype uint32, was"
+            f" {input_row_offset.dtype}"
+        )
+        raise ValueError(msg)
+
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected layer_idx to have dtype uint32, was {layer_idx.dtype}"
+        raise ValueError(msg)
+
+    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged"
+
+    return ops.custom(
+        op_name,
+        [input, wqkv, input_row_offset, kv_collection, layer_idx],
+        [TensorType(dtype=input.dtype, shape=input.shape)],
+    )[0]
+
+
 def fused_qkv_matmul(
     kv_params: KVCacheParams,
     input: TensorValue,
@@ -35,6 +79,46 @@ def fused_qkv_matmul(
     return ops.custom(
         op_name,
         [input, wqkv, kv_collection, layer_idx],
+        [TensorType(dtype=input.dtype, shape=input.shape)],
+    )[0]
+
+
+def fused_qk_ragged_rope(
+    kv_params: KVCacheParams,
+    input: TensorValue,
+    input_row_offset: TensorValue,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+    freqs_cis: TensorValue,
+    layer_idx: TensorValue,
+) -> TensorValue:
+    """Computes fused query-key attention with rotary positional encodings and ragged inputs.
+
+    `input` and `input_row_offset` are used together to implement the ragged tensor.
+    `input_row_offset` indicates where each batch starts and ends in `input`
+    """
+
+    if input.dtype != freqs_cis.dtype:
+        msg = (
+            "expected input and freqs_cis to share a dtype, but got"
+            f" {input.dtype} and {freqs_cis.dtyp} respectively"
+        )
+        raise ValueError(msg)
+
+    if input_row_offset.dtype != DType.uint32:
+        msg = (
+            "expected input_row_offset to have dtype uint32, was"
+            f" {input_row_offset.dtype}"
+        )
+
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected layer_idx to have dtype uint32, was {layer_idx.dtype}"
+        raise ValueError(msg)
+
+    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch_ragged"
+
+    return ops.custom(
+        op_name,
+        [input, input_row_offset, kv_collection, freqs_cis, layer_idx],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
@@ -115,5 +199,46 @@ def flash_attention_with_causal_mask(
     return ops.custom(
         op_name,
         [input, kv_collection, layer_idx, valid_lengths, scale],
+        [TensorType(dtype=input.dtype, shape=input.shape)],
+    )[0]
+
+
+def flash_attention_ragged_with_causal_mask(
+    kv_params: KVCacheParams,
+    input: TensorValue,
+    input_row_offset: TensorValue,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+    layer_idx: TensorValue,
+) -> TensorValue:
+    """Computes flash attention provided the mo.opaque KV Cache.
+    Notably, materializes the causal mask within the kernel.
+
+    `input` and `input_row_offset` are used together to implement the ragged tensor.
+    `input_row_offset` indicates where each batch starts and ends in `input`
+    """
+
+    if input.dtype != kv_params.dtype:
+        msg = (
+            f"expected input to be dtype: {kv_params.dtype}, got {input.dtype}"
+        )
+        raise ValueError(msg)
+
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected uint32 layer_idx but got {layer_idx.dtype}"
+        raise ValueError(msg)
+
+    if input_row_offset.dtype != DType.uint32:
+        msg = (
+            f"expected uint32 input_row_offset but got {input_row_offset.dtype}"
+        )
+        raise ValueError(msg)
+
+    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged"
+
+    # NOTE: The scale argument to flash attention is constrained to float32.
+    scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
+    return ops.custom(
+        op_name,
+        [input, kv_collection, layer_idx, input_row_offset, scale],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
