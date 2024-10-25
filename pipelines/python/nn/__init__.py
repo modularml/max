@@ -21,6 +21,7 @@ from .embedding import Embedding
 from .linear import MLP, FeedForward, Linear
 from .norm import LPLayerNorm, RMSNorm
 from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
+from .sequential import Sequential
 from .transformer import (
     NaiveTransformer,
     NaiveTransformerBlock,
@@ -43,6 +44,7 @@ __all__ = [
     "OptimizedRotaryEmbedding",
     "RMSNorm",
     "RotaryEmbedding",
+    "Sequential",
     "Transformer",
     "TransformerBlock",
 ]
