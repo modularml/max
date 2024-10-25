@@ -19,7 +19,11 @@ from typing import Optional
 
 import gguf
 import numpy as np
-from dataprocessing import batch_padded_tokens_and_mask, collate_batch
+from dataprocessing import (
+    batch_padded_tokens_and_mask,
+    collate_batch,
+    max_tokens_to_generate,
+)
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -289,13 +293,16 @@ class Llama3:
     ) -> Llama3Context:
         encoded_prompt = await self._encode(prompt)
 
-        max_tokens_to_generate = _max_tokens_to_generate(
-            len(encoded_prompt), self.config, max_new_tokens
+        _max_tokens_to_generate = max_tokens_to_generate(
+            len(encoded_prompt),
+            self.config.max_length,
+            max_new_tokens if max_new_tokens
+            is not None else self.config.max_new_tokens,
         )
         seq_id = await self._kv_manager.claim(n=1)
         context = Llama3Context(
             prompt=prompt,
-            max_tokens=len(encoded_prompt) + max_tokens_to_generate,
+            max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
             cache_seq_id=seq_id[0],
         )
         context.append(np.array(encoded_prompt), prompt)
@@ -423,20 +430,6 @@ class Llama3:
         )
 
         return logits
-
-
-def _max_tokens_to_generate(
-    prompt_size: int,
-    config: InferenceConfig,
-    max_new_tokens: Optional[int] = None,
-) -> int:
-    """Returns the max number of tokens to generate (including the prompt)."""
-    max_new_tokens = (
-        max_new_tokens if max_new_tokens is not None else config.max_new_tokens
-    )
-    if max_new_tokens < 0:
-        return config.max_length - prompt_size
-    return min(max_new_tokens, config.max_length - prompt_size)
 
 
 def _read_hyperparameters(
