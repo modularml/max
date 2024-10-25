@@ -21,6 +21,10 @@ from .embedding import Embedding
 from .linear import MLP, Linear
 from .norm import LPLayerNorm, RMSNorm
 from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
+from .sampling import (
+    argmax_sampler,
+    token_sampler,
+)
 from .sequential import Sequential
 from .transformer import (
     NaiveTransformer,
@@ -46,4 +50,6 @@ __all__ = [
     "Sequential",
     "Transformer",
     "TransformerBlock",
+    "argmax_sampler",
+    "token_sampler",
 ]

@@ -36,3 +36,8 @@ def token_sampler(top_k: Optional[int], dtype: DType):
             tokens = ops.argmax(logits)
         graph.output(tokens)
         return graph
+
+
+def argmax_sampler(dtype: DType):
+    logits_type = TensorType(dtype, ["batch", "vocab_size"])
+    return Graph("argmax", ops.argmax, input_types=[logits_type])
