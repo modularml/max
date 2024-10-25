@@ -153,6 +153,9 @@ class InferenceConfig:
     pad_to_multiple_of: int = 2
     """Pad input tensors to be a multiple of value provided."""
 
+    top_k: Optional[int] = None
+    """Limits the sampling to the K most probable tokens."""
+
     def __post_init__(self) -> None:
         # Ensure quantization_encoding and kv cache strategy is consistent.
         # If a quantizated encoding is provided, we must use the naive strategy.
@@ -193,4 +196,5 @@ class InferenceConfig:
                 "Controls the batching strategy: naive, contiguous or"
                 " continuous"
             ),
+            "top_k": "Limits the sampling to the K most probable tokens.",
         }
