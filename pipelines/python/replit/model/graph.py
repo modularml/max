@@ -193,8 +193,3 @@ def _build_graph(
         )
         graph.output(logits)
         return graph
-
-
-def _argmax_sampler(dtype: DType):
-    logits_type = TensorType(dtype, ["batch", "vocab_size"])
-    return Graph("argmax", ops.argmax, input_types=[logits_type])

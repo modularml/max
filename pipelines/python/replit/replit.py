@@ -28,10 +28,11 @@ from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import TokenGenerator
 from nn.kv_cache import KVCacheParams, load_kv_manager
+from nn import argmax_sampler
 
 from .config import InferenceConfig
 from .context import ReplitContext
-from .model.graph import _build_graph, _argmax_sampler
+from .model.graph import _build_graph
 from .model.hyperparameters import Hyperparameters
 
 
@@ -94,7 +95,7 @@ class Replit(TokenGenerator):
         self._model = self._load_model(session)
 
         # Load Sampler.
-        self._sampler = session.load(_argmax_sampler(DType.float32))
+        self._sampler = session.load(argmax_sampler(DType.float32))
 
     def _load_model(
         self,
