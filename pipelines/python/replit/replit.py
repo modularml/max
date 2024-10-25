@@ -91,7 +91,10 @@ class Replit(TokenGenerator):
         else:
             print("Building model...")
             graph = _build_graph(
-                self._hyperparameters, self._weights, self._kv_params
+                self._hyperparameters,
+                self._weights,
+                self._kv_params,
+                self._kv_manager,
             )
             print("Compiling...")
             return session.load(

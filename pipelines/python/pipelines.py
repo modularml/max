@@ -324,7 +324,7 @@ def run_replit(
                     model,
                     prompt,
                     metrics=metrics,
-                    max_batch_size=config.batch_size,
+                    max_batch_size=config.max_cache_batch_size,
                 )
             )
 

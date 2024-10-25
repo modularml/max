@@ -33,7 +33,7 @@ class Attention(AttentionImpl):
         valid_lengths: TensorValue,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
-        if "attn_mask" not in kwargs:
+        if "attention_mask" not in kwargs:
             raise ValueError("attn_mask not passed as input to Attention")
 
         # Get attributes from inputs
@@ -64,7 +64,7 @@ class Attention(AttentionImpl):
             input=xq,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
-            attn_mask=kwargs["attn_mask"],
+            attention_mask=kwargs["attention_mask"],
             valid_lengths=valid_lengths,
         )
 

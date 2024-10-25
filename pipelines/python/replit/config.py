@@ -55,11 +55,10 @@ class SupportedEncodings(str, Enum):
         else:
             raise ValueError(f"Unsupported version: {version}")
 
+    @property
     def quantization_encoding(self) -> QuantizationEncoding:
-        if self == SupportedEncodings.float32:
-            return QuantizationEncoding.float32
-        else:
-            return QuantizationEncoding.bfloat16
+        if self in [SupportedEncodings.float32, SupportedEncodings.bfloat16]:
+            return None
 
 
 _ENCODING_TO_DTYPE = {

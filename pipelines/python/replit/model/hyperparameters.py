@@ -46,7 +46,7 @@ class Hyperparameters:
     hidden_dim: int = 3072
     """Hidden dimension of embedded tokens."""
 
-    layer_norm_rms_epsilon: float = 1e-5
+    layer_norm_epsilon: float = 1e-5
     """Epsilon value for layer norm calculation."""
 
     casual: bool = True

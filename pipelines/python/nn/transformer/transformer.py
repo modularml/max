@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass
+from typing import Union
 
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
@@ -27,8 +28,8 @@ from ..kv_cache import (
     KVCacheParams,
 )
 from ..layer import Layer
-from ..linear import MLP, Linear
-from ..norm import RMSNorm
+from ..linear import MLP, Linear, FeedForward
+from ..norm import RMSNorm, LPLayerNorm
 
 
 @dataclass
@@ -36,9 +37,9 @@ class TransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
     attention: AttentionImpl
-    mlp: MLP
-    attention_norm: RMSNorm
-    mlp_norm: RMSNorm
+    mlp: Union[MLP, FeedForward]
+    attention_norm: Union[RMSNorm, LPLayerNorm]
+    mlp_norm: Union[RMSNorm, LPLayerNorm]
 
     def __call__(
         self,
@@ -67,9 +68,8 @@ class Transformer(Layer):
     dim: int
     n_heads: int
     layers: list[TransformerBlock]
-    norm: RMSNorm
+    norm: Union[RMSNorm, LPLayerNorm]
     output: Linear
-    theta: float
     embedding: Embedding
     kv_params: KVCacheParams
     kv_collection_constructor: FetchContinuousBatchingKVCacheCollection
@@ -78,14 +78,14 @@ class Transformer(Layer):
         self,
         tokens: TensorValueLike,
         valid_lengths: TensorValueLike,
-        kv_cache_params: tuple[
+        kv_cache_inputs: tuple[
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
         **kwargs,
     ) -> TensorValue:
         h = self.embedding(tokens)
 
-        kv_collection = self.kv_collection_constructor(*kv_cache_params)
+        kv_collection = self.kv_collection_constructor(*kv_cache_inputs)
 
         for _, layer in enumerate(self.layers):
             h, _ = layer(
