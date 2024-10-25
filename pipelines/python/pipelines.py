@@ -306,12 +306,13 @@ def run_replit(
     if serve:
         print("Starting server...")
         model = replit.Replit(config)
+        cache_strategy = KVCacheStrategy.CONTINUOUS
         asyncio.run(
             serve_token_generator(
                 model,
-                model.tokenizer,
+                None,
+                cache_strategy,
                 config.max_cache_batch_size,
-                server_batch_mode,
                 profile_serve,
             )
         )

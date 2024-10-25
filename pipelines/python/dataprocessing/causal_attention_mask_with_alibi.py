@@ -65,4 +65,4 @@ def causal_attention_mask_with_alibi(
     # Get alibi bias
     alibi_bias = _alibi_bias(max_seq_len, alibi_bias_max, n_heads)
 
-    return causal_mask + alibi_bias
+    return causal_mask + np.float32(alibi_bias)

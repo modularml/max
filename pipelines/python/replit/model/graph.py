@@ -28,7 +28,6 @@ from nn import (
     Embedding,
 )
 from nn.kv_cache import (
-    ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
     KVCacheManager,
 )
@@ -183,7 +182,8 @@ def _build_graph(
     # Graph input types.
     tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
     attn_mask_type = TensorType(
-        DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
+        DType.float32,
+        shape=["batch_size", "n_heads", "seq_len", "post_seq_len"],
     )
     valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
     kv_cache_types = kv_manager.input_symbols()
@@ -208,3 +208,8 @@ def _build_graph(
         )
         graph.output(logits)
         return graph
+
+
+def _argmax_sampler(dtype: DType):
+    logits_type = TensorType(dtype, ["batch", "vocab_size"])
+    return Graph("argmax", ops.argmax, input_types=[logits_type])

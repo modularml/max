@@ -25,7 +25,7 @@ class ReplitContext:
     max_tokens: int
     """The maximum number of tokens to generate, including the prompt."""
 
-    _cache_seq_id: int
+    cache_seq_id: int
     """Sequence id to tell the KV cache manager which cache block this owns."""
 
     next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -43,11 +43,6 @@ class ReplitContext:
         self.next_tokens = token_ids
         self.tokens.extend(token_ids)
         self.decoded += decoded
-
-    @property
-    def cache_seq_id(self) -> int:
-        """Returns the seq id for the KVCacheManager, ensuring it is set."""
-        return self._cache_seq_id
 
     def is_done(self, eos: int) -> bool:
         """Returns true if token gen for this context completed, else false."""
