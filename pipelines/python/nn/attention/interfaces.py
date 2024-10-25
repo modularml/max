@@ -24,7 +24,7 @@ from ..kv_cache import (
     KVCacheStrategy,
 )
 from ..layer import Layer
-from ..mlp import Linear
+from ..linear import Linear
 
 
 @dataclass

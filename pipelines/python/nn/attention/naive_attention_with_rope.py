@@ -19,7 +19,7 @@ from max.graph import BufferValue, TensorValue, TensorValueLike, ops
 
 from nn.kv_cache import KVCacheParams, KVCacheStrategy
 from ..layer import Layer
-from ..mlp import Linear
+from ..linear import Linear
 from ..rotary_embedding import RotaryEmbedding
 
 
