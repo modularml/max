@@ -11,7 +11,15 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from replit.config import InferenceConfig, DeviceSpec
-from replit.replit import Replit
+from max.graph import Graph
+from max.graph.weights import GGUFWeights
+from nn.kv_cache.cache_params import KVCacheParams
+from .hyperparameters import Hyperparameters
 
-__all__ = ["InferenceConfig", "Replit"]
+
+def _build_graph(
+    hyperparameters: Hyperparameters,
+    weights: GGUFWeights,
+    kv_params: KVCacheParams,
+) -> Graph:
+    raise NotImplementedError("replit graph not implemented.")

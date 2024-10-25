@@ -12,11 +12,15 @@
 # ===----------------------------------------------------------------------=== #
 """Replit model hyperparameters."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
+
+from ..config import InferenceConfig
 
 
 @dataclass
@@ -33,7 +37,7 @@ class Hyperparameters:
     n_heads: int = 24
     """Number of heads for the query to use in the MultiHeadAttention layers."""
 
-    kv_n_heads: int = 8
+    n_kv_heads: int = 8
     """Number of key and value heads to use in the MultiHeadAttention layers."""
 
     vocab_size: int = 32768
@@ -62,6 +66,22 @@ class Hyperparameters:
     biasing in attention calculations, allowing for fine-tuning of how strongly the model
     prioritizes certain tokens based on their position within the input sequence.
     """
+
+    @classmethod
+    def load(cls, config: InferenceConfig, **kwargs):
+        # Update kwargs based on config.
+        if "dtype" not in kwargs:
+            kwargs["dtype"] = config.quantization_encoding.dtype
+
+        if "quantization_encoding" not in kwargs:
+            kwargs[
+                "quantization_encoding"
+            ] = config.quantization_encoding.quantization_encoding
+
+        if "seq_len" not in kwargs:
+            kwargs["seq_len"] = config.seq_len
+
+        return cls(**kwargs)
 
     @property
     def head_dim(self):

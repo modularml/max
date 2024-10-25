@@ -13,13 +13,15 @@
 
 """All configurable parameters for Replit."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
-from max.driver import CPU, Device
+from huggingface_hub import hf_hub_download
 from max.dtype import DType
+from max.driver import CPU, CUDA, Device
+from max.graph.quantization import QuantizationEncoding
 from nn.kv_cache import KVCacheStrategy
 
 
@@ -53,6 +55,12 @@ class SupportedEncodings(str, Enum):
         else:
             raise ValueError(f"Unsupported version: {version}")
 
+    def quantization_encoding(self) -> QuantizationEncoding:
+        if self == SupportedEncodings.float32:
+            return QuantizationEncoding.float32
+        else:
+            return QuantizationEncoding.bfloat16
+
 
 _ENCODING_TO_DTYPE = {
     SupportedEncodings.float32: DType.float32,
@@ -66,9 +74,27 @@ _ENCODING_TO_MODEL_NAME_REPLIT = {
 }
 
 
+# TODO: AIPIPE-103 - Remove duplicated DeviceSpec from Replit/Llama
+@dataclass(frozen=True)
+class DeviceSpec:
+    id: int
+    """Provided id for this device."""
+
+    device_type: Literal["cpu", "cuda"] = "cpu"
+    """Type of specified device."""
+
+    @staticmethod
+    def cpu(id: int = -1):
+        return DeviceSpec(id, "cpu")
+
+    @staticmethod
+    def cuda(id: int = -1):
+        return DeviceSpec(id, "cuda")
+
+
 @dataclass
 class InferenceConfig:
-    device: Device = field(default_factory=CPU)
+    device_spec: DeviceSpec = DeviceSpec.cpu()
     """Device to run inference upon."""
 
     weight_path: Optional[Union[str, Path]] = None
@@ -136,3 +162,17 @@ class InferenceConfig:
             SupportedEncodings.bfloat16,
         ]:
             self.cache_strategy = KVCacheStrategy.NAIVE
+
+        # Update weight path if not provided
+        if self.weight_path is None:
+            weight_filename = self.quantization_encoding.hf_model_name(
+                self.version
+            )
+            self.weight_path = hf_hub_download(
+                repo_id="modularai/replit-code-1.5",
+                filename=weight_filename,
+            )
+
+    @property
+    def device(self) -> Device:
+        return CPU if self.device_spec.device_type == "cpu" else CUDA
