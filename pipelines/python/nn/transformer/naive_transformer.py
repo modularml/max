@@ -18,7 +18,7 @@ from max.graph import TensorValueLike, TensorValue, ops
 
 from ..attention import NaiveAttentionWithRope
 from ..layer import Layer
-from ..mlp import MLP, Linear
+from ..linear import MLP, Linear
 from ..norm import RMSNorm
 from ..embedding import Embedding
 

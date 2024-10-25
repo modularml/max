@@ -27,7 +27,7 @@ from ..kv_cache import (
     KVCacheParams,
 )
 from ..layer import Layer
-from ..mlp import MLP, Linear
+from ..linear import MLP, Linear
 from ..norm import RMSNorm
 
 
