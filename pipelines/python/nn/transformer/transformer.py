@@ -28,7 +28,8 @@ from ..kv_cache import (
     KVCacheParams,
 )
 from ..layer import Layer
-from ..linear import MLP, Linear, FeedForward
+from ..linear import MLP, Linear
+from ..sequential import Sequential
 from ..norm import RMSNorm, LPLayerNorm
 
 
@@ -37,7 +38,7 @@ class TransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
     attention: AttentionImpl
-    mlp: Union[MLP, FeedForward]
+    mlp: Union[MLP, Sequential]
     attention_norm: Union[RMSNorm, LPLayerNorm]
     mlp_norm: Union[RMSNorm, LPLayerNorm]
 

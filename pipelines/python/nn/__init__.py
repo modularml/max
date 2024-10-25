@@ -18,7 +18,7 @@ from .attention import (
     Attention,
 )
 from .embedding import Embedding
-from .linear import MLP, FeedForward, Linear
+from .linear import MLP, Linear
 from .norm import LPLayerNorm, RMSNorm
 from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
 from .sequential import Sequential
@@ -35,7 +35,6 @@ __all__ = [
     "AttentionWithRope",
     "NaiveAttentionWithRope",
     "Embedding",
-    "FeedForward",
     "Linear",
     "LPLayerNorm",
     "MLP",

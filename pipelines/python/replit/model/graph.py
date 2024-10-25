@@ -18,14 +18,14 @@ from max.graph import Graph, TensorType, TensorValue, ops
 from max.graph.weights import GGUFWeights
 from max.graph.quantization import QuantizationEncoding
 from nn import (
-    Transformer,
-    TransformerBlock,
     AttentionImpl,
     Attention,
-    FeedForward,
+    Embedding,
     Linear,
     LPLayerNorm,
-    Embedding,
+    Sequential,
+    Transformer,
+    TransformerBlock,
 )
 from nn.kv_cache import (
     KVCacheParams,
@@ -37,20 +37,6 @@ from nn.kv_cache.continuous_batching_cache import (
 from .hyperparameters import Hyperparameters
 
 
-def _linear(
-    dtype: DType,
-    quantization_encoding: Optional[QuantizationEncoding],
-    input_dim: int,
-    hidden_dim: int,
-    weights: GGUFWeights,
-) -> Linear:
-    return Linear(
-        weights.weight.allocate(
-            dtype, [hidden_dim, input_dim], quantization_encoding
-        )
-    )
-
-
 def _feed_forward(
     dtype: DType,
     quantization_encoding: Optional[QuantizationEncoding],
@@ -58,21 +44,20 @@ def _feed_forward(
     hidden_dim: int,
     weights: GGUFWeights,
 ):
-    return FeedForward(
-        _linear(
-            dtype,
-            quantization_encoding,
-            hidden_dim,
-            input_dim,
-            weights.ffn_down,
-        ),
-        _linear(
-            dtype,
-            quantization_encoding,
-            input_dim,
-            hidden_dim,
-            weights.ffn_up,
-        ),
+    return Sequential(
+        layers=[
+            Linear(
+                weights.ffn_up.weight.allocate(
+                    dtype, [hidden_dim, input_dim], quantization_encoding
+                )
+            ),
+            ops.gelu,
+            Linear(
+                weights.ffn_down.weight.allocate(
+                    dtype, [input_dim, hidden_dim], quantization_encoding
+                )
+            ),
+        ]
     )
 
 
@@ -103,12 +88,12 @@ def _attention(
         n_heads=hyperparameters.n_heads,
         kv_params=kv_params,
         wqkv=wqkv,
-        wo=_linear(
-            hyperparameters.dtype,
-            hyperparameters.quantization_encoding,
-            hyperparameters.hidden_dim,
-            hyperparameters.hidden_dim,
-            weights.attn_output,
+        wo=Linear(
+            weights.attn_output.weight.allocate(
+                hyperparameters.dtype,
+                [hyperparameters.hidden_dim, hyperparameters.hidden_dim],
+                hyperparameters.quantization_encoding,
+            )
         ),
         layer_idx=ops.constant(layer_index, dtype=DType.uint32),
     )
