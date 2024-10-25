@@ -61,7 +61,7 @@ def fused_qkv_ragged_matmul(
 
     return ops.custom(
         op_name,
-        [input, wqkv, input_row_offset, kv_collection, layer_idx],
+        [input, input_row_offset, wqkv, kv_collection, layer_idx],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
@@ -239,6 +239,12 @@ def flash_attention_ragged_with_causal_mask(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, kv_collection, layer_idx, input_row_offset, scale],
+        [
+            input,
+            input_row_offset,
+            kv_collection,
+            layer_idx,
+            scale,
+        ],
         [TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
