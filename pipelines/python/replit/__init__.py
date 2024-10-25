@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from replit.config import InferenceConfig, DeviceSpec
+from replit.config import InferenceConfig
 from replit.replit import Replit
 
 __all__ = ["InferenceConfig", "Replit"]

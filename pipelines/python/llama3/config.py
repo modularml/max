@@ -15,9 +15,10 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 from max.dtype import DType
+from max.driver import DeviceSpec
 from max.graph.quantization import QuantizationEncoding
 from nn.kv_cache import KVCacheStrategy
 
@@ -92,23 +93,6 @@ _ENCODING_TO_MODEL_NAME_LLAMA3_1 = {
     SupportedEncodings.q4_k: "llama-3.1-8b-instruct-q4_k_m.gguf",
     SupportedEncodings.q6_k: "llama-3.1-8b-instruct-q6_k.gguf",
 }
-
-
-@dataclass(frozen=True)
-class DeviceSpec:
-    id: int
-    """Provided id for this device."""
-
-    device_type: Literal["cpu", "cuda"] = "cpu"
-    """Type of specified device."""
-
-    @staticmethod
-    def cpu(id: int = -1):
-        return DeviceSpec(id, "cpu")
-
-    @staticmethod
-    def cuda(id: int = -1):
-        return DeviceSpec(id, "cuda")
 
 
 @dataclass

@@ -18,6 +18,7 @@ import click
 import llama3
 import replit
 from huggingface_hub import hf_hub_download
+from max.driver import DeviceSpec
 from max.pipelines import TokenGenerator
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
@@ -170,12 +171,12 @@ def run_llama3(
     if use_gpu:
         config_kwargs.update(
             {
-                "device_spec": llama3.DeviceSpec.cuda(id=use_gpu[0]),
+                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
                 "quantization_encoding": llama3.SupportedEncodings.bfloat16,
             }
         )
     else:
-        config_kwargs.update({"device_spec": llama3.DeviceSpec.cpu()})
+        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
     config = llama3.InferenceConfig(**config_kwargs)
     # By default, use the Modular HF repository as a reference for tokenizer
     # configuration, etc. when no repository is specified.
@@ -294,12 +295,12 @@ def run_replit(
     if use_gpu:
         config_kwargs.update(
             {
-                "device_spec": replit.DeviceSpec.cuda(id=use_gpu[0]),
+                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
                 "quantization_encoding": llama3.SupportedEncodings.bfloat16,
             }
         )
     else:
-        config_kwargs.update({"device_spec": replit.DeviceSpec.cpu()})
+        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
     config = replit.InferenceConfig(**config_kwargs)
 

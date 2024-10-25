@@ -16,11 +16,11 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 
 from huggingface_hub import hf_hub_download
 from max.dtype import DType
-from max.driver import CPU, CUDA, Device
+from max.driver import CPU, CUDA, Device, DeviceSpec
 from max.graph.quantization import QuantizationEncoding
 from nn.kv_cache import KVCacheStrategy
 
@@ -71,24 +71,6 @@ _ENCODING_TO_MODEL_NAME_REPLIT = {
     SupportedEncodings.float32: "replit-code-v1_5-3b-f32.gguf",
     SupportedEncodings.bfloat16: "replit-code-v1_5-3b-bf16.gguf",
 }
-
-
-# TODO: AIPIPE-103 - Remove duplicated DeviceSpec from Replit/Llama
-@dataclass(frozen=True)
-class DeviceSpec:
-    id: int
-    """Provided id for this device."""
-
-    device_type: Literal["cpu", "cuda"] = "cpu"
-    """Type of specified device."""
-
-    @staticmethod
-    def cpu(id: int = -1):
-        return DeviceSpec(id, "cpu")
-
-    @staticmethod
-    def cuda(id: int = -1):
-        return DeviceSpec(id, "cuda")
 
 
 @dataclass
