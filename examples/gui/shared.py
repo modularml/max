@@ -25,12 +25,12 @@ from fastembed import TextEmbedding
 from gguf import Union
 from huggingface_hub import hf_hub_download, snapshot_download
 from llama_index.core import SimpleDirectoryReader
+from max.pipelines import TokenGenerator
 from streamlit.runtime.scriptrunner import (
     add_script_run_ctx,
     get_script_run_ctx,
 )
 from tqdm.auto import tqdm
-from max.pipelines import TokenGenerator
 
 RAG_SYSTEM_PROMPT = """You are a helpful document search assistant.
 Your task is to find an answer to user's query about their given documentation.
@@ -253,7 +253,7 @@ class TextGenerationMetrics:
 
 async def stream_output(model: TokenGenerator, prompt: str) -> str:
     metrics = TextGenerationMetrics()
-    context = await model.new_context(prompt)
+    context = model.new_context(prompt)
     prompt_size = len(context.tokens)
 
     response_display = st.empty()
@@ -266,7 +266,7 @@ async def stream_output(model: TokenGenerator, prompt: str) -> str:
     is_first_token = True
     request_id = str(id(prompt))
     while True:
-        response = await model.next_token({request_id: context})
+        response = model.next_token({request_id: context})
         if request_id not in response:
             break
         response_str += response[request_id]

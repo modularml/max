@@ -14,13 +14,18 @@
 import uuid
 from typing import Optional
 
-from utils import TextGenerationMetrics
+from max.pipelines.interfaces import (
+    TokenGenerator,
+    TokenGeneratorRequest,
+    TokenGeneratorTokenizer,
+)
 
-from max.pipelines import TokenGenerator
+from utils import TextGenerationMetrics
 
 
 async def stream_text_to_console(
     model: TokenGenerator,
+    tokenizer: TokenGeneratorTokenizer,
     prompt: str,
     metrics: Optional[TextGenerationMetrics] = None,
     max_batch_size: int = 1,
@@ -49,7 +54,9 @@ async def stream_text_to_console(
     for _ in range(n_duplicate):
         # We make the key unique even for the same prompts for now.
         req_id = str(uuid.uuid4())
-        context = await model.new_context(prompt)
+        context = await tokenizer.new_context(
+            TokenGeneratorRequest("", 0, "", "")
+        )
         responses[req_id] = [prompt]
         request_id_context[req_id] = context
         prompt_size = len(context.tokens)
@@ -64,7 +71,7 @@ async def stream_text_to_console(
     end_loop = False
     first_token = True
     while not end_loop:
-        response = await model.next_token(request_id_context)
+        response = model.next_token(request_id_context)
         if len(response) == 0:
             break
         for key, response_text in response.items():
@@ -84,7 +91,7 @@ async def stream_text_to_console(
         metrics.signpost("end_generation")
 
     for context in request_id_context.values():
-        await model.release(context)
+        model.release(context)
 
     # Print prompt + response for each unique prompt
     if print_tokens and not print_as_generated:

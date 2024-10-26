@@ -17,13 +17,9 @@ from pathlib import Path
 
 import streamlit as st
 import torch
-from max.driver import CPU, CUDA
 from llama3 import Llama3
-from llama3.config import (
-    InferenceConfig,
-    SupportedEncodings,
-    SupportedVersions,
-)
+from llama3.config import InferenceConfig, SupportedEncodings, SupportedVersions
+from max.driver import CPU, CUDA
 from shared import (
     RAG_PROMPT,
     RAG_SYSTEM_PROMPT,
@@ -64,7 +60,12 @@ def start_llama3(
         max_length=max_length,
         max_new_tokens=max_new_tokens,
     )
-    return Llama3(config)
+    tokenizer = Llama3Tokenizer(config)
+    return Llama3(
+        config,
+        tokenizer.delegate.eos_token_id,
+        tokenizer.delegate.vocab_size,
+    )
 
 
 def messages_to_llama3_prompt(messages: list[dict[str, str]]) -> str:

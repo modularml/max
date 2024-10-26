@@ -15,20 +15,20 @@ import asyncio
 from typing import Optional
 
 import gguf
-import transformers
 import numpy as np
+import transformers
 from dataprocessing import (
-    max_tokens_to_generate,
-    collate_batch,
     causal_attention_mask_with_alibi,
+    collate_batch,
+    max_tokens_to_generate,
 )
 from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import TokenGenerator
-from nn.kv_cache import KVCacheParams, load_kv_manager
 from nn import token_sampler
+from nn.kv_cache import KVCacheParams, load_kv_manager
 
 from .config import InferenceConfig
 from .context import ReplitContext
@@ -152,7 +152,7 @@ class Replit(TokenGenerator):
             max_new_tokens if max_new_tokens
             is not None else self._config.max_new_tokens,
         )
-        seq_id = await self._kv_manager.claim(n=1)
+        seq_id = self._kv_manager.claim(n=1)
         context = ReplitContext(
             prompt=prompt,
             max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
@@ -237,4 +237,4 @@ class Replit(TokenGenerator):
         return res
 
     async def release(self, context: ReplitContext):
-        await self._kv_manager.release(context.cache_seq_id)
+        self._kv_manager.release(context.cache_seq_id)

@@ -17,5 +17,10 @@ from .config import (
     SupportedEncodings,
     SupportedVersions,
 )
-from .llama3 import Llama3, Llama3Context
+from .llama3 import (
+    Llama3,
+    Llama3Context,
+    Llama3Tokenizer,
+    gguf_reader_and_params,
+)
 from .model.hyperparameters import Hyperparameters

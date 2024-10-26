@@ -12,9 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 """Abstract base class for KVCacheManager for KV Cache."""
 
-import asyncio
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List
 
 from max.driver import Device, Tensor
 from max.dtype import DType
@@ -40,7 +39,6 @@ class KVCacheManager(ABC):
 
         # Attributes for managing available slots.
         self.available = set(range(self.max_cache_batch_size))
-        self.semaphore = asyncio.BoundedSemaphore(self.max_cache_batch_size)
         self.cache_lengths: dict[int, int] = {}
 
         # Allocate boolean tensors
@@ -64,7 +62,7 @@ class KVCacheManager(ABC):
     ) -> tuple[TensorType, TensorType, TensorType, TensorType]:
         ...
 
-    async def claim(self, n: int) -> List[int]:
+    def claim(self, n: int) -> List[int]:
         """Claims `n` blocks of memory in the cache for incoming requests.
 
         This returns a list of sequence ids, which identify a sequence's
@@ -75,12 +73,17 @@ class KVCacheManager(ABC):
         seq_ids = []
 
         for _ in range(n):
-            await self.semaphore.acquire()
             id = self.available.pop()
             seq_ids.append(id)
             self.cache_lengths[id] = 0
 
         return seq_ids
+
+    def external_claim(self, seq_ids: List[int]) -> None:
+        """Variant of the above where sequence ids are reserved externally."""
+        for seq_id in seq_ids:
+            self.available.remove(seq_id)
+            self.cache_lengths[seq_id] = 0
 
     def step(self, valid_lengths: dict[int, int]) -> None:
         """Update the `cache_lengths` objects to not that a new
@@ -96,7 +99,7 @@ class KVCacheManager(ABC):
 
             self.cache_lengths[id] += length
 
-    async def release(self, seq_id: int) -> None:
+    def release(self, seq_id: int) -> None:
         """Release `seq_id` provided, marking this sequence as complete.
         This returns the seq_id back to the available pool of cache memory,
         allowing it to be reused when a new sequence is claimed.
@@ -107,12 +110,11 @@ class KVCacheManager(ABC):
 
         self.available.add(seq_id)
         del self.cache_lengths[seq_id]
-        self.semaphore.release()
 
     @property
-    def slots_remaining(self) -> int:
-        """The outstanding cache slots outstanding."""
-        return self.semaphore._value
+    def slots_remaining(self) -> set[int]:
+        """The outstanding cache slots available."""
+        return self.available
 
     @property
     def max_sequence_length(self) -> int:
