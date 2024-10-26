@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import asyncio
+import functools
 import os
 
 import click
@@ -19,16 +20,18 @@ import llama3
 import replit
 from huggingface_hub import hf_hub_download
 from max.driver import DeviceSpec
-from max.pipelines import TokenGenerator
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
-from max.serve.pipelines.deps import token_pipeline
+from max.serve.pipelines.deps import BatchedTokenGeneratorState
 from max.serve.pipelines.llm import (
     TokenGeneratorPipeline,
     TokenGeneratorPipelineConfig,
 )
-from max.serve.pipelines.performance_fake import get_performance_fake
+from max.serve.pipelines.performance_fake import (
+    PerformanceFakingTokenGeneratorTokenizer,
+    get_performance_fake,
+)
 from nn.kv_cache import KVCacheStrategy
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
@@ -45,14 +48,40 @@ except ImportError:
 
 
 async def serve_token_generator(
-    model: TokenGenerator,
-    tokenizer: PreTrainedTokenizerBase,
-    kv_cache_strategy: KVCacheStrategy,
+    config: llama3.InferenceConfig,
+    repo_id: str,
     kv_cache_size: int,
-    profile=False,
+    performance_fake,
     prefer_ce_over_tg: bool = True,
+    profile: bool = False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
+    if performance_fake == "none":
+        print(f"Starting server using Llama3.")
+        tokenizer = llama3.Llama3Tokenizer(
+            config,
+        )
+        assert tokenizer.delegate
+        model_factory = functools.partial(
+            llama3.Llama3,
+            config,
+            tokenizer.delegate.eos_token_id,
+            tokenizer.delegate.vocab_size,
+        )
+        kv_cache_strategy = config.cache_strategy
+    else:
+        print(f"Starting server using performance fake '{performance_fake}'.")
+        tokenizer = PerformanceFakingTokenGeneratorTokenizer(
+            AutoTokenizer.from_pretrained(repo_id)
+        )
+        model_factory = functools.partial(
+            get_performance_fake,
+            performance_fake,
+        )
+        kv_cache_strategy = KVCacheStrategy.CONTINUOUS
+
+    settings = Settings(api_types=[APIType.OPENAI])
+    debug_settings = DebugSettings(profiling_enabled=profile)
     if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
         batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
             tg_batch_size=kv_cache_size, ce_batch_size=1, ce_batch_timeout=0.1
@@ -69,21 +98,29 @@ async def serve_token_generator(
         f"Server configured with {kv_cache_strategy} caching with batch size"
         f" {kv_cache_size}."
     )
-    pipeline = TokenGeneratorPipeline[llama3.Llama3Context](
-        batch_config, model, tokenizer, prefer_ce_over_tg
-    )
-    pipelines = [pipeline]
 
     # limit the number of inflight requests to just a few more than the number
     # of active slots on the GPU
     request_limit = kv_cache_size + 16
     settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
-    debug_settings = DebugSettings(profiling_enabled=profile)
-    app = fastapi_app(settings, debug_settings, pipelines)
-    app.dependency_overrides[token_pipeline] = lambda: pipeline
 
-    config = fastapi_config(app=app)
-    server = Server(config)
+    model_name = "llama3"
+    app = fastapi_app(
+        settings,
+        debug_settings,
+        {
+            model_name: BatchedTokenGeneratorState(
+                TokenGeneratorPipeline(
+                    batch_config,
+                    model_name,
+                    tokenizer,
+                ),
+                model_factory,
+            )
+        },
+    )
+
+    server = Server(fastapi_config(app=app))
     await server.serve()
 
 
@@ -202,23 +239,12 @@ def run_llama3(
         )
 
     if serve:
-        if performance_fake == "none":
-            print(f"Starting server using Llama3.")
-            model = llama3.Llama3(config)
-            caching_strategy = config.cache_strategy
-        else:
-            print(
-                f"Starting server using performance fake '{performance_fake}'."
-            )
-            tokenizer = AutoTokenizer.from_pretrained(repo_id)
-            model = get_performance_fake(performance_fake, tokenizer)
-            caching_strategy = KVCacheStrategy.CONTINUOUS
         asyncio.run(
             serve_token_generator(
-                model,
-                model._tokenizer,
-                caching_strategy,
+                config,
+                repo_id,
                 config.max_cache_batch_size,
+                performance_fake,
                 profile_serve,
                 not disable_prefer_ce_over_tg,
             )
@@ -226,7 +252,14 @@ def run_llama3(
     else:
         # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
-            model = llama3.Llama3(config)
+            tokenizer = llama3.Llama3Tokenizer(
+                config,
+            )
+            model = llama3.Llama3(
+                config,
+                tokenizer.delegate.eos_token_id,
+                tokenizer.delegate.vocab_size,
+            )
             # Run warmup iteration with no metrics & printing disabled
             if num_warmups > 0:
                 print("Running warmup...")
@@ -234,6 +267,7 @@ def run_llama3(
                     asyncio.run(
                         stream_text_to_console(
                             model,
+                            tokenizer,
                             prompt,
                             metrics=None,
                             print_tokens=False,
@@ -245,6 +279,7 @@ def run_llama3(
             asyncio.run(
                 stream_text_to_console(
                     model,
+                    tokenizer,
                     prompt,
                     metrics=metrics,
                     max_batch_size=config.max_cache_batch_size,

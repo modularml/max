@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional, Union
 
 import gguf
 import numpy as np
@@ -29,6 +29,8 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType
 from max.graph.weights import GGUFWeights
+from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
+from max.serve.pipelines.llm import PreTrainedTokenGeneratorTokenizer
 from nn.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -64,15 +66,11 @@ class Llama3Context:
     tokens: list[int] = field(default_factory=list)
     """Tokens generated so far."""
 
-    decoded: str = ""
-    """Decoded text sequence from `self.tokens` above."""
-
-    def append(self, token_ids: np.ndarray, decoded: str) -> None:
-        """Appends to the generated tokens and decoded output."""
+    def append(self, token_ids: np.ndarray) -> None:
+        """Appends to the generated tokens"""
         assert len(token_ids.shape) == 1
         self.next_tokens = token_ids
         self.tokens.extend(token_ids)
-        self.decoded += decoded
 
     def is_done(self, eos: int) -> bool:
         """Returns true if token gen for this context completed, else false."""
@@ -96,31 +94,89 @@ async def run_with_default_executor(fn, *args):
 # These aren't thread safe, but we don't want them running on the main
 # thread. Guard them with an async lock for now.
 _TOKENIZER_LOCK = asyncio.Lock()
-_ENGINE_LOCK = asyncio.Lock()
 
 
-class Llama3:
+def gguf_reader_and_params(config: InferenceConfig):
+    assert config.weight_path is not None
+    reader = gguf.GGUFReader(config.weight_path)
+    params = _read_hyperparameters(config, reader)
+    return reader, params
+
+
+class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[Llama3Context]):
+    """Encapsulates Llama3 specific token encode/decode logic."""
+
+    def __init__(
+        self,
+        config: InferenceConfig,
+    ):
+        self.config = config
+        self.reader, self.params = gguf_reader_and_params(config)
+        super().__init__(tokenizer_from_gguf(self.reader))
+
+    async def encode(self, prompt: str) -> np.ndarray:
+        # Encodes a prompt using the tokenizer, raising a ValueError if the
+        # prompt exceeds the configured maximum length.
+
+        # Don't run compute-bound work on the main thread
+        # however, it's not thread-safe, so make sure only one can
+        # run at a time.
+        # TODO: This should go on its own process or a thread on the model process.
+        async with _TOKENIZER_LOCK:
+            encoded_prompt = await run_with_default_executor(
+                self.delegate.encode, prompt
+            )
+        if len(encoded_prompt) >= self.config.max_length:
+            msg = (
+                f"Prompt length of {len(encoded_prompt)} is greater or equal to"
+                " configured max model context length of"
+                f" {self.config.max_length}."
+            )
+            raise ValueError(msg)
+
+        return encoded_prompt
+
+    async def decode(
+        self,
+        context: Llama3Context,
+        encoded: np.ndarray,
+    ) -> str:
+        return self.delegate.decode(encoded)
+
+    async def new_context(
+        self, request: TokenGeneratorRequest
+    ) -> Llama3Context:
+        encoded_prompt = await self.encode(request.prompt)
+
+        _max_tokens_to_generate = max_tokens_to_generate(
+            len(encoded_prompt),
+            self.config.max_length,
+            request.max_new_tokens if request.max_new_tokens
+            is not None else self.config.max_new_tokens,
+        )
+        context = Llama3Context(
+            prompt=request.prompt,
+            cache_seq_id=request.index,
+            max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
+        )
+        context.append(np.array(encoded_prompt))
+        return context
+
+
+class Llama3(TokenGenerator[Llama3Context]):
     """The overall interface to the Llama 3 model."""
 
-    config: InferenceConfig
-    _model: Model
-    _sampler: Model
-    _kv_manager: KVCacheManager
-    _kv_params: KVCacheParams
-    _tokenizer: Tokenizer
-
-    def __init__(self, config: InferenceConfig):
+    def __init__(self, config: InferenceConfig, eos: int, vocab_size: int):
         self.config = config
+        self.eos = eos
 
         assert config.weight_path is not None
-        gguf_reader = gguf.GGUFReader(config.weight_path)
-
-        self.params = _read_hyperparameters(config, gguf_reader)
+        self.reader, self.params = gguf_reader_and_params(config)
 
         # Work around for older Llama 1/2 GGUFs, where the vocab size may be -1.
         # See https://github.com/ggerganov/llama.cpp/pull/4258.
         if self.params.vocab_size < 0:
-            self.params.vocab_size = self._tokenizer.vocab_size
+            self.params.vocab_size = vocab_size
 
         dtype = (
             DType.float32 if self.params.quantization_encoding
@@ -130,6 +186,7 @@ class Llama3:
         self._device = CPU(
             device_spec.id
         ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
+
         self._kv_params = KVCacheParams(
             n_kv_heads=self.params.n_kv_heads,
             head_dim=self.params.head_dim,
@@ -147,9 +204,8 @@ class Llama3:
 
         session = InferenceSession(device=self._device)
 
-        self._tokenizer = tokenizer_from_gguf(gguf_reader)
         self._model = self._load_model(
-            session, config, self.params, gguf_reader
+            session, config, self.params, self.reader
         )
         # logits are always float32 for now
         self._sampler = session.load(token_sampler(config.top_k, DType.float32))
@@ -263,73 +319,30 @@ class Llama3:
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    async def _encode(self, prompt: str) -> list[int]:
-        # Encodes a prompt using the tokenizer, raising a ValueError if the
-        # prompt exceeds the configured maximum length.
-
-        # Don't run compute-bound work on the main thread
-        # however, it's not thread-safe, so make sure only one can
-        # run at a time.
-        async with _TOKENIZER_LOCK:
-            encoded_prompt = await run_with_default_executor(
-                self._tokenizer.encode, prompt
-            )
-        if len(encoded_prompt) >= self.config.max_length:
-            msg = (
-                f"Prompt length of {len(encoded_prompt)} is greater or equal to"
-                " configured max model context length of"
-                f" {self.config.max_length}."
-            )
-            raise ValueError(msg)
-
-        return encoded_prompt
-
-    async def new_context(
-        self, prompt: str, max_new_tokens: int | None = None
-    ) -> Llama3Context:
-        encoded_prompt = await self._encode(prompt)
-
-        _max_tokens_to_generate = max_tokens_to_generate(
-            len(encoded_prompt),
-            self.config.max_length,
-            max_new_tokens if max_new_tokens
-            is not None else self.config.max_new_tokens,
-        )
-        seq_id = await self._kv_manager.claim(n=1)
-        context = Llama3Context(
-            prompt=prompt,
-            max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
-            cache_seq_id=seq_id[0],
-        )
-        context.append(np.array(encoded_prompt), prompt)
-        return context
-
-    async def next_token(
+    def next_token(
         self, req_to_context_dict: dict[str, Llama3Context]
-    ) -> dict[str, str | None]:
+    ) -> dict[str, Any]:
+        for request_id, context in req_to_context_dict.items():
+            if context.cache_seq_id in self._kv_manager.slots_remaining:
+                self._kv_manager.external_claim([context.cache_seq_id])
+
         res = {}
 
-        # Don't run compute-bound work on the main thread
-        # however, it's not thread-safe, so make sure only one can
-        # run at a time.
-        async with _ENGINE_LOCK:
-            logits = await run_with_default_executor(
-                self._execute, req_to_context_dict
-            )
-            (tokens,) = await run_with_default_executor(self._sampler, logits)
-            tokens = tokens.to(CPU())
+        logits = self._execute(req_to_context_dict)
+        tokens = self._sampler(logits)[0]
+        tokens = tokens.to(CPU())
 
         next_tokens = dict(zip(req_to_context_dict, tokens.to_numpy()))
         for request_id, context in req_to_context_dict.items():
             next_token = next_tokens[request_id].astype(np.int64)
-            decoded_token = self._tokenizer.decode(next_token)
 
             # Update context
-            context.append(next_token.reshape(-1), decoded_token)
+            context.append(next_token.reshape(-1))
 
             # Mark completed requests by not including them in the response.
-            if not context.is_done(self._tokenizer.eos_token_id):
-                res[request_id] = decoded_token
+            if not context.is_done(self.eos):
+                res[request_id] = next_token
+
             # TODO: MSDK-1084 Re-enable Cache release
             # Previously, we were automatically releasing completed sequences
             # back to the available cache pool, when the sequence completed
@@ -345,8 +358,8 @@ class Llama3:
 
         return res
 
-    async def release(self, context: Llama3Context):
-        await self._kv_manager.release(context.cache_seq_id)
+    def release(self, context: Llama3Context):
+        self._kv_manager.release(context.cache_seq_id)
 
     def _execute_opaque(
         self, req_to_context_dict: dict[str, Llama3Context]
