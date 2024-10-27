@@ -266,7 +266,7 @@ async def stream_output(model: TokenGenerator, prompt: str) -> str:
     is_first_token = True
     request_id = str(id(prompt))
     while True:
-        response = model.next_token({request_id: context})
+        response = model.next_token({request_id: context})[0]
         if request_id not in response:
             break
         response_str += response[request_id]
