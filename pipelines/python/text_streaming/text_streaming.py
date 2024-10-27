@@ -97,7 +97,7 @@ async def stream_text_to_console(
     if print_tokens and not print_as_generated:
         for response in responses.values():
             print("\n---\n")
-            print("".join(response), flush=True)
+            print("".join(str(response)), flush=True)
 
     if print_tokens:
         print()
