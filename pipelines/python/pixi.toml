@@ -23,4 +23,7 @@ transformers = ">=4.44.2"
 psutil = ">=6.0.0"
 pyinstrument  = ">=4.7.3"
 prometheus-client = ">=0.20.0"
+
+# Dependencies of `max`, not available through conda-forge
 prometheus-async = ">=22.2.0"
+faster-fifo = "==1.4.7"
