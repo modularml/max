@@ -122,6 +122,7 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[Llama3Context]):
         # however, it's not thread-safe, so make sure only one can
         # run at a time.
         # TODO: This should go on its own process or a thread on the model process.
+        assert self.delegate
         async with _TOKENIZER_LOCK:
             encoded_prompt = await run_with_default_executor(
                 self.delegate.encode, prompt
@@ -320,6 +321,11 @@ class Llama3(TokenGenerator[Llama3Context]):
             )
 
     def next_token(
+        self, batch: dict[str, Llama3Context], num_steps: int = 1
+    ) -> list[dict[str, Any]]:
+        return [self.step(batch) for _ in range(num_steps)]
+
+    def step(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, Any]:
         for request_id, context in req_to_context_dict.items():
@@ -327,7 +333,6 @@ class Llama3(TokenGenerator[Llama3Context]):
                 self._kv_manager.external_claim([context.cache_seq_id])
 
         res = {}
-
         logits = self._execute(req_to_context_dict)
         tokens = self._sampler(logits)[0]
         tokens = tokens.to(CPU())

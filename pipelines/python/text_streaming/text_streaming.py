@@ -71,7 +71,7 @@ async def stream_text_to_console(
     end_loop = False
     first_token = True
     while not end_loop:
-        response = model.next_token(request_id_context)
+        response = model.next_token(request_id_context)[0]
         if len(response) == 0:
             break
         for key, response_text in response.items():
