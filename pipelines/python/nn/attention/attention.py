@@ -46,6 +46,7 @@ class Attention(AttentionImpl):
             wqkv=self.wqkv,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
+            n_heads=self.n_heads,
         )
 
         xq = ops.reshape(
