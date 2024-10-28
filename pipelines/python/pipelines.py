@@ -47,10 +47,34 @@ except ImportError:
     pass
 
 
+def pipeline_config(
+    kv_cache_strategy,
+    batch_size: int,  # Also KV-cache size.
+    batch_timeout=0.1,
+    max_forward_steps: int = 1,
+) -> TokenGeneratorPipelineConfig:
+    if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
+        return TokenGeneratorPipelineConfig.continuous_heterogenous(
+            tg_batch_size=batch_size,
+            ce_batch_size=1,
+            ce_batch_timeout=batch_timeout,
+            max_forward_steps=max_forward_steps,
+        )
+    elif kv_cache_strategy == KVCacheStrategy.NAIVE:
+        return TokenGeneratorPipelineConfig.dynamic_homogenous(
+            batch_size=batch_size,
+            batch_timeout=batch_timeout,
+            max_forward_steps=max_forward_steps,
+        )
+    else:
+        raise ValueError(
+            f"{kv_cache_strategy} caching strategy is not supported by Serving."
+        )
+
+
 async def serve_token_generator(
     config: llama3.InferenceConfig,
     repo_id: str,
-    kv_cache_size: int,
     performance_fake,
     prefer_ce_over_tg: bool = True,
     profile: bool = False,
@@ -82,26 +106,20 @@ async def serve_token_generator(
 
     settings = Settings(api_types=[APIType.OPENAI])
     debug_settings = DebugSettings(profiling_enabled=profile)
-    if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
-        batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
-            tg_batch_size=kv_cache_size, ce_batch_size=1, ce_batch_timeout=0.1
-        )
-    elif kv_cache_strategy == KVCacheStrategy.NAIVE:
-        batch_config = TokenGeneratorPipelineConfig.dynamic_homogenous(
-            batch_size=kv_cache_size, batch_timeout=0.1
-        )
-    else:
-        raise ValueError(
-            f"{kv_cache_strategy} caching strategy is not supported by Serving."
-        )
+
+    batch_size = config.max_cache_batch_size
+    max_forward_steps = config.max_forward_steps
+    batch_config = pipeline_config(
+        kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
+    )
     print(
         f"Server configured with {kv_cache_strategy} caching with batch size"
-        f" {kv_cache_size}."
+        f" {batch_size}."
     )
 
     # limit the number of inflight requests to just a few more than the number
     # of active slots on the GPU
-    request_limit = kv_cache_size + 16
+    request_limit = batch_size + 16
     settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
 
     model_name = "llama3"
@@ -243,7 +261,6 @@ def run_llama3(
             serve_token_generator(
                 config,
                 repo_id,
-                config.max_cache_batch_size,
                 performance_fake,
                 profile_serve,
                 not disable_prefer_ce_over_tg,
