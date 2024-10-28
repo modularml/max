@@ -72,15 +72,41 @@ def fused_qkv_matmul(
     wqkv: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollectionType,
     layer_idx: TensorValue,
+    n_heads: int,
 ) -> TensorValue:
     """Computes fused query, key and value projections."""
+
+    if input.dtype != wqkv.dtype:
+        msg = (
+            "expected input and wqkv to have the same dtype, but got"
+            f" {input.dtype} and {wqkv.dtype}, respectively."
+        )
+        raise ValueError(msg)
+
+    if input.rank != 3:
+        msg = f"expected input to have rank 3, was {input.rank}"
+        raise ValueError(msg)
+
+    if wqkv.rank != 2:
+        msg = f"expected wqkv to have rank 2, was {wqkv.rank}"
+        raise ValueError(msg)
+
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected layer_idx to have dtype uint32, was {layer_idx.dtype}"
+        raise ValueError(msg)
+
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
-        [input, wqkv, kv_collection, layer_idx],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
-    )[0]
+        values=[input, wqkv, kv_collection, layer_idx],
+        out_types=[
+            TensorType(
+                dtype=input.dtype,
+                shape=input.shape[:-1] + [n_heads * kv_params.head_dim],
+            )
+        ],
+    )[0].tensor
 
 
 def fused_qk_ragged_rope(
