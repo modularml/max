@@ -305,10 +305,15 @@ def run_llama3(
 )
 @click.option(
     "--use-gpu",
-    is_flag=True,
+    is_flag=False,
+    type=DevicesOptionType(),
     show_default=True,
-    default=False,
-    help="Whether to run the model on the available GPU.",
+    default="",
+    flag_value="0",
+    help=(
+        "Whether to run the model on the available GPU. An ID value can be"
+        " provided optionally to indicate the device ID to target."
+    ),
 )
 @click.option(
     "--profile-serve",
@@ -331,7 +336,7 @@ def run_replit(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+                "quantization_encoding": replit.SupportedEncodings.bfloat16,
             }
         )
     else:

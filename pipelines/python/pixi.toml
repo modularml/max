@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [tasks]
 llama3 = "python pipelines.py llama3"
+replit = "python pipelines.py replit"
 
 [dependencies]
 python = ">=3.9,<3.13"
