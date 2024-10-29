@@ -50,13 +50,13 @@ except ImportError:
 def pipeline_config(
     kv_cache_strategy,
     batch_size: int,  # Also KV-cache size.
-    batch_timeout=0.1,
+    batch_timeout=0.0,
     max_forward_steps: int = 1,
 ) -> TokenGeneratorPipelineConfig:
     if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
         return TokenGeneratorPipelineConfig.continuous_heterogenous(
             tg_batch_size=batch_size,
-            ce_batch_size=1,
+            ce_batch_size=min(32, batch_size),
             ce_batch_timeout=batch_timeout,
             max_forward_steps=max_forward_steps,
         )
@@ -119,7 +119,7 @@ async def serve_token_generator(
 
     # limit the number of inflight requests to just a few more than the number
     # of active slots on the GPU
-    request_limit = batch_size + 16
+    request_limit = batch_size + 128
     settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
 
     model_name = "llama3"
@@ -129,9 +129,7 @@ async def serve_token_generator(
         {
             model_name: BatchedTokenGeneratorState(
                 TokenGeneratorPipeline(
-                    batch_config,
-                    model_name,
-                    tokenizer,
+                    batch_config, model_name, tokenizer, False
                 ),
                 model_factory,
             )
