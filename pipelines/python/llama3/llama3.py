@@ -328,10 +328,6 @@ class Llama3(TokenGenerator[Llama3Context]):
     def step(
         self, req_to_context_dict: dict[str, Llama3Context]
     ) -> dict[str, Any]:
-        for request_id, context in req_to_context_dict.items():
-            if context.cache_seq_id in self._kv_manager.slots_remaining:
-                self._kv_manager.external_claim([context.cache_seq_id])
-
         res = {}
         logits = self._execute(req_to_context_dict)
         tokens = self._sampler(logits)[0]
@@ -394,6 +390,10 @@ class Llama3(TokenGenerator[Llama3Context]):
 
     def _execute(self, req_to_context_dict: dict[str, Llama3Context]) -> Tensor:
         """Executes the model and returns the raw results."""
+        for context in req_to_context_dict.values():
+            if context.cache_seq_id in self._kv_manager.slots_remaining:
+                self._kv_manager.external_claim([context.cache_seq_id])
+
         if self.config.cache_strategy == KVCacheStrategy.CONTINUOUS:
             return self._execute_opaque(req_to_context_dict)
 
