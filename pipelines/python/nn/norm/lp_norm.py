@@ -34,7 +34,7 @@ class LPLayerNorm(Layer):
             input,
             ops.cast(self.weight, input.dtype),
             ops.broadcast_to(
-                ops.constant(0.0, DType.float32),
+                ops.constant(0.0, input.dtype),
                 shape=(input.shape[-1],),
             ),
             self.eps,
