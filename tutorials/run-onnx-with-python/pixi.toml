@@ -1,7 +1,7 @@
 [project]
 channels = ["conda-forge", "https://conda.modular.com/max-nightly/"]
 description = "Tutorial: Run an ONNX model with Python"
-name = "max-onnx-resnet"
+name = "onnx-tutorial"
 platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
