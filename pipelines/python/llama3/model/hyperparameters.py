@@ -17,7 +17,6 @@ from typing import Optional
 
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
-from nn.kv_cache import KVCacheStrategy
 
 
 @dataclass

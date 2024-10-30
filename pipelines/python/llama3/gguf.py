@@ -19,6 +19,11 @@ from max.dtype import DType
 from max.graph import Graph, ops
 from max.graph.quantization import QuantizationEncoding
 from max.graph.weights import GGUFWeights
+from max.pipelines.kv_cache import (
+    FetchContinuousBatchingKVCacheCollection,
+    KVCacheParams,
+    KVCacheStrategy,
+)
 from nn import (
     MLP,
     AttentionWithRope,
@@ -34,11 +39,6 @@ from nn import (
     TransformerBlock,
 )
 from nn.attention.attention_with_rope import AttentionWithRope
-from nn.kv_cache import (
-    FetchContinuousBatchingKVCacheCollection,
-    KVCacheParams,
-    KVCacheStrategy,
-)
 
 from .model.hyperparameters import Hyperparameters
 

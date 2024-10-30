@@ -32,7 +32,7 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingTokenGeneratorTokenizer,
     get_performance_fake,
 )
-from nn.kv_cache import KVCacheStrategy
+from max.pipelines.kv_cache import KVCacheStrategy
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from uvicorn import Server

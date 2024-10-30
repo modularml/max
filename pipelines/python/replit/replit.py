@@ -27,8 +27,8 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import TokenGenerator
+from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn import token_sampler
-from nn.kv_cache import KVCacheParams, load_kv_manager
 
 from .config import InferenceConfig
 from .context import ReplitContext

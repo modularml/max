@@ -16,17 +16,15 @@ from typing import Union
 
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
-from nn.kv_cache.continuous_batching_cache import (
+from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
-)
-
-from ..attention.interfaces import AttentionImpl
-from ..embedding import Embedding
-from ..kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
 )
+
+from ..attention.interfaces import AttentionImpl
+from ..embedding import Embedding
 from ..layer import Layer
 from ..linear import MLP, Linear
 from ..sequential import Sequential

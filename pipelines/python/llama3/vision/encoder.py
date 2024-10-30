@@ -14,15 +14,18 @@
 """Llama 3.2 Transformer Vision Encoder."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
+
 from max.graph import TensorValue, TensorValueLike, ops
-from nn import AttentionWithRope, LPLayerNorm
-from nn.kv_cache import (
+from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
 )
+from nn import AttentionWithRope, LPLayerNorm
 from nn.layer import Layer
+
 from .mlp import MLP
 
 
