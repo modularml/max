@@ -30,7 +30,7 @@ from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType
 from max.graph.weights import GGUFWeights
 from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
-from max.serve.pipelines.llm import PreTrainedTokenGeneratorTokenizer
+from max.pipelines import PreTrainedTokenGeneratorTokenizer
 from nn.kv_cache import (
     KVCacheManager,
     KVCacheParams,
