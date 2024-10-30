@@ -127,13 +127,13 @@ if rag:
         "RAG Directory",
         value=Path(__file__).parent.parent / "ragdata",
     )
-    filenames = [
+    files_observed = [
         f
         for f in os.listdir(rag_directory)
         if os.path.isfile(os.path.join(rag_directory, f))
     ]
     # Re-cache reading the documents again if there's a change
-    collection, embedding_model = load_embed_docs(filenames)
+    collection, embedding_model = load_embed_docs(rag_directory, files_observed)
     st.success("RAG data is indexed", icon="✅")
 else:
     system_prompt = st.sidebar.text_area(

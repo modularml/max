@@ -159,12 +159,13 @@ def patch_tqdm():
 
 
 @st.cache_resource(show_spinner=False)
-def load_embed_docs(docs_filenames: List[str]):
-    """Loads documents from `./ragdir` and embeds them to chromadb
-    using a text embedding model.
+def load_embed_docs(rag_directory: str, files_observed: List[str]):
+    """Loads documents from `rag_directory` and embeds them to chromadb
+    using a text embedding model. `watched_files` is present to enable
+    hot reloading of the RAG data, and is intetentionally ignored.
     """
     with st.spinner("Loading RAG data..."):
-        docs = SimpleDirectoryReader("./ragdata").load_data()
+        docs = SimpleDirectoryReader(rag_directory).load_data()
         client = chromadb.Client(Settings(anonymized_telemetry=False))
         collection = client.get_or_create_collection(
             "max-rag-example", metadata={"hnsw:space": "cosine"}
