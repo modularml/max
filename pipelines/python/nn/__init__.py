@@ -12,11 +12,12 @@
 # ===----------------------------------------------------------------------=== #
 
 from .attention import (
+    Attention,
+    AttentionImpl,
     AttentionWithRope,
     NaiveAttentionWithRope,
-    AttentionImpl,
-    Attention,
 )
+from .conv import Conv2D
 from .embedding import Embedding
 from .linear import MLP, Linear
 from .norm import LPLayerNorm, RMSNorm
@@ -38,6 +39,7 @@ __all__ = [
     "AttentionImpl",
     "AttentionWithRope",
     "NaiveAttentionWithRope",
+    "Conv2D",
     "Embedding",
     "Linear",
     "LPLayerNorm",
