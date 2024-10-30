@@ -22,7 +22,7 @@ from huggingface_hub import hf_hub_download
 from max.dtype import DType
 from max.driver import CPU, CUDA, Device, DeviceSpec
 from max.graph.quantization import QuantizationEncoding
-from nn.kv_cache import KVCacheStrategy
+from max.pipelines.kv_cache import KVCacheStrategy
 
 
 class SupportedVersions(str, Enum):

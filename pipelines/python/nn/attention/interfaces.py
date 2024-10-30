@@ -16,13 +16,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from max.graph import TensorValue, TensorValueLike
-
-from ..kv_cache import (
+from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
     KVCacheStrategy,
 )
+
 from ..layer import Layer
 from ..linear import Linear
 

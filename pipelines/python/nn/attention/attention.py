@@ -15,12 +15,12 @@
 from dataclasses import dataclass
 
 from max.graph import TensorValue, ops
-
-from ..kernels import flash_attention, fused_qkv_matmul
-from ..kv_cache import (
+from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
 )
+
+from ..kernels import flash_attention, fused_qkv_matmul
 from .interfaces import AttentionImpl
 
 

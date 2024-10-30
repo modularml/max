@@ -15,7 +15,7 @@
 from max.dtype import DType
 from max.graph import TensorType, TensorValue, ops
 
-from .kv_cache import (
+from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,

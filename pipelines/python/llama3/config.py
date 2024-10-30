@@ -20,7 +20,7 @@ from typing import Optional, Union
 from max.dtype import DType
 from max.driver import DeviceSpec
 from max.graph.quantization import QuantizationEncoding
-from nn.kv_cache import KVCacheStrategy
+from max.pipelines.kv_cache import KVCacheStrategy
 
 
 class SupportedVersions(str, Enum):

@@ -29,9 +29,9 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType
 from max.graph.weights import GGUFWeights
-from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
 from max.pipelines import PreTrainedTokenGeneratorTokenizer
-from nn.kv_cache import (
+from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
+from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     KVCacheStrategy,

@@ -27,11 +27,9 @@ from nn import (
     Transformer,
     TransformerBlock,
 )
-from nn.kv_cache import (
+from max.pipelines.kv_cache import (
     KVCacheParams,
     KVCacheManager,
-)
-from nn.kv_cache.continuous_batching_cache import (
     FetchContinuousBatchingKVCacheCollection,
 )
 from .hyperparameters import Hyperparameters

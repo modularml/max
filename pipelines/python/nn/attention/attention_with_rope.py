@@ -15,15 +15,15 @@
 from dataclasses import dataclass
 
 from max.graph import TensorValue, TensorValueLike, ops
+from max.pipelines.kv_cache import (
+    ContinuousBatchingKVCacheCollection,
+    ContinuousBatchingKVCacheCollectionType,
+)
 
 from ..kernels import (
     flash_attention_with_causal_mask,
     fused_qk_rope,
     fused_qkv_matmul,
-)
-from ..kv_cache import (
-    ContinuousBatchingKVCacheCollection,
-    ContinuousBatchingKVCacheCollectionType,
 )
 from ..rotary_embedding import OptimizedRotaryEmbedding
 from .interfaces import AttentionImpl
