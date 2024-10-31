@@ -18,6 +18,7 @@ from .attention import (
     NaiveAttentionWithRope,
 )
 from .conv import Conv2D
+from .context import TextContext
 from .embedding import Embedding
 from .linear import MLP, Linear
 from .norm import LPLayerNorm, RMSNorm
@@ -50,6 +51,7 @@ __all__ = [
     "RMSNorm",
     "RotaryEmbedding",
     "Sequential",
+    "TextContext",
     "Transformer",
     "TransformerBlock",
     "argmax_sampler",
