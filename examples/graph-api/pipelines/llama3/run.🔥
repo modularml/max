@@ -42,7 +42,7 @@ from max.graph.quantization import (
     Q4_KEncoding,
     Q6_KEncoding,
 )
-from max.serve.kv_cache.types import ContiguousKVCacheManager
+from max.graph.kv_cache.types import ContiguousKVCacheManager
 from .kv_cache import KVCache
 from kv_cache.types import (
     ContiguousKVCache,

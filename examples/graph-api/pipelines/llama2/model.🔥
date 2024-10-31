@@ -27,7 +27,7 @@ from max.graph.quantization import (
     Q6_KEncoding,
 )
 
-from max.serve.kv_cache.types import (
+from max.graph.kv_cache.types import (
     KVCacheStaticParams,
     ContiguousKVCacheCollection,
 )

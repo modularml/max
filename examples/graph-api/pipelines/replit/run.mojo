@@ -35,7 +35,7 @@ from max.driver import (
     AnyMojoValue,
 )
 from max.driver._cuda import cuda_device
-from max.serve.kv_cache.types import (
+from max.graph.kv_cache.types import (
     ContiguousKVCacheCollection,
     ContiguousKVCacheManager,
     KVCacheStaticParams,

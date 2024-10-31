@@ -19,12 +19,12 @@ from max.tensor import Tensor, TensorShape
 
 from .kv_attention import KVCacheOptimizedAttention
 from pipelines.nn import Embedding, Linear, RMSNorm, FeedForward
-from max.serve.kv_cache.types import (
+from max.graph.kv_cache.types import (
     ContiguousKVCacheCollection,
     ContiguousKVCache,
     KVCacheStaticParams,
 )
-from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names
+from max.graph.kv_cache.kernel_names import _kv_cache_kernel_names
 
 
 def kv_cache_length[
