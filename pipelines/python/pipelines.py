@@ -13,6 +13,7 @@
 
 import asyncio
 import functools
+import logging
 import os
 
 import click
@@ -39,6 +40,7 @@ from uvicorn import Server
 
 from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag
 
+logger = logging.getLogger(__name__)
 try:
     import rich.traceback
 
@@ -81,7 +83,7 @@ async def serve_token_generator(
 ):
     """Hosts the Llama3 pipeline using max.serve."""
     if performance_fake == "none":
-        print(f"Starting server using Llama3.")
+        logger.info("Starting server using Llama3.")
         tokenizer = llama3.Llama3Tokenizer(
             config,
         )
@@ -94,7 +96,9 @@ async def serve_token_generator(
         )
         kv_cache_strategy = config.cache_strategy
     else:
-        print(f"Starting server using performance fake '{performance_fake}'.")
+        logger.info(
+            "Starting server using performance fake '%s'.", performance_fake
+        )
         tokenizer = PerformanceFakingTokenGeneratorTokenizer(
             AutoTokenizer.from_pretrained(repo_id)
         )
@@ -112,9 +116,10 @@ async def serve_token_generator(
     batch_config = pipeline_config(
         kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
     )
-    print(
-        f"Server configured with {kv_cache_strategy} caching with batch size"
-        f" {batch_size}."
+    logger.info(
+        "Server configured with %s caching with batch size %s",
+        kv_cache_strategy,
+        batch_size,
     )
 
     # limit the number of inflight requests to just a few more than the number
@@ -277,7 +282,7 @@ def run_llama3(
             )
             # Run warmup iteration with no metrics & printing disabled
             if num_warmups > 0:
-                print("Running warmup...")
+                logger.info("Running warmup...")
                 for i in range(num_warmups):
                     asyncio.run(
                         stream_text_to_console(
@@ -290,7 +295,7 @@ def run_llama3(
                         )
                     )
 
-            print("Beginning text generation...")
+            logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
                     model,
@@ -438,7 +443,7 @@ def run_replit(
     config = replit.InferenceConfig(**config_kwargs)
 
     if serve:
-        print("Starting server...")
+        logger.info("Starting server...")
         asyncio.run(
             serve_token_generator_replit(
                 config,
@@ -450,7 +455,7 @@ def run_replit(
         with TextGenerationMetrics(print_report=True) as metrics:
             model = replit.Replit(config)
             tokenizer = replit.ReplitTokenizer(config)
-            print("Beginning text generation...")
+            logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
                     model,
