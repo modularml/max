@@ -26,7 +26,7 @@ from kv_cache.types import (
     ContiguousKVCache,
     KVCacheStaticParams,
 )
-from max.serve.kv_cache.kernel_names import _kv_cache_kernel_names
+from max.graph.kv_cache.kernel_names import _kv_cache_kernel_names
 
 
 def kv_cache_length[
