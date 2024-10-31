@@ -234,7 +234,7 @@ def run_llama3(
     # By default, use the Modular HF repository as a reference for tokenizer
     # configuration, etc. when no repository is specified.
     repo_id = f"modularai/llama-{config.version}"
-    if config.weight_path is None:
+    if config.weight_path is None and performance_fake == "none":
         if config.huggingface_weights is not None:
             components = config.huggingface_weights.split("/")
             assert len(components) == 3, (
