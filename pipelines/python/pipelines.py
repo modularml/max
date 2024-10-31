@@ -289,8 +289,8 @@ def run_llama3(
                             model,
                             tokenizer,
                             prompt,
-                            metrics=none,
-                            print_tokens=false,
+                            metrics=None,
+                            print_tokens=False,
                             max_batch_size=config.max_cache_batch_size,
                         )
                     )
