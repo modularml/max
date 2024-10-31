@@ -11,7 +11,8 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from replit.config import InferenceConfig, SupportedEncodings
+from replit.config import InferenceConfig
 from replit.replit import Replit
+from .tokenizer import ReplitTokenizer
 
-__all__ = ["InferenceConfig", "Replit", "SupportedEncodings"]
+__all__ = ["InferenceConfig", "Replit", "ReplitTokenizer"]
