@@ -11,8 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import asyncio
-from typing import Optional
+from typing import Any
 
 import gguf
 import numpy as np
@@ -20,7 +19,6 @@ import transformers
 from dataprocessing import (
     causal_attention_mask_with_alibi,
     collate_batch,
-    max_tokens_to_generate,
 )
 from max.driver import CPU, Tensor
 from max.dtype import DType
@@ -34,17 +32,6 @@ from .config import InferenceConfig
 from .context import ReplitContext
 from .model.graph import _build_graph
 from .model.hyperparameters import Hyperparameters
-
-
-async def run_with_default_executor(fn, *args):
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, fn, *args)
-
-
-# These aren't thread safe, but we don't want them running on the main
-# thread. Guard them with an async lock for now.
-_TOKENIZER_LOCK = asyncio.Lock()
-_ENGINE_LOCK = asyncio.Lock()
 
 
 class Replit(TokenGenerator):
@@ -126,43 +113,11 @@ class Replit(TokenGenerator):
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    async def _encode(self, prompt: str) -> list[int]:
-        async with _TOKENIZER_LOCK:
-            encoded_prompt = await run_with_default_executor(
-                self._tokenizer.encode, prompt
-            )
-        if len(encoded_prompt) >= self._config.max_length:
-            msg = (
-                f"Prompt length of {len(encoded_prompt)} is greater or equal to"
-                " configured max model context length of"
-                f" {self._config.max_length}."
-            )
-            raise ValueError(msg)
-
-        return encoded_prompt
-
-    async def new_context(
-        self, prompt: str, max_new_tokens: Optional[int] = None
-    ) -> ReplitContext:
-        encoded_prompt = await self._encode(prompt)
-
-        _max_tokens_to_generate = max_tokens_to_generate(
-            len(encoded_prompt),
-            self._config.max_length,
-            max_new_tokens if max_new_tokens
-            is not None else self._config.max_new_tokens,
-        )
-        seq_id = self._kv_manager.claim(n=1)
-        context = ReplitContext(
-            prompt=prompt,
-            max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
-            cache_seq_id=seq_id[0],
-        )
-        context.append(np.array(encoded_prompt), prompt)
-        return context
-
     def _execute(self, batch: dict[str, ReplitContext]) -> Tensor:
         """Executes the model and returns the raw results."""
+        for context in batch.values():
+            if context.cache_seq_id in self._kv_manager.slots_remaining:
+                self._kv_manager.external_claim([context.cache_seq_id])
 
         context_batch = batch.values()
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
@@ -209,32 +164,29 @@ class Replit(TokenGenerator):
 
         return logits
 
-    async def next_token(
-        self, batch: dict[str, ReplitContext]
-    ) -> dict[str, str]:
-        res = {}
+    def next_token(
+        self, batch: dict[str, ReplitContext], num_steps: int = 1
+    ) -> list[dict[str, Any]]:
+        return [self.step(batch) for _ in range(num_steps)]
 
-        # Don't run compute-bound work on the main thread
-        # however, it's not thread-safe, so make sure only one can
-        # run at a time.
-        async with _ENGINE_LOCK:
-            logits = await run_with_default_executor(self._execute, batch)
-            (tokens,) = await run_with_default_executor(self._sampler, logits)
-            tokens = tokens.to(CPU())
+    def step(self, batch: dict[str, ReplitContext]) -> dict[str, str]:
+        res = {}
+        logits = self._execute(batch)
+        tokens = self._sampler(logits)[0]
+        tokens = tokens.to(CPU())
 
         next_tokens = dict(zip(batch, tokens.to_numpy()))
         for request_id, context in batch.items():
             next_token = next_tokens[request_id].astype(np.int64)
-            decoded_token = self._tokenizer.decode(next_token)
 
             # Update context
-            context.append(next_token.reshape(-1), decoded_token)
+            context.append(next_token.reshape(-1))
 
             # Mark completed requests by not including them in the response.
             if not context.is_done(self._tokenizer.eos_token_id):
-                res[request_id] = decoded_token
+                res[request_id] = next_token
 
         return res
 
-    async def release(self, context: ReplitContext):
+    def release(self, context: ReplitContext):
         self._kv_manager.release(context.cache_seq_id)

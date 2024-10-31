@@ -34,15 +34,11 @@ class ReplitContext:
     tokens: list[int] = field(default_factory=list)
     """Tokens generated so far."""
 
-    decoded: str = ""
-    """Decoded text sequence from `self.tokens` above."""
-
-    def append(self, token_ids: np.ndarray, decoded: str) -> None:
-        """Appends to the generated tokens and decoded output."""
+    def append(self, token_ids: np.ndarray) -> None:
+        """Appends to the generated tokens."""
         assert len(token_ids.shape) == 1
         self.next_tokens = token_ids
         self.tokens.extend(token_ids)
-        self.decoded += decoded
 
     def is_done(self, eos: int) -> bool:
         """Returns true if token gen for this context completed, else false."""

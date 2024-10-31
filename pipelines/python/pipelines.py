@@ -284,8 +284,8 @@ def run_llama3(
                             model,
                             tokenizer,
                             prompt,
-                            metrics=None,
-                            print_tokens=False,
+                            metrics=none,
+                            print_tokens=false,
                             max_batch_size=config.max_cache_batch_size,
                         )
                     )
@@ -301,6 +301,72 @@ def run_llama3(
                     n_duplicate=config.n_duplicate,
                 )
             )
+
+
+async def serve_token_generator_replit(
+    config: replit.InferenceConfig,
+    repo_id: str,
+    performance_fake,
+    prefer_ce_over_tg: bool = True,
+    profile: bool = False,
+):
+    """Hosts the Replit pipeline using max.serve."""
+    if performance_fake == "none":
+        print("Starting server using Replit.")
+        tokenizer = replit.ReplitTokenizer(
+            config,
+        )
+        assert tokenizer.delegate
+        model_factory = functools.partial(
+            replit.Replit,
+            config,
+        )
+        kv_cache_strategy = config.cache_strategy
+    else:
+        print(f"Starting server using performance fake '{performance_fake}'.")
+        tokenizer = PerformanceFakingTokenGeneratorTokenizer(
+            AutoTokenizer.from_pretrained(repo_id)
+        )
+        model_factory = functools.partial(
+            get_performance_fake,
+            performance_fake,
+        )
+        kv_cache_strategy = KVCacheStrategy.CONTINUOUS
+
+    settings = Settings(api_types=[APIType.OPENAI])
+    debug_settings = DebugSettings(profiling_enabled=profile)
+
+    batch_size = config.max_cache_batch_size
+    max_forward_steps = config.max_forward_steps
+    batch_config = pipeline_config(
+        kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
+    )
+    print(
+        f"Server configured with {kv_cache_strategy} caching with batch size"
+        f" {batch_size}."
+    )
+
+    # limit the number of inflight requests to just a few more than the number
+    # of active slots on the GPU
+    request_limit = batch_size + 128
+    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
+
+    model_name = "llama3"
+    app = fastapi_app(
+        settings,
+        debug_settings,
+        {
+            model_name: BatchedTokenGeneratorState(
+                TokenGeneratorPipeline(
+                    batch_config, model_name, tokenizer, False
+                ),
+                model_factory,
+            )
+        },
+    )
+
+    server = Server(fastapi_config(app=app))
+    await server.serve()
 
 
 @main.command(name="replit")
@@ -331,6 +397,12 @@ def run_llama3(
     ),
 )
 @click.option(
+    "--performance-fake",
+    type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
+    default="none",
+    help="Fake the engine performance (for benchmarking)",
+)
+@click.option(
     "--profile-serve",
     is_flag=True,
     show_default=True,
@@ -344,7 +416,13 @@ def run_llama3(
     help="Configures the servers batching scheme",
 )
 def run_replit(
-    prompt, serve, use_gpu, profile_serve, server_batch_mode, **config_kwargs
+    prompt,
+    serve,
+    use_gpu,
+    performance_fake,
+    profile_serve,
+    server_batch_mode,
+    **config_kwargs,
 ):
     """Runs the Replit pipeline."""
     if use_gpu:
@@ -361,27 +439,26 @@ def run_replit(
 
     if serve:
         print("Starting server...")
-        model = replit.Replit(config)
-        cache_strategy = KVCacheStrategy.CONTINUOUS
         asyncio.run(
-            serve_token_generator(
-                model,
-                None,
-                cache_strategy,
-                config.max_cache_batch_size,
-                profile_serve,
+            serve_token_generator_replit(
+                config,
+                "modularai/replit-code-1_5",
+                performance_fake,
             )
         )
     else:
         with TextGenerationMetrics(print_report=True) as metrics:
             model = replit.Replit(config)
+            tokenizer = replit.ReplitTokenizer(config)
             print("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
                     model,
+                    tokenizer,
                     prompt,
                     metrics=metrics,
                     max_batch_size=config.max_cache_batch_size,
+                    n_duplicate=config.n_duplicate,
                 )
             )
 

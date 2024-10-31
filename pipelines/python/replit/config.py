@@ -138,6 +138,9 @@ class InferenceConfig:
     top_k: Optional[int] = None
     """Limits the sampling to the K most probable tokens."""
 
+    max_forward_steps: int = 1
+    """Maximum number of forward steps to execute."""
+
     def __post_init__(self) -> None:
         # Ensure quantization_encoding and kv cache strategy is consistent.
         # If a quantizated encoding is provided, we must use the naive strategy.
