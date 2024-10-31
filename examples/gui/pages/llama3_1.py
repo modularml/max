@@ -17,7 +17,7 @@ from pathlib import Path
 
 import streamlit as st
 import torch
-from llama3 import Llama3
+from llama3 import Llama3TokenGenerator, Llama3Tokenizer
 from llama3.config import InferenceConfig, SupportedEncodings, SupportedVersions
 from max.driver import CPU, CUDA
 from shared import (
@@ -61,7 +61,7 @@ def start_llama3(
         max_new_tokens=max_new_tokens,
     )
     tokenizer = Llama3Tokenizer(config)
-    return Llama3(
+    return Llama3TokenGenerator(
         config,
         tokenizer.delegate.eos_token_id,
         tokenizer.delegate.vocab_size,
