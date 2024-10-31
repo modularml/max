@@ -12,15 +12,11 @@
 # ===----------------------------------------------------------------------=== #
 
 
-from .config import (
-    InferenceConfig,
-    SupportedEncodings,
-    SupportedVersions,
-)
-from .llama3 import (
-    Llama3,
+from .config import InferenceConfig, SupportedEncodings, SupportedVersions
+from .llama3 import Llama3
+from .llama3_token_gen import (
     Llama3Context,
     Llama3Tokenizer,
-    gguf_reader_and_params,
+    Llama3TokenGenerator,
 )
 from .model.hyperparameters import Hyperparameters

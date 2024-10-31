@@ -20,6 +20,7 @@ import llama3
 import replit
 from huggingface_hub import hf_hub_download
 from max.driver import DeviceSpec
+from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
@@ -32,7 +33,6 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingTokenGeneratorTokenizer,
     get_performance_fake,
 )
-from max.pipelines.kv_cache import KVCacheStrategy
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from uvicorn import Server
@@ -87,7 +87,7 @@ async def serve_token_generator(
         )
         assert tokenizer.delegate
         model_factory = functools.partial(
-            llama3.Llama3,
+            llama3.Llama3TokenGenerator,
             config,
             tokenizer.delegate.eos_token_id,
             tokenizer.delegate.vocab_size,
@@ -270,7 +270,7 @@ def run_llama3(
             tokenizer = llama3.Llama3Tokenizer(
                 config,
             )
-            model = llama3.Llama3(
+            model = llama3.Llama3TokenGenerator(
                 config,
                 tokenizer.delegate.eos_token_id,
                 tokenizer.delegate.vocab_size,

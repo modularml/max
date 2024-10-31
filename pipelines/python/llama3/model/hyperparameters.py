@@ -21,8 +21,13 @@ from max.graph.quantization import QuantizationEncoding
 
 @dataclass
 class Hyperparameters:
+    """All hyperparameters that control the Llama3 model architecture."""
+
     dtype: DType
+    """The dtype of the weights (is `uint8` for quantized dtypes)."""
+
     quantization_encoding: Optional[QuantizationEncoding] = None
+    """The quantization encoding or `None` if not quantized."""
 
     seq_len: int = 2048
     """Maximum length of the token sequence that can be processed by this model."""
