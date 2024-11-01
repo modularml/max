@@ -471,7 +471,7 @@ async def serve_token_generator_mistral(
     help="Fake the engine performance (for benchmarking)",
 )
 @click.option(
-    "--disab    le-prefer-ce-over-tg",
+    "--disable-prefer-ce-over-tg",
     is_flag=True,
     show_default=True,
     default=False,
