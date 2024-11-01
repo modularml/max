@@ -26,50 +26,12 @@ from max.engine import InferenceSession
 from max.pipelines import PreTrainedTokenGeneratorTokenizer
 from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
 from nn.sampling import token_sampler
+from nn import TextContext
 
 from utils import tokenizer_from_gguf
 
 from .config import InferenceConfig
 from .llama3 import Llama3
-
-
-@dataclass
-class Llama3Context:
-    """The context for text generation using a Llama 3 model."""
-
-    prompt: str
-    """Input prompt string prior to tokenization."""
-
-    max_tokens: int
-    """The maximum number of tokens to generate, including the prompt."""
-
-    cache_seq_id: int
-    """Sequence id to tell the KV cache manager which cache block this owns."""
-
-    next_tokens: np.ndarray = field(default_factory=lambda: np.array([]))
-    """A (seq_len,) vector of the input tokens for this iteration."""
-
-    tokens: list[int] = field(default_factory=list)
-    """Tokens generated so far."""
-
-    def append(self, token_ids: np.ndarray) -> None:
-        """Appends to the generated tokens"""
-        assert len(token_ids.shape) == 1
-        self.next_tokens = token_ids
-        self.tokens.extend(token_ids)
-
-    def is_done(self, eos: int) -> bool:
-        """Returns true if token gen for this context completed, else false."""
-        return self.tokens[-1] == eos or len(self.tokens) > self.max_tokens
-
-    @property
-    def seq_len(self) -> int:
-        """Current sequence length: num tokens input this iteration.
-
-        This will be the prompt size for context encoding, and simply 1 for
-        token generation.
-        """
-        return self.next_tokens.shape[-1]
 
 
 async def run_with_default_executor(fn, *args):
@@ -82,7 +44,7 @@ async def run_with_default_executor(fn, *args):
 _TOKENIZER_LOCK = asyncio.Lock()
 
 
-class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[Llama3Context]):
+class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
     """Encapsulates Llama3 specific token encode/decode logic."""
 
     def __init__(
@@ -118,14 +80,12 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[Llama3Context]):
 
     async def decode(
         self,
-        context: Llama3Context,
+        context: TextContext,
         encoded: np.ndarray,
     ) -> str:
         return self.delegate.decode(encoded)
 
-    async def new_context(
-        self, request: TokenGeneratorRequest
-    ) -> Llama3Context:
+    async def new_context(self, request: TokenGeneratorRequest) -> TextContext:
         encoded_prompt = await self.encode(request.prompt)
 
         _max_tokens_to_generate = max_tokens_to_generate(
@@ -134,7 +94,7 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[Llama3Context]):
             request.max_new_tokens if request.max_new_tokens
             is not None else self.config.max_new_tokens,
         )
-        context = Llama3Context(
+        context = TextContext(
             prompt=request.prompt,
             cache_seq_id=request.index,
             max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
@@ -143,7 +103,7 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[Llama3Context]):
         return context
 
 
-class Llama3TokenGenerator(TokenGenerator[Llama3Context]):
+class Llama3TokenGenerator(TokenGenerator[TextContext]):
     """Token Generator for the Llama 3 model."""
 
     def __init__(self, config: InferenceConfig, eos: int, vocab_size: int):
@@ -166,12 +126,12 @@ class Llama3TokenGenerator(TokenGenerator[Llama3Context]):
             self.model.export_mef(export_path)
 
     def next_token(
-        self, batch: dict[str, Llama3Context], num_steps: int = 1
+        self, batch: dict[str, TextContext], num_steps: int = 1
     ) -> list[dict[str, Any]]:
         return [self.step(batch) for _ in range(num_steps)]
 
     def step(
-        self, req_to_context_dict: dict[str, Llama3Context]
+        self, req_to_context_dict: dict[str, TextContext]
     ) -> dict[str, Any]:
         res = {}
         logits = self.model._execute(req_to_context_dict)
@@ -191,5 +151,5 @@ class Llama3TokenGenerator(TokenGenerator[Llama3Context]):
 
         return res
 
-    def release(self, context: Llama3Context):
+    def release(self, context: TextContext):
         self.model.release(context)
