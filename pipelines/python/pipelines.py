@@ -35,7 +35,7 @@ from max.serve.pipelines.performance_fake import (
     get_performance_fake,
 )
 from text_streaming import stream_text_to_console
-from transformers import AutoTokenizer, PreTrainedTokenizerBase
+from transformers import AutoTokenizer
 from uvicorn import Server
 
 from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag

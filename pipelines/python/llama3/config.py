@@ -17,8 +17,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
-from max.dtype import DType
 from max.driver import DeviceSpec
+from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
 from max.pipelines.kv_cache import KVCacheStrategy
 
