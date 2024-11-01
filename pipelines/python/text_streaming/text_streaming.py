@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 import uuid
+from collections import defaultdict
 from typing import Optional
 
 from max.pipelines.interfaces import (
@@ -21,6 +22,8 @@ from max.pipelines.interfaces import (
 )
 
 from utils import TextGenerationMetrics
+
+MODEL_NAME = "model"
 
 
 async def stream_text_to_console(
@@ -40,7 +43,7 @@ async def stream_text_to_console(
         raise ValueError(msg)
 
     # Length of request_id_context_dict should be == batch_size.
-    request_id_context = dict()
+    request_id_context = {}
 
     # TODO(MSDK-972): Make this batch_size variable based on size of the request dict.
     # NOTE: This batch_size param also needs to be == config.max_cache_size of
@@ -48,14 +51,16 @@ async def stream_text_to_console(
     batch_size = max_batch_size
     # Special case UX to see response print as generated when batch_size == 1
     print_as_generated = batch_size == 1
+
     responses = {}
+    decoded_responses = defaultdict(list)
 
     # create a dict of request_id: contexts
-    for _ in range(n_duplicate):
+    for i in range(n_duplicate):
         # We make the key unique even for the same prompts for now.
         req_id = str(uuid.uuid4())
         context = await tokenizer.new_context(
-            TokenGeneratorRequest("", 0, "", "")
+            TokenGeneratorRequest(req_id, i, prompt, MODEL_NAME)
         )
         responses[req_id] = [prompt]
         request_id_context[req_id] = context
@@ -68,16 +73,19 @@ async def stream_text_to_console(
     if print_tokens and print_as_generated:
         print(prompt, end="", flush=True)
 
-    end_loop = False
     first_token = True
-    while not end_loop:
-        response = model.next_token(request_id_context)[0]
-        if len(response) == 0:
+    while True:
+        responses = model.next_token(request_id_context)[0]
+        if not responses:
             break
-        for key, response_text in response.items():
-            if key not in response:
-                end_loop = True
-                break
+
+        for req_id, context in request_id_context.items():
+            if req_id not in responses or context.is_done(tokenizer.eos):
+                del request_id_context[req_id]
+                continue
+
+            encoded_text = responses[req_id]
+            response_text = await tokenizer.decode(context, encoded_text)
             if metrics:
                 if first_token:
                     first_token = False
@@ -86,7 +94,11 @@ async def stream_text_to_console(
             if print_tokens and print_as_generated:
                 print(response_text, end="", flush=True)
             else:
-                responses[key].append(response_text)
+                decoded_responses[req_id].append(response_text)
+
+        if not request_id_context:
+            break
+
     if metrics:
         metrics.signpost("end_generation")
 
@@ -95,9 +107,9 @@ async def stream_text_to_console(
 
     # Print prompt + response for each unique prompt
     if print_tokens and not print_as_generated:
-        for response in responses.values():
+        for decoded in decoded_responses.values():
             print("\n---\n")
-            print("".join(str(response)), flush=True)
+            print("".join(str(decoded)), flush=True)
 
     if print_tokens:
         print()
