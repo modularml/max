@@ -36,9 +36,7 @@ from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
 
 if TYPE_CHECKING:
-    # TODO(kathywu): The inputs still take Llama3Context. This will be changed
-    # and this circular dependency will be resolved.
-    from .llama3_token_gen import Llama3Context
+    from nn.context import TextContext
 
 
 class Llama3:
@@ -202,11 +200,11 @@ class Llama3:
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    def release(self, context: Llama3Context):
+    def release(self, context: TextContext):
         self._kv_manager.release(context.cache_seq_id)
 
     def _execute_opaque(
-        self, req_to_context_dict: dict[str, Llama3Context]
+        self, req_to_context_dict: dict[str, TextContext]
     ) -> Tensor:
         context_batch = req_to_context_dict.values()
         tokens = [ctx.next_tokens for ctx in context_batch]
@@ -244,7 +242,7 @@ class Llama3:
 
         return logits
 
-    def _execute(self, req_to_context_dict: dict[str, Llama3Context]) -> Tensor:
+    def _execute(self, req_to_context_dict: dict[str, TextContext]) -> Tensor:
         """Executes the model and returns the raw results."""
         for context in req_to_context_dict.values():
             if context.cache_seq_id in self._kv_manager.slots_remaining:
