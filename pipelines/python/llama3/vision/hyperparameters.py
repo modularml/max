@@ -14,8 +14,12 @@
 Llama3.2 vision model hyperparameters. These may be combined / consolidated
 under pipelines/python/llama3/model/hyperparameters.py in the future.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+from max.dtype import DType
+from max.graph.quantization import QuantizationEncoding
 
 
 @dataclass
@@ -64,6 +68,12 @@ class VisionHyperparameters:
         initializer_range (`float`, *optional*, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
     """
+    dtype: DType
+    """The dtype of the weights (is `uint8` for quantized dtypes)."""
+
+    quantization_encoding: QuantizationEncoding | None = None
+    """The quantization encoding or `None` if not quantized."""
+
     # TODO: To be honest I don't think all of them are being used anyway, but
     # let's keep them here for now until the bringup is done then circle back to
     # addressing this technical debt.

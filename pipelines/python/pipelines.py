@@ -18,6 +18,7 @@ import os
 
 import click
 import llama3
+import llama3.vision.config as llama3_vision_config
 import replit
 from huggingface_hub import hf_hub_download
 from max.driver import DeviceSpec
@@ -306,6 +307,53 @@ def run_llama3(
                     n_duplicate=config.n_duplicate,
                 )
             )
+
+
+# TODO: We run this llama 3 vision model variant as a separate command for now.
+# I think there is room to consolidate it under the "llama3" above.
+@main.command(name="llama3-vision")
+@config_to_flag(llama3_vision_config.InferenceConfig)
+@click.option(
+    "--use-gpu",
+    is_flag=False,
+    type=DevicesOptionType(),
+    show_default=True,
+    default="",
+    flag_value="0",
+    help=(
+        "Whether to run the model on the available GPU. An ID value can be"
+        " provided optionally to indicate the device ID to target."
+    ),
+)
+def run_llama3_vision(
+    use_gpu,
+    **config_kwargs,
+):
+    """Runs the Llama3.2 vision pipeline."""
+    if use_gpu:
+        config_kwargs.update(
+            {
+                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
+                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+            }
+        )
+    else:
+        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
+
+    config = llama3_vision_config.InferenceConfig(**config_kwargs)
+    weight_filenames = [
+        "model-00001-of-00005.safetensors",
+        "model-00002-of-00005.safetensors",
+        "model-00003-of-00005.safetensors",
+        "model-00004-of-00005.safetensors",
+        "model-00005-of-00005.safetensors",
+    ]
+    config.weight_path = [
+        hf_hub_download(repo_id=config.repo_id, filename=filename)
+        for filename in weight_filenames
+    ]
+
+    # TODO: Further implementation here - hook up serving / local CLI workflow.
 
 
 async def serve_token_generator_replit(

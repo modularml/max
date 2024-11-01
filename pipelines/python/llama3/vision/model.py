@@ -16,7 +16,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import Graph, TensorValue, TensorValueLike, ops
+from max.graph.weights import SafetensorWeights
 from nn import Conv2D, LPLayerNorm
 from nn.layer import Layer
 from .class_embedding import ClassEmbedding
@@ -57,3 +58,11 @@ class VisionModel(Layer):
     ) -> tuple[TensorValue]:
         raise NotImplementedError("Not implemented yet")
         return (pixel_values,)
+
+
+def instantiate_vision_model(
+    graph: Graph,
+    params: VisionHyperparameters,
+    weights: SafetensorWeights,
+):
+    raise NotImplementedError("Not implemented yet")
