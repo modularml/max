@@ -20,6 +20,7 @@ import click
 import llama3
 import llama3.vision.config as llama3_vision_config
 import replit
+import mistral
 from huggingface_hub import hf_hub_download
 from max.driver import DeviceSpec
 from max.pipelines.kv_cache import KVCacheStrategy
@@ -354,6 +355,203 @@ def run_llama3_vision(
     ]
 
     # TODO: Further implementation here - hook up serving / local CLI workflow.
+
+
+async def serve_token_generator_mistral(
+    config: mistral.InferenceConfig,
+    repo_id: str,
+    performance_fake,
+    prefer_ce_over_tg: bool = True,
+    profile: bool = False,
+):
+    """Hosts the Mistral pipeline using max.serve."""
+    if performance_fake == "none":
+        print("Starting server using Mistral.")
+        tokenizer = mistral.MistralTokenizer(
+            config,
+        )
+        assert tokenizer.delegate
+        model_factory = functools.partial(
+            mistral.Mistral,
+            config,
+        )
+        kv_cache_strategy = config.cache_strategy
+    else:
+        print(f"Starting server using performance fake '{performance_fake}'.")
+        tokenizer = PerformanceFakingTokenGeneratorTokenizer(
+            AutoTokenizer.from_pretrained(repo_id)
+        )
+        model_factory = functools.partial(
+            get_performance_fake,
+            performance_fake,
+        )
+        kv_cache_strategy = KVCacheStrategy.CONTINUOUS
+
+    settings = Settings(api_types=[APIType.OPENAI])
+    debug_settings = DebugSettings(profiling_enabled=profile)
+
+    batch_size = config.max_cache_batch_size
+    max_forward_steps = config.max_forward_steps
+    batch_config = pipeline_config(
+        kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
+    )
+    print(
+        f"Server configured with {kv_cache_strategy} caching with batch size"
+        f" {batch_size}."
+    )
+
+    # limit the number of inflight requests to just a few more than the number
+    # of active slots on the GPU
+    request_limit = batch_size + 128
+    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
+
+    model_name = "mistral"
+    app = fastapi_app(
+        settings,
+        debug_settings,
+        {
+            model_name: BatchedTokenGeneratorState(
+                TokenGeneratorPipeline(
+                    batch_config, model_name, tokenizer, False
+                ),
+                model_factory,
+            )
+        },
+    )
+
+    server = Server(fastapi_config(app=app))
+    await server.serve()
+
+
+@main.command(name="mistral")
+@config_to_flag(mistral.InferenceConfig)
+@click.option(
+    "--prompt",
+    type=str,
+    default="I believe the meaning of life is",
+    help="The text prompt to use for further generation.",
+)
+@click.option(
+    "--serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
+)
+@click.option(
+    "--profile-serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to enable pyinstrument profiling on the serving endpoint.",
+)
+@click.option(
+    "--use-gpu",
+    is_flag=False,
+    type=DevicesOptionType(),
+    show_default=True,
+    default="",
+    flag_value="0",
+    help=(
+        "Whether to run the model on the available GPU. An ID value can be"
+        " provided optionally to indicate the device ID to target."
+    ),
+)
+@click.option(
+    "--num-warmups",
+    type=int,
+    default=1,
+    show_default=True,
+    help="# of warmup iterations to run before the final timed run.",
+)
+@click.option(
+    "--performance-fake",
+    type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
+    default="none",
+    help="Fake the engine performance (for benchmarking)",
+)
+@click.option(
+    "--disab    le-prefer-ce-over-tg",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Disable preference of context encoding over token generation.",
+)
+def run_mistral(
+    prompt,
+    serve,
+    profile_serve,
+    use_gpu,
+    num_warmups,
+    performance_fake,
+    disable_prefer_ce_over_tg,
+    **config_kwargs,
+):
+    """Runs the Mistral pipeline."""
+    if use_gpu:
+        config_kwargs.update(
+            {
+                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
+                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+            }
+        )
+    else:
+        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
+
+    config = mistral.InferenceConfig(**config_kwargs)
+    repo_id = f"mistralai/Mistral-Nemo-Instruct-2407"
+    weight_filename = "consolidated.safetensors"
+    config.weight_path = hf_hub_download(
+        repo_id=repo_id,
+        filename=weight_filename,
+    )
+
+    if serve:
+        asyncio.run(
+            serve_token_generator_mistral(
+                config,
+                repo_id,
+                performance_fake,
+                profile_serve,
+                not disable_prefer_ce_over_tg,
+            )
+        )
+    else:
+        # Run timed run & print results
+        with TextGenerationMetrics(print_report=True) as metrics:
+            tokenizer = mistral.MistralTokenizer(
+                config,
+            )
+            model = mistral.MistralTokenGenerator(
+                config,
+                tokenizer.delegate.eos_token_id,
+            )
+            # Run warmup iteration with no metrics & printing disabled
+            if num_warmups > 0:
+                print("Running warmup...")
+                for i in range(num_warmups):
+                    asyncio.run(
+                        stream_text_to_console(
+                            model,
+                            tokenizer,
+                            prompt,
+                            metrics=None,
+                            print_tokens=False,
+                            max_batch_size=config.max_cache_batch_size,
+                        )
+                    )
+
+            print("Beginning text generation...")
+            asyncio.run(
+                stream_text_to_console(
+                    model,
+                    tokenizer,
+                    prompt,
+                    metrics=metrics,
+                    max_batch_size=config.max_cache_batch_size,
+                    n_duplicate=config.n_duplicate,
+                )
+            )
 
 
 async def serve_token_generator_replit(
