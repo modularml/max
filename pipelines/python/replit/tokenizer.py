@@ -11,11 +11,11 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 from .config import InferenceConfig
-from .context import ReplitContext
 import asyncio
 import gguf
 import numpy as np
 from dataprocessing import max_tokens_to_generate
+from nn import TextContext
 
 from max.pipelines import PreTrainedTokenGeneratorTokenizer
 from max.pipelines.interfaces import TokenGeneratorRequest
@@ -36,7 +36,7 @@ def gguf_reader_and_params(config: InferenceConfig):
 _TOKENIZER_LOCK = asyncio.Lock()
 
 
-class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[ReplitContext]):
+class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
     """Encapsulates Llama3 specific token encode/decode logic."""
 
     def __init__(
@@ -73,14 +73,12 @@ class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[ReplitContext]):
 
     async def decode(
         self,
-        context: ReplitContext,
+        context: TextContext,
         encoded: np.ndarray,
     ) -> str:
         return self.delegate.decode(encoded)
 
-    async def new_context(
-        self, request: TokenGeneratorRequest
-    ) -> ReplitContext:
+    async def new_context(self, request: TokenGeneratorRequest) -> TextContext:
         encoded_prompt = await self.encode(request.prompt)
 
         _max_tokens_to_generate = max_tokens_to_generate(
@@ -89,7 +87,7 @@ class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[ReplitContext]):
             request.max_new_tokens if request.max_new_tokens
             is not None else self.config.max_new_tokens,
         )
-        context = ReplitContext(
+        context = TextContext(
             prompt=request.prompt,
             cache_seq_id=request.index,
             max_tokens=len(encoded_prompt) + _max_tokens_to_generate,

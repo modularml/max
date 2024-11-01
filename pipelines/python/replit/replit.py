@@ -26,10 +26,9 @@ from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import TokenGenerator
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
-from nn import token_sampler
+from nn import token_sampler, TextContext
 
 from .config import InferenceConfig
-from .context import ReplitContext
 from .model.graph import _build_graph
 from .model.hyperparameters import Hyperparameters
 
@@ -113,7 +112,7 @@ class Replit(TokenGenerator):
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    def _execute(self, batch: dict[str, ReplitContext]) -> Tensor:
+    def _execute(self, batch: dict[str, TextContext]) -> Tensor:
         """Executes the model and returns the raw results."""
         for context in batch.values():
             if context.cache_seq_id in self._kv_manager.slots_remaining:
@@ -165,11 +164,11 @@ class Replit(TokenGenerator):
         return logits
 
     def next_token(
-        self, batch: dict[str, ReplitContext], num_steps: int = 1
+        self, batch: dict[str, TextContext], num_steps: int = 1
     ) -> list[dict[str, Any]]:
         return [self.step(batch) for _ in range(num_steps)]
 
-    def step(self, batch: dict[str, ReplitContext]) -> dict[str, str]:
+    def step(self, batch: dict[str, TextContext]) -> dict[str, str]:
         res = {}
         logits = self._execute(batch)
         tokens = self._sampler(logits)[0]
@@ -188,5 +187,5 @@ class Replit(TokenGenerator):
 
         return res
 
-    def release(self, context: ReplitContext):
+    def release(self, context: TextContext):
         self._kv_manager.release(context.cache_seq_id)
