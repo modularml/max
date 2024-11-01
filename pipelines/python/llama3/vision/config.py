@@ -16,16 +16,14 @@ This should eventually be merged with the parent Llama config.py but
 since we have ongoing refactoring for PipelineConfig, we'll do this later on.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Optional, Union
 
 from max.driver import DeviceSpec
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
-from nn.kv_cache import KVCacheStrategy
 
 
 class SupportedVersions(str, Enum):
@@ -48,14 +46,16 @@ class SupportedEncodings(str, Enum):
         return self.name
 
     @property
-    def quantization_encoding(self) -> QuantizationEncoding | None:
+    def quantization_encoding(self) -> Optional[QuantizationEncoding]:
         return None
 
     @property
     def dtype(self) -> DType:
         return _ENCODING_TO_DTYPE[self]
 
-    def hf_model_name(self, version: SupportedVersions) -> str | list[str]:
+    def hf_model_name(
+        self, version: SupportedVersions
+    ) -> Union[str, list[str]]:
         if version == SupportedVersions.llama3_2:
             return _ENCODING_TO_MODEL_NAME_LLAMA3_2[self]
         else:
@@ -82,10 +82,10 @@ class InferenceConfig:
     device_spec: DeviceSpec = DeviceSpec.cpu()
     """Device to run inference upon."""
 
-    weight_path: str | Path | None = None
+    weight_path: Optional[Union[str, Path, list[str], list[Path]]] = None
     """Path or URL of the model weights."""
 
-    huggingface_weights: str | list[str] | None = field(
+    huggingface_weights: Optional[Union[str, list[str]]] = field(
         default_factory=lambda: [
             "model-00001-of-00005.safetensors",
             "model-00002-of-00005.safetensors",
@@ -101,15 +101,13 @@ class InferenceConfig:
 
     # TODO: Llama 3.2 vision only supports "bfloat16", so this field doesn't
     # need to be configurable by the user.
-    quantization_encoding: SupportedEncodings | None = (
-        SupportedEncodings.bfloat16
-    )
+    quantization_encoding: SupportedEncodings = SupportedEncodings.bfloat16
     """Encoding type."""
 
-    serialized_model_path: str | Path | None = None
+    serialized_model_path: Optional[Union[str, Path]] = None
     """If specified, tries to load a serialized model from this path."""
 
-    save_to_serialized_model_path: str | Path | None = None
+    save_to_serialized_model_path: Optional[Union[str, Path]] = None
     """If specified, tries to save a serialized model to this path."""
 
     repo_id: str = "meta-llama/Llama-3.2-11B-Vision"
