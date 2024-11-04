@@ -691,7 +691,7 @@ def run_replit(
 
     # Validate encoding.
     if config.quantization_encoding is None:
-        config.quantization_encoding == SupportedEncoding.float32
+        config.quantization_encoding = SupportedEncoding.float32
 
     if config.huggingface_repo_id is None:
         config.huggingface_repo_id = "modularai/replit-code-1_5"
