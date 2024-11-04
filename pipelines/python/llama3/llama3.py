@@ -23,6 +23,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType
 from max.graph.weights import GGUFWeights
+from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import (
     KVCacheParams,
     KVCacheStrategy,
@@ -31,7 +32,6 @@ from max.pipelines.kv_cache import (
 
 from utils import gguf_utils
 
-from .config import InferenceConfig, SupportedVersions
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
 
@@ -44,7 +44,7 @@ class Llama3:
 
     def __init__(
         self,
-        config: InferenceConfig,
+        config: PipelineConfig,
         *,
         session: InferenceSession | None = None,
         vocab_size: int | None = None,
@@ -177,7 +177,7 @@ class Llama3:
     def _load_model(
         self,
         session: InferenceSession,
-        config: InferenceConfig,
+        config: PipelineConfig,
         params: Hyperparameters,
         reader: gguf.GGUFReader,
     ) -> Model:
@@ -288,7 +288,7 @@ class Llama3:
 
 
 def _read_hyperparameters(
-    config: InferenceConfig,
+    config: PipelineConfig,
     reader: gguf.GGUFReader,
     *,
     vocab_size: int | None = None,
@@ -316,15 +316,19 @@ def _read_hyperparameters(
     )
     feed_forward_length = tensor.shape[0]
 
-    seq_len = 128_000 if config.version == SupportedVersions.llama3_1 else 8_000
-    if config.max_length > seq_len:
-        print(
-            "Warning: `max_length` is more than the supported context size"
-            f"`max_length` is now set to {seq_len}"
-        )
-        config.max_length = seq_len
-    else:
-        seq_len = config.max_length
+    # While Llama3.1 supports a context window of up to 128,000. The default is set
+    # to 8000. The memory reserved within the KV cache is directly dependent on this value,
+    # resulting in OOM memory on smaller machines, when set larger.
+    seq_len = 8000
+    if config.max_length is not None:
+        if config.max_length > seq_len:
+            print(
+                "Warning: `max_length` is more than the supported context size"
+                f"`max_length` is now set to {seq_len}"
+            )
+            config.max_length = seq_len
+        else:
+            seq_len = config.max_length
 
     # Newer llama models (>=3.2) may not use an output weight, and instead
     # re-use the embedding weight to compute the output logits.

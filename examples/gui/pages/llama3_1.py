@@ -18,8 +18,9 @@ from pathlib import Path
 import streamlit as st
 import torch
 from llama3 import Llama3TokenGenerator, Llama3Tokenizer
-from llama3.config import InferenceConfig, SupportedEncodings, SupportedVersions
+from llama3.config import get_llama_huggingface_file
 from max.driver import CPU, CUDA
+from max.pipelines import PipelineConfig, SupportedEncoding
 from shared import (
     RAG_PROMPT,
     RAG_SYSTEM_PROMPT,
@@ -48,12 +49,12 @@ menu()
 @st.cache_resource(show_spinner=False)
 def start_llama3(
     weight_path: str,
-    quantization: SupportedEncodings,
+    quantization: SupportedEncoding,
     max_length: int,
     max_new_tokens: int,
     use_gpu: bool,
 ) -> Llama3:
-    config = InferenceConfig(
+    config = PipelineConfig(
         device=CUDA() if use_gpu else CPU(),
         weight_path=weight_path,
         quantization_encoding=quantization,
@@ -89,14 +90,14 @@ else:
     )
 
 if use_gpu:
-    encoding = st.sidebar.selectbox("Encoding", [SupportedEncodings.bfloat16])
+    encoding = st.sidebar.selectbox("Encoding", [SupportedEncoding.bfloat16])
 else:
     encoding = st.sidebar.selectbox(
         "Encoding",
         [
-            SupportedEncodings.q4_k,
-            SupportedEncodings.q4_0,
-            SupportedEncodings.q6_k,
+            SupportedEncoding.q4_k,
+            SupportedEncoding.q4_0,
+            SupportedEncoding.q6_k,
         ],
     )
 
@@ -105,8 +106,8 @@ max_length = st.sidebar.number_input(
 )
 max_new_tokens = st.sidebar.number_input("Max output tokens", 0, 24_000, 6000)
 
-model_name = encoding.hf_model_name(SupportedVersions.llama3_1)
-weights = hf_streamlit_download("modularai/llama-3.1", model_name)
+hf_file = get_llama_huggingface_file("3.1", encoding)
+weights = hf_streamlit_download(hf_file.repo_id, hf_file.filename)
 
 button_state = st.empty()
 model_state = st.empty()

@@ -12,7 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 
-from .config import InferenceConfig, SupportedEncodings, SupportedVersions
+from .config import get_llama_huggingface_file
 from .llama3 import Llama3
 from .llama3_token_gen import (
     Llama3TokenGenerator,
@@ -21,11 +21,9 @@ from .llama3_token_gen import (
 from .model.hyperparameters import Hyperparameters
 
 __all__ = [
-    "InferenceConfig",
-    "SupportedEncodings",
-    "SupportedVersions",
     "Llama3",
     "Llama3Tokenizer",
     "Llama3TokenGenerator",
     "Hyperparameters",
+    "get_llama_huggingface_file",
 ]

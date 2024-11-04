@@ -19,10 +19,12 @@ import os
 import click
 import llama3
 import llama3.vision.config as llama3_vision_config
+from llama3.config import get_llama_huggingface_file
 import replit
 import mistral
 from huggingface_hub import hf_hub_download
 from max.driver import DeviceSpec
+from max.pipelines import HuggingFaceFile
 from max.pipelines.config import PipelineConfig, SupportedEncoding
 from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
@@ -79,7 +81,7 @@ def pipeline_config(
 
 
 async def serve_token_generator(
-    config: llama3.InferenceConfig,
+    config: PipelineConfig,
     repo_id: str,
     performance_fake,
     prefer_ce_over_tg: bool = True,
@@ -116,9 +118,8 @@ async def serve_token_generator(
     debug_settings = DebugSettings(profiling_enabled=profile)
 
     batch_size = config.max_cache_batch_size
-    max_forward_steps = config.max_forward_steps
     batch_config = pipeline_config(
-        kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
+        kv_cache_strategy, batch_size, max_forward_steps=config.max_num_steps
     )
     logger.info(
         "Server configured with %s caching with batch size %s",
@@ -166,7 +167,7 @@ def main():
 
 
 @main.command(name="llama3")
-@config_to_flag(llama3.InferenceConfig)
+@config_to_flag(PipelineConfig)
 @click.option(
     "--prompt",
     type=str,
@@ -234,40 +235,42 @@ def run_llama3(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+                "quantization_encoding": SupportedEncoding.bfloat16,
             }
         )
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
-    config = llama3.InferenceConfig(**config_kwargs)
+
+    config = PipelineConfig(**config_kwargs)
+
+    if config.version is None:
+        config.version = "3.1"
+
     # By default, use the Modular HF repository as a reference for tokenizer
     # configuration, etc. when no repository is specified.
-    repo_id = f"modularai/llama-{config.version}"
-    if config.weight_path is None and performance_fake == "none":
-        if config.huggingface_weights is not None:
-            components = config.huggingface_weights.split("/")
-            assert len(components) == 3, (
-                "invalid Hugging Face weight location:"
-                f" {config.huggingface_weights}, "
-            )
-            repo_id = f"{components[0]}/{components[1]}"
-            weight_filename = components[2]
-
+    if config.huggingface_repo_id is None:
+        if config.version == "3.1":
+            config.huggingface_repo_id = "modularai/llama-3.1"
+        elif config.version == "3":
+            config.huggingface_repo_id = "modularia/llama-3"
         else:
-            weight_filename = config.quantization_encoding.hf_model_name(
-                config.version
-            )
+            raise ValueError(f"Model version: {config.version} not supported.")
 
-        config.weight_path = hf_hub_download(
-            repo_id=repo_id,
-            filename=weight_filename,
+    if config.weight_path is None and performance_fake == "none":
+        hf_file = get_llama_huggingface_file(
+            config.version, config.quantization_encoding
         )
+        config.weight_path = hf_file.download()
+    elif config.weight_path is not None:
+        if not os.path.exists(config.weight_path):
+            hf_file = HuggingFaceFile.parse(config.weight_path)
+            config.weight_path = hf_file.download()
 
     if serve:
         asyncio.run(
             serve_token_generator(
                 config,
-                repo_id,
+                config.huggingface_repo_id,
                 performance_fake,
                 profile_serve,
                 not disable_prefer_ce_over_tg,
@@ -287,7 +290,7 @@ def run_llama3(
             # Run warmup iteration with no metrics & printing disabled
             if num_warmups > 0:
                 logger.info("Running warmup...")
-                for i in range(num_warmups):
+                for _ in range(num_warmups):
                     asyncio.run(
                         stream_text_to_console(
                             model,
