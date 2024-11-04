@@ -310,7 +310,7 @@ def run_llama3(
                     prompt,
                     metrics=metrics,
                     max_batch_size=config.max_cache_batch_size,
-                    n_duplicate=config.n_duplicate,
+                    n_duplicate=1,
                 )
             )
 
