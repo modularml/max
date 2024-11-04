@@ -497,7 +497,7 @@ def run_mistral(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+                "quantization_encoding": mistral.SupportedEncodings.bfloat16,
             }
         )
     else:
