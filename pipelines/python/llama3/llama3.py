@@ -317,9 +317,9 @@ def _read_hyperparameters(
     feed_forward_length = tensor.shape[0]
 
     # While Llama3.1 supports a context window of up to 128,000. The default is set
-    # to 8000. The memory reserved within the KV cache is directly dependent on this value,
+    # to 512. The memory reserved within the KV cache is directly dependent on this value,
     # resulting in OOM memory on smaller machines, when set larger.
-    seq_len = 8000
+    seq_len = 512
     if config.max_length is not None:
         if config.max_length > seq_len:
             print(
