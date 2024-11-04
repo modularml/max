@@ -18,20 +18,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import gguf
 import numpy as np
 from dataprocessing import max_tokens_to_generate
 from max.driver import CPU, CUDA
 from max.dtype import DType
 from max.engine import InferenceSession
-from max.pipelines import PreTrainedTokenGeneratorTokenizer
+from max.pipelines import PreTrainedTokenGeneratorTokenizer, PipelineConfig
 from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
 from nn.sampling import token_sampler
 from nn import TextContext
 
 from utils import tokenizer_from_gguf
 
-from .config import InferenceConfig
-from .llama3 import Llama3
+from .llama3 import Llama3, _read_hyperparameters
 
 
 async def run_with_default_executor(fn, *args):
@@ -49,9 +49,11 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
 
     def __init__(
         self,
-        config: InferenceConfig,
+        config: PipelineConfig,
     ):
         self.config = config
+        reader = gguf.GGUFReader(config.weight_path)
+        self._hyperparameters = _read_hyperparameters(config, reader)
         assert config.weight_path is not None
         super().__init__(tokenizer_from_gguf(Path(config.weight_path)))
 
@@ -68,11 +70,11 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
             encoded_prompt = await run_with_default_executor(
                 self.delegate.encode, prompt
             )
-        if len(encoded_prompt) >= self.config.max_length:
+        if len(encoded_prompt) >= self._hyperparameters.seq_len:
             msg = (
                 f"Prompt length of {len(encoded_prompt)} is greater or equal to"
                 " configured max model context length of"
-                f" {self.config.max_length}."
+                f" {self._hyperparameters.seq_len}."
             )
             raise ValueError(msg)
 
@@ -90,9 +92,9 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
 
         _max_tokens_to_generate = max_tokens_to_generate(
             len(encoded_prompt),
-            self.config.max_length,
+            self._hyperparameters.seq_len,
             request.max_new_tokens if request.max_new_tokens
-            is not None else self.config.max_new_tokens,
+            is not None else self._hyperparameters.seq_len,
         )
         context = TextContext(
             prompt=request.prompt,
@@ -106,7 +108,7 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
 class Llama3TokenGenerator(TokenGenerator[TextContext]):
     """Token Generator for the Llama 3 model."""
 
-    def __init__(self, config: InferenceConfig, eos: int, vocab_size: int):
+    def __init__(self, config: PipelineConfig, eos: int, vocab_size: int):
         self.config = config
         self.eos = eos
 
