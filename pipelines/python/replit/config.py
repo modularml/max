@@ -13,7 +13,7 @@
 
 """All configurable parameters for Replit."""
 
-from max.pipelines import SupportedEncoding, HuggingFaceFile
+from max.pipelines import HuggingFaceFile, SupportedEncoding
 
 
 def get_replit_huggingface_file(encoding: SupportedEncoding) -> HuggingFaceFile:
@@ -25,7 +25,7 @@ def get_replit_huggingface_file(encoding: SupportedEncoding) -> HuggingFaceFile:
     elif encoding == SupportedEncoding.bfloat16:
         return HuggingFaceFile(
             "modularai/replit-code-1.5",
-            "replit-code-v1_5-3b-f32.gguf",
+            "replit-code-v1_5-3b-bf16.gguf",
         )
     else:
         raise ValueError(f"replit does not support: {encoding}")
