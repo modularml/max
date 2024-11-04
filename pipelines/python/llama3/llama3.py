@@ -17,7 +17,11 @@ from typing import TYPE_CHECKING
 
 import gguf
 import numpy as np
-from dataprocessing import batch_padded_tokens_and_mask, collate_batch
+from dataprocessing import (
+    batch_padded_tokens_and_mask,
+    collate_batch,
+    TextContext,
+)
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -34,9 +38,6 @@ from utils import gguf_utils
 
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
-
-if TYPE_CHECKING:
-    from nn.context import TextContext
 
 
 class Llama3:

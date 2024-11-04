@@ -13,8 +13,7 @@
 import asyncio
 import gguf
 import numpy as np
-from dataprocessing import max_tokens_to_generate
-from nn import TextContext
+from dataprocessing import max_tokens_to_generate, TextContext
 
 from max.pipelines import PreTrainedTokenGeneratorTokenizer
 from max.pipelines.config import PipelineConfig

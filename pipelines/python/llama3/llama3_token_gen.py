@@ -20,14 +20,13 @@ from typing import Any
 
 import gguf
 import numpy as np
-from dataprocessing import max_tokens_to_generate
+from dataprocessing import max_tokens_to_generate, TextContext
 from max.driver import CPU, CUDA
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.pipelines import PreTrainedTokenGeneratorTokenizer, PipelineConfig
 from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
 from nn.sampling import token_sampler
-from nn import TextContext
 
 from utils import tokenizer_from_gguf
 
