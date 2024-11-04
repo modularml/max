@@ -27,3 +27,5 @@ def get_replit_huggingface_file(encoding: SupportedEncoding) -> HuggingFaceFile:
             "modularai/replit-code-1.5",
             "replit-code-v1_5-3b-f32.gguf",
         )
+    else:
+        raise ValueError(f"replit does not support: {encoding}")
