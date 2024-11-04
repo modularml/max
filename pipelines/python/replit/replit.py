@@ -16,14 +16,18 @@ from typing import Any
 import gguf
 import numpy as np
 import transformers
-from dataprocessing import causal_attention_mask_with_alibi, collate_batch
+from dataprocessing import (
+    causal_attention_mask_with_alibi,
+    collate_batch,
+    TextContext,
+)
 from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import PipelineConfig, TokenGenerator
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
-from nn import TextContext, token_sampler
+from nn import token_sampler
 
 from .model.graph import _build_graph
 from .model.hyperparameters import Hyperparameters

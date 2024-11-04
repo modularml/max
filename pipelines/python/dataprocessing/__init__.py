@@ -14,10 +14,11 @@
 from .causal_attention_mask import causal_attention_mask
 from .causal_attention_mask_with_alibi import causal_attention_mask_with_alibi
 from .collate_batch import (
-    collate_batch,
-    batch_padded_tokens_and_mask,
     PaddingDirection,
+    batch_padded_tokens_and_mask,
+    collate_batch,
 )
+from .context import TextContext
 from .max_tokens_to_generate import max_tokens_to_generate
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     "collate_batch",
     "batch_padded_tokens_and_mask",
     "PaddingDirection",
+    "TextContext",
     "max_tokens_to_generate",
 ]
