@@ -150,7 +150,7 @@ class MistralTokenizer(PreTrainedTokenGeneratorTokenizer[MistralContext]):
 
 
 class MistralTokenGenerator(TokenGenerator[MistralContext]):
-    """Token Generator for the Llama 3 model."""
+    """Token Generator for the Mistral model."""
 
     def __init__(self, config: InferenceConfig, eos: int):
         self.config = config
