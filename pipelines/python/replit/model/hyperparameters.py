@@ -19,8 +19,7 @@ from typing import Optional
 
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
-
-from ..config import InferenceConfig
+from max.pipelines import PipelineConfig
 
 
 @dataclass
@@ -68,7 +67,7 @@ class Hyperparameters:
     """
 
     @classmethod
-    def load(cls, config: InferenceConfig, **kwargs):
+    def load(cls, config: PipelineConfig, **kwargs):
         # Update kwargs based on config.
         if "dtype" not in kwargs:
             kwargs["dtype"] = config.quantization_encoding.dtype
@@ -78,8 +77,8 @@ class Hyperparameters:
                 "quantization_encoding"
             ] = config.quantization_encoding.quantization_encoding
 
-        if "seq_len" not in kwargs:
-            kwargs["seq_len"] = config.seq_len
+        if "seq_len" not in kwargs and config.max_length is not None:
+            kwargs["seq_len"] = config.max_length
 
         return cls(**kwargs)
 

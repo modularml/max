@@ -24,11 +24,10 @@ from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
-from max.pipelines import TokenGenerator
+from max.pipelines import TokenGenerator, PipelineConfig
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn import token_sampler, TextContext
 
-from .config import InferenceConfig
 from .model.graph import _build_graph
 from .model.hyperparameters import Hyperparameters
 
@@ -36,7 +35,7 @@ from .model.hyperparameters import Hyperparameters
 class Replit(TokenGenerator):
     """The overall interface to the Replit model."""
 
-    def __init__(self, config: InferenceConfig, **kwargs):
+    def __init__(self, config: PipelineConfig, **kwargs):
         self._config = config
 
         # Read in Hyperparameters.
@@ -57,7 +56,7 @@ class Replit(TokenGenerator):
         self._kv_manager = load_kv_manager(
             params=self._kv_params,
             max_cache_batch_size=self._config.max_cache_batch_size,
-            max_seq_len=self._config.max_length,
+            max_seq_len=self._hyperparameters.seq_len,
             num_layers=self._hyperparameters.num_layers,
             device=self._device,
         )

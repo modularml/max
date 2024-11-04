@@ -23,6 +23,7 @@ import replit
 import mistral
 from huggingface_hub import hf_hub_download
 from max.driver import DeviceSpec
+from max.pipelines.config import PipelineConfig, SupportedEncoding
 from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
@@ -36,6 +37,7 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingTokenGeneratorTokenizer,
     get_performance_fake,
 )
+from replit.config import get_replit_huggingface_file
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
@@ -555,7 +557,7 @@ def run_mistral(
 
 
 async def serve_token_generator_replit(
-    config: replit.InferenceConfig,
+    config: PipelineConfig,
     repo_id: str,
     performance_fake,
     prefer_ce_over_tg: bool = True,
@@ -588,9 +590,8 @@ async def serve_token_generator_replit(
     debug_settings = DebugSettings(profiling_enabled=profile)
 
     batch_size = config.max_cache_batch_size
-    max_forward_steps = config.max_forward_steps
     batch_config = pipeline_config(
-        kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
+        kv_cache_strategy, batch_size, max_forward_steps=config.max_num_steps
     )
     print(
         f"Server configured with {kv_cache_strategy} caching with batch size"
@@ -621,7 +622,7 @@ async def serve_token_generator_replit(
 
 
 @main.command(name="replit")
-@config_to_flag(replit.InferenceConfig)
+@config_to_flag(PipelineConfig)
 @click.option(
     "--prompt",
     type=str,
@@ -680,13 +681,24 @@ def run_replit(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": replit.SupportedEncodings.bfloat16,
+                "quantization_encoding": SupportedEncoding.bfloat16,
             }
         )
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
-    config = replit.InferenceConfig(**config_kwargs)
+    config = PipelineConfig(**config_kwargs)
+
+    # Validate encoding.
+    if config.quantization_encoding is None:
+        config.quantization_encoding == SupportedEncoding.float32
+
+    if config.huggingface_repo_id is None:
+        config.huggingface_repo_id = "modularai/replit-code-1_5"
+
+    if config.weight_path is None:
+        hf_file = get_replit_huggingface_file(config.quantization_encoding)
+        config.weight_path = hf_file.download()
 
     if serve:
         logger.info("Starting server...")
@@ -709,7 +721,7 @@ def run_replit(
                     prompt,
                     metrics=metrics,
                     max_batch_size=config.max_cache_batch_size,
-                    n_duplicate=config.n_duplicate,
+                    n_duplicate=1,
                 )
             )
 

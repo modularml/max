@@ -10,7 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from .config import InferenceConfig
 import asyncio
 import gguf
 import numpy as np
@@ -18,8 +17,10 @@ from dataprocessing import max_tokens_to_generate
 from nn import TextContext
 
 from max.pipelines import PreTrainedTokenGeneratorTokenizer
+from max.pipelines.config import PipelineConfig
 from max.pipelines.interfaces import TokenGeneratorRequest
 from transformers import AutoTokenizer
+from .model.hyperparameters import Hyperparameters
 
 
 async def run_with_default_executor(fn, *args):
@@ -27,7 +28,7 @@ async def run_with_default_executor(fn, *args):
     return await loop.run_in_executor(None, fn, *args)
 
 
-def gguf_reader_and_params(config: InferenceConfig):
+def gguf_reader_and_params(config: PipelineConfig):
     assert config.weight_path is not None
     reader = gguf.GGUFReader(config.weight_path)
     return reader
@@ -41,9 +42,12 @@ class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
 
     def __init__(
         self,
-        config: InferenceConfig,
+        config: PipelineConfig,
     ):
         self.config = config
+
+        # Read in Hyperparameters.
+        self._hyperparameters = Hyperparameters.load(config)
         super().__init__(
             AutoTokenizer.from_pretrained("modularai/replit-code-1.5")
         )
@@ -61,11 +65,11 @@ class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
             encoded_prompt = await run_with_default_executor(
                 self.delegate.encode, prompt
             )
-        if len(encoded_prompt) >= self.config.max_length:
+        if len(encoded_prompt) >= self._hyperparameters.seq_len:
             msg = (
                 f"Prompt length of {len(encoded_prompt)} is greater or equal to"
                 " configured max model context length of"
-                f" {self.config.max_length}."
+                f" {self._hyperparamters.seq_len}."
             )
             raise ValueError(msg)
 
@@ -83,7 +87,7 @@ class ReplitTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
 
         _max_tokens_to_generate = max_tokens_to_generate(
             len(encoded_prompt),
-            self.config.max_length,
+            self._hyperparameters.seq_len,
             request.max_new_tokens if request.max_new_tokens
             is not None else self.config.max_new_tokens,
         )
