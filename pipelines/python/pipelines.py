@@ -132,7 +132,7 @@ async def serve_token_generator(
     request_limit = batch_size + 128
     settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
 
-    model_name = "llama3"
+    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     app = fastapi_app(
         settings,
         debug_settings,
