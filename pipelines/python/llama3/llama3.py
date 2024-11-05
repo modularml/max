@@ -124,26 +124,14 @@ class Llama3:
             DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
         )
 
-        cache_type = BufferType(
-            DType.float32,
-            shape=[
-                self.params.seq_len,
-                self.params.n_layers,
-                "max_batch_size",
-                self.params.n_kv_heads,
-                self.params.head_dim,
-            ],
-        )
-        start_pos_type = TensorType(DType.int64, shape=[])
+        kv_inputs = self._kv_manager.input_symbols()
 
         with Graph(
             "llama3",
             input_types=[
                 tokens_type,
                 attn_mask_type,
-                cache_type,
-                cache_type,
-                start_pos_type,
+                *kv_inputs,
             ],
         ) as graph:
             model = transformer(
@@ -153,7 +141,9 @@ class Llama3:
                 weights,
                 self._kv_params,
             )
-            tokens, attention_mask, k_cache, v_cache, start_pos = graph.inputs
+            tokens, attention_mask, k_cache, v_cache, start_pos, _ = (
+                graph.inputs
+            )
             logits, end_pos = model(
                 tokens,
                 attention_mask.cast(self.params.mask_dtype),
@@ -254,15 +244,13 @@ class Llama3:
             pad_to_multiple_of=self.config.pad_to_multiple_of,
         )
 
-        keys, values, seq_len, _ = self._kv_manager.fetch(cache_seq_ids)
+        kv_inputs = self._kv_manager.fetch(cache_seq_ids)
 
         # Execute model.
         logits, end_pos = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self._device),
             Tensor.from_numpy(attn_mask).to(self._device),
-            keys,
-            values,
-            seq_len,
+            *kv_inputs,
         )
 
         end_pos = end_pos.to(CPU()).item()
