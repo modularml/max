@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import Graph, TensorValue, TensorValueLike, ops
 from max.graph.weights import SafetensorWeights
-from nn import Conv2D, Linear, LPLayerNorm
+from nn import Conv2D, Embedding, Linear, LPLayerNorm
 from nn.layer import Layer
 
 from .class_embedding import ClassEmbedding
@@ -70,10 +70,12 @@ class VisionModel(Layer):
     # Some of them are already implemented but None can't be removed yet
     # as we need to update some unit tests - to be addressed in a future PR.
     params: VisionHyperparameters
-    gated_positional_embedding: PrecomputedPositionEmbedding
-    pre_tile_positional_embedding: PrecomputedAspectRatioEmbedding
-    post_tile_positional_embedding: PrecomputedAspectRatioEmbedding
     patch_embedding: Conv2D
+    gated_positional_embedding: PrecomputedPositionEmbedding | None = None
+    pre_tile_positional_embedding: PrecomputedAspectRatioEmbedding | None = None
+    post_tile_positional_embedding: PrecomputedAspectRatioEmbedding | None = (
+        None
+    )
     layernorm_pre: LPLayerNorm | None = None
     layernorm_post: LPLayerNorm | None = None
     class_embedding: ClassEmbedding | None = None
@@ -98,14 +100,59 @@ def instantiate_vision_model(
     params: VisionHyperparameters,
     weights: SafetensorWeights,
 ) -> VisionModel:
-    gated_positional_embedding = PrecomputedPositionEmbedding(params)
+    gated_positional_embedding = PrecomputedPositionEmbedding(
+        params=params,
+        gate=weights.vision_model.gated_positional_embedding.gate.allocate(
+            DType.bfloat16, [1]
+        ),
+        embedding=weights.vision_model.gated_positional_embedding.embedding.allocate(
+            DType.bfloat16, [params.num_patches, params.hidden_size]
+        ),
+        tile_embedding=Embedding(
+            weights.vision_model.gated_positional_embedding.tile_embedding.weight.allocate(
+                DType.bfloat16,
+                [
+                    params.max_aspect_ratio_id + 1,
+                    params.max_num_tiles
+                    * params.num_patches
+                    * params.hidden_size,
+                ],
+            ),
+        ),
+    )
 
     pre_tile_positional_embedding = PrecomputedAspectRatioEmbedding(
-        params, is_gated=True
+        params=params,
+        gate=weights.vision_model.pre_tile_positional_embedding.gate.allocate(
+            DType.bfloat16, [1]
+        ),
+        embedding=Embedding(
+            weights.vision_model.pre_tile_positional_embedding.embedding.weight.allocate(
+                DType.bfloat16,
+                [
+                    params.max_aspect_ratio_id + 1,
+                    params.max_num_tiles * params.hidden_size,
+                ],
+            ),
+        ),
+        is_gated=True,
     )
 
     post_tile_positional_embedding = PrecomputedAspectRatioEmbedding(
-        params, is_gated=True
+        params=params,
+        gate=weights.vision_model.post_tile_positional_embedding.gate.allocate(
+            DType.bfloat16, [1]
+        ),
+        embedding=Embedding(
+            weights.vision_model.post_tile_positional_embedding.embedding.weight.allocate(
+                DType.bfloat16,
+                [
+                    params.max_aspect_ratio_id + 1,
+                    params.max_num_tiles * params.hidden_size,
+                ],
+            ),
+        ),
+        is_gated=True,
     )
 
     # patch_embedding filter has a filter of [1280, 3, 14, 14]
@@ -187,6 +234,7 @@ def instantiate_vision_model(
         curr_layer_weight = weights.vision_model.global_transformer.layers[
             index
         ]
+
         global_transformer_layers.append(
             VisionEncoderLayer(
                 mlp=MLP(
