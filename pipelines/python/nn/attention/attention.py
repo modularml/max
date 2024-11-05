@@ -33,7 +33,14 @@ class Attention(AttentionImpl):
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         if "attention_mask" not in kwargs:
-            raise ValueError("attn_mask not passed as input to Attention")
+            raise ValueError("attention_mask not passed as input to Attention")
+        attention_mask = kwargs["attention_mask"]
+        if attention_mask.dtype != x.dtype:
+            msg = (
+                "expected attention_mask and x to have the same dtype, but got"
+                f" {attention_mask.dtype} and {x.dtype}, respectively."
+            )
+            raise ValueError(msg)
 
         # Get attributes from inputs
         batch_size, seq_len = x.shape[0], x.shape[1]
@@ -64,7 +71,7 @@ class Attention(AttentionImpl):
             input=xq,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
-            attention_mask=kwargs["attention_mask"],
+            attention_mask=attention_mask,
             valid_lengths=kwargs["valid_lengths"],
         )
 
