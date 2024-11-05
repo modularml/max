@@ -83,25 +83,26 @@ class Llama3Vision:
                 self.params,
                 self.weights,
             )
-            tokens, valid_lengths, *kv_cache = graph.inputs
-            logits = model(
-                tokens,
-                valid_lengths,
-                kv_cache,
-            )
-            graph.output(logits)
+            # tokens, valid_lengths = graph.inputs
+            # logits = model(
+            #     tokens,
+            #     valid_lengths,
+            # )
+            # graph.output(logits)
             return graph
 
     def _load_model(
         self,
         session: InferenceSession,
-    ) -> Model:
+    ) -> Model | None:
         print("Building model...")
         graph = self._llama3_vision_graph()
-        print("Compiling...")
-        return session.load(
-            graph, weights_registry=self.weights.allocated_weights
-        )
+        # print("Compiling...")
+        # TODO: Stubbing out for now.
+        # return session.load(
+        #     graph, weights_registry=self.weights.allocated_weights
+        # )
+        return None
 
     def _execute(
         self, req_to_context_dict: dict[str, Llama3VisionContext]
