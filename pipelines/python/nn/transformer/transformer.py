@@ -17,9 +17,9 @@ from typing import Union
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.pipelines.kv_cache import (
-    FetchContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
+    FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
 
@@ -27,8 +27,8 @@ from ..attention.interfaces import AttentionImpl
 from ..embedding import Embedding
 from ..layer import Layer
 from ..linear import MLP, Linear
+from ..norm import LPLayerNorm, RMSNorm
 from ..sequential import Sequential
-from ..norm import RMSNorm, LPLayerNorm
 
 
 @dataclass
@@ -44,14 +44,10 @@ class TransformerBlock(Layer):
         self,
         x: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
-        valid_lengths: TensorValueLike,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         attn_out, kv_collection = self.attention(
-            self.attention_norm(x),
-            kv_collection,
-            valid_lengths,
-            **kwargs,
+            self.attention_norm(x), kv_collection, **kwargs
         )
 
         h = x + attn_out
@@ -76,7 +72,6 @@ class Transformer(Layer):
     def __call__(
         self,
         tokens: TensorValueLike,
-        valid_lengths: TensorValueLike,
         kv_cache_inputs: tuple[
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
@@ -90,14 +85,25 @@ class Transformer(Layer):
             h, _ = layer(
                 h,
                 kv_collection,
-                valid_lengths,
                 **kwargs,
             )
 
-        # Predict using the last non-pad token (right-padded).
-        # `gather_nd` expects a static last dimension, so we unsqueeze.
-        last_token = ops.gather_nd(
-            h, indices=ops.unsqueeze(valid_lengths - 1, -1), batch_dims=1
-        )
+        # Predict with the last non-pad token (right-padded).
+        if "input_row_offset" in kwargs:
+            # For ragged tensors gather the last tokens from packed dim 0.
+            input_row_offset: TensorValueLike = kwargs["input_row_offset"]
+            last_token_indices = input_row_offset[1:] - 1
+            # Should be: last_token = h[last_token_indices]
+            last_token = ops.gather(h, last_token_indices, axis=0)
+        else:
+            # For padded tensors, use `gather_nd`.
+            # Unsqueeze since `gather_nd` expects a static last dim.
+            valid_lengths: TensorValueLike = kwargs["valid_lengths"]
+            last_token = ops.gather_nd(
+                h,
+                indices=ops.unsqueeze(valid_lengths - 1, -1),
+                batch_dims=1,
+            )
+
         # Always return float32 logits, no matter the activation type
         return ops.cast(self.output(self.norm(last_token)), DType.float32)

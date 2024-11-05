@@ -21,9 +21,9 @@ from max.pipelines.kv_cache import (
 )
 
 from ..kernels import (
-    flash_attention_with_causal_mask,
-    fused_qk_rope,
-    fused_qkv_matmul,
+    flash_attention_ragged_with_causal_mask,
+    fused_qk_ragged_rope,
+    fused_qkv_ragged_matmul,
 )
 from ..rotary_embedding import OptimizedRotaryEmbedding
 from .interfaces import AttentionImpl
@@ -40,49 +40,46 @@ class AttentionWithRope(AttentionImpl):
         self,
         x: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
-        valid_lengths: TensorValue,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         # Get attributes from input.
-        batch_size, seq_len = x.shape[0], x.shape[1]
+        total_seq_len = x.shape[0]
 
-        # Call into fused qkv matmul.
-        xq = fused_qkv_matmul(
+        # Call into fused qkv ragged matmul.
+        xq = fused_qkv_ragged_matmul(
             self.kv_params,
             input=x,
             wqkv=self.wqkv,
+            input_row_offset=kwargs["input_row_offset"],
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
             n_heads=self.n_heads,
         )
 
         # Apply rope.
-        xq = ops.reshape(
-            xq,
-            [
-                batch_size,
-                seq_len,
-                self.n_heads,
-                self.kv_params.head_dim,
-            ],
-        )
+        xq = xq.reshape((-1, self.n_heads, self.kv_params.head_dim))
 
-        # Cast freqs_cis to xq's dtype to match the fused_qk_rope kernel.
+        # Cast freqs_cis to xq's dtype to match the fused_qk_ragged_rope kernel.
         freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
 
-        xq = fused_qk_rope(
-            self.kv_params, xq, kv_collection, freqs_cis, self.layer_idx
+        xq = fused_qk_ragged_rope(
+            self.kv_params,
+            xq,
+            kwargs["input_row_offset"],
+            kv_collection,
+            freqs_cis,
+            self.layer_idx,
         )
 
         # Calculate Flash Attention.
-        attn_out = flash_attention_with_causal_mask(
+        attn_out = flash_attention_ragged_with_causal_mask(
             self.kv_params,
             input=xq,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
-            valid_lengths=valid_lengths,
+            input_row_offset=kwargs["input_row_offset"],
         )
 
-        attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
+        attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
 
         return self.wo(attn_out), kv_collection

@@ -29,11 +29,16 @@ def fused_qkv_ragged_matmul(
     wqkv: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollection,
     layer_idx: TensorValue,
+    n_heads: int,
 ) -> TensorValue:
     """Computes fused query, key, and value projections with ragged input.
 
-    `input` and `input_row_offset` are used together to implement the ragged tensor.
+    `input` and `input_row_offset` are used together to implement the ragged
+    tensor.
     `input_row_offset` indicates where each batch starts and ends in `input`
+
+    Raises:
+        ValueError: on input shapes/dtypes that are invalid for the kernel.
     """
     if input.dtype != wqkv.dtype:
         msg = (
@@ -61,8 +66,13 @@ def fused_qkv_ragged_matmul(
 
     return ops.custom(
         op_name,
-        [input, input_row_offset, wqkv, kv_collection, layer_idx],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
+        values=[input, input_row_offset, wqkv, kv_collection, layer_idx],
+        out_types=[
+            TensorType(
+                dtype=input.dtype,
+                shape=input.shape[:-1] + [n_heads * kv_params.head_dim],
+            )
+        ],
     )[0]
 
 
@@ -144,8 +154,8 @@ def fused_qk_ragged_rope(
 
     return ops.custom(
         op_name,
-        [input, input_row_offset, kv_collection, freqs_cis, layer_idx],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
+        values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],
+        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
@@ -161,8 +171,8 @@ def fused_qk_rope(
 
     return ops.custom(
         op_name,
-        [input, kv_collection, freqs_cis_2d, layer_idx],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
+        values=[input, kv_collection, freqs_cis_2d, layer_idx],
+        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
@@ -181,8 +191,15 @@ def flash_attention(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, kv_collection, layer_idx, attention_mask, valid_lengths, scale],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
+        values=[
+            input,
+            kv_collection,
+            layer_idx,
+            attention_mask,
+            valid_lengths,
+            scale,
+        ],
+        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
@@ -224,8 +241,8 @@ def flash_attention_with_causal_mask(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [input, kv_collection, layer_idx, valid_lengths, scale],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
+        values=[input, kv_collection, layer_idx, valid_lengths, scale],
+        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
 
@@ -265,12 +282,6 @@ def flash_attention_ragged_with_causal_mask(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        [
-            input,
-            input_row_offset,
-            kv_collection,
-            layer_idx,
-            scale,
-        ],
-        [TensorType(dtype=input.dtype, shape=input.shape)],
+        values=[input, input_row_offset, kv_collection, layer_idx, scale],
+        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]

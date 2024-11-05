@@ -17,11 +17,6 @@ from typing import TYPE_CHECKING
 
 import gguf
 import numpy as np
-from dataprocessing import (
-    batch_padded_tokens_and_mask,
-    collate_batch,
-    TextContext,
-)
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -34,6 +29,7 @@ from max.pipelines.kv_cache import (
     load_kv_manager,
 )
 
+from dataprocessing import TextContext, batch_padded_tokens_and_mask
 from utils import gguf_utils
 
 from .gguf import transformer
@@ -89,26 +85,23 @@ class Llama3:
         if session is None:
             session = InferenceSession(device=self._device)
 
-        self._model = self._load_model(
-            session, config, self.params, self.reader
-        )
+        self._model = self._load_model(session, config, self.reader)
 
     def export_mef(self, export_path):
         self._model._export_mef(export_path)
 
     def _llama_graph_opaque(self, weights: GGUFWeights) -> Graph:
-        tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-        valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
+        tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
+        # NOTE: input_row_offset_len should be batch_size + 1.
+        input_row_offset_type = TensorType(
+            DType.uint32, shape=["input_row_offset_len"]
+        )
 
         kv_cache_args = self._kv_manager.input_symbols()
 
         with Graph(
             "llama3",
-            input_types=[
-                tokens_type,
-                valid_lengths_type,
-                *kv_cache_args,
-            ],
+            input_types=[tokens_type, input_row_offset_type, *kv_cache_args],
         ) as graph:
             model = transformer(
                 graph,
@@ -117,12 +110,8 @@ class Llama3:
                 weights,
                 self._kv_params,
             )
-            tokens, valid_lengths, *kv_cache = graph.inputs
-            logits = model(
-                tokens,
-                valid_lengths,
-                kv_cache,
-            )
+            tokens, input_row_offset, *kv_cache = graph.inputs
+            logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
             graph.output(logits)
             return graph
 
@@ -179,7 +168,6 @@ class Llama3:
         self,
         session: InferenceSession,
         config: PipelineConfig,
-        params: Hyperparameters,
         reader: gguf.GGUFReader,
     ) -> Model:
         self._weights = GGUFWeights(reader)
@@ -210,19 +198,19 @@ class Llama3:
         context_batch = req_to_context_dict.values()
         tokens = [ctx.next_tokens for ctx in context_batch]
 
-        # Get valid lengths: unpadded lengths of each token vector in the batch.
-        batch_size = len(context_batch)
-        unpadded_lengths = [ctx.seq_len for ctx in context_batch]
-        valid_lengths = Tensor.from_numpy(np.array(unpadded_lengths, np.uint32))
+        # Get input_row_offset: start and end position of each batch in the
+        # combined total_seq_len dimension.
+        input_row_offset = Tensor.from_numpy(
+            np.cumsum(
+                [0] + [ctx.seq_len for ctx in context_batch], dtype=np.uint32
+            )
+        )
 
         # Pad tokens and compute attention mask for the batch.
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
 
-        next_tokens_batch, _ = collate_batch(
-            tokens,
-            batch_size=len(tokens),
-            pad_to_multiple_of=self.config.pad_to_multiple_of,
-        )
+        # Create a ragged token vector of length: sum(len(t) for t in tokens).
+        next_tokens_batch = np.concatenate(tokens)
 
         # Grab kv_collection.
         kv_cache_tensors = self._kv_manager.fetch(cache_seq_ids)
@@ -230,7 +218,7 @@ class Llama3:
         # Execute model.
         logits = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self._device),
-            valid_lengths.to(self._device),
+            input_row_offset.to(self._device),
             *kv_cache_tensors,
             copy_inputs_to_device=False,
         )[0]

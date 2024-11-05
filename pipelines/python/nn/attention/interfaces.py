@@ -98,7 +98,6 @@ class AttentionImpl(ABC, Layer):
         self,
         x: TensorValueLike,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
-        valid_lengths: TensorValueLike,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         ...
