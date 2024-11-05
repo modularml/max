@@ -246,6 +246,9 @@ def run_llama3(
     if config.version is None:
         config.version = "3.1"
 
+    if config.quantization_encoding is None:
+        config.quantization_encoding = SupportedEncoding.q4_k
+
     # By default, use the Modular HF repository as a reference for tokenizer
     # configuration, etc. when no repository is specified.
     if config.huggingface_repo_id is None:
@@ -265,6 +268,12 @@ def run_llama3(
         if not os.path.exists(config.weight_path):
             hf_file = HuggingFaceFile.parse(config.weight_path)
             config.weight_path = hf_file.download()
+
+    if config.quantization_encoding not in [
+        SupportedEncoding.bfloat16,
+        SupportedEncoding.float32,
+    ]:
+        config.cache_strategy = KVCacheStrategy.NAIVE
 
     if serve:
         asyncio.run(
@@ -698,6 +707,12 @@ def run_replit(
     # Validate encoding.
     if config.quantization_encoding is None:
         config.quantization_encoding = SupportedEncoding.float32
+
+    if config.quantization_encoding not in [
+        SupportedEncoding.bfloat16,
+        SupportedEncoding.float32,
+    ]:
+        config.cache_strategy = KVCacheStrategy.NAIVE
 
     if config.huggingface_repo_id is None:
         config.huggingface_repo_id = "modularai/replit-code-1_5"
