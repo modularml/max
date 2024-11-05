@@ -68,7 +68,7 @@ class VisionHyperparameters:
         initializer_range (`float`, *optional*, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
     """
-    dtype: DType
+    dtype: DType = DType.bfloat16
     """The dtype of the weights (is `uint8` for quantized dtypes)."""
 
     quantization_encoding: QuantizationEncoding | None = None
@@ -105,6 +105,10 @@ class VisionHyperparameters:
         ]
     )
     vision_output_dim: int = 7680
+
+    @property
+    def max_aspect_ratio_id(self) -> int:
+        return len(self.supported_aspect_ratios)
 
     @property
     def num_patches(self):
