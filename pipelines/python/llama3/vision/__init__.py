@@ -11,3 +11,10 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 """Llama 3.2 vision layer modules."""
+
+from .class_embedding import ClassEmbedding
+from .config import InferenceConfig, SupportedEncodings, SupportedVersions
+from .encoder import VisionEncoder, VisionEncoderLayer
+from .hyperparameters import VisionHyperparameters
+from .llama3_vision import Llama3Vision
+from .mlp import MLP
