@@ -255,7 +255,7 @@ def run_llama3(
         if config.version == "3.1":
             config.huggingface_repo_id = "modularai/llama-3.1"
         elif config.version == "3":
-            config.huggingface_repo_id = "modularia/llama-3"
+            config.huggingface_repo_id = "modularai/llama-3"
         else:
             raise ValueError(f"Model version: {config.version} not supported.")
 
