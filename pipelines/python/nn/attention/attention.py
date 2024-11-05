@@ -30,7 +30,6 @@ class Attention(AttentionImpl):
         self,
         x: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollectionType,
-        valid_lengths: TensorValue,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         if "attention_mask" not in kwargs:
@@ -66,7 +65,7 @@ class Attention(AttentionImpl):
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
             attention_mask=kwargs["attention_mask"],
-            valid_lengths=valid_lengths,
+            valid_lengths=kwargs["valid_lengths"],
         )
 
         attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])

@@ -14,29 +14,31 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from typing import Any
+
 import numpy as np
+from max.driver import CPU, CUDA, Tensor
+from max.dtype import DType
+from max.engine import InferenceSession, Model
+from max.graph import Graph, TensorType
+from max.graph.weights import SafetensorWeights
+from max.pipelines import PreTrainedTokenGeneratorTokenizer
+from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
+from max.pipelines.kv_cache import (
+    KVCacheParams,
+    load_kv_manager,
+)
+from transformers import AutoTokenizer
 
 from dataprocessing import (
     collate_batch,
     max_tokens_to_generate,
 )
-from max.driver import CPU, CUDA, Tensor
-from transformers import AutoTokenizer
-from typing import Any
-from max.dtype import DType
-from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType
-from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
-from max.pipelines import PreTrainedTokenGeneratorTokenizer
 from nn.sampling import token_sampler
-from max.graph.weights import SafetensorWeights
-from max.pipelines.kv_cache import (
-    KVCacheParams,
-    load_kv_manager,
-)
+
 from .config import InferenceConfig
-from .model import transformer
 from .hyperparameters import Hyperparameters
+from .model import transformer
 
 
 @dataclass
@@ -260,11 +262,7 @@ class Mistral:
                 graph, self.params, self.weights, self._kv_params
             )
             tokens, valid_lengths, *kv_cache = graph.inputs
-            logits = model(
-                tokens,
-                valid_lengths,
-                kv_cache,
-            )
+            logits = model(tokens, kv_cache, valid_lengths=valid_lengths)
             graph.output(logits)
             return graph
 
@@ -295,7 +293,6 @@ class Mistral:
         tokens = [ctx.next_tokens for ctx in context_batch]
 
         # Get valid lengths: unpadded lengths of each token vector in the batch.
-        batch_size = len(context_batch)
         unpadded_lengths = [ctx.seq_len for ctx in context_batch]
         valid_lengths = Tensor.from_numpy(np.array(unpadded_lengths, np.uint32))
 
