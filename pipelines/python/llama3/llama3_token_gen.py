@@ -93,7 +93,7 @@ class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
             len(encoded_prompt),
             self._hyperparameters.seq_len,
             request.max_new_tokens if request.max_new_tokens
-            is not None else self._hyperparameters.seq_len,
+            is not None else self.config.max_new_tokens,
         )
         context = TextContext(
             prompt=request.prompt,
