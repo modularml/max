@@ -187,7 +187,7 @@ def _build_graph(
             tokens=tokens,
             valid_lengths=valid_lengths,
             kv_cache_inputs=kv_cache_inputs,
-            attention_mask=attention_mask,
+            attention_mask=attention_mask.cast(hyperparameters.dtype),
         )
         graph.output(logits)
         return graph
