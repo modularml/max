@@ -91,7 +91,7 @@ async def serve_token_generator(
     """Hosts the Llama3 pipeline using max.serve."""
     if performance_fake == "none":
         logger.info("Starting server using Llama3.")
-        tokenizer = llama3.Llama3Tokenizer(
+        tokenizer = TextTokenizer(
             config,
         )
         assert tokenizer.delegate
@@ -289,7 +289,7 @@ def run_llama3(
     else:
         # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer = llama3.Llama3Tokenizer(
+            tokenizer = TextTokenizer(
                 config,
             )
             model = llama3.Llama3TokenGenerator(
