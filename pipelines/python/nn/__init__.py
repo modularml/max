@@ -27,6 +27,7 @@ from .sampling import (
     token_sampler,
 )
 from .sequential import Sequential
+from .tokenizer import TextTokenizer
 from .transformer import (
     NaiveTransformer,
     NaiveTransformerBlock,
@@ -50,6 +51,7 @@ __all__ = [
     "RMSNorm",
     "RotaryEmbedding",
     "Sequential",
+    "TextTokenizer",
     "Transformer",
     "TransformerBlock",
     "argmax_sampler",
