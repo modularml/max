@@ -20,17 +20,18 @@ from typing import Any
 
 import gguf
 import numpy as np
-from dataprocessing import max_tokens_to_generate, TextContext
+from dataprocessing import TextContext, max_tokens_to_generate
 from max.driver import CPU, CUDA
 from max.dtype import DType
 from max.engine import InferenceSession
-from max.pipelines import PreTrainedTokenGeneratorTokenizer, PipelineConfig
+from max.pipelines import PipelineConfig, PreTrainedTokenGeneratorTokenizer
 from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
+from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn.sampling import token_sampler
 
 from utils import tokenizer_from_gguf
 
-from .llama3 import Llama3, _read_hyperparameters
+from .llama3 import load_llama3_and_kv_manager, _read_hyperparameters
 
 
 async def run_with_default_executor(fn, *args):
@@ -111,15 +112,16 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         self.config = config
         self.eos = eos
 
-        device_spec = self.config.device_spec
-        self._device = CPU(
-            device_spec.id
-        ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
+        self._device = config.device
         session = InferenceSession(device=self._device)
 
-        self.model = Llama3(config, session=session, vocab_size=vocab_size)
+        self.model, self._kv_manager = load_llama3_and_kv_manager(
+            config,
+            session,
+            vocab_size=vocab_size,
+        )
 
-        # logits are always float32 for now
+        # Logits are always float32 for now
         self._sampler = session.load(token_sampler(config.top_k, DType.float32))
 
         if export_path := config.save_to_serialized_model_path:
@@ -129,28 +131,80 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
     def next_token(
         self, batch: dict[str, TextContext], num_steps: int = 1
     ) -> list[dict[str, Any]]:
-        return [self.step(batch) for _ in range(num_steps)]
+        # Flatten our batch for consistent indexing
+        context_batch = list(batch.values())
 
-    def step(
-        self, req_to_context_dict: dict[str, TextContext]
-    ) -> dict[str, Any]:
-        res = {}
-        logits = self.model._execute(req_to_context_dict)
-        tokens = self._sampler(logits)[0]
-        tokens = tokens.to(CPU())
+        # Claim cache rows for our batch
+        for context in context_batch:
+            if context.cache_seq_id in self._kv_manager.slots_remaining:
+                self._kv_manager.external_claim([context.cache_seq_id])
 
-        next_tokens = dict(zip(req_to_context_dict, tokens.to_numpy()))
-        for request_id, context in req_to_context_dict.items():
-            next_token = next_tokens[request_id].astype(np.int64)
+        cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
 
-            # Update context
-            context.append(next_token.reshape(-1))
+        # Prepare inputs for the first token in multistep execution
+        model_inputs = self.model._prepare_initial_token_inputs(context_batch)
+        kv_cache_inputs = self._kv_manager.fetch(cache_seq_ids)
 
-            # Mark completed requests by not including them in the response.
-            if not context.is_done(self.eos):
-                res[request_id] = next_token
+        # Multistep execution loop
+        generated_tokens = []
+        curr_step_inputs = model_inputs
+        for i in range(num_steps):
+            # Execute the model and get next tokens
+            logits = self.model._execute(*curr_step_inputs, *kv_cache_inputs)
+            new_tokens = self._sampler(logits)[0]
+
+            generated_tokens.append(new_tokens)
+
+            # Check if we're on our last iteration. If so, skip preparing the next batch
+            if i == num_steps - 1:
+                break
+
+            # Prepare inputs for the next token in multistep execution
+            kv_cache_inputs = self._kv_manager.increment_cache_lengths(
+                kv_cache_inputs,
+                curr_step_inputs,
+            )
+            curr_step_inputs = self.model._prepare_next_token_inputs(
+                new_tokens, curr_step_inputs
+            )
+
+        # Actually update the cache lengths in our kv_cache manager
+        self._kv_manager.step(
+            valid_lengths={
+                ctx.cache_seq_id: ctx.seq_len + num_steps - 1
+                for ctx in context_batch
+            }
+        )
+
+        # Do the copy to host for each token generated.
+        generated_tokens = list(
+            [g.to(CPU()).to_numpy() for g in generated_tokens]
+        )
+
+        # Prepare the response, pruning away completed requests as we go.
+        res: list[dict[str, Any]] = []
+        is_done = {r: False for r in batch.keys()}
+        for i in range(num_steps):
+            step_res = {}
+            next_tokens = dict(zip(batch, generated_tokens[i]))
+            for request_id, context in batch.items():
+                if is_done[request_id]:
+                    continue
+
+                next_token = next_tokens[request_id].astype(np.int64)
+
+                # Update context
+                context.append(next_token.reshape(-1))
+
+                # Mark completed requests by not including them in the response.
+                if not context.is_done(self.eos):
+                    step_res[request_id] = next_token
+                else:
+                    is_done[request_id] = True
+
+            res.append(step_res)
 
         return res
 
     def release(self, context: TextContext):
-        self.model.release(context)
+        self._kv_manager.release(context.cache_seq_id)

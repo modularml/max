@@ -17,23 +17,59 @@ from typing import TYPE_CHECKING
 
 import gguf
 import numpy as np
-from max.driver import CPU, CUDA, Tensor
+from max.driver import CPU, CUDA, Tensor, Device
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import BufferType, Graph, TensorType
 from max.graph.weights import GGUFWeights
 from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import (
-    KVCacheParams,
+    KVCacheManager,
     KVCacheStrategy,
+    KVCacheParams,
     load_kv_manager,
 )
-
 from dataprocessing import TextContext, batch_padded_tokens_and_mask
-from utils import gguf_utils
 
+from utils import gguf_utils
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
+
+
+def load_llama3_and_kv_manager(
+    config: PipelineConfig,
+    session: InferenceSession,
+    vocab_size: int | None = None,
+) -> tuple[Llama3, KVCacheManager]:
+    reader = gguf.GGUFReader(config.weight_path)
+    hyper_params = _read_hyperparameters(config, reader, vocab_size=vocab_size)
+    kv_params = KVCacheParams(
+        n_kv_heads=hyper_params.n_kv_heads,
+        head_dim=hyper_params.head_dim,
+        dtype=(
+            DType.float32 if hyper_params.quantization_encoding
+            is not None else hyper_params.dtype
+        ),
+        cache_strategy=config.cache_strategy,
+    )
+
+    kv_manager = load_kv_manager(
+        params=kv_params,
+        max_cache_batch_size=config.max_cache_batch_size,
+        max_seq_len=hyper_params.seq_len,
+        num_layers=hyper_params.n_layers,
+        device=config.device,
+        session=session,
+    )
+    model = Llama3(
+        config,
+        reader,
+        hyper_params,
+        kv_manager,
+        session=session,
+    )
+
+    return model, kv_manager
 
 
 class Llama3:
@@ -42,9 +78,11 @@ class Llama3:
     def __init__(
         self,
         config: PipelineConfig,
+        reader: gguf.GGUFReader,
+        hyperparams: Hyperparameters,
+        kv_manager: KVCacheManager,
         *,
         session: InferenceSession | None = None,
-        vocab_size: int | None = None,
     ):
         """Initializes the Llama3 model.
 
@@ -56,34 +94,24 @@ class Llama3:
         """
         self.config = config
         assert config.weight_path is not None
-        self.reader = gguf.GGUFReader(config.weight_path)
-        self.params = _read_hyperparameters(
-            self.config, self.reader, vocab_size=vocab_size
-        )
+        self.reader = reader
+        self.params = hyperparams
         device_spec = self.config.device_spec
         self._device = CPU(
             device_spec.id
         ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
 
-        self._kv_params = KVCacheParams(
-            n_kv_heads=self.params.n_kv_heads,
-            head_dim=self.params.head_dim,
-            dtype=(
-                DType.float32 if self.params.quantization_encoding
-                is not None else self.params.dtype
-            ),
-            cache_strategy=config.cache_strategy,
-        )
+        self._kv_manager = kv_manager
+        self._kv_params = self._kv_manager.params
 
-        self._kv_manager = load_kv_manager(
-            params=self._kv_params,
-            max_cache_batch_size=config.max_cache_batch_size,
-            max_seq_len=self.params.seq_len,
-            num_layers=self.params.n_layers,
-            device=self._device,
-        )
         if session is None:
             session = InferenceSession(device=self._device)
+
+        # Pre-allocate a buffer for input_row_offset in multistep execution.
+        # We do this to avoid materializing and copying a buffer with each multistep step
+        self._input_row_offset_prealloc = Tensor.from_numpy(
+            np.arange(config.max_cache_batch_size + 1, dtype=np.uint32)
+        ).to(self._device)
 
         self._model = self._load_model(session, config, self.reader)
 
@@ -179,89 +207,82 @@ class Llama3:
                 graph, weights_registry=self._weights.allocated_weights
             )
 
-    def release(self, context: TextContext):
-        self._kv_manager.release(context.cache_seq_id)
-
-    def _execute_opaque(
-        self, req_to_context_dict: dict[str, TextContext]
-    ) -> Tensor:
-        context_batch = req_to_context_dict.values()
+    def _prepare_initial_token_inputs(
+        self, context_batch: list[TextContext]
+    ) -> tuple[Tensor, ...]:
+        """Prepare the inputs for the first pass in multistep execution."""
+        # Get tokens and seq_ids
         tokens = [ctx.next_tokens for ctx in context_batch]
-
-        # Get input_row_offset: start and end position of each batch in the
-        # combined total_seq_len dimension.
-        input_row_offset = Tensor.from_numpy(
-            np.cumsum(
-                [0] + [ctx.seq_len for ctx in context_batch], dtype=np.uint32
-            )
-        )
-
-        # Pad tokens and compute attention mask for the batch.
-        cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
-
-        # Create a ragged token vector of length: sum(len(t) for t in tokens).
-        next_tokens_batch = np.concatenate(tokens)
-
-        # Grab kv_collection.
-        kv_cache_tensors = self._kv_manager.fetch(cache_seq_ids)
-
-        # Execute model.
-        logits = self._model.execute(
-            Tensor.from_numpy(next_tokens_batch).to(self._device),
-            input_row_offset.to(self._device),
-            *kv_cache_tensors,
-            copy_inputs_to_device=False,
-        )[0]
-
-        self._kv_manager.step(
-            valid_lengths={
-                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch
-            }
-        )
-
-        return logits
-
-    def _execute(self, req_to_context_dict: dict[str, TextContext]) -> Tensor:
-        """Executes the model and returns the raw results."""
-        for context in req_to_context_dict.values():
-            if context.cache_seq_id in self._kv_manager.slots_remaining:
-                self._kv_manager.external_claim([context.cache_seq_id])
 
         if self.config.cache_strategy == KVCacheStrategy.CONTINUOUS:
-            return self._execute_opaque(req_to_context_dict)
+            # Get input_row_offset: start and end position of each batch in the
+            # combined total_seq_len dimension.
+            input_row_offset = Tensor.from_numpy(
+                np.cumsum(
+                    [0] + [ctx.seq_len for ctx in context_batch],
+                    dtype=np.uint32,
+                )
+            ).to(self._device)
 
-        context_batch = req_to_context_dict.values()
-        cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
-        tokens = [ctx.next_tokens for ctx in context_batch]
-        batch_size = len(context_batch)
+            # Create a ragged token vector of length: sum(len(t) for t in tokens).
+            next_tokens_batch = np.concatenate(tokens)
+            next_tokens_batch = Tensor.from_numpy(next_tokens_batch).to(
+                self._device
+            )
 
-        # Pad tokens and compute attention mask for the batch.
-        max_seq_len = self._kv_manager.max_sequence_length
-        start_pos = [max_seq_len] * len(req_to_context_dict)
-        next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
-            start_pos=start_pos,
-            tokens=tokens,
-            pad_to_multiple_of=self.config.pad_to_multiple_of,
-        )
+            return (next_tokens_batch, input_row_offset)
+        else:
+            # Pad tokens and compute attention mask for the batch.
+            max_seq_len = self._kv_manager.max_sequence_length
+            start_pos = [max_seq_len] * len(context_batch)
+            next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
+                start_pos=start_pos,
+                tokens=tokens,
+                pad_to_multiple_of=self.config.pad_to_multiple_of,
+            )
 
-        kv_inputs = self._kv_manager.fetch(cache_seq_ids)
+            return (next_tokens_batch, attn_mask)
+
+    def _prepare_next_token_inputs(
+        self,
+        next_tokens: Tensor,
+        prev_model_inputs: tuple[Tensor, ...],
+    ) -> tuple[Tensor, ...]:
+        """Prepare the inputs for the next token in multistep execution.
+        This should avoid any device synchronization or copy operations.
+        """
+        if self.config.cache_strategy == KVCacheStrategy.CONTINUOUS:
+            _, old_row_offsets = prev_model_inputs
+            row_offsets_size = old_row_offsets.shape[0]
+            next_row_offsets = self._input_row_offset_prealloc[
+                :row_offsets_size
+            ]
+            next_token_inputs = (next_tokens, next_row_offsets)
+
+            return next_token_inputs
+        else:
+            prev_tokens, prev_attn_mask = prev_model_inputs
+            batch_size = prev_tokens.shape[0]
+            start_pos = [prev_attn_mask.shape[-1]] * batch_size
+            next_tokens_batch, _, attn_mask = batch_padded_tokens_and_mask(
+                start_pos=start_pos,
+                tokens=next_tokens,
+                pad_to_multiple_of=self.config.pad_to_multiple_of,
+            )
+            next_token_inputs = (next_tokens_batch, attn_mask)
+
+            return next_token_inputs
+
+    def _execute(self, *model_inputs: Tensor) -> Tensor:
+        """Executes the model and returns the raw results."""
 
         # Execute model.
-        logits, end_pos = self._model.execute(
-            Tensor.from_numpy(next_tokens_batch).to(self._device),
-            Tensor.from_numpy(attn_mask).to(self._device),
-            *kv_inputs,
+        copy_inputs_to_device = (
+            self.config.cache_strategy == KVCacheStrategy.NAIVE
         )
-
-        end_pos = end_pos.to(CPU()).item()
-
-        self._kv_manager.step(
-            valid_lengths={
-                ctx.cache_seq_id: ctx.seq_len for ctx in context_batch
-            }
-        )
-
-        return logits
+        return self._model.execute(
+            *model_inputs, copy_inputs_to_device=copy_inputs_to_device
+        )[0]
 
 
 def _read_hyperparameters(

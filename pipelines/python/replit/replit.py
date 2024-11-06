@@ -17,9 +17,9 @@ import gguf
 import numpy as np
 import transformers
 from dataprocessing import (
+    TextContext,
     causal_attention_mask_with_alibi,
     collate_batch,
-    TextContext,
 )
 from max.driver import CPU, Tensor
 from max.dtype import DType
@@ -44,6 +44,7 @@ class Replit(TokenGenerator):
 
         # Load Device.
         self._device = self._config.device
+        session = InferenceSession(device=self._device)
 
         # Get KV Cache Params.
         self._kv_params = KVCacheParams(
@@ -60,6 +61,7 @@ class Replit(TokenGenerator):
             max_seq_len=self._hyperparameters.seq_len,
             num_layers=self._hyperparameters.num_layers,
             device=self._device,
+            session=session,
         )
 
         # Load Tokenizer from HuggingFace.
@@ -77,7 +79,6 @@ class Replit(TokenGenerator):
         self._weights = GGUFWeights(gguf_reader)
 
         # Load Model.
-        session = InferenceSession(device=self._device)
         self._model = self._load_model(session)
 
         # Load Sampler.
