@@ -17,7 +17,7 @@ from typing import Optional, Union
 from max.dtype import DType
 from max.graph import Graph, ops
 from max.graph.quantization import QuantizationEncoding
-from max.graph.weights import GGUFWeights
+from max.graph.weights import Weights
 from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
@@ -47,7 +47,7 @@ def feed_forward(
     quantization_encoding: Optional[QuantizationEncoding],
     hidden_dim: int,
     feed_forward_length: int,
-    weights: GGUFWeights,
+    weights: Weights,
 ):
     return MLP(
         linear(
@@ -79,7 +79,7 @@ def linear(
     quantization_encoding: Optional[QuantizationEncoding],
     in_features: int,
     out_features: int,
-    weights: GGUFWeights,
+    weights: Weights,
 ) -> Linear:
     return Linear(
         weights.weight.allocate(
@@ -88,7 +88,7 @@ def linear(
     )
 
 
-def rms_norm(dims: int, eps: float, weights: GGUFWeights) -> RMSNorm:
+def rms_norm(dims: int, eps: float, weights: Weights) -> RMSNorm:
     return RMSNorm(weights.weight.allocate(DType.float32, [dims]), eps)
 
 
@@ -96,7 +96,7 @@ def embedding(
     params: Hyperparameters,
     vocab_size: int,
     hidden_dim: int,
-    weights: GGUFWeights,
+    weights: Weights,
 ):
     return Embedding(
         weights.weight.allocate(
@@ -248,7 +248,7 @@ def attention(
     kv_params: KVCacheParams,
     params: Hyperparameters,
     rope: Union[OptimizedRotaryEmbedding, RotaryEmbedding],
-    weights: GGUFWeights,
+    weights: Weights,
 ):
     return NaiveAttentionWithRope(
         n_heads=params.n_heads,
@@ -290,7 +290,7 @@ def transformer(
     graph: Graph,
     cache_strategy: KVCacheStrategy,
     params: Hyperparameters,
-    weights: GGUFWeights,
+    weights: Weights,
     kv_params: KVCacheParams,
 ):
     if cache_strategy == KVCacheStrategy.CONTINUOUS:
