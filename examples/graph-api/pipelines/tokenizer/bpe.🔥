@@ -65,7 +65,7 @@ struct _SplitIter[is_mutable: Bool, origin: Origin[is_mutable].type]:
         # or span is empty.
         return 0 if self.done else 1
 
-    fn __hasmore__(self) -> Bool:
+    fn __has_next__(self) -> Bool:
         return self.__len__() > 0
 
 
