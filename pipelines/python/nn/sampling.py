@@ -34,6 +34,7 @@ def token_sampler(top_k: Optional[int], dtype: DType):
             )[0]
         else:
             tokens = ops.argmax(logits)
+            tokens = ops.squeeze(tokens, -1)
         graph.output(tokens)
         return graph
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+from dataprocessing import collate_batch, max_tokens_to_generate
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -24,17 +25,9 @@ from max.graph import Graph, TensorType
 from max.graph.weights import SafetensorWeights
 from max.pipelines import PreTrainedTokenGeneratorTokenizer
 from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
-from max.pipelines.kv_cache import (
-    KVCacheParams,
-    load_kv_manager,
-)
-from transformers import AutoTokenizer
-
-from dataprocessing import (
-    collate_batch,
-    max_tokens_to_generate,
-)
+from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn.sampling import token_sampler
+from transformers import AutoTokenizer
 
 from .config import InferenceConfig
 from .hyperparameters import Hyperparameters
@@ -217,6 +210,7 @@ class Mistral:
         self._device = CPU(
             device_spec.id
         ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
+        session = InferenceSession(device=self._device)
 
         self._kv_params = KVCacheParams(
             n_kv_heads=self.params.n_kv_heads,
@@ -231,9 +225,8 @@ class Mistral:
             max_seq_len=config.max_length,
             num_layers=self.params.n_layers,
             device=self._device,
+            session=session,
         )
-
-        session = InferenceSession(device=self._device)
 
         self._model = self._load_model(session, config)
 
