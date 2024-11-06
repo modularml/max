@@ -67,12 +67,21 @@ class TextTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
             config.weight_path is not None
             and config.huggingface_repo_id is not None
         ):
-            if config.weight_format == WeightsFormat.gguf:
-                super().__init__(
-                    AutoTokenizer.from_pretrained(
-                        config.huggingface_repo_id, gguf_file=self.weight_path
+            if config.weights_format == WeightsFormat.gguf:
+                try:
+                    super().__init__(
+                        AutoTokenizer.from_pretrained(
+                            config.huggingface_repo_id,
+                            gguf_file=config.weight_path,
+                        )
                     )
-                )
+                except Exception:
+                    super().__init__(
+                        AutoTokenizer.from_pretrained(
+                            config.huggingface_repo_id
+                        )
+                    )
+
             else:
                 super().__init__(
                     AutoTokenizer.from_pretrained(config.huggingface_repo_id)
@@ -116,7 +125,7 @@ class TextTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
 
         max_gen_tokens = max_tokens_to_generate(
             len(encoded_prompt),
-            self._hyperparameters.seq_len,
+            self.config.max_length,
             request.max_new_tokens if request.max_new_tokens
             is not None else self.config.max_new_tokens,
         )

@@ -12,6 +12,5 @@
 # ===----------------------------------------------------------------------=== #
 
 from replit.replit import Replit
-from .tokenizer import ReplitTokenizer
 
-__all__ = ["Replit", "ReplitTokenizer"]
+__all__ = ["Replit"]

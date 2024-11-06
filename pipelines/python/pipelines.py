@@ -40,6 +40,7 @@ from max.serve.pipelines.performance_fake import (
     get_performance_fake,
 )
 from replit.config import get_replit_huggingface_file
+from nn.tokenizer import TextTokenizer
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
@@ -581,9 +582,7 @@ async def serve_token_generator_replit(
     """Hosts the Replit pipeline using max.serve."""
     if performance_fake == "none":
         print("Starting server using Replit.")
-        tokenizer = replit.ReplitTokenizer(
-            config,
-        )
+        tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
         model_factory = functools.partial(
             replit.Replit,
@@ -702,6 +701,12 @@ def run_replit(
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
+    if config_kwargs["huggingface_repo_id"] is None:
+        config_kwargs["huggingface_repo_id"] = "modularai/replit-code-1.5"
+
+    if config_kwargs["architecture"] is None:
+        config_kwargs["architecture"] = "MPTForCausalLM"
+
     config = PipelineConfig(**config_kwargs)
 
     # Validate encoding.
@@ -714,9 +719,6 @@ def run_replit(
     ]:
         config.cache_strategy = KVCacheStrategy.NAIVE
 
-    if config.huggingface_repo_id is None:
-        config.huggingface_repo_id = "modularai/replit-code-1_5"
-
     if config.weight_path is None:
         hf_file = get_replit_huggingface_file(config.quantization_encoding)
         config.weight_path = hf_file.download()
@@ -726,14 +728,14 @@ def run_replit(
         asyncio.run(
             serve_token_generator_replit(
                 config,
-                "modularai/replit-code-1_5",
+                config.huggingface_repo_id,
                 performance_fake,
             )
         )
     else:
         with TextGenerationMetrics(print_report=True) as metrics:
             model = replit.Replit(config)
-            tokenizer = replit.ReplitTokenizer(config)
+            tokenizer = TextTokenizer(config)
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
