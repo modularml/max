@@ -13,96 +13,20 @@
 
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
-import gguf
 import numpy as np
-from dataprocessing import TextContext, max_tokens_to_generate
-from max.driver import CPU, CUDA
+
+
+from dataprocessing import TextContext
+from max.driver import CPU
 from max.dtype import DType
 from max.engine import InferenceSession
-from max.pipelines import PipelineConfig, PreTrainedTokenGeneratorTokenizer
-from max.pipelines.interfaces import TokenGenerator, TokenGeneratorRequest
-from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
+from max.pipelines import PipelineConfig
+from max.pipelines.interfaces import TokenGenerator
 from nn.sampling import token_sampler
 
-from utils import tokenizer_from_gguf
-
-from .llama3 import load_llama3_and_kv_manager, _read_hyperparameters
-
-
-async def run_with_default_executor(fn, *args):
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, fn, *args)
-
-
-# These aren't thread safe, but we don't want them running on the main
-# thread. Guard them with an async lock for now.
-_TOKENIZER_LOCK = asyncio.Lock()
-
-
-class Llama3Tokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
-    """Encapsulates Llama3 specific token encode/decode logic."""
-
-    def __init__(
-        self,
-        config: PipelineConfig,
-    ):
-        self.config = config
-        reader = gguf.GGUFReader(config.weight_path)
-        self._hyperparameters = _read_hyperparameters(config, reader)
-        assert config.weight_path is not None
-        super().__init__(tokenizer_from_gguf(Path(config.weight_path)))
-
-    async def encode(self, prompt: str) -> np.ndarray:
-        # Encodes a prompt using the tokenizer, raising a ValueError if the
-        # prompt exceeds the configured maximum length.
-
-        # Don't run compute-bound work on the main thread
-        # however, it's not thread-safe, so make sure only one can
-        # run at a time.
-        # TODO: This should go on its own process or a thread on the model process.
-        assert self.delegate
-        async with _TOKENIZER_LOCK:
-            encoded_prompt = await run_with_default_executor(
-                self.delegate.encode, prompt
-            )
-        if len(encoded_prompt) >= self._hyperparameters.seq_len:
-            msg = (
-                f"Prompt length of {len(encoded_prompt)} is greater or equal to"
-                " configured max model context length of"
-                f" {self._hyperparameters.seq_len}."
-            )
-            raise ValueError(msg)
-
-        return encoded_prompt
-
-    async def decode(
-        self,
-        context: TextContext,
-        encoded: np.ndarray,
-    ) -> str:
-        return self.delegate.decode(encoded)
-
-    async def new_context(self, request: TokenGeneratorRequest) -> TextContext:
-        encoded_prompt = await self.encode(request.prompt)
-
-        _max_tokens_to_generate = max_tokens_to_generate(
-            len(encoded_prompt),
-            self._hyperparameters.seq_len,
-            request.max_new_tokens if request.max_new_tokens
-            is not None else self.config.max_new_tokens,
-        )
-        context = TextContext(
-            prompt=request.prompt,
-            cache_seq_id=request.index,
-            max_tokens=len(encoded_prompt) + _max_tokens_to_generate,
-        )
-        context.append(np.array(encoded_prompt))
-        return context
+from .llama3 import load_llama3_and_kv_manager
 
 
 class Llama3TokenGenerator(TokenGenerator[TextContext]):
