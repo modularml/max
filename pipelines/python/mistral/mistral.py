@@ -238,8 +238,10 @@ class Mistral:
     def _mistral_graph(
         self,
     ) -> Graph:
-        tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-        valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
+        tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
+        input_row_offset_type = TensorType(
+            DType.uint32, shape=["input_row_offset_len"]
+        )
 
         kv_cache_args = self._kv_manager.input_symbols()
 
@@ -247,15 +249,15 @@ class Mistral:
             "mistral",
             input_types=[
                 tokens_type,
-                valid_lengths_type,
+                input_row_offset_type,
                 *kv_cache_args,
             ],
         ) as graph:
             model = transformer(
                 graph, self.params, self.weights, self._kv_params
             )
-            tokens, valid_lengths, *kv_cache = graph.inputs
-            logits = model(tokens, kv_cache, valid_lengths=valid_lengths)
+            tokens, input_row_offset, *kv_cache = graph.inputs
+            logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
             graph.output(logits)
             return graph
 
@@ -285,18 +287,19 @@ class Mistral:
         context_batch = batch.values()
         tokens = [ctx.next_tokens for ctx in context_batch]
 
-        # Get valid lengths: unpadded lengths of each token vector in the batch.
-        unpadded_lengths = [ctx.seq_len for ctx in context_batch]
-        valid_lengths = Tensor.from_numpy(np.array(unpadded_lengths, np.uint32))
+        # Get input_row_offset: start and end position of each batch in the
+        # combined total_seq_len dimension.
+        input_row_offset = Tensor.from_numpy(
+            np.cumsum(
+                [0] + [ctx.seq_len for ctx in context_batch], dtype=np.uint32
+            )
+        )
 
         # Pad tokens and compute attention mask for the batch.
         cache_seq_ids = [ctx.cache_seq_id for ctx in context_batch]
 
-        next_tokens_batch, _ = collate_batch(
-            tokens,
-            batch_size=len(tokens),
-            pad_to_multiple_of=self.config.pad_to_multiple_of,
-        )
+        # Create a ragged token vector of length: sum(len(t) for t in tokens).
+        next_tokens_batch = np.concatenate(tokens)
 
         # Grab kv_collection.
         kv_cache_tensors = self._kv_manager.fetch(cache_seq_ids)
@@ -304,7 +307,7 @@ class Mistral:
         # Execute model.
         logits = self._model.execute(
             Tensor.from_numpy(next_tokens_batch).to(self._device),
-            valid_lengths.to(self._device),
+            input_row_offset.to(self._device),
             *kv_cache_tensors,
             copy_inputs_to_device=False,
         )[0]
