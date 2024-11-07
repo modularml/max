@@ -33,8 +33,26 @@ class Conv2D(Layer):
     bias: bool = False
 
     def __call__(self, x: TensorValue) -> TensorValue:
-        filter = dtype_promotion._promote_to(self.filter, x.dtype)
-        # filter = ops.constant(self.filter, x.dtype)
+        if isinstance(self.filter, Weight):
+            filter = TensorValue(self.filter)
+        else:
+            filter = dtype_promotion._promote_to(self.filter, x.dtype)
+
+        # These need to be casted as the underlying ops.conv2d call
+        # expects them to only be tuple types.
+        if isinstance(self.stride, int):
+            self.stride = (self.stride, self.stride)
+
+        if isinstance(self.padding, int):
+            self.padding = (
+                self.padding,
+                self.padding,
+                self.padding,
+                self.padding,
+            )
+
+        if isinstance(self.dilation, int):
+            self.dilation = (self.dilation, self.dilation)
 
         if (
             isinstance(self.filter, Weight)
