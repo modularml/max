@@ -86,7 +86,7 @@ class Llama3:
         kv_manager: KVCacheManager,
         *,
         session: InferenceSession | None = None,
-    ):
+    ) -> None:
         """Initializes the Llama3 model.
 
         Args:
