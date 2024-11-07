@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import gguf
@@ -34,6 +35,8 @@ from dataprocessing import TextContext, batch_padded_tokens_and_mask
 from utils import gguf_utils
 from .gguf import transformer
 from .model.hyperparameters import Hyperparameters
+
+logger = logging.getLogger(__name__)
 
 
 def load_llama3_and_kv_manager(
@@ -194,15 +197,17 @@ class Llama3:
             weights_registry = {}
             for name, tensor in self._weights._tensors.items():
                 weights_registry[name] = tensor.data
-            print("Loading serialized model from", serialized_path, "...")
+            logging.info(
+                "Loading serialized model from", serialized_path, "..."
+            )
             return session.load(
                 serialized_path,
                 weights_registry=weights_registry,
             )
         else:
-            print("Building model...")
+            logging.info("Building model...")
             graph = self._llama_graph(self._weights)
-            print("Compiling...")
+            logging.info("Compiling...")
             return session.load(
                 graph, weights_registry=self._weights.allocated_weights
             )
@@ -319,8 +324,8 @@ def _read_hyperparameters(
     # resulting in OOM memory on smaller machines, when set larger.
     seq_len = 8000
     if config.max_length > seq_len:
-        print(
-            "Warning: `max_length` is more than the supported context size"
+        logging.warning(
+            "`max_length` is more than the supported context size"
             f"`max_length` is now set to {seq_len}"
         )
         config.max_length = seq_len
