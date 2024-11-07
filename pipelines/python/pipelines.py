@@ -240,23 +240,28 @@ def run_llama3(
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
-    config = PipelineConfig(**config_kwargs)
+    if config_kwargs["architecture"] is None:
+        config_kwargs["architecture"] = "LlamaForCausalLM"
 
-    if config.version is None:
-        config.version = "3.1"
+    if config_kwargs["version"] is None:
+        config_kwargs["version"] = "3.1"
 
-    if config.quantization_encoding is None:
-        config.quantization_encoding = SupportedEncoding.q4_k
+    if config_kwargs["quantization_encoding"] is None:
+        config_kwargs["quantization_encoding"] = SupportedEncoding.q4_k
 
     # By default, use the Modular HF repository as a reference for tokenizer
     # configuration, etc. when no repository is specified.
-    if config.huggingface_repo_id is None:
-        if config.version == "3.1":
-            config.huggingface_repo_id = "modularai/llama-3.1"
-        elif config.version == "3":
-            config.huggingface_repo_id = "modularai/llama-3"
+    if config_kwargs["huggingface_repo_id"] is None:
+        if config_kwargs["version"] == "3.1":
+            config_kwargs["huggingface_repo_id"] = "modularai/llama-3.1"
+        elif config_kwargs["version"] == "3":
+            config_kwargs["huggingface_repo_id"] = "modularai/llama-3"
         else:
-            raise ValueError(f"Model version: {config.version} not supported.")
+            raise ValueError(
+                f"Model version: {config_kwargs['version']} not supported."
+            )
+
+    config = PipelineConfig(**config_kwargs)
 
     if config.weight_path is None and performance_fake == "none":
         hf_file = get_llama_huggingface_file(
