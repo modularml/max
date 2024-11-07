@@ -31,7 +31,6 @@ from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn import token_sampler
 
 from .model.graph import _build_graph
-from .model.hyperparameters import Hyperparameters
 
 logger = logging.getLogger(__name__)
 
@@ -42,18 +41,18 @@ class Replit(TokenGenerator):
     def __init__(self, config: PipelineConfig, **kwargs):
         self._config = config
 
-        # Read in Hyperparameters.
-        self._hyperparameters = Hyperparameters.load(config, **kwargs)
-
         # Load Device.
         self._device = self._config.device
         session = InferenceSession(device=self._device)
 
         # Get KV Cache Params.
         self._kv_params = KVCacheParams(
-            dtype=self._hyperparameters.dtype,
-            n_kv_heads=self._hyperparameters.n_kv_heads,
-            head_dim=self._hyperparameters.head_dim,
+            dtype=self._config.dtype,
+            n_kv_heads=self._config.huggingface_config.attn_config[
+                "kv_n_heads"
+            ],
+            head_dim=self._config.huggingface_config.d_model
+            // self._config.huggingface_config.n_heads,
             cache_strategy=self._config.cache_strategy,
         )
 
@@ -61,8 +60,8 @@ class Replit(TokenGenerator):
         self._kv_manager = load_kv_manager(
             params=self._kv_params,
             max_cache_batch_size=self._config.max_cache_batch_size,
-            max_seq_len=self._hyperparameters.seq_len,
-            num_layers=self._hyperparameters.num_layers,
+            max_seq_len=self._config.huggingface_config.max_seq_len,
+            num_layers=self._config.huggingface_config.n_layers,
             device=self._device,
             session=session,
         )
@@ -108,7 +107,7 @@ class Replit(TokenGenerator):
         else:
             logging.info("Building model...")
             graph = _build_graph(
-                self._hyperparameters,
+                self._config,
                 self._weights,
                 self._kv_params,
                 self._kv_manager,
@@ -145,8 +144,10 @@ class Replit(TokenGenerator):
             original_start_pos=start_pos,
             original_seq_len=[len(t) for t in tokens],
             pad_to_multiple_of=self._config.pad_to_multiple_of,
-            alibi_bias_max=self._hyperparameters.alibi_bias_max,
-            n_heads=self._hyperparameters.n_heads,
+            alibi_bias_max=self._config.huggingface_config.attn_config[
+                "alibi_bias_max"
+            ],
+            n_heads=self._config.huggingface_config.n_heads,
         )
 
         # Grab kv_collection.

@@ -17,6 +17,7 @@ from max.dtype import DType
 from max.graph import Graph, TensorType, TensorValue, ops
 from max.graph.weights import GGUFWeights
 from max.graph.quantization import QuantizationEncoding
+from max.pipelines import PipelineConfig
 from nn import (
     AttentionImpl,
     Attention,
@@ -32,7 +33,6 @@ from max.pipelines.kv_cache import (
     KVCacheManager,
     FetchContinuousBatchingKVCacheCollection,
 )
-from .hyperparameters import Hyperparameters
 
 
 def _feed_forward(
@@ -66,31 +66,37 @@ def _lp_layer_norm(dims: int, eps: float, weights: GGUFWeights) -> LPLayerNorm:
 
 
 def _attention(
-    hyperparameters: Hyperparameters,
+    pipeline_config: PipelineConfig,
     weights: GGUFWeights,
     kv_params: KVCacheParams,
     layer_index: int,
 ) -> AttentionImpl:
     k_in_dim = kv_params.n_kv_heads * kv_params.head_dim
     v_in_dim = kv_params.n_kv_heads * kv_params.head_dim
-    q_in_dim = hyperparameters.hidden_dim
+    q_in_dim = pipeline_config.huggingface_config.d_model
     wqkv = TensorValue(
         weights.attn_qkv.weight.allocate(
-            hyperparameters.dtype,
-            [k_in_dim + v_in_dim + q_in_dim, hyperparameters.hidden_dim],
-            hyperparameters.quantization_encoding,
+            pipeline_config.dtype,
+            [
+                k_in_dim + v_in_dim + q_in_dim,
+                pipeline_config.huggingface_config.d_model,
+            ],
+            pipeline_config.quantization_encoding.quantization_encoding,
         )
     )
 
     return Attention(
-        n_heads=hyperparameters.n_heads,
+        n_heads=pipeline_config.huggingface_config.n_heads,
         kv_params=kv_params,
         wqkv=wqkv,
         wo=Linear(
             weights.attn_output.weight.allocate(
-                hyperparameters.dtype,
-                [hyperparameters.hidden_dim, hyperparameters.hidden_dim],
-                hyperparameters.quantization_encoding,
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.d_model,
+                    pipeline_config.huggingface_config.d_model,
+                ],
+                pipeline_config.quantization_encoding.quantization_encoding,
             )
         ),
         layer_idx=ops.constant(layer_index, dtype=DType.uint32),
@@ -99,7 +105,7 @@ def _attention(
 
 def _transformer(
     graph: Graph,
-    hyperparameters: Hyperparameters,
+    pipeline_config: PipelineConfig,
     weights: GGUFWeights,
     kv_params: KVCacheParams,
 ):
@@ -108,43 +114,46 @@ def _transformer(
         layers = [
             TransformerBlock(
                 attention=_attention(
-                    hyperparameters, weights.blk[i], kv_params, i
+                    pipeline_config, weights.blk[i], kv_params, i
                 ),
                 mlp=_feed_forward(
-                    hyperparameters.dtype,
-                    hyperparameters.quantization_encoding,
-                    hyperparameters.hidden_dim,
+                    pipeline_config.dtype,
+                    pipeline_config.quantization_encoding.quantization_encoding,
+                    pipeline_config.huggingface_config.d_model,
                     12288,
                     weights.blk[i],
                 ),
                 attention_norm=_lp_layer_norm(
-                    hyperparameters.hidden_dim,
-                    hyperparameters.layer_norm_epsilon,
+                    pipeline_config.huggingface_config.d_model,
+                    1e-5,
                     weights.blk[i].attn_norm,
                 ),
                 mlp_norm=_lp_layer_norm(
-                    hyperparameters.hidden_dim,
-                    hyperparameters.layer_norm_epsilon,
+                    pipeline_config.huggingface_config.d_model,
+                    1e-5,
                     weights.blk[i].ffn_norm,
                 ),
             )
-            for i in range(hyperparameters.num_layers)
+            for i in range(pipeline_config.huggingface_config.n_layers)
         ]
 
         # Initialize Shared Embedding Weights.
         shared_embedding_weight = weights.token_embd.weight.allocate(
-            hyperparameters.dtype,
-            [hyperparameters.vocab_size, hyperparameters.hidden_dim],
-            hyperparameters.quantization_encoding,
+            pipeline_config.dtype,
+            [
+                pipeline_config.huggingface_config.vocab_size,
+                pipeline_config.huggingface_config.d_model,
+            ],
+            pipeline_config.quantization_encoding.quantization_encoding,
         )
 
         return Transformer(
-            dim=hyperparameters.hidden_dim,
-            n_heads=hyperparameters.n_heads,
+            dim=pipeline_config.huggingface_config.d_model,
+            n_heads=pipeline_config.huggingface_config.n_heads,
             layers=layers,
             norm=_lp_layer_norm(
-                hyperparameters.hidden_dim,
-                hyperparameters.layer_norm_epsilon,
+                pipeline_config.huggingface_config.d_model,
+                1e-5,
                 weights.output_norm,
             ),
             output=Linear(shared_embedding_weight),
@@ -157,7 +166,7 @@ def _transformer(
 
 
 def _build_graph(
-    hyperparameters: Hyperparameters,
+    pipeline_config: PipelineConfig,
     weights: GGUFWeights,
     kv_params: KVCacheParams,
     kv_manager: KVCacheManager,
@@ -181,13 +190,13 @@ def _build_graph(
             *kv_cache_types,
         ],
     ) as graph:
-        model = _transformer(graph, hyperparameters, weights, kv_params)
+        model = _transformer(graph, pipeline_config, weights, kv_params)
         tokens, attention_mask, valid_lengths, *kv_cache_inputs = graph.inputs
         logits = model(
             tokens=tokens,
             valid_lengths=valid_lengths,
             kv_cache_inputs=kv_cache_inputs,
-            attention_mask=attention_mask.cast(hyperparameters.dtype),
+            attention_mask=attention_mask.cast(pipeline_config.dtype),
         )
         graph.output(logits)
         return graph
