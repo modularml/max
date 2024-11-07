@@ -65,7 +65,11 @@ class TextGenerationMetrics:
 
     def new_token(self):
         """Report that a new token has been generated."""
-        self.output_size += 1
+        self.new_tokens(1)
+
+    def new_tokens(self, num_tokens: int):
+        """Report that a num_tokens tokens have been generated."""
+        self.output_size += num_tokens
 
     def _calculate_results(self):
         begin_generation = self._signposts.get("begin_generation")
