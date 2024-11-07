@@ -18,11 +18,11 @@ import os
 
 import click
 import llama3
-from llama3.config import get_llama_huggingface_file
 import llama3.vision as llama3_vision
 import mistral
 import replit
 from huggingface_hub import hf_hub_download
+from llama3.config import get_llama_huggingface_file
 from max.driver import DeviceSpec
 from max.pipelines import HuggingFaceFile
 from max.pipelines.config import PipelineConfig, SupportedEncoding
@@ -39,8 +39,8 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingTokenGeneratorTokenizer,
     get_performance_fake,
 )
-from replit.config import get_replit_huggingface_file
 from nn.tokenizer import TextTokenizer
+from replit.config import get_replit_huggingface_file
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
@@ -65,7 +65,7 @@ def pipeline_config(
     if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
         return TokenGeneratorPipelineConfig.continuous_heterogenous(
             tg_batch_size=batch_size,
-            ce_batch_size=min(32, batch_size),
+            ce_batch_size=batch_size,
             ce_batch_timeout=batch_timeout,
             max_forward_steps=max_forward_steps,
         )
@@ -138,7 +138,7 @@ async def serve_token_generator(
         {
             model_name: BatchedTokenGeneratorState(
                 TokenGeneratorPipeline(
-                    batch_config, model_name, tokenizer, False
+                    batch_config, model_name, tokenizer, True
                 ),
                 model_factory,
             )
