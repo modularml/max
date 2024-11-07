@@ -13,7 +13,7 @@
 
 cmake_minimum_required(VERSION 3.24)
 
-project(max-examples LANGUAGES CXX C)
+project(max-examples LANGUAGES C)
 
 list(APPEND CMAKE_MODULE_PATH "$ENV{MAX_PKG_DIR}/lib/cmake")
 include(AddMaxEngine)
