@@ -91,9 +91,7 @@ async def serve_token_generator(
     """Hosts the Llama3 pipeline using max.serve."""
     if performance_fake == "none":
         logger.info("Starting server using Llama3.")
-        tokenizer = TextTokenizer(
-            config,
-        )
+        tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
         model_factory = functools.partial(
             llama3.Llama3TokenGenerator,
@@ -536,13 +534,8 @@ def run_mistral(
     else:
         # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer = mistral.MistralTokenizer(
-                config,
-            )
-            model = mistral.MistralTokenGenerator(
-                config,
-                tokenizer.delegate.eos_token_id,
-            )
+            tokenizer = mistral.MistralTokenizer(config)
+            model = mistral.MistralTokenGenerator(config, tokenizer.eos)
             # Run warmup iteration with no metrics & printing disabled
             if num_warmups > 0:
                 print("Running warmup...")
