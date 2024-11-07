@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+import logging
 from typing import Any
 
 import gguf
@@ -31,6 +32,8 @@ from nn import token_sampler
 
 from .model.graph import _build_graph
 from .model.hyperparameters import Hyperparameters
+
+logger = logging.getLogger(__name__)
 
 
 class Replit(TokenGenerator):
@@ -95,20 +98,22 @@ class Replit(TokenGenerator):
             weights_registry = {}
             for name, tensor in self._weights._tensors.items():
                 weights_registry[name] = tensor.data
-            print("Loading serialized model from ", serialized_path, "...")
+            logging.info(
+                "Loading serialized model from ", serialized_path, "..."
+            )
             return session.load(
                 serialized_path,
                 weights_registry=weights_registry,
             )
         else:
-            print("Building model...")
+            logging.info("Building model...")
             graph = _build_graph(
                 self._hyperparameters,
                 self._weights,
                 self._kv_params,
                 self._kv_manager,
             )
-            print("Compiling...")
+            logging.info("Compiling...")
             return session.load(
                 graph, weights_registry=self._weights.allocated_weights
             )

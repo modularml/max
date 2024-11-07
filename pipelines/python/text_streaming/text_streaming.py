@@ -33,15 +33,7 @@ async def stream_text_to_console(
     metrics: Optional[TextGenerationMetrics] = None,
     max_batch_size: int = 1,
     print_tokens: bool = True,
-    n_duplicate: int = 1,
 ):
-    if n_duplicate > max_batch_size:
-        msg = (
-            f"prompt is duplicated {n_duplicate} times, while"
-            f" max batch size is {max_batch_size}"
-        )
-        raise ValueError(msg)
-
     # Length of request_id_context_dict should be == batch_size.
     request_id_context = {}
 
@@ -49,28 +41,23 @@ async def stream_text_to_console(
     # NOTE: This batch_size param also needs to be == config.max_cache_size of
     # the underlying pipeline config.
     batch_size = max_batch_size
-    # Special case UX to see response print as generated when batch_size == 1
-    print_as_generated = batch_size == 1
-
-    responses = {}
-    decoded_responses = defaultdict(list)
 
     # create a dict of request_id: contexts
-    for i in range(n_duplicate):
-        # We make the key unique even for the same prompts for now.
-        req_id = str(uuid.uuid4())
-        context = await tokenizer.new_context(
-            TokenGeneratorRequest(req_id, i, prompt, MODEL_NAME)
-        )
-        responses[req_id] = [prompt]
-        request_id_context[req_id] = context
-        prompt_size = len(context.tokens)
+    decoded_responses = {}
+
+    req_id = str(uuid.uuid4())
+    context = await tokenizer.new_context(
+        TokenGeneratorRequest(req_id, 0, prompt, MODEL_NAME)
+    )
+    decoded_responses[req_id] = [prompt]
+    request_id_context[req_id] = context
+    prompt_size = len(context.tokens)
 
     if metrics:
         metrics.prompt_size = prompt_size
         metrics.signpost("begin_generation")
 
-    if print_tokens and print_as_generated:
+    if print_tokens:
         print(prompt, end="", flush=True)
 
     first_token = True
@@ -91,7 +78,7 @@ async def stream_text_to_console(
                     first_token = False
                     metrics.signpost("first_token")
                 metrics.new_token()
-            if print_tokens and print_as_generated:
+            if print_tokens:
                 print(response_text, end="", flush=True)
             else:
                 decoded_responses[req_id].append(response_text)
@@ -104,12 +91,6 @@ async def stream_text_to_console(
 
     for context in request_id_context.values():
         model.release(context)
-
-    # Print prompt + response for each unique prompt
-    if print_tokens and not print_as_generated:
-        for decoded in decoded_responses.values():
-            print("\n---\n")
-            print("".join(decoded), flush=True)
 
     if print_tokens:
         print()
