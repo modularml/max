@@ -14,7 +14,7 @@
 from dataclasses import dataclass
 from typing import Tuple, Union
 
-from max.graph import TensorValue, TensorValueLike, Weight, dtype_promotion, ops
+from max.graph import TensorValue, TensorValueLike, Weight, ops
 from .layer import Layer
 
 
@@ -33,11 +33,6 @@ class Conv2D(Layer):
     bias: bool = False
 
     def __call__(self, x: TensorValue) -> TensorValue:
-        if isinstance(self.filter, Weight):
-            filter = TensorValue(self.filter)
-        else:
-            filter = dtype_promotion._promote_to(self.filter, x.dtype)
-
         # These need to be casted as the underlying ops.conv2d call
         # expects them to only be tuple types.
         if isinstance(self.stride, int):
@@ -60,12 +55,17 @@ class Conv2D(Layer):
         ):
             return ops.conv2d(
                 x,
-                filter.quantization_encoding,
+                self.filter.quantization_encoding,
                 self.stride,
                 self.dilation,
                 self.padding,
                 self.groups,
             )
         return ops.conv2d(
-            x, filter, self.stride, self.dilation, self.padding, self.groups
+            x,
+            self.filter,
+            self.stride,
+            self.dilation,
+            self.padding,
+            self.groups,
         )
