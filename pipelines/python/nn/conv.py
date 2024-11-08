@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Tuple, Union
 
 from max.graph import TensorValue, TensorValueLike, Weight, ops
+
 from .layer import Layer
 
 
