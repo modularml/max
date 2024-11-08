@@ -15,11 +15,9 @@
 from .config import get_llama_huggingface_file
 from .llama3 import Llama3
 from .llama3_token_gen import Llama3TokenGenerator
-from .model.hyperparameters import Hyperparameters
 
 __all__ = [
     "Llama3",
     "Llama3TokenGenerator",
-    "Hyperparameters",
     "get_llama_huggingface_file",
 ]

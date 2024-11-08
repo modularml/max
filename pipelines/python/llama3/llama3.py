@@ -14,16 +14,15 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 import gguf
 import numpy as np
-from max.driver import CPU, CUDA, Tensor, Device
+from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import BufferType, Graph, TensorType
+from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
-from max.pipelines import PipelineConfig
+from max.pipelines import PipelineConfig, SupportedEncoding
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheStrategy,
@@ -32,9 +31,7 @@ from max.pipelines.kv_cache import (
 )
 from dataprocessing import TextContext, batch_padded_tokens_and_mask
 
-from utils import gguf_utils
 from .gguf import transformer
-from .model.hyperparameters import Hyperparameters
 
 logger = logging.getLogger(__name__)
 
@@ -42,32 +39,31 @@ logger = logging.getLogger(__name__)
 def load_llama3_and_kv_manager(
     config: PipelineConfig,
     session: InferenceSession,
-    vocab_size: int | None = None,
 ) -> tuple[Llama3, KVCacheManager]:
     reader = gguf.GGUFReader(config.weight_path)
-    hyper_params = _read_hyperparameters(config, reader, vocab_size=vocab_size)
+    cache_dtype = (
+        DType.float32 if config.quantization_encoding.quantization_encoding
+        is not None else config.dtype
+    )
     kv_params = KVCacheParams(
-        n_kv_heads=hyper_params.n_kv_heads,
-        head_dim=hyper_params.head_dim,
-        dtype=(
-            DType.float32 if hyper_params.quantization_encoding
-            is not None else hyper_params.dtype
-        ),
+        n_kv_heads=config.huggingface_config.num_key_value_heads,
+        head_dim=config.huggingface_config.hidden_size
+        // config.huggingface_config.num_attention_heads,
+        dtype=cache_dtype,
         cache_strategy=config.cache_strategy,
     )
 
     kv_manager = load_kv_manager(
         params=kv_params,
         max_cache_batch_size=config.max_cache_batch_size,
-        max_seq_len=hyper_params.seq_len,
-        num_layers=hyper_params.n_layers,
+        max_seq_len=config.huggingface_config.max_seq_len,
+        num_layers=config.huggingface_config.num_hidden_layers,
         device=config.device,
         session=session,
     )
     model = Llama3(
         config,
         reader,
-        hyper_params,
         kv_manager,
         session=session,
     )
@@ -82,7 +78,6 @@ class Llama3:
         self,
         config: PipelineConfig,
         reader: gguf.GGUFReader,
-        hyperparams: Hyperparameters,
         kv_manager: KVCacheManager,
         *,
         session: InferenceSession | None = None,
@@ -98,7 +93,6 @@ class Llama3:
         self.config = config
         assert config.weight_path is not None
         self.reader = reader
-        self.params = hyperparams
         device_spec = self.config.device_spec
         self._device = CPU(
             device_spec.id
@@ -136,8 +130,7 @@ class Llama3:
         ) as graph:
             model = transformer(
                 graph,
-                self.config.cache_strategy,
-                self.params,
+                self.config,
                 weights,
                 self._kv_params,
             )
@@ -167,17 +160,23 @@ class Llama3:
         ) as graph:
             model = transformer(
                 graph,
-                self.config.cache_strategy,
-                self.params,
+                self.config,
                 weights,
                 self._kv_params,
             )
             tokens, attention_mask, k_cache, v_cache, start_pos, _ = (
                 graph.inputs
             )
+            mask_dtype = (
+                self.config.dtype if self.config.quantization_encoding
+                in [
+                    SupportedEncoding.float32,
+                    SupportedEncoding.bfloat16,
+                ] else DType.float32
+            )
             logits, end_pos = model(
                 tokens,
-                attention_mask.cast(self.params.mask_dtype),
+                attention_mask.cast(mask_dtype),
                 k_cache,
                 v_cache,
                 start_pos,
@@ -288,58 +287,3 @@ class Llama3:
         return self._model.execute(
             *model_inputs, copy_inputs_to_device=copy_inputs_to_device
         )[0]
-
-
-def _read_hyperparameters(
-    config: PipelineConfig,
-    reader: gguf.GGUFReader,
-    *,
-    vocab_size: int | None = None,
-) -> Hyperparameters:
-    key_names = {
-        "n_layers": "llama.block_count",
-        "n_heads": "llama.attention.head_count",
-        "n_kv_heads": "llama.attention.head_count_kv",
-        "vocab_size": "llama.vocab_size",
-        "hidden_dim": "llama.embedding_length",
-        "rope_theta": "llama.rope.freq_base",
-        "layer_norm_rms_epsilon": "llama.attention.layer_norm_rms_epsilon",
-    }
-
-    configured_params = {
-        name: value
-        for name, key in key_names.items()
-        if (value := gguf_utils.read_number(reader, key)) is not None
-    }
-
-    # The feed forward length doesn't appear in the pretrained llama checkpoint
-    # fields. Obtain the value from the shape of the projection weight.
-    tensor = next(
-        filter(lambda t: t.name == "blk.0.ffn_down.weight", reader.tensors)
-    )
-    feed_forward_length = tensor.shape[0]
-
-    # Newer llama models (>=3.2) may not use an output weight, and instead
-    # re-use the embedding weight to compute the output logits.
-    has_dedicated_output_weights = any(
-        tensor.name == "output.weight" for tensor in reader.tensors
-    )
-
-    # Workaround for older Llama 1/2 GGUFs, where the vocab size may be -1.
-    # See https://github.com/ggerganov/llama.cpp/pull/4258.
-    if (configured_vocab_size := configured_params["vocab_size"]) < 0:
-        if not vocab_size:
-            raise ValueError(
-                "Parsing a possible outdated GGUF where the vocab size is set"
-                f" to {configured_vocab_size}. Please use a newer GGUF."
-            )
-        configured_params["vocab_size"] = vocab_size
-
-    return Hyperparameters(
-        dtype=config.quantization_encoding.dtype,
-        quantization_encoding=config.quantization_encoding.quantization_encoding,
-        feed_forward_length=feed_forward_length,
-        seq_len=config.max_length,
-        has_dedicated_output_weights=has_dedicated_output_weights,
-        **configured_params,
-    )

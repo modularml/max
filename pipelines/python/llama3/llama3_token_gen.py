@@ -32,7 +32,7 @@ from .llama3 import load_llama3_and_kv_manager
 class Llama3TokenGenerator(TokenGenerator[TextContext]):
     """Token Generator for the Llama 3 model."""
 
-    def __init__(self, config: PipelineConfig, eos: int, vocab_size: int):
+    def __init__(self, config: PipelineConfig, eos: int):
         self.config = config
         self.eos = eos
 
@@ -42,7 +42,6 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         self.model, self._kv_manager = load_llama3_and_kv_manager(
             config,
             session,
-            vocab_size=vocab_size,
         )
 
         # Logits are always float32 for now
