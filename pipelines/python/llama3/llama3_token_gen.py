@@ -18,11 +18,10 @@ from typing import Any
 import numpy as np
 
 
-from dataprocessing import TextContext
 from max.driver import CPU
 from max.dtype import DType
 from max.engine import InferenceSession
-from max.pipelines import PipelineConfig
+from max.pipelines import PipelineConfig, TextContext
 from max.pipelines.interfaces import TokenGenerator
 from nn.sampling import token_sampler
 
@@ -117,7 +116,7 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
                 next_token = next_tokens[request_id].astype(np.int64)
 
                 # Update context
-                context.append(next_token.reshape(-1))
+                context.update(new_tokens=next_token.reshape(-1))
 
                 # Mark completed requests by not including them in the response.
                 if not context.is_done(self.eos):
