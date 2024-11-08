@@ -22,10 +22,6 @@ from .embedding import Embedding
 from .linear import MLP, Linear
 from .norm import LPLayerNorm, RMSNorm
 from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
-from .sampling import (
-    argmax_sampler,
-    token_sampler,
-)
 from .sequential import Sequential
 from .tokenizer import TextTokenizer
 from .transformer import (
@@ -54,6 +50,4 @@ __all__ = [
     "TextTokenizer",
     "Transformer",
     "TransformerBlock",
-    "argmax_sampler",
-    "token_sampler",
 ]

@@ -27,7 +27,7 @@ from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import PipelineConfig, TokenGenerator, TextContext
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
-from nn import token_sampler
+from max.pipelines.sampling import token_sampler
 
 from .model.graph import _build_graph
 

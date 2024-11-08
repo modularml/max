@@ -22,8 +22,8 @@ from max.driver import CPU
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.pipelines import PipelineConfig, TextContext
+from max.pipelines.sampling import token_sampler
 from max.pipelines.interfaces import TokenGenerator
-from nn.sampling import token_sampler
 
 from .llama3 import load_llama3_and_kv_manager
 
