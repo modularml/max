@@ -376,7 +376,7 @@ def run_llama3_vision(
 
 
 async def serve_token_generator_mistral(
-    config: mistral.InferenceConfig,
+    config: PipelineConfig,
     repo_id: str,
     performance_fake,
     prefer_ce_over_tg: bool = True,
@@ -385,9 +385,7 @@ async def serve_token_generator_mistral(
     """Hosts the Mistral pipeline using max.serve."""
     if performance_fake == "none":
         print("Starting server using Mistral.")
-        tokenizer = mistral.MistralTokenizer(
-            config,
-        )
+        tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
         model_factory = functools.partial(
             mistral.Mistral,
@@ -409,9 +407,8 @@ async def serve_token_generator_mistral(
     debug_settings = DebugSettings(profiling_enabled=profile)
 
     batch_size = config.max_cache_batch_size
-    max_forward_steps = config.max_forward_steps
     batch_config = pipeline_config(
-        kv_cache_strategy, batch_size, max_forward_steps=max_forward_steps
+        kv_cache_strategy, batch_size, max_forward_steps=config.max_num_steps
     )
     print(
         f"Server configured with {kv_cache_strategy} caching with batch size"
@@ -442,7 +439,7 @@ async def serve_token_generator_mistral(
 
 
 @main.command(name="mistral")
-@config_to_flag(mistral.InferenceConfig)
+@config_to_flag(PipelineConfig)
 @click.option(
     "--prompt",
     type=str,
@@ -457,13 +454,6 @@ async def serve_token_generator_mistral(
     help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
 )
 @click.option(
-    "--profile-serve",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to enable pyinstrument profiling on the serving endpoint.",
-)
-@click.option(
     "--use-gpu",
     is_flag=False,
     type=DevicesOptionType(),
@@ -476,33 +466,31 @@ async def serve_token_generator_mistral(
     ),
 )
 @click.option(
-    "--num-warmups",
-    type=int,
-    default=1,
-    show_default=True,
-    help="# of warmup iterations to run before the final timed run.",
-)
-@click.option(
     "--performance-fake",
     type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
     default="none",
     help="Fake the engine performance (for benchmarking)",
 )
 @click.option(
-    "--disable-prefer-ce-over-tg",
+    "--profile-serve",
     is_flag=True,
     show_default=True,
     default=False,
-    help="Disable preference of context encoding over token generation.",
+    help="Whether to enable pyinstrument profiling on the serving endpoint.",
+)
+@click.option(
+    "--server-batch-mode",
+    type=click.Choice(["dynamic", "continuous"]),
+    default="dynamic",
+    help="Configures the servers batching scheme",
 )
 def run_mistral(
     prompt,
     serve,
-    profile_serve,
     use_gpu,
-    num_warmups,
     performance_fake,
-    disable_prefer_ce_over_tg,
+    profile_serve,
+    server_batch_mode,
     **config_kwargs,
 ):
     """Runs the Mistral pipeline."""
@@ -510,51 +498,52 @@ def run_mistral(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": mistral.SupportedEncodings.bfloat16,
+                "quantization_encoding": SupportedEncoding.bfloat16,
             }
         )
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
-    config = mistral.InferenceConfig(**config_kwargs)
-    repo_id = f"mistralai/Mistral-Nemo-Instruct-2407"
-    weight_filename = "consolidated.safetensors"
-    config.weight_path = hf_hub_download(
-        repo_id=repo_id,
-        filename=weight_filename,
-    )
+    if config_kwargs["huggingface_repo_id"] is None:
+        config_kwargs[
+            "huggingface_repo_id"
+        ] = "mistralai/Mistral-Nemo-Instruct-2407"
+
+    if config_kwargs["architecture"] is None:
+        config_kwargs["architecture"] = "MistralForCausalLM"
+
+    config = PipelineConfig(**config_kwargs)
+
+    # Validate encoding.
+    if config.quantization_encoding is None:
+        config.quantization_encoding = SupportedEncoding.bfloat16
+
+    if config.quantization_encoding not in [
+        SupportedEncoding.bfloat16,
+        SupportedEncoding.float32,
+    ]:
+        config.cache_strategy = KVCacheStrategy.NAIVE
+
+    if config.weight_path is None:
+        hf_file = HuggingFaceFile(
+            "mistralai/Mistral-Nemo-Instruct-2407", "consolidated.safetensors"
+        )
+        config.weight_path = hf_file.download()
 
     if serve:
+        logger.info("Starting server...")
         asyncio.run(
             serve_token_generator_mistral(
                 config,
-                repo_id,
+                config.huggingface_repo_id,
                 performance_fake,
-                profile_serve,
-                not disable_prefer_ce_over_tg,
             )
         )
     else:
-        # Run timed run & print results
         with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer = mistral.MistralTokenizer(config)
-            model = mistral.MistralTokenGenerator(config, tokenizer.eos)
-            # Run warmup iteration with no metrics & printing disabled
-            if num_warmups > 0:
-                print("Running warmup...")
-                for i in range(num_warmups):
-                    asyncio.run(
-                        stream_text_to_console(
-                            model,
-                            tokenizer,
-                            prompt,
-                            metrics=None,
-                            print_tokens=False,
-                            max_batch_size=config.max_cache_batch_size,
-                        )
-                    )
-
-            print("Beginning text generation...")
+            model = mistral.Mistral(config)
+            tokenizer = TextTokenizer(config)
+            logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
                     model,
