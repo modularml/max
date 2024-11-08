@@ -56,17 +56,18 @@ def start_llama3(
     use_gpu: bool,
 ) -> Llama3:
     config = PipelineConfig(
+        architecture="LlamaForCausalLM",
         device=CUDA() if use_gpu else CPU(),
         weight_path=weight_path,
         quantization_encoding=quantization,
         max_length=max_length,
         max_new_tokens=max_new_tokens,
+        huggingface_repo_id="modularai/llama-3.1",
     )
     tokenizer = TextTokenizer(config)
     return Llama3TokenGenerator(
         config,
         tokenizer.delegate.eos_token_id,
-        tokenizer.delegate.vocab_size,
     )
 
 

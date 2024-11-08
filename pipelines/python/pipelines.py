@@ -97,7 +97,6 @@ async def serve_token_generator(
             llama3.Llama3TokenGenerator,
             config,
             tokenizer.delegate.eos_token_id,
-            tokenizer.delegate.vocab_size,
         )
         kv_cache_strategy = config.cache_strategy
     else:
@@ -243,14 +242,14 @@ def run_llama3(
     if config_kwargs["architecture"] is None:
         config_kwargs["architecture"] = "LlamaForCausalLM"
 
+    # By default, use the Modular HF repository as a reference for tokenizer
+    # configuration, etc. when no repository is specified.
     if config_kwargs["version"] is None:
         config_kwargs["version"] = "3.1"
 
     if config_kwargs["quantization_encoding"] is None:
         config_kwargs["quantization_encoding"] = SupportedEncoding.q4_k
 
-    # By default, use the Modular HF repository as a reference for tokenizer
-    # configuration, etc. when no repository is specified.
     if config_kwargs["huggingface_repo_id"] is None:
         if config_kwargs["version"] == "3.1":
             config_kwargs["huggingface_repo_id"] = "modularai/llama-3.1"
@@ -261,17 +260,17 @@ def run_llama3(
                 f"Model version: {config_kwargs['version']} not supported."
             )
 
-    config = PipelineConfig(**config_kwargs)
-
-    if config.weight_path is None and performance_fake == "none":
+    if config_kwargs["weight_path"] is None and performance_fake == "none":
         hf_file = get_llama_huggingface_file(
-            config.version, config.quantization_encoding
+            config_kwargs["version"], config_kwargs["quantization_encoding"]
         )
-        config.weight_path = hf_file.download()
-    elif config.weight_path is not None:
-        if not os.path.exists(config.weight_path):
-            hf_file = HuggingFaceFile.parse(config.weight_path)
-            config.weight_path = hf_file.download()
+        config_kwargs["weight_path"] = hf_file.download()
+    elif config_kwargs["weight_path"] is not None:
+        if not os.path.exists(config_kwargs["weight_path"]):
+            hf_file = HuggingFaceFile.parse(config_kwargs["weight_path"])
+            config_kwargs["weight_path"] = hf_file.download()
+
+    config = PipelineConfig(**config_kwargs)
 
     if config.quantization_encoding not in [
         SupportedEncoding.bfloat16,
@@ -298,7 +297,6 @@ def run_llama3(
             model = llama3.Llama3TokenGenerator(
                 config,
                 tokenizer.delegate.eos_token_id,
-                tokenizer.delegate.vocab_size,
             )
             # Run warmup iteration with no metrics & printing disabled
             if num_warmups > 0:
