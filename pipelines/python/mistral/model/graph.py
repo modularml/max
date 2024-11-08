@@ -13,7 +13,7 @@
 """Build a Mistral model via Graph API from Safetensor weights."""
 
 from max.dtype import DType
-from max.graph import ops, Graph
+from max.graph import ops, Graph, TensorType, TensorValue
 from max.graph.weights import SafetensorWeights
 from nn import (
     MLP,
@@ -29,8 +29,13 @@ from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
+from max.pipelines import PipelineConfig
 
-from .hyperparameters import Hyperparameters
+from max.pipelines.kv_cache import (
+    KVCacheParams,
+    KVCacheManager,
+    FetchContinuousBatchingKVCacheCollection,
+)
 
 
 def feed_forward(
@@ -77,7 +82,7 @@ def rms_norm(dims: int, eps: float, weights: SafetensorWeights) -> RMSNorm:
 
 
 def embedding(
-    params: Hyperparameters,
+    params: PipelineConfig,
     vocab_size: int,
     hidden_dim: int,
     weights: SafetensorWeights,
@@ -92,15 +97,24 @@ def embedding(
 
 def _attention_opaque(
     kv_params: KVCacheParams,
-    params: Hyperparameters,
+    params: PipelineConfig,
     rope: OptimizedRotaryEmbedding,
     weights: SafetensorWeights,
     layer_idx: int,
 ):
+    kv_weight_dim = (
+        params.huggingface_config.head_dim
+        * params.huggingface_config.num_key_value_heads
+    )
+
     wq = ops.transpose(
         weights.attention.wq.weight.allocate(
             params.dtype,
-            [params.n_heads * params.head_dim, params.hidden_dim],
+            [
+                params.huggingface_config.num_attention_heads
+                * params.huggingface_config.head_dim,
+                params.huggingface_config.hidden_size,
+            ],
         ),
         0,
         1,
@@ -108,7 +122,7 @@ def _attention_opaque(
     wk = ops.transpose(
         weights.attention.wk.weight.allocate(
             params.dtype,
-            [params.kv_weight_dim, params.hidden_dim],
+            [kv_weight_dim, params.huggingface_config.hidden_size],
         ),
         0,
         1,
@@ -116,7 +130,7 @@ def _attention_opaque(
     wv = ops.transpose(
         weights.attention.wv.weight.allocate(
             params.dtype,
-            [params.kv_weight_dim, params.hidden_dim],
+            [kv_weight_dim, params.huggingface_config.hidden_size],
         ),
         0,
         1,
@@ -124,13 +138,14 @@ def _attention_opaque(
     wqkv = ops.concat((wq, wk, wv), axis=1).transpose(0, 1)
 
     return AttentionWithRope(
-        n_heads=params.n_heads,
+        n_heads=params.huggingface_config.num_attention_heads,
         kv_params=kv_params,
         wqkv=wqkv,
         wo=linear(
             params.dtype,
-            params.hidden_dim,
-            params.n_heads * params.head_dim,
+            params.huggingface_config.hidden_size,
+            params.huggingface_config.num_attention_heads
+            * params.huggingface_config.head_dim,
             weights.attention.wo,
         ),
         rope=rope,
@@ -138,26 +153,20 @@ def _attention_opaque(
     )
 
 
-def transformer(
+def _transformer(
     graph: Graph,
-    params: Hyperparameters,
+    params: PipelineConfig,
     weights: SafetensorWeights,
     kv_params: KVCacheParams,
 ):
     with graph:
-        try:
-            rope_scaling = weights.rope_freqs.weight.raw_tensor().data
-        except AttributeError:
-            # Set default RoPE scaling if the tensor isn't present in the GGUF
-            # file.
-            rope_scaling = None
-
         rope = OptimizedRotaryEmbedding(
-            dim=params.n_heads * params.head_dim,
-            n_heads=params.n_heads,
-            theta=params.rope_theta,
-            max_seq_len=params.seq_len,
-            rope_scaling=rope_scaling,
+            dim=params.huggingface_config.num_attention_heads
+            * params.huggingface_config.head_dim,
+            n_heads=params.huggingface_config.num_attention_heads,
+            theta=params.huggingface_config.rope_theta,
+            max_seq_len=params.max_length,
+            rope_scaling=None,
         )
 
         layers = [
@@ -171,28 +180,28 @@ def transformer(
                 ),
                 mlp=feed_forward(
                     params.dtype,
-                    params.hidden_dim,
-                    params.feed_forward_length,
+                    params.huggingface_config.hidden_size,
+                    params.huggingface_config.intermediate_size,
                     weights.layers[i],
                 ),
                 attention_norm=rms_norm(
-                    params.hidden_dim,
-                    params.layer_norm_rms_epsilon,
+                    params.huggingface_config.hidden_size,
+                    params.huggingface_config.rms_norm_eps,
                     weights.layers[i].attention_norm,
                 ),
                 mlp_norm=rms_norm(
-                    params.hidden_dim,
-                    params.layer_norm_rms_epsilon,
+                    params.huggingface_config.hidden_size,
+                    params.huggingface_config.rms_norm_eps,
                     weights.layers[i].ffn_norm,
                 ),
             )
-            for i in range(params.n_layers)
+            for i in range(params.huggingface_config.num_hidden_layers)
         ]
 
         embedding_layer = embedding(
             params,
-            params.vocab_size,
-            params.hidden_dim,
+            params.huggingface_config.vocab_size,
+            params.huggingface_config.hidden_size,
             weights.tok_embeddings,
         )
 
@@ -201,12 +210,12 @@ def transformer(
         kv_collection_cls = FetchContinuousBatchingKVCacheCollection
 
         return Transformer(
-            dim=params.hidden_dim,
-            n_heads=params.n_heads,
+            dim=params.huggingface_config.hidden_size,
+            n_heads=params.huggingface_config.num_attention_heads,
             layers=layers,
             norm=rms_norm(
-                params.hidden_dim,
-                params.layer_norm_rms_epsilon,
+                params.huggingface_config.hidden_size,
+                params.huggingface_config.rms_norm_eps,
                 weights.norm,
             ),
             output=output,
@@ -214,3 +223,31 @@ def transformer(
             kv_params=kv_params,
             kv_collection_constructor=kv_collection_cls(kv_params),
         )
+
+
+def _build_graph(
+    pipeline_config: PipelineConfig,
+    weights: SafetensorWeights,
+    kv_params: KVCacheParams,
+    kv_manager: KVCacheManager,
+) -> Graph:
+    tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
+    input_row_offset_type = TensorType(
+        DType.uint32, shape=["input_row_offset_len"]
+    )
+
+    kv_cache_args = kv_manager.input_symbols()
+
+    with Graph(
+        "mistral",
+        input_types=[
+            tokens_type,
+            input_row_offset_type,
+            *kv_cache_args,
+        ],
+    ) as graph:
+        model = _transformer(graph, pipeline_config, weights, kv_params)
+        tokens, input_row_offset, *kv_cache = graph.inputs
+        logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
+        graph.output(logits)
+        return graph

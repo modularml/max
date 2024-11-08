@@ -11,16 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .config import (
-    DeviceSpec,
-    InferenceConfig,
-    SupportedEncodings,
-    SupportedVersions,
-)
-from .mistral import (
-    Mistral,
-    MistralContext,
-    MistralTokenizer,
-    MistralTokenGenerator,
-)
-from .hyperparameters import Hyperparameters
+from mistral.mistral import Mistral
+
+__all__ = ["Mistral"]
