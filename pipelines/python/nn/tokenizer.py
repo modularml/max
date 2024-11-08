@@ -16,10 +16,11 @@ from max.pipelines import (
     PreTrainedTokenGeneratorTokenizer,
     PipelineConfig,
     WeightsFormat,
+    TextContext,
 )
 from max.pipelines.interfaces import TokenGeneratorRequest
 from transformers import AutoTokenizer
-from dataprocessing import TextContext, max_tokens_to_generate
+from dataprocessing import max_tokens_to_generate
 from utils import tokenizer_from_gguf
 from pathlib import Path
 
@@ -134,5 +135,5 @@ class TextTokenizer(PreTrainedTokenGeneratorTokenizer[TextContext]):
             cache_seq_id=request.index,
             max_tokens=len(encoded_prompt) + max_gen_tokens,
         )
-        context.append(np.array(encoded_prompt))
+        context.update(new_tokens=np.array(encoded_prompt))
         return context

@@ -18,7 +18,6 @@ import gguf
 import numpy as np
 import transformers
 from dataprocessing import (
-    TextContext,
     causal_attention_mask_with_alibi,
     collate_batch,
 )
@@ -26,7 +25,7 @@ from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
-from max.pipelines import PipelineConfig, TokenGenerator
+from max.pipelines import PipelineConfig, TokenGenerator, TextContext
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn import token_sampler
 
@@ -186,7 +185,7 @@ class Replit(TokenGenerator):
             next_token = next_tokens[request_id].astype(np.int64)
 
             # Update context
-            context.append(next_token.reshape(-1))
+            context.update(new_tokens=next_token.reshape(-1))
 
             # Mark completed requests by not including them in the response.
             if not context.is_done(self._tokenizer.eos_token_id):

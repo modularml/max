@@ -18,7 +18,6 @@ from max.graph.weights import SafetensorWeights
 import numpy as np
 import transformers
 from dataprocessing import (
-    TextContext,
     causal_attention_mask_with_alibi,
     collate_batch,
 )
@@ -26,7 +25,7 @@ from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
-from max.pipelines import PipelineConfig, TokenGenerator
+from max.pipelines import PipelineConfig, TokenGenerator, TextContext
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from nn import token_sampler
 

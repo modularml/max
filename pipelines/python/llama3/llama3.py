@@ -22,14 +22,14 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
-from max.pipelines import PipelineConfig, SupportedEncoding
+from max.pipelines import PipelineConfig, SupportedEncoding, TextContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheStrategy,
     KVCacheParams,
     load_kv_manager,
 )
-from dataprocessing import TextContext, batch_padded_tokens_and_mask
+from dataprocessing import batch_padded_tokens_and_mask
 
 from .gguf import transformer
 
