@@ -20,12 +20,10 @@ import click
 import llama3
 import llama3.vision as llama3_vision
 import mistral
-import pixtral
 import replit
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
 from max.driver import DeviceSpec
-from max.dtype import DType
 from max.pipelines import HuggingFaceFile
 from max.pipelines.config import PipelineConfig, SupportedEncoding
 from max.pipelines.kv_cache import KVCacheStrategy
@@ -42,7 +40,6 @@ from max.serve.pipelines.performance_fake import (
     get_performance_fake,
 )
 from nn.tokenizer import TextTokenizer
-from pixtral.config import get_pixtral_huggingface_file
 from replit.config import get_replit_huggingface_file
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
@@ -571,54 +568,6 @@ def run_mistral(
                     max_batch_size=config.max_cache_batch_size,
                 )
             )
-
-
-@main.command(name="pixtral")
-@config_to_flag(PipelineConfig)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
-)
-def run_pixtral(
-    use_gpu,
-    **config_kwargs,
-):
-    """Runs the Pixtral pipeline."""
-    if use_gpu:
-        config_kwargs.update(
-            {
-                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": SupportedEncoding.bfloat16,
-            }
-        )
-    else:
-        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
-
-    if config_kwargs["huggingface_repo_id"] is None:
-        config_kwargs["huggingface_repo_id"] = "mistral-community/pixtral-12b"
-
-    if config_kwargs["architecture"] is None:
-        config_kwargs["architecture"] = "LlavaForConditionalGeneration"
-
-    config = PipelineConfig(**config_kwargs)
-
-    # Validate encoding.
-    if config.quantization_encoding is None:
-        config.quantization_encoding = SupportedEncoding.bfloat16
-
-    if config.weight_path is None:
-        hf_file = get_pixtral_huggingface_file(config.quantization_encoding)
-        config.weight_path = hf_file.download()
-
-    model = pixtral.PixtralVisionEncoder(config)
 
 
 async def serve_token_generator_replit(
