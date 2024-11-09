@@ -123,7 +123,7 @@ struct _CRegex:
         alias MAX_ERROR_LENGTH = 2048
         message = UnsafePointer[UInt8].alloc(MAX_ERROR_LENGTH)
         size = llvm_regerror(code, self._ptr(), message, MAX_ERROR_LENGTH)
-        return "regex error: " + String(message, size)
+        return "regex error: " + String(ptr=message, length=size)
 
     fn _ptr(self) -> UnsafePointer[Self]:
         return UnsafePointer.address_of(self)
