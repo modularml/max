@@ -615,7 +615,7 @@ async def serve_token_generator_replit(
     request_limit = batch_size + 128
     settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
 
-    model_name = "replit"
+    model_name = "replit/replit-code-v1_5-3b"
     app = fastapi_app(
         settings,
         debug_settings,
