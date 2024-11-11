@@ -50,7 +50,7 @@ struct MaxHeap[ElementType: OrderedElement, reverse: Bool = False](
 
     var heap: List[ElementType]
 
-    fn __init__(inout self):
+    fn __init__(out self):
         """Constructs an empty heap."""
         self.heap = List[ElementType]()
 

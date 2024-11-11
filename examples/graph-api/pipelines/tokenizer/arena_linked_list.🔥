@@ -52,7 +52,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
     var _head: Optional[Self.ID]
     var _tail: Optional[Self.ID]
 
-    def __init__(inout self):
+    def __init__(out self):
         """Constructs a new empty linked list."""
         self._arena = List[Optional[Node[ElementType]]]()
         self._head = None

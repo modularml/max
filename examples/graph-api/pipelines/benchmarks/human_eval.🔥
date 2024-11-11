@@ -47,7 +47,7 @@ struct HumanEval:
     var _generated_samples: PythonObject
     var samples_per_task: Int
 
-    def __init__(inout self, samples_per_task: Int = 1):
+    def __init__(out self, samples_per_task: Int = 1):
         try:
             self._human_eval_module = Python.import_module("human_eval.data")
         except e:

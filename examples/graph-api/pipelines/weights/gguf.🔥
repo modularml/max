@@ -252,7 +252,7 @@ struct GGUFArray:
     # Max amount of items to print for an array.
     alias max_print_size = 5
 
-    fn __init__(inout self, size: Int):
+    fn __init__(out self, size: Int):
         self.n = size
         self.data = UnsafePointer[GGUFValue].alloc(size)
 
@@ -470,7 +470,7 @@ struct GGUFHeader:
     # The number of metadata key-value pairs.
     var n_kv: UInt64
 
-    fn __init__(inout self):
+    fn __init__(out self):
         self.magic = InlineArray[UInt8, 4](
             ord("N"), ord("U"), ord("L"), ord("L")
         )
@@ -603,7 +603,7 @@ struct GGUFReader:
     var offset: Int
     var f: FileHandle
 
-    fn __init__(inout self, owned f: FileHandle):
+    fn __init__(out self, owned f: FileHandle):
         self.offset = 0
         self.f = f^
 
@@ -745,7 +745,7 @@ struct GGUFFile(LoadableModel):
     # The open GGUF model file.
     var fp: FileHandle
 
-    fn __init__(inout self, model_path: Path) raises:
+    fn __init__(out self, model_path: Path) raises:
         var reader = GGUFReader(open(model_path, "r"))
 
         # Read the header.
@@ -799,7 +799,7 @@ struct GGUFFile(LoadableModel):
 
             self.size += pad(size_cur, self.alignment)
 
-    fn __moveinit__(inout self, owned other: GGUFFile):
+    fn __moveinit__(out self, owned other: GGUFFile):
         self.header = other.header
         self.kv = other.kv^
         self.infos = other.infos^

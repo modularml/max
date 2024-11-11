@@ -35,7 +35,7 @@ struct Metrics:
     var tokens_generated: Int
     var traces: List[Trace[TraceLevel.OP]]
 
-    def __init__(inout self):
+    def __init__(out self):
         self.tokens_in_prompt = None
         self.start_startup = None
         self.end_startup = None

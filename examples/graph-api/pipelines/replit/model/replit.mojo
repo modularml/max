@@ -46,7 +46,7 @@ struct Replit[T: LoadableModel, dtype: DType, kv_params: KVCacheStaticParams]:
 
     var hyperparams: HyperParams
 
-    def __init__(inout self, hyperparams: HyperParams):
+    def __init__(out self, hyperparams: HyperParams):
         self.hyperparams = hyperparams
 
     def build_graph(

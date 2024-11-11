@@ -36,10 +36,10 @@ from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
 struct NanoLlama(LoadableModel):
     var weights: Dict[String, Tensor[DType.float32]]
 
-    fn __init__(inout self, _path: Path) raises:
+    fn __init__(out self, _path: Path) raises:
         self.__init__()
 
-    def __init__(inout self):
+    def __init__(out self):
         self.weights = Dict[String, Tensor[DType.float32]]()
         self.weights["attn_q"] = Tensor[DType.float32](TensorShape(2, 2),
              0.3256, -1.8786,

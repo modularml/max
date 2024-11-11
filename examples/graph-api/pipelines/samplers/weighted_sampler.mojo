@@ -35,7 +35,7 @@ struct WeightedSampler(TokenSampler):
     var min_p: Float32
     """Minimum required starting percentage for sampled tokens."""
 
-    def __init__(inout self: Self, temperature: Float32, min_p: Float32 = 0.05):
+    def __init__(out self: Self, temperature: Float32, min_p: Float32 = 0.05):
         self.temperature = temperature
         self.min_p = min_p
 

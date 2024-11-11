@@ -75,14 +75,14 @@ struct _CRegex:
     var _re_guts: UnsafePointer[NoneType]
     var _initialized: Bool
 
-    fn __init__(inout self):
+    fn __init__(out self):
         self._magic = 0
         self.capture_groups = 0
         self._re_endp = UnsafePointer[NoneType]()
         self._re_guts = UnsafePointer[NoneType]()
         self._initialized = False
 
-    fn __moveinit__(inout self, owned _existing: Self):
+    fn __moveinit__(out self, owned _existing: Self):
         # _CRegex can't be safely moved once it's initialized.
         # We have to implement __move__ currently to satisfy Arc's Movable
         # trait bounds.
@@ -249,7 +249,7 @@ struct Match[origin: ImmutableOrigin](Writable):
 struct Regex:
     var _c: Arc[_CRegex]
 
-    def __init__(inout self, pattern: String, options: Int = 0):
+    def __init__(out self, pattern: String, options: Int = 0):
         self._c = _CRegex.compile(pattern, options)
 
     def find(

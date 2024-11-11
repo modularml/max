@@ -46,7 +46,7 @@ struct Scheduler:
     var alphas_cumprod: List[Float32]
     var previous_outputs: List[FloatTensor]
 
-    def __init__(inout self, inference_steps: Int):
+    def __init__(out self, inference_steps: Int):
         self.counter = 0
         self.previous_outputs = List[FloatTensor]()
         self.alphas_cumprod = List[Float32]()

@@ -42,11 +42,11 @@ struct StringPair(KeyElement):
     fn __ne__(self, other: Self) -> Bool:
         return (self.left != other.left) or (self.right != other.right)
 
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(out self, owned existing: Self):
         self.left = existing.left^
         self.right = existing.right^
 
-    fn __copyinit__(inout self, existing: Self):
+    fn __copyinit__(out self, existing: Self):
         self.left = existing.left
         self.right = existing.right
 
@@ -59,11 +59,11 @@ struct MergeScore(CollectionElement):
     var rank: Int
     var id: Int  # Vocab ID
 
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(out self, owned existing: Self):
         self.rank = existing.rank
         self.id = existing.id
 
-    fn __copyinit__(inout self, existing: Self):
+    fn __copyinit__(out self, existing: Self):
         self.rank = existing.rank
         self.id = existing.id
 

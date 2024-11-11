@@ -76,7 +76,7 @@ struct Config:
 
     var config: Dict[String, OptionValue]
 
-    def __init__(inout self):
+    def __init__(out self):
         additional_arguments = ConfigRegistryDict()
         additional_arguments["version"] = OptionTypeEnum.STRING
         config_registry = LlamaConfigRegistry(additional_arguments)
