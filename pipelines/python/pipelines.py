@@ -44,15 +44,6 @@ from replit.config import get_replit_huggingface_file
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
-from opentelemetry import trace
-
-have_ddtrace = False
-try:
-    from ddtrace.opentelemetry import TracerProvider
-
-    have_ddtrace = True
-except ImportError:
-    pass
 
 from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag
 
@@ -152,12 +143,6 @@ async def serve_token_generator(
             )
         },
     )
-    # Export traces to DataDog
-    if have_ddtrace:
-        logger.info("Exporting traces to datadog")
-        trace.set_tracer_provider(TracerProvider())
-    else:
-        logger.info("ddtrace not found. Not exporting traces")
 
     server = Server(fastapi_config(app=app))
     await server.serve()
