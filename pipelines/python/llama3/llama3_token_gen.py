@@ -16,14 +16,13 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-
-
 from max.driver import CPU
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.pipelines import PipelineConfig, TextContext
-from max.pipelines.sampling import token_sampler
 from max.pipelines.interfaces import TokenGenerator
+from max.pipelines.sampling import token_sampler
+from max.profiler import traced
 
 from .llama3 import load_llama3_and_kv_manager
 
@@ -50,6 +49,7 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
             print(f"Exporting serialized model to {export_path}...")
             self.model.export_mef(export_path)
 
+    @traced
     def next_token(
         self, batch: dict[str, TextContext], num_steps: int = 1
     ) -> list[dict[str, Any]]:
@@ -99,9 +99,7 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         )
 
         # Do the copy to host for each token generated.
-        generated_tokens = list(
-            [g.to(CPU()).to_numpy() for g in generated_tokens]
-        )
+        generated_tokens = [g.to(CPU()).to_numpy() for g in generated_tokens]
 
         # Prepare the response, pruning away completed requests as we go.
         res: list[dict[str, Any]] = []
