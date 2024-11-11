@@ -75,7 +75,7 @@ struct Config:
 
     var config: Dict[String, OptionValue]
 
-    def __init__(inout self):
+    def __init__(out self):
         config_registry = LlamaConfigRegistry(ConfigRegistryDict())
 
         default_configs = get_llama_base_default_config()

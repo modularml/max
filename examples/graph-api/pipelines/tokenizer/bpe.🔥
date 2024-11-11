@@ -160,7 +160,7 @@ struct BPETokenizer:
     var vocab: List[Token]
     var token_ids: Dict[String, Int]
 
-    def __init__(inout self):
+    def __init__(out self):
         self.vocab = List[Token]()
         self.token_ids = Dict[String, Int]()
 

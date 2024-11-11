@@ -29,7 +29,7 @@ from pipelines.weights.loadable_model import LoadableModel, LlamaHParams
 struct TestCheckpoint(LoadableModel):
     var weights: Dict[String, Tensor[DType.float32]]
 
-    def __init__(inout self, path: Path):
+    def __init__(out self, path: Path):
         """Initializes the weights file from a path.
 
         Args:
@@ -162,10 +162,10 @@ struct TestCheckpoint(LoadableModel):
             TensorShape(8), 1., 1., 1., 1., 1., 1., 1., 1.
         )
 
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(out self, owned existing: Self):
         self.weights = existing.weights
 
-    fn __copyinit__(inout self, existing: Self):
+    fn __copyinit__(out self, existing: Self):
         self.weights = existing.weights
 
     fn get[

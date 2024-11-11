@@ -52,7 +52,7 @@ struct Ball[T: CollectionElement]:
     var _head: Optional[Self.ID]
     var _tail: Optional[Self.ID]
 
-    fn __init__(inout self):
+    fn __init__(out self):
         """Constructs a new empty linked list."""
         self._arena = List[Optional[Node[T]]]()
         self._head = None

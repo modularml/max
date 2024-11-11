@@ -46,7 +46,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
     var heap: List[ElementType]
     var begin_idx: Int
 
-    fn __init__(inout self):
+    fn __init__(out self):
         """Constructs an empty heap."""
         self.heap = List[ElementType]()
         self.begin_idx = 0

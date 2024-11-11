@@ -61,7 +61,7 @@ struct LlamaCFile(LoadableModel):
     var config: Config
     var weights_ptr: UnsafePointer[UInt8]
 
-    fn __init__(inout self, model_path: Path) raises:
+    fn __init__(out self, model_path: Path) raises:
         with open(model_path, "r") as f:
 
             @parameter
@@ -96,7 +96,7 @@ struct LlamaCFile(LoadableModel):
             var bytes_tensor = Tensor[DType.uint8](f.read_bytes())
             self.weights_ptr = bytes_tensor._steal_ptr()
 
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(out self, owned existing: Self):
         self.config = existing.config
         self.weights_ptr = existing.weights_ptr
 

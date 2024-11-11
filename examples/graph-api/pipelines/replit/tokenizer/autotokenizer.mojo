@@ -39,7 +39,7 @@ struct AutoTokenizer(Tokenizer):
     var _prev_tokens: List[Int64]
     var _prev_decoded: String
 
-    def __init__(inout self, hf_tokenizer_name: String):
+    def __init__(out self, hf_tokenizer_name: String):
         self._transformers_module = Python.import_module("transformers")
         self._numpy_module = Python.import_module("numpy")
         self._tokenizer_handle = self._transformers_module.AutoTokenizer.from_pretrained(
@@ -56,7 +56,7 @@ struct AutoTokenizer(Tokenizer):
         self._prev_tokens = List[Int64]()
         self._prev_decoded = ""
 
-    fn __moveinit__(inout self, owned existing: Self):
+    fn __moveinit__(out self, owned existing: Self):
         self._transformers_module = existing._transformers_module^
         self._numpy_module = existing._numpy_module^
         self._tokenizer_handle = existing._tokenizer_handle^
