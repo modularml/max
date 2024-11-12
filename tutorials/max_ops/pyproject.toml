@@ -1,8 +1,8 @@
 [project]
 authors = [{name = "rachfop", email = "pat@modular.com"}]
 dependencies = []
-description = "Adds two numbers."
-name = "addition"
+description = "Add two numbers"
+name = "max_ops"
 requires-python = ">= 3.11"
 version = "0.1.0"
 
@@ -15,19 +15,18 @@ channels = ["conda-forge", "https://conda.modular.com/max"]
 platforms = ["osx-arm64"]
 
 [tool.pixi.pypi-dependencies]
-addition = { path = ".", editable = true }
+max_ops = { path = ".", editable = true }
 
 [tool.pixi.tasks]
-addition = "python max_ops/addition.py"
+addition = "python3 src/max_ops/addition.py"
 mypy = "mypy . --config .mypy.ini"
-black = "black max_ops/addition.py tests/test_addition.py"
-isort = "isort max_ops/addition.py tests/test_addition.py"
+black = "black src/max_ops/addition.py tests/test_addition.py"
+isort = "isort src/max_ops/addition.py tests/test_addition.py"
 
 
 [tool.pixi.dependencies]
-max = ">=24.5.0,<25"
-black = ">=24.10.0,<25"
-isort = ">=5.13.2,<6"
-mypy = ">=1.12.0,<2"
-numpy = ">=1.26.4,<2"
+max = "~=24.5"
+numpy = "<2.0"
 pytest = ">=8.3.3,<9"
+black = ">=24.10.0,<25"
+mypy = ">=1.13.0,<2"
