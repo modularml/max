@@ -1,5 +1,5 @@
 [project]
-authors = [{name = "rachfop", email = "pat@modular.com"}]
+authors = [{name = "Modular", email = "hello@modular.com"}]
 dependencies = []
 description = "Add two numbers"
 name = "max_ops"
