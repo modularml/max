@@ -17,9 +17,9 @@ from max.pipelines import (
     SupportedArchitecture,
     SupportedVersion,
     SupportedEncoding,
+    TextTokenizer,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
-from nn.tokenizer import TextTokenizer
 
 llama_arch = SupportedArchitecture(
     name="llama",

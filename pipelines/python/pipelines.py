@@ -24,8 +24,12 @@ import replit
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
 from max.driver import DeviceSpec
-from max.pipelines import HuggingFaceFile
-from max.pipelines.config import PipelineConfig, SupportedEncoding
+from max.pipelines import (
+    HuggingFaceFile,
+    PipelineConfig,
+    SupportedEncoding,
+    TextTokenizer,
+)
 from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
@@ -39,7 +43,7 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingTokenGeneratorTokenizer,
     get_performance_fake,
 )
-from nn.tokenizer import TextTokenizer
+from pixtral.config import get_pixtral_huggingface_file
 from replit.config import get_replit_huggingface_file
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
