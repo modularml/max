@@ -179,7 +179,7 @@ class Mistral(TokenGenerator):
             next_token = next_tokens[request_id].astype(np.int64)
 
             # Update context
-            context.append(next_token.reshape(-1))
+            context.update(new_tokens=next_token.reshape(-1))
 
             # Mark completed requests by not including them in the response.
             if not context.is_done(self._tokenizer.eos_token_id):
