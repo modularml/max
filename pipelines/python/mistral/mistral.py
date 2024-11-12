@@ -162,7 +162,16 @@ class Mistral(TokenGenerator):
     def step(self, batch: dict[str, TextContext]) -> dict[str, str]:
         res = {}
         logits = self._execute(batch)
-        tokens = self._sampler(logits)[0]
+
+        # We use dummy_prev_tokens_input to match the signature of the token_sampler
+        # graph, which also concats the new tokens with existing tokens
+        # in engine-level multistep execution.
+        dummy_prev_tokens_input = Tensor.from_numpy(
+            np.zeros((len(batch), 0), dtype=np.int64)
+        ).to(self._device)
+
+        tokens = self._sampler(logits, dummy_prev_tokens_input)[0]
+
         tokens = tokens.to(CPU())
 
         next_tokens = dict(zip(batch, tokens.to_numpy()))

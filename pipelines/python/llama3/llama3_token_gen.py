@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from max.driver import CPU
+from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.pipelines import PipelineConfig, TextContext
@@ -68,14 +68,17 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         kv_cache_inputs = self._kv_manager.fetch(cache_seq_ids)
 
         # Multistep execution loop
-        generated_tokens = []
+        batch_size = len(context_batch)
+        generated_tokens = Tensor.from_numpy(
+            np.zeros((batch_size, 0), dtype=np.int64)
+        ).to(self._device)
         curr_step_inputs = model_inputs
         for i in range(num_steps):
             # Execute the model and get next tokens
             logits = self.model._execute(*curr_step_inputs, *kv_cache_inputs)
-            new_tokens = self._sampler(logits)[0]
-
-            generated_tokens.append(new_tokens)
+            new_tokens, generated_tokens = self._sampler(
+                logits, generated_tokens
+            )[:2]
 
             # Check if we're on our last iteration. If so, skip preparing the next batch
             if i == num_steps - 1:
@@ -99,19 +102,19 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         )
 
         # Do the copy to host for each token generated.
-        generated_tokens = [g.to(CPU()).to_numpy() for g in generated_tokens]
+        generated_tokens = generated_tokens.to(CPU()).to_numpy()
 
         # Prepare the response, pruning away completed requests as we go.
         res: list[dict[str, Any]] = []
         is_done = {r: False for r in batch.keys()}
         for i in range(num_steps):
             step_res = {}
-            next_tokens = dict(zip(batch, generated_tokens[i]))
+            next_tokens = dict(zip(batch, generated_tokens[:, i]))
             for request_id, context in batch.items():
                 if is_done[request_id]:
                     continue
 
-                next_token = next_tokens[request_id].astype(np.int64)
+                next_token = next_tokens[request_id]
 
                 # Update context
                 context.update(new_tokens=next_token.reshape(-1))
