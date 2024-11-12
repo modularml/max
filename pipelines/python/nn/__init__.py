@@ -23,7 +23,6 @@ from .linear import MLP, Linear
 from .norm import LPLayerNorm, RMSNorm
 from .rotary_embedding import OptimizedRotaryEmbedding, RotaryEmbedding
 from .sequential import Sequential
-from .tokenizer import TextTokenizer
 from .transformer import (
     NaiveTransformer,
     NaiveTransformerBlock,
@@ -47,7 +46,6 @@ __all__ = [
     "RMSNorm",
     "RotaryEmbedding",
     "Sequential",
-    "TextTokenizer",
     "Transformer",
     "TransformerBlock",
 ]

@@ -20,8 +20,7 @@ import torch
 from llama3 import Llama3TokenGenerator
 from llama3.config import get_llama_huggingface_file
 from max.driver import CPU, CUDA
-from max.pipelines import PipelineConfig, SupportedEncoding
-from nn.tokenizer import TextTokenizer
+from max.pipelines import PipelineConfig, SupportedEncoding, TextTokenizer
 from shared import (
     RAG_PROMPT,
     RAG_SYSTEM_PROMPT,
