@@ -20,7 +20,7 @@ from max.graph import Graph, TensorType, ops
 
 
 def add_tensors(a: np.ndarray, b: np.ndarray) -> dict[str, Any]:
-    # 1. Define a graph
+    # 1. Build the graph
     input_type = TensorType(dtype=DType.float32, shape=(1,))
     with Graph(
         "simple_add_graph", input_types=(input_type, input_type)
@@ -28,17 +28,18 @@ def add_tensors(a: np.ndarray, b: np.ndarray) -> dict[str, Any]:
         lhs, rhs = graph.inputs
         out = ops.add(lhs, rhs)
         graph.output(out)
+        print("final graph:", graph)
 
-    # 2. Load and compile the graph
+    # 2. Create an inference session
     session = engine.InferenceSession()
     model = session.load(graph)
-    print("input names are:")
+
     for tensor in model.input_metadata:
         print(
             f"name: {tensor.name}, shape: {tensor.shape}, dtype: {tensor.dtype}"
         )
 
-    # 3. Execute / run the graph with some inputs
+    # 3. Execute the graph
     ret = model.execute(input0=a, input1=b)
     print("result:", ret["output0"])
     return ret
