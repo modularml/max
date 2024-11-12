@@ -688,7 +688,7 @@ def run_replit(
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
     if config_kwargs["huggingface_repo_id"] is None:
-        config_kwargs["huggingface_repo_id"] = "modularai/replit-code-1.5"
+        config_kwargs["huggingface_repo_id"] = "replit/replit-code-v1_5-3b"
 
     if config_kwargs["architecture"] is None:
         config_kwargs["architecture"] = "MPTForCausalLM"
