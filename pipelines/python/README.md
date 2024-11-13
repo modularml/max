@@ -81,7 +81,7 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
    curl -N http://localhost:8000/v1/chat/completions \
    -H "Content-Type: application/json" \
    -d '{
-       "model": "llama3",
+       "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
        "stream": true,
        "messages": [
            {"role": "system", "content": "You are a helpful assistant."},
@@ -113,10 +113,12 @@ pipeline:
   to this path.
 - `--serialized-model-path`: If specified, tries to load a serialized model
   from this path.
+- `--top-k`: Limits the sampling to the K most probable tokens. Default is 1.
 - `--version`: Selects which version in the Llama 3 family to use.
   Valid values: `3`, `3.1`.
   (Default value: `3.1`)
 - `--weight-path`: Overrides the default URL, and allows for an
   already-downloaded pretrained weight file to be used with the model.
-- `--batch-size`: Specifies the maximum batch size to be used. Default is 1.
-- `--use-gpu`: Uses the gpu to execute the model.
+- `--max-cache-batch-size`: Specifies the maximum batch size to be used.
+  Default is 16.
+- `--use-gpu`: Uses the GPU to execute the model.
