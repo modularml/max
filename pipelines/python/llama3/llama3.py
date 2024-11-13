@@ -102,7 +102,7 @@ class Llama3:
         self._kv_params = self._kv_manager.params
 
         if session is None:
-            session = InferenceSession(device=self._device)
+            session = InferenceSession(devices=[self._device])
 
         # Pre-allocate a buffer for input_row_offset in multistep execution.
         # We do this to avoid materializing and copying a buffer with each multistep step
