@@ -22,7 +22,7 @@ from max.graph.weights import SafetensorWeights
 
 from .config import InferenceConfig
 from .hyperparameters import VisionHyperparameters
-from .model import instantiate_vision_model
+from .vision_model import instantiate_vision_model
 
 
 # TODO(AIPIPE-142): Implement this.
@@ -67,28 +67,71 @@ class Llama3Vision:
     def _llama3_vision_graph(
         self,
     ) -> Graph:
-        tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-        valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
+        # TODO: Verify if the mapping is correct:
+        # From dumping the inputs before executing the reference model...
+        # key: input_ids, shape: torch.Size([1, 14])
+        # key: attention_mask, shape: torch.Size([1, 14])
+        # key: pixel_values, shape: torch.Size([1, 1, 4, 3, 448, 448])
+        # key: aspect_ratio_ids, shape: torch.Size([1, 1])
+        # key: aspect_ratio_mask, shape: torch.Size([1, 1, 4])
+        # key: cross_attention_mask, shape: torch.Size([1, 14, 1, 4])
+
+        # Inserted a manual CHW -> HWC transpose here.
+        pixel_values_type = TensorType(
+            DType.bfloat16,
+            shape=[
+                1,  # batch_size
+                1,  # num_concurrent_media
+                4,  # num_tiles
+                448,  # height
+                448,  # width
+                3,  # num_channels
+            ],
+        )
+        aspect_ratio_ids_type = TensorType(
+            DType.int64,
+            shape=[
+                1,
+                1,
+            ],  # batch_size, num_concurrent_media
+        )
+        aspect_ratio_mask_type = TensorType(
+            DType.bfloat16,
+            shape=[
+                1,
+                1,
+                4,
+            ],  # batch_size, num_concurrent_media, num_tiles
+        )
+        attention_mask_type = TensorType(
+            DType.bfloat16, shape=[1, 14]  # patch_size
+        )
 
         with Graph(
             "llama3-vision",
             input_types=[
-                tokens_type,
-                valid_lengths_type,
+                pixel_values_type,
+                aspect_ratio_ids_type,
+                aspect_ratio_mask_type,
+                attention_mask_type,
             ],
         ) as graph:
-            # TODO: Implement this.
-            model = instantiate_vision_model(
-                graph,
-                self.params,
-                self.weights,
+            vision_model = instantiate_vision_model(self.params, self.weights)
+
+            # TODO: multi_modal_projector
+
+            # TODO: language_model
+
+            pixel_values, aspect_ratio_ids, aspect_ratio_mask, attention_mask = (
+                graph.inputs
             )
-            # tokens, valid_lengths = graph.inputs
-            # logits = model(
-            #     tokens,
-            #     valid_lengths,
-            # )
-            # graph.output(logits)
+            logits = vision_model(
+                pixel_values=pixel_values,
+                aspect_ratio_ids=aspect_ratio_ids,
+                aspect_ratio_mask=aspect_ratio_mask,
+                attention_mask=attention_mask,
+            )
+            graph.output(logits[0])
             return graph
 
     def _load_model(
@@ -97,12 +140,12 @@ class Llama3Vision:
     ) -> Model | None:
         print("Building model...")
         graph = self._llama3_vision_graph()
-        # print("Compiling...")
-        # TODO: Stubbing out for now.
-        # return session.load(
-        #     graph, weights_registry=self.weights.allocated_weights
-        # )
-        return None
+        print("Compiling...")
+        res = session.load(
+            graph, weights_registry=self.weights.allocated_weights
+        )
+        print("Done!")
+        return res
 
     def _execute(
         self, req_to_context_dict: dict[str, Llama3VisionContext]

@@ -38,7 +38,7 @@ class PrecomputedAspectRatioEmbedding(Layer):
 
     params: VisionHyperparameters
     gate: TensorValueLike
-    embedding: TensorValueLike
+    embedding: Embedding
     is_gated: bool = False
 
     def __call__(
@@ -52,6 +52,17 @@ class PrecomputedAspectRatioEmbedding(Layer):
         if self.is_gated:
             embeddings = embeddings * ops.tanh(self.gate)
 
+        # We're broadcasting in the add operation below, so we call rebind()
+        # on embeddings first.
+        batch_size, num_tiles, _, hidden_size = hidden_state.shape
+        embeddings = embeddings.rebind(
+            (
+                batch_size,
+                num_tiles,
+                embeddings.shape[2],
+                hidden_size,
+            )
+        )
         return hidden_state + embeddings
 
 
@@ -79,13 +90,25 @@ class PrecomputedPositionEmbedding(Layer):
     ) -> TensorValue:
         # position embeddings
         gated_position_embedding = (1 - ops.tanh(self.gate)) * self.embedding
-        hidden_state = hidden_state + gated_position_embedding.reshape(
+
+        gated_position_embedding = gated_position_embedding.reshape(
             (1, 1, self.params.num_patches, self.params.hidden_size)
         )
+        # We're broadcasting gated_position_embedding in the add operation below,
+        # so we call rebind() on hidden_state first.
+        batch_size, num_tiles, _, _ = hidden_state.shape
+        hidden_state = hidden_state.rebind(
+            (
+                batch_size,
+                num_tiles,
+                self.params.num_patches,
+                self.params.hidden_size,
+            )
+        )
+        hidden_state = hidden_state + gated_position_embedding
 
         # precomputed tile position embeddings
         tile_position_embedding = self.tile_embedding(aspect_ratio_ids)
-        batch_size = hidden_state.shape[0]
         tile_position_embedding = tile_position_embedding.reshape(
             (
                 batch_size,
@@ -97,4 +120,7 @@ class PrecomputedPositionEmbedding(Layer):
         gated_tile_position_embedding = (
             ops.tanh(self.gate) * tile_position_embedding
         )
+        # This explicit rebind is called only to match num_tiles dim in
+        # tile_position_embedding.
+        hidden_state = hidden_state.rebind(tile_position_embedding.shape)
         return hidden_state + gated_tile_position_embedding

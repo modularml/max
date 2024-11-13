@@ -18,14 +18,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.graph import TensorValue, TensorValueLike, ops
-from max.pipelines.kv_cache import (
-    ContinuousBatchingKVCacheCollection,
-    ContinuousBatchingKVCacheCollectionType,
-    KVCacheParams,
-)
-from nn import AttentionWithRope, LPLayerNorm
+from nn import LPLayerNorm
 from nn.layer import Layer
 
+from .attention import Attention
 from .mlp import MLP
 
 
@@ -35,11 +31,10 @@ class VisionEncoderLayer(Layer):
     This class implements a layer within Llama 3.2 vision transformer encoder.
     """
 
-    # TODO: Integrate Attention
-    # self_attn: AttentionWithRope
     mlp: MLP
     input_layernorm: LPLayerNorm
     post_attention_layernorm: LPLayerNorm
+    self_attn: Attention
     is_gated: bool = False
     gate_attn: TensorValueLike | None = None
     gate_ffn: TensorValueLike | None = None
@@ -47,22 +42,16 @@ class VisionEncoderLayer(Layer):
     def __call__(
         self,
         hidden_state: TensorValue,
-        # TODO: Integrate kv_collection + attention args.
-        # kv_collection: ContinuousBatchingKVCacheCollectionType,
-        # valid_lengths: TensorValueLike,
-        # **kwargs,
+        attention_mask: TensorValueLike,
     ) -> tuple[TensorValue]:
         # Self Attention.
         residual = hidden_state
         hidden_state = self.input_layernorm(hidden_state)
 
-        # TODO: Actually integrate attention layer. Making this a no-op for now.
-        # hidden_state, kv_collection = self.self_attn(
-        #     hidden_state,
-        #     kv_collection,
-        #     valid_lengths,
-        #     **kwargs,
-        # )
+        hidden_state = self.self_attn(
+            x=hidden_state,
+            attention_mask=attention_mask,
+        )
 
         if self.is_gated:
             hidden_state = ops.tanh(self.gate_attn) * hidden_state
@@ -89,21 +78,18 @@ class VisionEncoder(Layer):
     layers. Each layer is a [`VisionEncoderLayer`].
     """
 
-    # Called like so. is_gated is only used / propagated to the underlying VisionEncoderLayers.
-    # self.transformer = MllamaVisionEncoder(config, config.num_hidden_layers, is_gated=False)
-    # self.global_transformer = MllamaVisionEncoder(config, config.num_global_layers, is_gated=True)
-
     layers: list[VisionEncoderLayer]
 
     def __call__(
         self,
         hidden_states: TensorValueLike,
-        # attention_mask: TensorValueLike | None = None,
-        # output_hidden_states: bool | None = None,
-    ):
+        attention_mask: TensorValueLike,
+        output_hidden_states: bool,
+    ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
         r"""
         Args:
-            attention_mask (Tensor of shape `(batch_size, sequence_length)`, *optional*):
+            hidden_states (Tensor of shape `(batch_size, sequence_length, hidden_size)`):
+            attention_mask (Tensor of shape `(batch_size, sequence_length)`):
                 Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
 
                 - 1 for tokens that are **not masked**,
@@ -112,22 +98,17 @@ class VisionEncoder(Layer):
                 Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
                 for more detail.
         """
+        encoder_states: tuple | None = () if output_hidden_states else None
         for encoder_layer in self.layers:
-            # TODO: Fix function call args.
+            if encoder_states is not None:
+                encoder_states = encoder_states + (hidden_states,)
             layer_outputs = encoder_layer(
                 hidden_state=hidden_states,
-                # attention_mask=attention_mask,
+                attention_mask=attention_mask,
             )
             hidden_states = layer_outputs[0]
 
-        # Always return like that for now.
-        return hidden_states
+        if encoder_states is not None:
+            encoder_states = encoder_states + (hidden_states,)
 
-        # return_dict in reference implementation is always True, so we short
-        # circuit this by removing the Union with tuple and just return BaseModelOutput.
-        # TODO: Remove BaseModelOutput altogether.
-        # return BaseModelOutput(
-        #     last_hidden_state=hidden_states,
-        #     hidden_states=encoder_states,
-        #     attentions=all_attentions,
-        # )
+        return (hidden_states, encoder_states, None)
