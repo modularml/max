@@ -57,7 +57,7 @@ class Llama3Vision:
             device_spec.id
         ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
 
-        session = InferenceSession(device=self._device)
+        session = InferenceSession(devices=[self._device])
 
         self._model = self._load_model(session)
 
