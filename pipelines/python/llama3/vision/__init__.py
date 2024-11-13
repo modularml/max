@@ -15,10 +15,11 @@
 from .attention import Attention
 from .config import InferenceConfig, SupportedEncodings, SupportedVersions
 from .encoder import VisionEncoder, VisionEncoderLayer
-from .hyperparameters import VisionHyperparameters
+from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .llama3_vision import Llama3Vision
 from .mlp import MLP
 from .positional_embedding import (
     PrecomputedAspectRatioEmbedding,
     PrecomputedPositionEmbedding,
 )
+from .vision_model import VisionModel
