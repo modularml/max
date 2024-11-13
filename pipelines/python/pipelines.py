@@ -704,6 +704,9 @@ def run_replit(
     if config_kwargs["architecture"] is None:
         config_kwargs["architecture"] = "MPTForCausalLM"
 
+    # For replit, trust_remote_code must be set to True.
+    config_kwargs["trust_remote_code"] = True
+
     config = PipelineConfig(**config_kwargs)
 
     # Validate encoding.
