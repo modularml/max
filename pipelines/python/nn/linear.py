@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 """Multi-layer Perceptron."""
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -25,6 +26,7 @@ class Linear(Layer):
     """A fully connected layer."""
 
     weight: TensorValueLike
+    bias: TensorValueLike | None = None
 
     def __call__(self, x: TensorValue) -> TensorValue:
         weight = TensorValue(self.weight)
@@ -32,8 +34,15 @@ class Linear(Layer):
             isinstance(self.weight, Weight)
             and self.weight.quantization_encoding is not None
         ):
-            return ops.qmatmul(self.weight.quantization_encoding, x, weight)
-        return x @ weight.T
+            res = ops.qmatmul(self.weight.quantization_encoding, x, weight)
+            if self.bias is not None:
+                res += TensorValue(self.bias)
+            return res
+
+        res = x @ weight.T
+        if self.bias is not None:
+            res += TensorValue(self.bias)
+        return res
 
 
 @dataclass
