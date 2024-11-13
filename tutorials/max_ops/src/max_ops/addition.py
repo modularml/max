@@ -40,8 +40,8 @@ def add_tensors(a: np.ndarray, b: np.ndarray) -> dict[str, Any]:
         )
 
     # 3. Execute the graph
-    ret = model.execute(input0=a, input1=b)
-    print("result:", ret["output0"])
+    ret = model.execute(a, b)[0]
+    print("result:", ret)
     return ret
 
 
