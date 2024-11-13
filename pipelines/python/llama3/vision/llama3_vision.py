@@ -17,11 +17,12 @@ from dataclasses import dataclass
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType
+from max.graph import Graph, TensorType, ops
 from max.graph.weights import SafetensorWeights
+from nn import Linear
 
 from .config import InferenceConfig
-from .hyperparameters import VisionHyperparameters
+from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .vision_model import instantiate_vision_model
 
 
@@ -50,7 +51,7 @@ class Llama3Vision:
         )
         assert all(isinstance(item, str) for item in config.weight_path)
         self.weights = SafetensorWeights(config.weight_path)
-        self.params = _read_hyperparameters(config)
+        self.vision_params, self.text_params = _read_hyperparameters(config)
 
         device_spec = self.config.device_spec
         self._device = CPU(
@@ -63,6 +64,21 @@ class Llama3Vision:
 
     def export_mef(self, export_path):
         self._model._export_mef(export_path)
+
+    def _multi_modal_projector(self) -> Linear:
+        return Linear(
+            self.weights.multi_modal_projector.weight.allocate(
+                DType.bfloat16,
+                [
+                    self.text_params.hidden_size,
+                    self.vision_params.vision_output_dim,
+                ],
+            ),
+            self.weights.multi_modal_projector.bias.allocate(
+                DType.bfloat16,
+                [self.text_params.hidden_size],
+            ),
+        )
 
     def _llama3_vision_graph(
         self,
@@ -116,22 +132,36 @@ class Llama3Vision:
                 attention_mask_type,
             ],
         ) as graph:
-            vision_model = instantiate_vision_model(self.params, self.weights)
+            vision_model = instantiate_vision_model(
+                self.vision_params, self.weights
+            )
 
-            # TODO: multi_modal_projector
+            multi_modal_projector = self._multi_modal_projector()
 
             # TODO: language_model
 
             pixel_values, aspect_ratio_ids, aspect_ratio_mask, attention_mask = (
                 graph.inputs
             )
-            logits = vision_model(
+            vision_outputs = vision_model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
                 aspect_ratio_mask=aspect_ratio_mask,
                 attention_mask=attention_mask,
             )
-            graph.output(logits[0])
+            cross_attention_states = vision_outputs[0]
+
+            num_patches = cross_attention_states.shape[-2]
+            cross_attention_states = multi_modal_projector(
+                cross_attention_states
+            ).reshape(
+                (
+                    -1,
+                    num_patches,
+                    self.text_params.hidden_size,
+                )
+            )
+            graph.output(cross_attention_states)
             return graph
 
     def _load_model(
@@ -155,8 +185,14 @@ class Llama3Vision:
 
 def _read_hyperparameters(
     config: InferenceConfig,
-) -> VisionHyperparameters:
-    return VisionHyperparameters(
-        dtype=DType.bfloat16,
-        quantization_encoding=config.quantization_encoding,
+) -> tuple[VisionHyperparameters, TextHyperparameters]:
+    return (
+        VisionHyperparameters(
+            dtype=DType.bfloat16,
+            quantization_encoding=config.quantization_encoding,
+        ),
+        TextHyperparameters(
+            dtype=DType.bfloat16,
+            quantization_encoding=config.quantization_encoding,
+        ),
     )
