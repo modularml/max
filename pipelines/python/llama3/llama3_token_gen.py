@@ -35,7 +35,7 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         self.eos = eos
 
         self._device = config.device
-        session = InferenceSession(devices=[self._device])
+        session = InferenceSession(device=self._device)
 
         self.model, self._kv_manager = load_llama3_and_kv_manager(
             config,
