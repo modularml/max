@@ -42,7 +42,7 @@ class Replit(TokenGenerator):
 
         # Load Device.
         self._device = self._config.device
-        session = InferenceSession(devices=[self._device])
+        session = InferenceSession(device=self._device)
 
         # Get KV Cache Params.
         self._kv_params = KVCacheParams(
