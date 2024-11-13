@@ -11,8 +11,8 @@ build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.pixi.project]
-channels = ["conda-forge", "https://conda.modular.com/max"]
-platforms = ["osx-arm64"]
+channels = ["conda-forge", "https://conda.modular.com/max-nightly/"]
+platforms = ["osx-arm64", "linux-64"]
 
 [tool.pixi.pypi-dependencies]
 max_ops = { path = ".", editable = true }
