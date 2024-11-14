@@ -23,6 +23,7 @@ from nn import Linear
 
 from .config import InferenceConfig
 from .hyperparameters import TextHyperparameters, VisionHyperparameters
+from .language_model import instantiate_language_model
 from .vision_model import instantiate_vision_model
 
 
@@ -138,7 +139,9 @@ class Llama3Vision:
 
             multi_modal_projector = self._multi_modal_projector()
 
-            # TODO: language_model
+            language_model = instantiate_language_model(
+                self.text_params, self.weights
+            )
 
             pixel_values, aspect_ratio_ids, aspect_ratio_mask, attention_mask = (
                 graph.inputs
@@ -161,6 +164,9 @@ class Llama3Vision:
                     self.text_params.hidden_size,
                 )
             )
+
+            # TODO: Hook up language_model in graph.output here.
+
             graph.output(cross_attention_states)
             return graph
 
