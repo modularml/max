@@ -12,5 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 from replit.replit import Replit
+from .model import ReplitModel
 
-__all__ = ["Replit"]
+__all__ = ["ReplitModel"]
