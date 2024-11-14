@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.graph.weights import SafetensorWeights
-from nn import Embedding, Linear, LPLayerNorm
+from nn import Embedding, Linear, LPLayerNorm, RMSNorm
 from nn.layer import Layer
 
 from .hyperparameters import TextHyperparameters
@@ -63,7 +63,7 @@ class TextModel(Layer):
     embed_tokens: Embedding
     # TODO: This is essentially a nn.ModuleList
     # layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer]
-    # norm: TextRMSNorm
+    norm: RMSNorm
     # rotary_emb: RotaryEmbedding
 
     # input_ids: shape=[1, 1], dtype=torch.int64
@@ -197,6 +197,15 @@ def instantiate_language_model(
                     params.hidden_size,
                 ],
             ),
+        ),
+        norm=RMSNorm(
+            weight=weights.language_model.model.norm.weight.allocate(
+                DType.bfloat16,
+                [
+                    params.hidden_size,
+                ],
+            ),
+            eps=params.rms_norm_eps,
         ),
     )
 
