@@ -11,7 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from replit.replit import Replit
 from .model import ReplitModel
 
 __all__ = ["ReplitModel"]
