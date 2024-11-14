@@ -19,7 +19,6 @@ from max.graph import (
     TensorType,
     TensorValue,
     TensorValueLike,
-    dtype_promotion,
     ops,
 )
 
