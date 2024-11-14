@@ -205,7 +205,12 @@ def _transformer(
             weights.tok_embeddings,
         )
 
-        output = Linear(embedding_layer.weights)
+        output = linear(
+            params.dtype,
+            params.huggingface_config.vocab_size,
+            params.huggingface_config.hidden_size,
+            weights.output,
+        )
 
         kv_collection_cls = FetchContinuousBatchingKVCacheCollection
 
