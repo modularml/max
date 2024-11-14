@@ -130,7 +130,6 @@ class Llama3Vision:
                 pixel_values_type,
                 aspect_ratio_ids_type,
                 aspect_ratio_mask_type,
-                attention_mask_type,
             ],
         ) as graph:
             vision_model = instantiate_vision_model(
@@ -143,14 +142,11 @@ class Llama3Vision:
                 self.text_params, self.weights
             )
 
-            pixel_values, aspect_ratio_ids, aspect_ratio_mask, attention_mask = (
-                graph.inputs
-            )
+            pixel_values, aspect_ratio_ids, aspect_ratio_mask = graph.inputs
             vision_outputs = vision_model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
                 aspect_ratio_mask=aspect_ratio_mask,
-                attention_mask=attention_mask,
             )
             cross_attention_states = vision_outputs[0]
 

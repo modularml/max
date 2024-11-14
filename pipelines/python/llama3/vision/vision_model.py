@@ -216,7 +216,6 @@ class VisionModel(Layer):
         pixel_values: TensorValueLike,
         aspect_ratio_ids: TensorValueLike,
         aspect_ratio_mask: TensorValueLike,
-        attention_mask: TensorValueLike,
     ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
         batch_size, num_concurrent_media, num_tiles, height, width, num_channels = (
             pixel_values.shape
