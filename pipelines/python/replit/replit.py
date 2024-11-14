@@ -29,7 +29,7 @@ from max.pipelines import PipelineConfig, TokenGenerator, TextContext
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from max.pipelines.sampling import token_sampler
 
-from .model.graph import _build_graph
+from .graph import _build_graph
 
 logger = logging.getLogger(__name__)
 

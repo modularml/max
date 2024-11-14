@@ -29,6 +29,7 @@ from max.pipelines import (
     PipelineConfig,
     SupportedEncoding,
     TextTokenizer,
+    TextGenerationPipeline,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
@@ -44,6 +45,7 @@ from max.serve.pipelines.performance_fake import (
     get_performance_fake,
 )
 from replit.config import get_replit_huggingface_file
+from replit.model import ReplitModel
 from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
@@ -569,11 +571,9 @@ def run_mistral(
             )
 
 
-async def serve_token_generator_replit(
+async def serve_replit_text_generation_pipeline(
     config: PipelineConfig,
-    repo_id: str,
     performance_fake,
-    prefer_ce_over_tg: bool = True,
     profile: bool = False,
 ):
     """Hosts the Replit pipeline using max.serve."""
@@ -582,14 +582,19 @@ async def serve_token_generator_replit(
         tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
         model_factory = functools.partial(
-            replit.Replit,
-            config,
+            TextGenerationPipeline,
+            pipeline_config=config,
+            pipeline_model=ReplitModel,
+            eos_token_id=tokenizer.eos,
         )
+
         kv_cache_strategy = config.cache_strategy
     else:
         print(f"Starting server using performance fake '{performance_fake}'.")
         tokenizer = PerformanceFakingTokenGeneratorTokenizer(
-            AutoTokenizer.from_pretrained(repo_id)
+            AutoTokenizer.from_pretrained(
+                config.huggingface_repo_id, trust_remote_code=True
+            )
         )
         model_factory = functools.partial(
             get_performance_fake,
@@ -614,6 +619,9 @@ async def serve_token_generator_replit(
     request_limit = batch_size + 128
     settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
 
+    # This is fixed for benchmarking purposes.
+    # The model name provided in the pipelines dictionary, has no bearing on the actual model served.
+    # It is what the model name must be when making server requests from the client.
     model_name = "replit/replit-code-v1_5-3b"
     app = fastapi_app(
         settings,
@@ -621,7 +629,7 @@ async def serve_token_generator_replit(
         {
             model_name: BatchedTokenGeneratorState(
                 TokenGeneratorPipeline(
-                    batch_config, model_name, tokenizer, False
+                    batch_config, config.huggingface_repo_id, tokenizer, False
                 ),
                 model_factory,
             )
@@ -699,7 +707,7 @@ def run_replit(
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
     if config_kwargs["huggingface_repo_id"] is None:
-        config_kwargs["huggingface_repo_id"] = "replit/replit-code-v1_5-3b"
+        config_kwargs["huggingface_repo_id"] = "modularai/replit-code-1.5"
 
     if config_kwargs["architecture"] is None:
         config_kwargs["architecture"] = "MPTForCausalLM"
@@ -726,16 +734,19 @@ def run_replit(
     if serve:
         logger.info("Starting server...")
         asyncio.run(
-            serve_token_generator_replit(
+            serve_replit_text_generation_pipeline(
                 config,
-                config.huggingface_repo_id,
                 performance_fake,
             )
         )
     else:
         with TextGenerationMetrics(print_report=True) as metrics:
-            model = replit.Replit(config)
             tokenizer = TextTokenizer(config)
+            model = TextGenerationPipeline(
+                pipeline_config=config,
+                pipeline_model=replit.ReplitModel,
+                eos_token_id=tokenizer.eos,
+            )
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
