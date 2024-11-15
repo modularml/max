@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .llama3_token_gen import Llama3TokenGenerator
+from .model import Llama3Model
 from max.pipelines import (
     HuggingFaceFile,
     SupportedArchitecture,
@@ -22,7 +22,7 @@ from max.pipelines import (
 from max.pipelines.kv_cache import KVCacheStrategy
 
 llama_arch = SupportedArchitecture(
-    name="llama",
+    name="LlamaForCausalLM",
     versions=[
         SupportedVersion(
             name="3",
@@ -105,6 +105,6 @@ llama_arch = SupportedArchitecture(
         ),
     ],
     default_version="3.1",
-    token_generator=Llama3TokenGenerator,
+    pipeline_model=Llama3Model,
     tokenizer=TextTokenizer,
 )
