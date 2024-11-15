@@ -45,6 +45,7 @@ from max.pipelines import (
     SupportedEncoding,
     TextTokenizer,
     TextGenerationPipeline,
+    PIPELINE_REGISTRY,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
@@ -755,16 +756,11 @@ def run_replit(
         )
     else:
         with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer = TextTokenizer(config)
-            model = TextGenerationPipeline(
-                pipeline_config=config,
-                pipeline_model=replit.ReplitModel,
-                eos_token_id=tokenizer.eos,
-            )
+            tokenizer, pipeline = PIPELINE_REGISTRY.retrieve(config)
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,
+                    pipeline,
                     tokenizer,
                     prompt,
                     metrics=metrics,
