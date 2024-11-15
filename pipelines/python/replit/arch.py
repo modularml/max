@@ -11,7 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .replit import Replit
+from .model import ReplitModel
 from max.pipelines import (
     HuggingFaceFile,
     SupportedArchitecture,
@@ -22,7 +22,7 @@ from max.pipelines import (
 from max.pipelines.kv_cache import KVCacheStrategy
 
 replit_arch = SupportedArchitecture(
-    name="replit",
+    name="MPTForCausalLM",
     versions=[
         SupportedVersion(
             name="1.5",
@@ -46,6 +46,6 @@ replit_arch = SupportedArchitecture(
         )
     ],
     default_version="1.5",
-    token_generator=Replit,
+    pipeline_model=ReplitModel,
     tokenizer=TextTokenizer,
 )

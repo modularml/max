@@ -11,6 +11,10 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from max.pipelines import PIPELINE_REGISTRY
+from .arch import replit_arch
 from .model import ReplitModel
 
 __all__ = ["ReplitModel"]
+
+PIPELINE_REGISTRY.register(replit_arch)
