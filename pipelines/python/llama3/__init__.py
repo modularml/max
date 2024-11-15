@@ -15,9 +15,13 @@
 from .config import get_llama_huggingface_file
 from .llama3 import Llama3
 from .llama3_token_gen import Llama3TokenGenerator
+from .arch import llama_arch
+from max.pipelines import PIPELINE_REGISTRY
 
 __all__ = [
     "Llama3",
     "Llama3TokenGenerator",
     "get_llama_huggingface_file",
 ]
+
+PIPELINE_REGISTRY.register(llama_arch)
