@@ -934,6 +934,74 @@ def start_pipeline_server(
     )
 
 
+@main.command(name="generate")
+@config_to_flag(PipelineConfig)
+@click.option(
+    "--use-gpu",
+    is_flag=False,
+    type=DevicesOptionType(),
+    show_default=True,
+    default="",
+    flag_value="0",
+    help=(
+        "Whether to run the model on the available GPU. An ID value can be"
+        " provided optionally to indicate the device ID to target."
+    ),
+)
+@click.option(
+    "--prompt",
+    type=str,
+    default="I believe the meaning of life is",
+    help="The text prompt to use for further generation.",
+)
+@click.option(
+    "--num-warmups",
+    type=int,
+    default=0,
+    show_default=True,
+    help="# of warmup iterations to run before the final timed run.",
+)
+def run_pipeline(use_gpu, prompt, num_warmups, **config_kwargs):
+    # Update config_kwargs for use_gpu.
+    if use_gpu:
+        config_kwargs["device_spec"] = DeviceSpec.cuda(id=use_gpu[0])
+        config_kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
+    else:
+        config_kwargs["device_spec"] = DeviceSpec.cpu()
+
+    # Load tokenizer & pipeline.
+    pipeline_config = PipelineConfig(**config_kwargs)
+    tokenizer, pipeline = PIPELINE_REGISTRY.retrieve(pipeline_config)
+
+    # Run timed run & print results.
+    with TextGenerationMetrics(print_report=True) as metrics:
+        if num_warmups > 0:
+            logger.info("Running warmup...")
+            for _ in range(num_warmups):
+                asyncio.run(
+                    stream_text_to_console(
+                        pipeline,
+                        tokenizer,
+                        prompt,
+                        metrics=None,
+                        print_tokens=False,
+                        max_batch_size=pipeline_config.max_cache_batch_size,
+                    )
+                )
+
+        logger.info("Beginning text generation...")
+        asyncio.run(
+            stream_text_to_console(
+                pipeline,
+                tokenizer,
+                prompt,
+                metrics=metrics,
+                print_tokens=True,
+                max_batch_size=pipeline_config.max_cache_batch_size,
+            )
+        )
+
+
 if __name__ == "__main__":
     if directory := os.getenv("BUILD_WORKSPACE_DIRECTORY"):
         os.chdir(directory)
