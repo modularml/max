@@ -1,35 +1,31 @@
-# Llama 3.1
+# MAX Pipelines
 
-**Language:** Python
+These are end-to-end pipelines that demonstrate the power of
+[MAX](https://docs.modular.com/max/) for accelerating common AI workloads, and
+more. Each of the supported pipelines can be served via an OpenAI-compatible
+endpoint.
 
-**API**: MAX Graph
+## Pipelines
 
-This pipeline demonstrates text completion from an initial prompt using the
-Llama 3.1 large language model. The model itself has been constructed in Python
-using the [MAX Graph API](https://docs.modular.com/engine/graph).
+The pipelines include:
 
-The MAX Graph API provides an accessible interface to the construction of
-flexible accelerated compute graphs, which are then optimized by the MAX
-Engine's advanced graph compiler. This pipeline showcases how a large language
-model can be fully defined using Python and MAX Graphs and then compiled for
-optimal inference performance via the MAX Engine.
+- [Llama 3.1](llama3): A text completion pipeline using the Llama 3.1 model,
+implemented using the MAX Graph API. This pipeline contains everything
+needed to run a self-hosted large language model with state-of-the-art serving
+throughput.
+- [Mistral](mistral): Another text completion pipeline using the Mistral NeMo
+12B model, implemented using the MAX Graph API.
+- [Replit Code](replit): Code generation via the Replit Code V1.5 3B model,
+implemented using the MAX Graph API.
 
-## Model
-
-[Llama 3.1](https://llama.meta.com/llama3/) is an open source large language
-model released by Meta. The structure of this implementation was inspired by
-Andrej Karpathy's [llama2.c](https://github.com/karpathy/llama2.c) and its [Mojo
-port by Aydyn Tairov](https://github.com/tairov/llama2.mojo).
-
-The text completion demo is compatible with the the official Llama 3
-[text completion demo](https://github.com/meta-llama/llama3/blob/14aab0428d3ec3a9596f1dea06d9c564f9c0e35f/example_text_completion.py).
-
-The default settings for this pipeline use the 8B set of pretrained weights in
-`q4_k` quantized encodings.
+Instructions for how to run each pipeline can be found in their respective
+subdirectories, along with all configuration parameters. A shared driver is
+used to execute the pipelines.
 
 ## Usage
 
-The easiest way to try out this pipeline is with our Magic command-line tool.
+The easiest way to try out any of the pipelines is with our Magic command-line
+tool.
 
 1. Install Magic on macOS and Ubuntu with this command:
 
@@ -50,26 +46,28 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
    git clone https://github.com/modularml/max.git
    ```
 
-   The following instructions assume that you're present within this pipeline's
+   The following instructions assume that you're present within this
    directory, and you can change to it after cloning:
 
    ```shell
    cd max/pipelines/python/
    ```
 
-3. Now run the Llama 3.1 text completion demo with the following command:
+3. Now run one of the text completion demos with any of following commands:
 
    ```shell
    magic run llama3 --prompt "I believe the meaning of life is"
+   magic run replit --prompt "def fibonacci(n):"
+   magic run mistral --prompt "Why is the sky blue?"
    ```
 
-4. Optionally host a text completion endpoint via MAX Serve.
+4. Host a text completion endpoint via MAX Serve.
 
    MAX Serve provides functionality to host performant OpenAI compatible
    endpoints using the FastAPI framework.
 
-   You can configure the pipeline to be hosted by using the `--serve` argument.
-   For e.g.,
+   You can configure a pipeline to be hosted by using the `--serve` argument.
+   For example:
 
    ```shell
    magic run llama3 --serve
@@ -89,36 +87,3 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
        ]
    }'
    ```
-
-## Options
-
-The following command-line options are available to customize operation of the
-pipeline:
-
-- `--max-length`: Controls the maximum length of the text sequence
-  (includes the input tokens).
-  (Default value: 512)
-- `--max-new-tokens`: The maximum number of new tokens to generate. If a -1
-  value is provided, the model will continue to generate tokens for the entire
-  context length. (Default value: -1)
-  `--model-path` to specify locally downloaded full-precision weights for use
-  in the model.
-  Valid values: `q4_0`, `q4_k`, `q6_k`, `float32`.
-  (Default value: `float32`).
-- `--prompt`: The text prompt to use for further generation.
-- `--quantization-encoding`: The encoding to use for a datatype that can be
-  quantized to a low bits per weight format. The options for quantized formats
-  will download and cache default weights, but `float32` requires the use of
-- `--save-to-serialized-model-path`: If specified, writes the serialized model
-  to this path.
-- `--serialized-model-path`: If specified, tries to load a serialized model
-  from this path.
-- `--top-k`: Limits the sampling to the K most probable tokens. Default is 1.
-- `--version`: Selects which version in the Llama 3 family to use.
-  Valid values: `3`, `3.1`.
-  (Default value: `3.1`)
-- `--weight-path`: Overrides the default URL, and allows for an
-  already-downloaded pretrained weight file to be used with the model.
-- `--max-cache-batch-size`: Specifies the maximum batch size to be used.
-  Default is 16.
-- `--use-gpu`: Uses the GPU to execute the model.
