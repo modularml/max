@@ -21,6 +21,7 @@ from max.graph import Graph, TensorType, ops
 from max.graph.weights import SafetensorWeights
 from nn import Linear
 
+from .conditional_generator import ConditionalGenerator
 from .config import InferenceConfig
 from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import instantiate_language_model
@@ -66,21 +67,6 @@ class Llama3Vision:
     def export_mef(self, export_path):
         self._model._export_mef(export_path)
 
-    def _multi_modal_projector(self) -> Linear:
-        return Linear(
-            self.weights.multi_modal_projector.weight.allocate(
-                DType.bfloat16,
-                [
-                    self.text_params.hidden_size,
-                    self.vision_params.vision_output_dim,
-                ],
-            ),
-            self.weights.multi_modal_projector.bias.allocate(
-                DType.bfloat16,
-                [self.text_params.hidden_size],
-            ),
-        )
-
     def _llama3_vision_graph(
         self,
     ) -> Graph:
@@ -120,9 +106,11 @@ class Llama3Vision:
                 4,
             ],  # batch_size, num_concurrent_media, num_tiles
         )
-        attention_mask_type = TensorType(
-            DType.bfloat16, shape=[1, 14]  # patch_size
-        )
+
+        input_ids_type = TensorType(DType.int64, shape=[1, 14])  # patch_size
+        # Same shapes.
+        attention_mask_type = input_ids_type
+        position_ids_type = input_ids_type
 
         with Graph(
             "llama3-vision",
@@ -130,40 +118,56 @@ class Llama3Vision:
                 pixel_values_type,
                 aspect_ratio_ids_type,
                 aspect_ratio_mask_type,
+                attention_mask_type,
+                input_ids_type,
+                attention_mask_type,
+                position_ids_type,
             ],
         ) as graph:
-            vision_model = instantiate_vision_model(
-                self.vision_params, self.weights
+            model = ConditionalGenerator(
+                text_params=self.text_params,
+                vision_params=self.vision_params,
+                vision_model=instantiate_vision_model(
+                    self.vision_params, self.weights
+                ),
+                multi_modal_projector=Linear(
+                    self.weights.multi_modal_projector.weight.allocate(
+                        DType.bfloat16,
+                        [
+                            self.text_params.hidden_size,
+                            self.vision_params.vision_output_dim,
+                        ],
+                    ),
+                    self.weights.multi_modal_projector.bias.allocate(
+                        DType.bfloat16,
+                        [self.text_params.hidden_size],
+                    ),
+                ),
+                language_model=instantiate_language_model(
+                    self.text_params, self.weights
+                ),
             )
 
-            multi_modal_projector = self._multi_modal_projector()
+            keys = [
+                "pixel_values",
+                "aspect_ratio_ids",
+                "aspect_ratio_mask",
+                "input_ids",
+                "attention_mask",
+                "position_ids",
+            ]
+            kwargs = dict(zip(keys, graph.inputs))
 
-            language_model = instantiate_language_model(
-                self.text_params, self.weights
-            )
+            # TODO: Figure out how we want to pass these into the graph, either
+            #       hardcoded or as graph inputs.
+            # cross_attention_mask: shape=[1, 1, 14, 4100], dtype=torch.bfloat16
+            # past_key_values: value=DynamicCache()
+            # inputs_embeds: value=None
+            # cache_position: shape=[14], dtype=torch.int64
+            outputs = model(**kwargs)
 
-            pixel_values, aspect_ratio_ids, aspect_ratio_mask = graph.inputs
-            vision_outputs = vision_model(
-                pixel_values=pixel_values,
-                aspect_ratio_ids=aspect_ratio_ids,
-                aspect_ratio_mask=aspect_ratio_mask,
-            )
-            cross_attention_states = vision_outputs[0]
-
-            num_patches = cross_attention_states.shape[-2]
-            cross_attention_states = multi_modal_projector(
-                cross_attention_states
-            ).reshape(
-                (
-                    -1,
-                    num_patches,
-                    self.text_params.hidden_size,
-                )
-            )
-
-            # TODO: Hook up language_model in graph.output here.
-
-            graph.output(cross_attention_states)
+            loss, logits, past_key_values, hidden_states, attentions = outputs
+            graph.output(logits)
             return graph
 
     def _load_model(

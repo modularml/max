@@ -13,7 +13,12 @@
 """Llama 3.2 vision layer modules."""
 
 from .attention import Attention
+from .conditional_generator import ConditionalGenerator
 from .config import InferenceConfig, SupportedEncodings, SupportedVersions
+from .cross_attention_decoder import (
+    CrossAttentionDecoderLayer,
+    CrossSdpaAttention,
+)
 from .encoder import VisionEncoder, VisionEncoderLayer
 from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import CausalLanguageModel
@@ -23,4 +28,5 @@ from .positional_embedding import (
     PrecomputedAspectRatioEmbedding,
     PrecomputedPositionEmbedding,
 )
+from .self_attention_decoder import SelfAttentionDecoderLayer
 from .vision_model import VisionModel
