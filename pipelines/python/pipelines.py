@@ -11,6 +11,20 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2024, Modular Inc. All rights reserved.
+# p
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+
 import asyncio
 import functools
 import logging
@@ -18,6 +32,7 @@ import os
 
 import click
 import llama3
+from llama3.model import Llama3Model
 import llama3.vision as llama3_vision
 import mistral
 import replit
@@ -100,9 +115,10 @@ async def serve_token_generator(
         tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
         model_factory = functools.partial(
-            llama3.Llama3TokenGenerator,
-            config,
-            tokenizer.delegate.eos_token_id,
+            TextGenerationPipeline,
+            pipeline_config=config,
+            pipeline_model=Llama3Model,
+            eos_token_id=tokenizer.eos,
         )
         kv_cache_strategy = config.cache_strategy
     else:
