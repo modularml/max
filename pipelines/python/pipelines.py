@@ -581,12 +581,7 @@ async def serve_replit_text_generation_pipeline(
         print("Starting server using Replit.")
         tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
-        model_factory = functools.partial(
-            TextGenerationPipeline,
-            pipeline_config=config,
-            pipeline_model=ReplitModel,
-            eos_token_id=tokenizer.eos,
-        )
+        model_factory = functools.partial(replit.Replit, config)
 
         kv_cache_strategy = config.cache_strategy
     else:
