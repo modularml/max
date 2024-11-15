@@ -41,7 +41,7 @@ from max.serve.pipelines.llm import (
     TokenGeneratorPipelineConfig,
 )
 from max.serve.pipelines.performance_fake import (
-    PerformanceFakingTokenGeneratorTokenizer,
+    PerformanceFakingPipelineTokenizer,
     get_performance_fake,
 )
 from replit.config import get_replit_huggingface_file
@@ -109,7 +109,7 @@ async def serve_token_generator(
         logger.info(
             "Starting server using performance fake '%s'.", performance_fake
         )
-        tokenizer = PerformanceFakingTokenGeneratorTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(
             AutoTokenizer.from_pretrained(repo_id)
         )
         model_factory = functools.partial(
@@ -410,7 +410,7 @@ async def serve_token_generator_mistral(
         kv_cache_strategy = config.cache_strategy
     else:
         print(f"Starting server using performance fake '{performance_fake}'.")
-        tokenizer = PerformanceFakingTokenGeneratorTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(
             AutoTokenizer.from_pretrained(repo_id)
         )
         model_factory = functools.partial(
@@ -591,10 +591,8 @@ async def serve_replit_text_generation_pipeline(
         kv_cache_strategy = config.cache_strategy
     else:
         print(f"Starting server using performance fake '{performance_fake}'.")
-        tokenizer = PerformanceFakingTokenGeneratorTokenizer(
-            AutoTokenizer.from_pretrained(
-                config.huggingface_repo_id, trust_remote_code=True
-            )
+        tokenizer = PerformanceFakingPipelineTokenizer(
+            AutoTokenizer.from_pretrained(config.huggingface_repo_id)
         )
         model_factory = functools.partial(
             get_performance_fake,
