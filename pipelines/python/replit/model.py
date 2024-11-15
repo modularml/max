@@ -100,38 +100,35 @@ class ReplitModel(PipelineModel):
 
         return (next_tokens_batch, attention_mask, valid_lengths)
 
-    def _get_kv_params(self, pipeline_config: PipelineConfig) -> KVCacheParams:
+    def _get_kv_params(self) -> KVCacheParams:
         return KVCacheParams(
-            dtype=pipeline_config.dtype,
-            n_kv_heads=pipeline_config.huggingface_config.attn_config[
+            dtype=self.pipeline_config.dtype,
+            n_kv_heads=self.pipeline_config.huggingface_config.attn_config[
                 "kv_n_heads"
             ],
-            head_dim=pipeline_config.huggingface_config.d_model
-            // pipeline_config.huggingface_config.n_heads,
-            cache_strategy=pipeline_config.cache_strategy,
+            head_dim=self.pipeline_config.huggingface_config.d_model
+            // self.pipeline_config.huggingface_config.n_heads,
+            cache_strategy=self.pipeline_config.cache_strategy,
         )
 
-    def load_kv_manager(
-        self, pipeline_config: PipelineConfig, session: InferenceSession
-    ) -> KVCacheManager:
+    def load_kv_manager(self, session: InferenceSession) -> KVCacheManager:
         return load_kv_manager(
-            params=self._get_kv_params(pipeline_config),
-            max_cache_batch_size=pipeline_config.max_cache_batch_size,
-            max_seq_len=pipeline_config.huggingface_config.max_seq_len,
-            num_layers=pipeline_config.huggingface_config.n_layers,
-            device=pipeline_config.device,
+            params=self._get_kv_params(),
+            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
+            max_seq_len=self.pipeline_config.huggingface_config.max_seq_len,
+            num_layers=self.pipeline_config.huggingface_config.n_layers,
+            device=self.pipeline_config.device,
             session=session,
         )
 
     def load_model(
         self,
-        pipeline_config: PipelineConfig,
         session: InferenceSession,
     ) -> Model:
         # Read in weights.
-        self._weights = pipeline_config.load_weights()
+        self._weights = self.pipeline_config.load_weights()
 
-        if serialized_path := pipeline_config.serialized_model_path:
+        if serialized_path := self.pipeline_config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized path.
             weights_registry = {}
             for name, tensor in self._weights._tensors.items():
@@ -146,9 +143,9 @@ class ReplitModel(PipelineModel):
         else:
             logging.info("Building model...")
             graph = _build_graph(
-                pipeline_config,
+                self.pipeline_config,
                 self._weights,
-                self._get_kv_params(pipeline_config),
+                self._get_kv_params(),
                 kv_manager=self.kv_manager,
             )
             logging.info("Compiling...")
