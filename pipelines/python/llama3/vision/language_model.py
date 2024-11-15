@@ -20,37 +20,16 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.graph.weights import SafetensorWeights
-from nn import Embedding, Linear, LPLayerNorm, RMSNorm
+from nn import MLP, Embedding, Linear, RMSNorm
 from nn.layer import Layer
 
+from .cache import Cache
+from .cross_attention_decoder import (
+    CrossAttentionDecoderLayer,
+    CrossSdpaAttention,
+)
 from .hyperparameters import TextHyperparameters
-
-
-def lp_layer_norm(
-    dtype: DType,
-    size: int,
-    eps: float,
-    weights: SafetensorWeights,
-) -> LPLayerNorm:
-    """
-    Helper function to instantiate a LPLayerNorm layer.
-    """
-    return LPLayerNorm(weights.weight.allocate(dtype, [size]), eps=eps)
-
-
-# TODO: Copy pasted from other pipelines - maybe worth moving to a util subdir?
-def linear(
-    dtype: DType,
-    in_features: int,
-    out_features: int,
-    weights: SafetensorWeights,
-) -> Linear:
-    """
-    Helper function to instantiate a Linear layer.
-    """
-    return Linear(
-        weights.weight.allocate(dtype, [in_features, out_features], None)
-    )
+from .self_attention_decoder import SelfAttentionDecoderLayer
 
 
 @dataclass
@@ -62,7 +41,7 @@ class TextModel(Layer):
     params: TextHyperparameters
     embed_tokens: Embedding
     # TODO: This is essentially a nn.ModuleList
-    # layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer]
+    layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer]
     norm: RMSNorm
     # rotary_emb: RotaryEmbedding
 
@@ -92,8 +71,14 @@ class TextModel(Layer):
         use_cache: bool | None = None,  # True
         cache_position: TensorValue | None = None,
     ) -> tuple:
-        # TODO: Finish implementation.
-        hidden_states = None
+        # TODO: Finish implementation - stubbing out a bunch of outputs for now.
+        hidden_states = ops.constant(0, DType.bfloat16).broadcast_to(
+            (
+                1,
+                1,
+                self.params.hidden_size,
+            )
+        )
         next_cache = None
         all_hidden_states = None
         all_self_attns = None
@@ -104,15 +89,6 @@ class TextModel(Layer):
             all_hidden_states,
             all_self_attns,
         )
-
-
-@dataclass
-class Cache(Layer):
-    """
-    TODO: This is just a stub to get the following code to pass. Remove it!
-    """
-
-    pass
 
 
 @dataclass
@@ -170,9 +146,10 @@ class CausalLanguageModel(Layer):
         )
 
         last_hidden_state, past_key_values, hidden_states, attentions = outputs
-        logits = self.lm_head(
-            last_hidden_state[:, -num_logits_to_keep:, :]
-        ).float()
+        logits = ops.cast(
+            self.lm_head(last_hidden_state[:, -num_logits_to_keep:, :]),
+            DType.bfloat16,
+        )
 
         return (
             None,  # TODO: loss. Maybe not needed at all?
@@ -183,10 +160,142 @@ class CausalLanguageModel(Layer):
         )
 
 
+def cross_attention_decoder_layer(
+    params: TextHyperparameters, weights: SafetensorWeights, layer_idx: int
+) -> CrossAttentionDecoderLayer:
+    num_heads = params.num_attention_heads
+    head_dim = params.hidden_size // num_heads
+    num_key_value_groups = num_heads // params.num_key_value_heads
+    sdpa_attn = CrossSdpaAttention(
+        params=params,
+        num_heads=num_heads,
+        num_key_value_heads=params.num_key_value_heads,
+        head_dim=head_dim,
+        layer_idx=layer_idx,
+        num_key_value_groups=num_key_value_groups,
+        q_proj=Linear(
+            weight=weights.cross_attn.q_proj.weight.allocate(
+                DType.bfloat16, [num_heads * head_dim, params.hidden_size]
+            ),
+            bias=None,
+        ),
+        k_proj=Linear(
+            weight=weights.cross_attn.k_proj.weight.allocate(
+                DType.bfloat16,
+                [params.num_key_value_heads * head_dim, params.hidden_size],
+            ),
+            bias=None,
+        ),
+        v_proj=Linear(
+            weight=weights.cross_attn.v_proj.weight.allocate(
+                DType.bfloat16,
+                [params.num_key_value_heads * head_dim, params.hidden_size],
+            ),
+            bias=None,
+        ),
+        o_proj=Linear(
+            weight=weights.cross_attn.o_proj.weight.allocate(
+                DType.bfloat16, [params.hidden_size, num_heads * head_dim]
+            ),
+            bias=None,
+        ),
+        q_norm=RMSNorm(
+            weight=weights.cross_attn.q_norm.weight.allocate(
+                DType.bfloat16,
+                [head_dim],
+            ),
+            eps=params.rms_norm_eps,
+        ),
+        k_norm=RMSNorm(
+            weight=weights.cross_attn.k_norm.weight.allocate(
+                DType.bfloat16,
+                [head_dim],
+            ),
+            eps=params.rms_norm_eps,
+        ),
+    )
+    return CrossAttentionDecoderLayer(
+        cross_attn=sdpa_attn,
+        input_layernorm=RMSNorm(
+            weight=weights.input_layernorm.weight.allocate(
+                DType.bfloat16,
+                [params.hidden_size],
+            ),
+            eps=params.rms_norm_eps,
+        ),
+        cross_attn_attn_gate=weights.cross_attn_attn_gate.allocate(
+            DType.bfloat16,
+            [1],
+        ),
+        mlp=MLP(
+            gate_proj=Linear(
+                weight=weights.mlp.gate_proj.weight.allocate(
+                    DType.bfloat16,
+                    [params.intermediate_size, params.hidden_size],
+                ),
+                bias=None,
+            ),
+            down_proj=Linear(
+                weight=weights.mlp.down_proj.weight.allocate(
+                    DType.bfloat16,
+                    [params.hidden_size, params.intermediate_size],
+                ),
+                bias=None,
+            ),
+            up_proj=Linear(
+                weight=weights.mlp.up_proj.weight.allocate(
+                    DType.bfloat16,
+                    [params.intermediate_size, params.hidden_size],
+                ),
+                bias=None,
+            ),
+        ),
+        post_attention_layernorm=RMSNorm(
+            weight=weights.post_attention_layernorm.weight.allocate(
+                DType.bfloat16,
+                [params.hidden_size],
+            ),
+            eps=params.rms_norm_eps,
+        ),
+        cross_attn_mlp_gate=weights.cross_attn_mlp_gate.allocate(
+            DType.bfloat16,
+            [1],
+        ),
+    )
+
+
+def self_attention_decoder_layer(
+    params: TextHyperparameters, weights: SafetensorWeights, layer_idx: int
+) -> SelfAttentionDecoderLayer:
+    return SelfAttentionDecoderLayer()
+
+
 def instantiate_language_model(
     params: TextHyperparameters,
     weights: SafetensorWeights,
 ) -> CausalLanguageModel:
+    layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer] = []
+
+    for layer_idx in range(params.num_hidden_layers):
+        curr_layer_weight = weights.language_model.model.layers[layer_idx]
+
+        if layer_idx in params.cross_attention_layers:
+            layers.append(
+                cross_attention_decoder_layer(
+                    params=params,
+                    weights=curr_layer_weight,
+                    layer_idx=layer_idx,
+                )
+            )
+        else:
+            layers.append(
+                self_attention_decoder_layer(
+                    params=params,
+                    weights=curr_layer_weight,
+                    layer_idx=layer_idx,
+                )
+            )
+
     text_model = TextModel(
         params=params,
         embed_tokens=Embedding(
@@ -201,12 +310,11 @@ def instantiate_language_model(
         norm=RMSNorm(
             weight=weights.language_model.model.norm.weight.allocate(
                 DType.bfloat16,
-                [
-                    params.hidden_size,
-                ],
+                [params.hidden_size],
             ),
             eps=params.rms_norm_eps,
         ),
+        layers=layers,
     )
 
     return CausalLanguageModel(
