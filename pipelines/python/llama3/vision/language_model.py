@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.graph.weights import SafetensorWeights
-from nn import MLP, Embedding, Linear, RMSNorm
+from nn import MLP, Embedding, Linear, RMSNorm, RotaryEmbedding
 from nn.layer import Layer
 
 from .cache import Cache
@@ -40,9 +40,9 @@ class TextModel(Layer):
 
     params: TextHyperparameters
     embed_tokens: Embedding
-    # TODO: This is essentially a nn.ModuleList
     layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer]
     norm: RMSNorm
+    # TODO(MAXCORE-119): Finish implementation
     # rotary_emb: RotaryEmbedding
 
     # input_ids: shape=[1, 1], dtype=torch.int64
@@ -66,22 +66,111 @@ class TextModel(Layer):
         cross_attention_mask: TensorValue | None = None,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        past_key_values: Cache | list[TensorValue] | None = None,
+        past_key_values: Cache | None = None,
         inputs_embeds: TensorValue | None = None,
-        use_cache: bool | None = None,  # True
         cache_position: TensorValue | None = None,
     ) -> tuple:
+        if (input_ids is None) ^ (inputs_embeds is not None):
+            raise ValueError(
+                "You cannot specify both input_ids and inputs_embeds at the"
+                " same time, and must specify either one"
+            )
+
+        if inputs_embeds is None:
+            inputs_embeds = self.embed_tokens(input_ids)
+
+        hidden_states = inputs_embeds
+
+        # if cache_position is None:
+        #     past_seen_tokens = (
+        #         past_key_values.get_seq_length() if past_key_values
+        #         is not None else 0
+        #     )
+        #     cache_position = torch.arange(
+        #         past_seen_tokens,
+        #         past_seen_tokens + inputs_embeds.shape[1],
+        #         device=inputs_embeds.device,
+        #     )
+        # if position_ids is None:
+        #     position_ids = cache_position.unsqueeze(0)
+
+        # causal_mask = self._update_causal_mask(
+        #     attention_mask,
+        #     inputs_embeds,
+        #     cache_position,
+        #     past_key_values,
+        #     output_attentions=False,
+        # )
         # TODO: Finish implementation - stubbing out a bunch of outputs for now.
-        hidden_states = ops.constant(0, DType.bfloat16).broadcast_to(
+        # This causal_mask is only used by self attention, not cross attention.
+        causal_mask = ops.constant(0, DType.bfloat16).broadcast_to(
             (
                 1,
                 1,
-                self.params.hidden_size,
-            )
+                14,
+                4100,
+            )  # causal_mask / attention_mask: shape=[1, 1, 14, 4100]
         )
-        next_cache = None
+
+        # create position embeddings to be shared across the decoder layers
+        # Inputs:
+        # x: shape=[1, 1, 4096], dtype=torch.bfloat16
+        # position_ids: shape=[1, 1], dtype=torch.int64
+        # Output Shapes: [[1, 1, 128], [1, 1, 128]], torch.bfloat16
+        # TODO(MAXCORE-119): Finish implementation
+        # position_embeddings = self.rotary_emb(hidden_states, position_ids)
+        position_embeddings = ops.constant(0, DType.bfloat16).broadcast_to(
+            (
+                1,
+                1,
+                128,
+            )  # causal_mask / attention_mask: shape=[1, 1, 14, 4100]
+        )
+        position_embeddings = ops.stack(
+            [position_embeddings, position_embeddings], axis=-1
+        )
+
+        # decoder layers
         all_hidden_states = None
         all_self_attns = None
+        next_decoder_cache = None
+
+        for idx, decoder_layer in enumerate(self.layers):
+            # TODO: Implement this.
+            # For text-only path we should skip cross attention layers.
+            # Let's check if the layer is cross attention layer and if we have
+            # cross attention states or cached cross attention states.
+            is_cross_attention_layer = idx in self.params.cross_attention_layers
+            is_cross_attention_cache_empty = past_key_values is None
+            # or (
+            #     past_key_values is not None
+            #     and past_key_values.get_seq_length(idx) == 0
+            # )
+
+            if (
+                is_cross_attention_layer
+                and cross_attention_states is None
+                and is_cross_attention_cache_empty
+            ):
+                continue
+
+            layer_outputs = decoder_layer(
+                hidden_states,
+                cross_attention_states=cross_attention_states,
+                cross_attention_mask=cross_attention_mask,
+                attention_mask=causal_mask,
+                full_text_row_masked_out_mask=full_text_row_masked_out_mask,
+                position_ids=position_ids,
+                past_key_value=past_key_values,
+                cache_position=cache_position,
+                position_embeddings=position_embeddings,
+            )
+
+            hidden_states = layer_outputs[0]
+            next_decoder_cache = layer_outputs[1]
+
+        hidden_states = self.norm(hidden_states)
+        next_cache = next_decoder_cache
 
         return (
             hidden_states,
@@ -125,9 +214,8 @@ class CausalLanguageModel(Layer):
         cross_attention_mask: TensorValue | None = None,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        past_key_values: Cache | list[TensorValue] | None = None,
+        past_key_values: Cache | None = None,
         inputs_embeds: TensorValue | None = None,
-        use_cache: bool | None = None,
         cache_position: TensorValue | None = None,
         num_logits_to_keep: int = 0,
     ) -> tuple:
@@ -141,7 +229,6 @@ class CausalLanguageModel(Layer):
             full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             past_key_values=past_key_values,
             inputs_embeds=inputs_embeds,
-            use_cache=use_cache,
             cache_position=cache_position,
         )
 
@@ -267,7 +354,7 @@ def cross_attention_decoder_layer(
 def self_attention_decoder_layer(
     params: TextHyperparameters, weights: SafetensorWeights, layer_idx: int
 ) -> SelfAttentionDecoderLayer:
-    return SelfAttentionDecoderLayer()
+    return SelfAttentionDecoderLayer(params=params)
 
 
 def instantiate_language_model(

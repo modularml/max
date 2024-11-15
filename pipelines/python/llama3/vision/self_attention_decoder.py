@@ -29,5 +29,34 @@ from .hyperparameters import TextHyperparameters
 
 # TODO(MAXCORE-145): Implement this!
 @dataclass
-class SelfAttentionDecoderLayer:
-    pass
+class SelfAttentionDecoderLayer(Layer):
+    params: TextHyperparameters
+
+    # hidden_states: shape=[1, 1, 4096], dtype=torch.bfloat16
+    # cross_attention_states: value=None
+    # cross_attention_mask: shape=[1, 1, 1, 4100], dtype=torch.bfloat16
+    # attention_mask: value=None
+    # full_text_row_masked_out_mask: shape=[1, 1, 1, 1], dtype=torch.bfloat16
+    # position_ids: shape=[1, 1], dtype=torch.int64
+    # past_key_value: value=DynamicCache()
+    # output_attentions: value=False
+    # use_cache: value=True
+    # cache_position: shape=[1], dtype=torch.int64
+    # position_embeddings[0]: shape=[1, 1, 128], dtype=torch.bfloat16
+    # position_embeddings[1]: shape=[1, 1, 128], dtype=torch.bfloat16
+    #   Output Shapes: [[1, 1, 4096]]
+    #   Output DTypes: [torch.bfloat16]
+    def __call__(
+        self,
+        hidden_states: TensorValue,
+        cross_attention_states: TensorValue | None = None,
+        cross_attention_mask: TensorValue | None = None,
+        attention_mask: TensorValue | None = None,
+        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
+        | None = None,
+        position_ids: TensorValue | None = None,
+        past_key_value: Cache | None = None,
+        cache_position: TensorValue | None = None,
+        position_embeddings: TensorValue | None = None,
+    ) -> tuple[TensorValue, Cache | None]:
+        return (hidden_states, past_key_value)

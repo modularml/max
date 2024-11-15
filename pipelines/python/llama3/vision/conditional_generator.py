@@ -74,10 +74,10 @@ class ConditionalGenerator(Layer):
 
     def __call__(
         self,
-        pixel_values: TensorValue,
-        aspect_ratio_ids: TensorValue,
-        aspect_ratio_mask: TensorValue,
-        attention_mask: TensorValue,
+        pixel_values: TensorValue | None = None,
+        aspect_ratio_ids: TensorValue | None = None,
+        aspect_ratio_mask: TensorValue | None = None,
+        attention_mask: TensorValue | None = None,
         cross_attention_mask: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
         position_ids: TensorValue | None = None,
@@ -159,8 +159,7 @@ class ConditionalGenerator(Layer):
             cross_attention_states=cross_attention_states,
             cross_attention_mask=cross_attention_mask,
             full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-            past_key_values=past_key_values,  # DynamicCache()
-            use_cache=True,
+            past_key_values=None,  # DynamicCache()
             inputs_embeds=None,
             cache_position=cache_position,
             num_logits_to_keep=1,
