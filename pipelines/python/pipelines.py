@@ -35,7 +35,7 @@ import llama3
 from llama3.model import Llama3Model
 import llama3.vision as llama3_vision
 import mistral
-import replit
+from typing import Union
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
 from max.driver import DeviceSpec
@@ -767,6 +767,171 @@ def run_replit(
                     max_batch_size=config.max_cache_batch_size,
                 )
             )
+
+
+def batch_config_from_pipeline_config(
+    pipeline_config: PipelineConfig, batch_timeout: float = 0.0
+) -> TokenGeneratorPipelineConfig:
+    if pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
+        batch_config = TokenGeneratorPipelineConfig.continuous_heterogenous(
+            tg_batch_size=pipeline_config.max_cache_batch_size,
+            ce_batch_size=pipeline_config.max_cache_batch_size,
+            ce_batch_timeout=batch_timeout,
+            max_forward_steps=pipeline_config.max_num_steps,
+        )
+    elif pipeline_config.cache_strategy == KVCacheStrategy.NAIVE:
+        batch_config = TokenGeneratorPipelineConfig.dynamic_homogenous(
+            batch_size=pipeline_config.max_cache_batch_size,
+            batch_timeout=batch_timeout,
+            max_forward_steps=pipeline_config.max_num_steps,
+        )
+    else:
+        raise ValueError(
+            f"{pipeline_config.cache_strategy} caching strategy is not"
+            " supported by Serving."
+        )
+
+    logger.info(
+        "Server configured with %s caching with batch size %s",
+        pipeline_config.cache_strategy,
+        pipeline_config.max_cache_batch_size,
+    )
+
+    return batch_config
+
+
+async def serve_pipeline(
+    pipeline_config: PipelineConfig,
+    performance_fake: str = "none",
+    profile: bool = False,
+    batch_timeout: float = 0.0,
+    model_name: Union[str, None] = None,
+):
+    # Retrieve tokenizer and pipeline.
+    if performance_fake == "none":
+        logger.info(
+            f"Starting server using {pipeline_config.huggingface_repo_id}"
+        )
+        # Load tokenizer and pipeline from PIPELINE_REGISTRY.
+        # return_factory, returns a pipeline_factory as opposed to an intialized pipeline.
+        # this minimizes the amount of data travelling during server worker initialization.
+        # it also minimized the probability of a pickling issue with custom config.
+        tokenizer, pipeline_factory = PIPELINE_REGISTRY.retrieve(
+            pipeline_config, return_factory=True
+        )
+    else:
+        logger.info(
+            f"Starting server using performance fake {performance_fake}."
+        )
+        tokenizer = PerformanceFakingPipelineTokenizer(
+            AutoTokenizer.from_pretrained(pipeline_config.huggingface_repo_id)
+        )
+        pipeline_factory = functools.partial(
+            get_performance_fake,
+            performance_fake,
+        )
+        pipeline_config.cache_strategy = KVCacheStrategy.CONTINUOUS
+
+    # Initialize settings, and TokenGeneratorPipelineConfig.
+    request_limit = pipeline_config.max_cache_batch_size + 128
+    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
+    debug_settings = DebugSettings(profiling_enabled=profile)
+
+    # Load batch config.
+    batch_config = batch_config_from_pipeline_config(
+        pipeline_config=pipeline_config,
+        batch_timeout=batch_timeout,
+    )
+
+    # If explicit model name is not provided, set to huggingface_repo_id.
+    if model_name is None:
+        model_name = pipeline_config.huggingface_repo_id
+
+    # Intialize and serve webserver.
+    app = fastapi_app(
+        settings,
+        debug_settings,
+        {
+            model_name: BatchedTokenGeneratorState(
+                TokenGeneratorPipeline(
+                    batch_config,
+                    pipeline_config.huggingface_repo_id,
+                    tokenizer,
+                    True,
+                ),
+                pipeline_factory,
+            )
+        },
+    )
+
+    server = Server(fastapi_config(app=app))
+    await server.serve()
+
+
+@main.command(name="serve")
+@config_to_flag(PipelineConfig)
+@click.option(
+    "--use-gpu",
+    is_flag=False,
+    type=DevicesOptionType(),
+    show_default=True,
+    default="",
+    flag_value="0",
+    help=(
+        "Whether to run the model on the available GPU. An ID value can be"
+        " provided optionally to indicate the device ID to target."
+    ),
+)
+@click.option(
+    "--profile-serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to enable pyinstrument profiling on the serving endpoint.",
+)
+@click.option(
+    "--performance-fake",
+    type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
+    default="none",
+    help="Fake the engine performance (for benchmarking)",
+)
+@click.option(
+    "--batch-timeout",
+    type=float,
+    default=0.0,
+    help="Custom timeout for any particular batch.",
+)
+@click.option(
+    "--model-name",
+    type=str,
+    help="Optional explicit name for serving the model.",
+)
+def start_pipeline_server(
+    use_gpu,
+    profile_serve,
+    performance_fake,
+    batch_timeout,
+    model_name,
+    **config_kwargs,
+):
+    # Update config_kwargs for use_gpu.
+    if use_gpu:
+        config_kwargs["device_spec"] = DeviceSpec.cuda(id=use_gpu[0])
+        config_kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
+    else:
+        config_kwargs["device_spec"] = DeviceSpec.cpu()
+
+    # Initialize config, and serve.
+    pipeline_config = PipelineConfig(**config_kwargs)
+    asyncio.run(
+        serve_pipeline(
+            pipeline_config=pipeline_config,
+            profile=profile_serve,
+            performance_fake=performance_fake,
+            batch_timeout=batch_timeout,
+            model_name=model_name,
+        )
+    )
 
 
 if __name__ == "__main__":
