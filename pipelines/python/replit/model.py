@@ -74,10 +74,9 @@ class ReplitModel(PipelineModel):
         prev_model_inputs: tuple[Tensor, ...],
     ) -> tuple[Tensor, ...]:
         # Update valid_lengths by one for all inputs.
-        valid_lengths = prev_model_inputs[2]
+        prev_tokens, prev_attention_mask, valid_lengths = prev_model_inputs
         valid_lengths += 1
 
-        prev_tokens, prev_attention_mask = prev_model_inputs
         batch_size = prev_tokens.shape[0]
         start_pos = [prev_attention_mask.shape[-1]] * batch_size
         next_tokens_batch = collate_batch(
@@ -96,9 +95,13 @@ class ReplitModel(PipelineModel):
             n_heads=self.pipeline_config.huggingface_config.n_heads,
         )
 
-        print("next tokens input...")
-
-        return (next_tokens_batch, attention_mask, valid_lengths)
+        # I believe, next_tokens_batch & valid_lengths, should already be resident on the GPU.
+        # The attention mask is a new tensor, and thus has to be moved over.
+        return (
+            Tensor.from_numpy(next_tokens_batch),
+            Tensor.from_numpy(attention_mask).to(self.pipeline_config.device),
+            Tensor.from_numpy(valid_lengths),
+        )
 
     def _get_kv_params(self) -> KVCacheParams:
         return KVCacheParams(
