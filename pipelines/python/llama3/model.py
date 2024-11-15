@@ -58,7 +58,7 @@ class Llama3Model(PipelineModel):
         # Create a ragged token vector of length: sum(len(t) for t in tokens).
         next_tokens_batch = np.concatenate(tokens)
         next_tokens_batch = Tensor.from_numpy(next_tokens_batch).to(
-            self._device
+            self.pipeline_config.device
         )
 
         return (next_tokens_batch, input_row_offset)
