@@ -70,7 +70,11 @@ struct LlamaCFile(LoadableModel):
                 var bytes_tensor = Tensor[DType.uint8](
                     f.read_bytes(sizeof[Int32]())
                 )
-                return bytes_tensor.unsafe_ptr().bitcast[DType.int32]().load()
+                return (
+                    bytes_tensor.unsafe_ptr()
+                    .bitcast[Scalar[DType.int32]]()
+                    .load()
+                )
 
             var dim = read_int32()
             var hidden_dim = read_int32()
@@ -105,7 +109,7 @@ struct LlamaCFile(LoadableModel):
 
     fn token_embd[type: DType](self) -> TensorRef[type]:
         return TensorRef[type](
-            self.weights_ptr.bitcast[type](),
+            self.weights_ptr.bitcast[Scalar[type]](),
             TensorShape(self.config.vocab_size, self.config.dim),
         )
 
@@ -196,7 +200,7 @@ struct LlamaCFile(LoadableModel):
 
     fn rope_freqs[type: DType](self) -> TensorRef[type]:
         return TensorRef[type](
-            self.weights_ptr.bitcast[type](),
+            self.weights_ptr.bitcast[Scalar[type]](),
             TensorShape(self.config.dim // self.config.n_heads // 2),
         )
 

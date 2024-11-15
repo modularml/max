@@ -630,13 +630,15 @@ struct GGUFReader:
         var bytes_tensor: Tensor[DType.uint8] = self.read_bytes(
             sizeof[Scalar[type]]()
         )
-        return bytes_tensor.unsafe_ptr().bitcast[type]().load()
+        return bytes_tensor.unsafe_ptr().bitcast[Scalar[type]]().load()
 
     @always_inline
     fn gguf_string(inout self) raises -> GGUFString:
         var n = int(self.dtype_element[DType.uint64]())
         var key_data: Tensor[DType.uint8] = self.read_bytes(n)
-        return GGUFString(n, key_data._steal_ptr().bitcast[DType.uint8]())
+        return GGUFString(
+            n, key_data._steal_ptr().bitcast[Scalar[DType.uint8]]()
+        )
 
     fn gguf_kv(inout self) raises -> GGUFKV:
         @always_inline
@@ -645,7 +647,9 @@ struct GGUFReader:
             var bytes_tensor: Tensor[DType.uint8] = self.read_bytes(
                 sizeof[Scalar[type]]()
             )
-            var result = bytes_tensor.unsafe_ptr().bitcast[type]().load()
+            var result = bytes_tensor.unsafe_ptr().bitcast[
+                Scalar[type]
+            ]().load()
             return GGUFValue.from_dtype[type](result)
 
         @always_inline
@@ -863,7 +867,7 @@ struct GGUFFile(LoadableModel):
 
             return Tensor(
                 info.storage_tensor_shape(),
-                bytes_tensor._steal_ptr().bitcast[type](),
+                bytes_tensor._steal_ptr().bitcast[Scalar[type]](),
             )
 
         raise "key not found"
