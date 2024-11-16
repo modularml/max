@@ -307,7 +307,7 @@ def generate_text_naive(
         warmup_token = Tensor[DType.int64, rank=2]((1, 1), host_device)
         warmup_mask = Tensor[DType.int64, rank=2]((1, 1), host_device)
         warmup_token[0, 0] = Int64(123)
-        warmup_mask[0, 0] = True
+        warmup_mask[0, 0] = 1
         _ = compiled_model.execute(
             warmup_token^.to_device_tensor().move_to(execution_device),
             warmup_mask^.to_device_tensor().move_to(execution_device),
