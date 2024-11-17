@@ -31,7 +31,7 @@ struct SamplerResult(Stringable):
     """List of the associated likelihoods (len(options) == len(likelihoods))."""
 
     fn __init__(
-        inout self: Self,
+        out self,
         selected: Int,
         options: List[Int] = List[Int](),
         likelihoods: List[Float32] = List[Float32](),
