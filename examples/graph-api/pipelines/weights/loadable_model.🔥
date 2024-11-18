@@ -55,6 +55,7 @@ trait LoadableModel(Movable):
     `get` method for tensor data, and know their own model hyperparameters.
     """
 
+    @implicit
     fn __init__(out self, path: Path) raises:
         """Initializes the weights file from a path.
 
