@@ -92,6 +92,10 @@ struct GGMLType:
 
     var _value: Int32
 
+    @implicit
+    fn __init__(out self, value: Int32):
+        self._value = value
+
     fn __is__(self, other: Self) -> Bool:
         """Checks if this `GGMLType` is the same as `other`.
 
@@ -291,6 +295,10 @@ struct GGUFType:
     alias GGUF_TYPE_COUNT: Int32 = 13  # Marks the end of the enum.
 
     var _value: Int32
+
+    @implicit
+    fn __init__(out self, value: Int32):
+        self._value = value
 
     fn __is__(self, other: Self) -> Bool:
         """Checks if this `GGUFType` is the same as `other`.
@@ -541,7 +549,7 @@ struct GGUFTensorInfo:
 
         res += spaces + str(self.type) + type_spaces + "[ "
         for i in range(self.n_dims):
-            res += str(self.ne[i])
+            res += str(self.ne[int(i)])
             res += " "
         res += "]"
         return res
@@ -603,6 +611,7 @@ struct GGUFReader:
     var offset: Int
     var f: FileHandle
 
+    @implicit
     fn __init__(out self, owned f: FileHandle):
         self.offset = 0
         self.f = f^
@@ -822,10 +831,10 @@ struct GGUFFile(LoadableModel):
     fn __str__(self) -> String:
         var res = str(self.header) + "\n"
         for i in range(self.header.n_kv):
-            res += str(self.kv[i])
+            res += str(self.kv[int(i)])
             res += "\n"
         for i in range(self.header.n_tensors):
-            res += str(self.infos[i])
+            res += str(self.infos[int(i)])
             res += "\n"
         return res
 
