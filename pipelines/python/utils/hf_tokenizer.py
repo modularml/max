@@ -98,19 +98,19 @@ def tokenizer_from_gguf(
     # These settings are not defined in the GGUF file, and so these are manually
     # pulled from:
     # https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct/raw/main/tokenizer.json
-    tokenizer.normalizers = None
+    tokenizer.normalizers = None  # type: ignore
     pattern = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
-    tokenizer.pre_tokenizer = pre_tokenizers.Sequence(
+    tokenizer.pre_tokenizer = pre_tokenizers.Sequence(  # type: ignore
         [
             pre_tokenizers.Split(
                 Regex(pattern), behavior="isolated", invert=False
             ),
-            pre_tokenizers.ByteLevel(
+            pre_tokenizers.ByteLevel(  # type: ignore
                 add_prefix_space=False, trim_offsets=True, use_regex=False
             ),
         ]
     )
-    tokenizer.decoder = decoders.ByteLevel(
+    tokenizer.decoder = decoders.ByteLevel(  # type: ignore
         add_prefix_space=True, trim_offsets=True, use_regex=True
     )
     bos = bos_token
@@ -120,9 +120,9 @@ def tokenizer_from_gguf(
     single = f"{(bos+':0 ') if add_bos_token else ''}$A:0{(' '+eos+':0') if add_eos_token else ''}"  # type: ignore
     pair = f"{single}{(' '+bos+':1') if add_bos_token else ''} $B:1{(' '+eos+':1') if add_eos_token else ''}"  # type: ignore
     special_tokens = [(bos_token, bos_token_id)]
-    tokenizer.post_processor = processors.TemplateProcessing(
+    tokenizer.post_processor = processors.TemplateProcessing(  # type: ignore
         single=single, pair=pair, special_tokens=special_tokens
-    )
+    )  # type: ignore
     return PreTrainedTokenizerFast(
         tokenizer_object=tokenizer, **pretrained_tokenizer_kwargs
     )
