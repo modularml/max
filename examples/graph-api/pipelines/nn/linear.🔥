@@ -31,12 +31,14 @@ struct Linear:
     var w: Symbol
     var encoding_id: String
 
-    def __init__(out self, w: Symbol):
+    @implicit
+    fn __init__(out self, w: Symbol):
         self.w = w
         # Default to float32 dtype if not provided.
         self.encoding_id = Float32Encoding.id()
 
-    def __init__(out self, encoded_weight: Tuple[Symbol, String]):
+    @implicit
+    fn __init__(out self, encoded_weight: Tuple[Symbol, String]):
         self.w, self.encoding_id = encoded_weight
 
     def __call__(self, x: Symbol) -> Symbol:

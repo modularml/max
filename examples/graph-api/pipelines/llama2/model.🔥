@@ -68,7 +68,8 @@ struct QuantizedLlama2[
     alias batch_size = 1
     var model: model_type
 
-    def __init__(out self, owned model: model_type):
+    @implicit
+    fn __init__(out self, owned model: model_type):
         self.model = model^
 
     def build_graph(inout self, name: String) -> Graph:
