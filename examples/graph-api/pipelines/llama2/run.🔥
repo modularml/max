@@ -307,8 +307,8 @@ def _generate_text_with_tokenizer[
             mask[0, j] = True
 
         result = compiled_model.execute(
-            AnyTensor(tokens^.move_to(execution_device)),
-            AnyTensor(mask^.move_to(execution_device)),
+            tokens^.move_to(execution_device),
+            mask^.move_to(execution_device),
             AnyMojoValue(kv_collection^),
         )
 
@@ -420,7 +420,7 @@ def runq[
 
     # Build Model
     model = QuantizedLlama2[model_type, encoding](
-        model_type(config.get("model-path")[Path])
+        config.get("model-path")[Path],
     )
     params = model.hyperparams()
     graph = model.build_graph("llama2")

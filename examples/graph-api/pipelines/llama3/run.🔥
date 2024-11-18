@@ -219,8 +219,8 @@ def _generation_loop[
             mask[0, j] = True
 
         result = compiled_model.execute(
-            AnyTensor(tokens^.move_to(execution_device)),
-            AnyTensor(mask^.move_to(execution_device)),
+            tokens^.move_to(execution_device),
+            mask^.move_to(execution_device),
             AnyMojoValue(kv_collection^),
         )
 
