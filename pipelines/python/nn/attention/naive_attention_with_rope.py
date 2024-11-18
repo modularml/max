@@ -69,18 +69,18 @@ class NaiveAttentionWithRope(Layer):
     ) -> TensorValue:
         # Broadcast the attention mask across heads.
         # Do so in the graph so that the broadcast can be fused downstream ops.
-        batch, seq_len, post_seq_len = attn_mask.shape
-        attn_mask = attn_mask.reshape(
-            (batch, 1, seq_len, post_seq_len)
+        batch, seq_len, post_seq_len = attn_mask.shape  # type: ignore
+        attn_mask = attn_mask.reshape(  # type: ignore
+            (batch, 1, seq_len, post_seq_len)  # type: ignore
         ).broadcast_to((batch, self.n_heads, seq_len, post_seq_len))
 
-        keys = keys.transpose(0, 1)
-        values = values.transpose(0, 1)
+        keys = keys.transpose(0, 1)  # type: ignore
+        values = values.transpose(0, 1)  # type: ignore
 
-        keys = self.repeat_kv(keys)
-        values = self.repeat_kv(values)
+        keys = self.repeat_kv(keys)  # type: ignore
+        values = self.repeat_kv(values)  # type: ignore
 
-        xq = xq.transpose(1, 2)
+        xq = xq.transpose(1, 2)  # type: ignore
         keys = keys.transpose(1, 2)
         values = values.transpose(1, 2)
 
@@ -112,11 +112,11 @@ class NaiveAttentionWithRope(Layer):
 
         Returns the result of multi-headed self attention on the input.
         """
-        batch, seq_len = x.shape[0], x.shape[1]
+        batch, seq_len = x.shape[0], x.shape[1]  # type: ignore
         # matmul weights
-        xq = self.wq(x)
-        xk = self.wk(x)
-        xv = self.wv(x)
+        xq = self.wq(x)  # type: ignore
+        xk = self.wk(x)  # type: ignore
+        xv = self.wv(x)  # type: ignore
 
         xq = ops.reshape(
             xq, [batch, seq_len, self.n_heads, self.kv_params.head_dim]

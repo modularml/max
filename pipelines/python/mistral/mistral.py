@@ -74,7 +74,7 @@ class Mistral(TokenGenerator):
                 "no weight path provided for mistral based safetensor weights."
             )
 
-        self._weights = SafetensorWeights([self._config.weight_path])
+        self._weights = SafetensorWeights([self._config.weight_path])  # type: ignore
 
         # Load Model.
         self._model = self._load_model(session)
@@ -91,7 +91,7 @@ class Mistral(TokenGenerator):
         if serialized_path := self._config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized graph.
             weights_registry = {}
-            for name, tensor in self._weights._tensors.items():
+            for name, tensor in self._weights._tensors.items():  # type: ignore
                 weights_registry[name] = tensor.data
             logging.info(
                 "Loading serialized model from ", serialized_path, "..."
@@ -110,7 +110,7 @@ class Mistral(TokenGenerator):
             )
             logging.info("Compiling...")
             return session.load(
-                graph, weights_registry=self._weights.allocated_weights
+                graph, weights_registry=self._weights.allocated_weights  # type: ignore
             )
 
     def _execute(self, batch: dict[str, TextContext]) -> Tensor:
@@ -152,7 +152,7 @@ class Mistral(TokenGenerator):
             }
         )
 
-        return logits
+        return logits  # type: ignore
 
     def next_token(
         self, batch: dict[str, TextContext], num_steps: int = 1
@@ -172,7 +172,7 @@ class Mistral(TokenGenerator):
 
         tokens = self._sampler(logits, dummy_prev_tokens_input)[0]
 
-        tokens = tokens.to(CPU())
+        tokens = tokens.to(CPU())  # type: ignore
 
         next_tokens = dict(zip(batch, tokens.to_numpy()))
         for request_id, context in batch.items():

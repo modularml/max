@@ -43,15 +43,15 @@ class AttentionWithRope(AttentionImpl):
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         # Get attributes from input.
-        total_seq_len = x.shape[0]
+        total_seq_len = x.shape[0]  # type: ignore
 
         # Call into fused qkv ragged matmul.
         xq = fused_qkv_ragged_matmul(
             self.kv_params,
-            input=x,
+            input=x,  # type: ignore
             wqkv=self.wqkv,
             input_row_offset=kwargs["input_row_offset"],
-            kv_collection=kv_collection,
+            kv_collection=kv_collection,  # type: ignore
             layer_idx=self.layer_idx,
             n_heads=self.n_heads,
         )
@@ -66,7 +66,7 @@ class AttentionWithRope(AttentionImpl):
             self.kv_params,
             xq,
             kwargs["input_row_offset"],
-            kv_collection,
+            kv_collection,  # type: ignore
             freqs_cis,
             self.layer_idx,
         )
@@ -75,11 +75,11 @@ class AttentionWithRope(AttentionImpl):
         attn_out = flash_attention_ragged_with_causal_mask(
             self.kv_params,
             input=xq,
-            kv_collection=kv_collection,
+            kv_collection=kv_collection,  # type: ignore
             layer_idx=self.layer_idx,
             input_row_offset=kwargs["input_row_offset"],
         )
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
 
-        return self.wo(attn_out), kv_collection
+        return self.wo(attn_out), kv_collection  # type: ignore

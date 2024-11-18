@@ -52,7 +52,7 @@ class Llama3Vision:
             config.weight_path, list
         )
         assert all(isinstance(item, str) for item in config.weight_path)
-        self.weights = SafetensorWeights(config.weight_path)
+        self.weights = SafetensorWeights(config.weight_path)  # type: ignore
         self.vision_params, self.text_params = _read_hyperparameters(config)
 
         device_spec = self.config.device_spec
@@ -164,10 +164,10 @@ class Llama3Vision:
             # past_key_values: value=DynamicCache()
             # inputs_embeds: value=None
             # cache_position: shape=[14], dtype=torch.int64
-            outputs = model(**kwargs)
+            outputs = model(**kwargs)  # type: ignore
 
-            loss, logits, past_key_values, hidden_states, attentions = outputs
-            graph.output(logits)
+            loss, logits, past_key_values, hidden_states, attentions = outputs  # type: ignore
+            graph.output(logits)  # type: ignore
             return graph
 
     def _load_model(
@@ -178,7 +178,7 @@ class Llama3Vision:
         graph = self._llama3_vision_graph()
         print("Compiling...")
         res = session.load(
-            graph, weights_registry=self.weights.allocated_weights
+            graph, weights_registry=self.weights.allocated_weights  # type: ignore
         )
         print("Done!")
         return res
@@ -195,10 +195,10 @@ def _read_hyperparameters(
     return (
         VisionHyperparameters(
             dtype=DType.bfloat16,
-            quantization_encoding=config.quantization_encoding,
+            quantization_encoding=config.quantization_encoding,  # type: ignore
         ),
         TextHyperparameters(
             dtype=DType.bfloat16,
-            quantization_encoding=config.quantization_encoding,
+            quantization_encoding=config.quantization_encoding,  # type: ignore
         ),
     )

@@ -61,7 +61,7 @@ def _feed_forward(
 
 def _lp_layer_norm(dims: int, eps: float, weights: GGUFWeights) -> LPLayerNorm:
     return LPLayerNorm(
-        weight=weights.weight.allocate(DType.float32, [dims]), eps=eps
+        weight=weights.weight.allocate(DType.float32, [dims]), eps=eps  # type: ignore
     )
 
 
@@ -81,7 +81,7 @@ def _attention(
                 k_in_dim + v_in_dim + q_in_dim,
                 pipeline_config.huggingface_config.d_model,
             ],
-            pipeline_config.quantization_encoding.quantization_encoding,
+            pipeline_config.quantization_encoding.quantization_encoding,  # type: ignore
         )
     )
 
@@ -96,7 +96,7 @@ def _attention(
                     pipeline_config.huggingface_config.d_model,
                     pipeline_config.huggingface_config.d_model,
                 ],
-                pipeline_config.quantization_encoding.quantization_encoding,
+                pipeline_config.quantization_encoding.quantization_encoding,  # type: ignore
             )
         ),
         layer_idx=ops.constant(layer_index, dtype=DType.uint32),
@@ -118,7 +118,7 @@ def _transformer(
                 ),
                 mlp=_feed_forward(
                     pipeline_config.dtype,
-                    pipeline_config.quantization_encoding.quantization_encoding,
+                    pipeline_config.quantization_encoding.quantization_encoding,  # type: ignore
                     pipeline_config.huggingface_config.d_model,
                     12288,
                     weights.blk[i],
@@ -144,7 +144,7 @@ def _transformer(
                 pipeline_config.huggingface_config.vocab_size,
                 pipeline_config.huggingface_config.d_model,
             ],
-            pipeline_config.quantization_encoding.quantization_encoding,
+            pipeline_config.quantization_encoding.quantization_encoding,  # type: ignore
         )
 
         return Transformer(
@@ -196,7 +196,7 @@ def _build_graph(
             tokens=tokens,
             valid_lengths=valid_lengths,
             kv_cache_inputs=kv_cache_inputs,
-            attention_mask=attention_mask.cast(pipeline_config.dtype),
+            attention_mask=attention_mask.cast(pipeline_config.dtype),  # type: ignore
         )
         graph.output(logits)
         return graph

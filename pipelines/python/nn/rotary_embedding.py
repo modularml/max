@@ -52,11 +52,11 @@ class RotaryEmbedding(Layer):
                 (max_seq_len * 2, dim//(2 * n_heads), 2)
         """
         if self._freqs_cis is None:
-            n = self.dim // self.n_heads
+            n = self.dim // self.n_heads  # type: ignore
             # Note: using float64 to avoid an overflow on the exponential, then converting back to float32.
             iota = ops.range(
                 ops.constant(0, DType.float64),
-                ops.constant(n - 1, DType.float64),
+                ops.constant(n - 1, DType.float64),  # type: ignore
                 ops.constant(2, DType.float64),
                 out_dim=n // 2,
             )

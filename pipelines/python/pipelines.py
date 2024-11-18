@@ -126,11 +126,11 @@ async def serve_token_generator(
         logger.info(
             "Starting server using performance fake '%s'.", performance_fake
         )
-        tokenizer = PerformanceFakingPipelineTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
             AutoTokenizer.from_pretrained(repo_id)
         )
-        model_factory = functools.partial(
-            get_performance_fake,
+        model_factory = functools.partial(  # type: ignore
+            get_performance_fake,  # type: ignore
             performance_fake,
         )
         kv_cache_strategy = KVCacheStrategy.CONTINUOUS
@@ -418,20 +418,20 @@ async def serve_token_generator_mistral(
     """Hosts the Mistral pipeline using max.serve."""
     if performance_fake == "none":
         print("Starting server using Mistral.")
-        tokenizer = TextTokenizer(config)
+        tokenizer = TextTokenizer(config)  # type: ignore
         assert tokenizer.delegate
-        model_factory = functools.partial(
+        model_factory = functools.partial(  # type: ignore
             mistral.Mistral,
             config,
         )
         kv_cache_strategy = config.cache_strategy
     else:
         print(f"Starting server using performance fake '{performance_fake}'.")
-        tokenizer = PerformanceFakingPipelineTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
             AutoTokenizer.from_pretrained(repo_id)
         )
-        model_factory = functools.partial(
-            get_performance_fake,
+        model_factory = functools.partial(  # type: ignore
+            get_performance_fake,  # type: ignore
             performance_fake,
         )
         kv_cache_strategy = KVCacheStrategy.CONTINUOUS
@@ -608,11 +608,11 @@ async def serve_replit_text_generation_pipeline(
         kv_cache_strategy = config.cache_strategy
     else:
         print(f"Starting server using performance fake '{performance_fake}'.")
-        tokenizer = PerformanceFakingPipelineTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
             AutoTokenizer.from_pretrained(config.huggingface_repo_id)
         )
-        model_factory = functools.partial(
-            get_performance_fake,
+        model_factory = functools.partial(  # type: ignore
+            get_performance_fake,  # type: ignore
             performance_fake,
         )
         kv_cache_strategy = KVCacheStrategy.CONTINUOUS
@@ -644,7 +644,7 @@ async def serve_replit_text_generation_pipeline(
         {
             model_name: BatchedTokenGeneratorState(
                 TokenGeneratorPipeline(
-                    batch_config, config.huggingface_repo_id, tokenizer, False
+                    batch_config, config.huggingface_repo_id, tokenizer, False  # type: ignore
                 ),
                 model_factory,
             )
@@ -823,12 +823,12 @@ async def serve_pipeline(
         logger.info(
             f"Starting server using performance fake {performance_fake}."
         )
-        tokenizer = PerformanceFakingPipelineTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
             AutoTokenizer.from_pretrained(pipeline_config.huggingface_repo_id)
         )
-        pipeline_factory = functools.partial(
+        pipeline_factory = functools.partial(  # type: ignore
             get_performance_fake,
-            performance_fake,
+            performance_fake,  # type: ignore
         )
         pipeline_config.cache_strategy = KVCacheStrategy.CONTINUOUS
 
@@ -852,14 +852,14 @@ async def serve_pipeline(
         settings,
         debug_settings,
         {
-            model_name: BatchedTokenGeneratorState(
+            model_name: BatchedTokenGeneratorState(  # type: ignore
                 TokenGeneratorPipeline(
                     batch_config,
-                    pipeline_config.huggingface_repo_id,
+                    pipeline_config.huggingface_repo_id,  # type: ignore
                     tokenizer,
                     True,
                 ),
-                pipeline_factory,
+                pipeline_factory,  # type: ignore
             )
         },
     )

@@ -149,7 +149,7 @@ def _attention_opaque(
             weights.attention.wo,
         ),
         rope=rope,
-        layer_idx=layer_idx,
+        layer_idx=layer_idx,  # type: ignore
     )
 
 
@@ -176,7 +176,7 @@ def _transformer(
                     params,
                     rope,
                     weights.layers[i],
-                    layer_idx=ops.constant(i, DType.uint32),
+                    layer_idx=ops.constant(i, DType.uint32),  # type: ignore
                 ),
                 mlp=feed_forward(
                     params.dtype,

@@ -29,11 +29,11 @@ from .graph import _build_graph
 
 
 class ReplitModel(PipelineModel):
-    def execute(self, *model_inputs: Tensor) -> Tensor:
-        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]
+    def execute(self, *model_inputs: Tensor) -> Tensor:  # type: ignore
+        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]  # type: ignore
 
     def prepare_initial_token_inputs(
-        self, context_batch: list[TextContext]
+        self, context_batch: list[TextContext]  # type: ignore
     ) -> tuple[Tensor, ...]:
         # Get tokens and seq_ids.
         tokens = [ctx.next_tokens for ctx in context_batch]
@@ -75,19 +75,19 @@ class ReplitModel(PipelineModel):
     ) -> tuple[Tensor, ...]:
         # Update valid_lengths by one for all inputs.
         prev_tokens, prev_attention_mask, valid_lengths = prev_model_inputs
-        valid_lengths += 1
+        valid_lengths += 1  # type: ignore
 
         batch_size = prev_tokens.shape[0]
         start_pos = [prev_attention_mask.shape[-1]] * batch_size
         next_tokens_batch = collate_batch(
-            next_tokens,
+            next_tokens,  # type: ignore
             batch_size=batch_size,
             pad_to_multiple_of=self.pipeline_config.pad_to_multiple_of,
         )
 
         attention_mask = causal_attention_mask_with_alibi(
             original_start_pos=start_pos,
-            original_seq_len=[len(t) for t in next_tokens],
+            original_seq_len=[len(t) for t in next_tokens],  # type: ignore
             pad_to_multiple_of=self.pipeline_config.pad_to_multiple_of,
             alibi_bias_max=self.pipeline_config.huggingface_config.attn_config[
                 "alibi_bias_max"
@@ -98,9 +98,9 @@ class ReplitModel(PipelineModel):
         # I believe, next_tokens_batch & valid_lengths, should already be resident on the GPU.
         # The attention mask is a new tensor, and thus has to be moved over.
         return (
-            Tensor.from_numpy(next_tokens_batch),
+            Tensor.from_numpy(next_tokens_batch),  # type: ignore
             Tensor.from_numpy(attention_mask).to(self.pipeline_config.device),
-            Tensor.from_numpy(valid_lengths),
+            Tensor.from_numpy(valid_lengths),  # type: ignore
         )
 
     def _get_kv_params(self) -> KVCacheParams:
@@ -140,7 +140,7 @@ class ReplitModel(PipelineModel):
             logging.info("Loading serialized model from ", serialized_path)
 
             return session.load(
-                serialized_path, weights_registry=weights_registry
+                serialized_path, weights_registry=weights_registry  # type: ignore
             )
 
         else:
@@ -153,5 +153,5 @@ class ReplitModel(PipelineModel):
             )
             logging.info("Compiling...")
             return session.load(
-                graph, weights_registry=self._weights.allocated_weights
+                graph, weights_registry=self._weights.allocated_weights  # type: ignore
             )
