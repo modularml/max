@@ -47,7 +47,7 @@ class TransformerBlock(Layer):
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         attn_out, kv_collection = self.attention(
-            self.attention_norm(x), kv_collection, **kwargs
+            self.attention_norm(x), kv_collection, **kwargs  # type: ignore
         )
 
         h = x + attn_out
@@ -84,7 +84,7 @@ class Transformer(Layer):
         for _, layer in enumerate(self.layers):
             h, _ = layer(
                 h,
-                kv_collection,
+                kv_collection,  # type: ignore
                 **kwargs,
             )
 
@@ -92,7 +92,7 @@ class Transformer(Layer):
         if "input_row_offset" in kwargs:
             # For ragged tensors gather the last tokens from packed dim 0.
             input_row_offset: TensorValueLike = kwargs["input_row_offset"]
-            last_token_indices = input_row_offset[1:] - 1
+            last_token_indices = input_row_offset[1:] - 1  # type: ignore
             # Should be: last_token = h[last_token_indices]
             last_token = ops.gather(h, last_token_indices, axis=0)
         else:
@@ -101,7 +101,7 @@ class Transformer(Layer):
             valid_lengths: TensorValueLike = kwargs["valid_lengths"]
             last_token = ops.gather_nd(
                 h,
-                indices=ops.unsqueeze(valid_lengths - 1, -1),
+                indices=ops.unsqueeze(valid_lengths - 1, -1),  # type: ignore
                 batch_dims=1,
             )
 

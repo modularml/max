@@ -64,9 +64,9 @@ def fused_qkv_ragged_matmul(
 
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged"
 
-    return ops.custom(
+    return ops.custom(  # type: ignore
         op_name,
-        values=[input, input_row_offset, wqkv, kv_collection, layer_idx],
+        values=[input, input_row_offset, wqkv, kv_collection, layer_idx],  # type: ignore
         out_types=[
             TensorType(
                 dtype=input.dtype,
@@ -107,9 +107,9 @@ def fused_qkv_matmul(
 
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    return ops.custom(
+    return ops.custom(  # type: ignore
         op_name,
-        values=[input, wqkv, kv_collection, layer_idx],
+        values=[input, wqkv, kv_collection, layer_idx],  # type: ignore
         out_types=[
             TensorType(
                 dtype=input.dtype,
@@ -136,7 +136,7 @@ def fused_qk_ragged_rope(
     if input.dtype != freqs_cis.dtype:
         msg = (
             "expected input and freqs_cis to share a dtype, but got"
-            f" {input.dtype} and {freqs_cis.dtyp} respectively"
+            f" {input.dtype} and {freqs_cis.dtyp} respectively"  # type: ignore
         )
         raise ValueError(msg)
 
@@ -154,7 +154,7 @@ def fused_qk_ragged_rope(
 
     return ops.custom(
         op_name,
-        values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],
+        values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],  # type: ignore
         out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
@@ -169,9 +169,9 @@ def fused_qk_rope(
     """Computes fused query-key attention with rotary positional encodings."""
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    return ops.custom(
+    return ops.custom(  # type: ignore
         op_name,
-        values=[input, kv_collection, freqs_cis_2d, layer_idx],
+        values=[input, kv_collection, freqs_cis_2d, layer_idx],  # type: ignore
         out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
@@ -193,7 +193,7 @@ def flash_attention(
         op_name,
         values=[
             input,
-            kv_collection,
+            kv_collection,  # type: ignore
             layer_idx,
             attention_mask,
             valid_lengths,
@@ -239,9 +239,9 @@ def flash_attention_with_causal_mask(
 
     # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
-    return ops.custom(
+    return ops.custom(  # type: ignore
         op_name,
-        values=[input, kv_collection, layer_idx, valid_lengths, scale],
+        values=[input, kv_collection, layer_idx, valid_lengths, scale],  # type: ignore
         out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]
 
@@ -282,6 +282,6 @@ def flash_attention_ragged_with_causal_mask(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        values=[input, input_row_offset, kv_collection, layer_idx, scale],
+        values=[input, input_row_offset, kv_collection, layer_idx, scale],  # type: ignore
         out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
     )[0]

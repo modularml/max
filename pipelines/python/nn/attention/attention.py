@@ -28,7 +28,7 @@ from .interfaces import AttentionImpl
 class Attention(AttentionImpl):
     def __call__(
         self,
-        x: TensorValue,
+        x: TensorValue,  # type: ignore
         kv_collection: ContinuousBatchingKVCacheCollectionType,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
@@ -69,7 +69,7 @@ class Attention(AttentionImpl):
         attn_out = flash_attention(
             self.kv_params,
             input=xq,
-            kv_collection=kv_collection,
+            kv_collection=kv_collection,  # type: ignore
             layer_idx=self.layer_idx,
             attention_mask=attention_mask,
             valid_lengths=kwargs["valid_lengths"],
@@ -77,4 +77,4 @@ class Attention(AttentionImpl):
 
         attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
 
-        return self.wo(attn_out), kv_collection
+        return self.wo(attn_out), kv_collection  # type: ignore

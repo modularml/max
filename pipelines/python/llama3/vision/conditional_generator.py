@@ -45,26 +45,26 @@ class ConditionalGenerator(Layer):
     ) -> tuple[TensorValue, TensorValue]:
         # reshape so it can be used by attn module
         batch_size, text_total_length, *_ = cross_attention_mask.shape
-        cross_attention_mask = cross_attention_mask.repeat_interleave(
+        cross_attention_mask = cross_attention_mask.repeat_interleave(  # type: ignore
             num_vision_tokens, dim=3
         )
-        cross_attention_mask = cross_attention_mask.view(
+        cross_attention_mask = cross_attention_mask.view(  # type: ignore
             batch_size, text_total_length, -1
         )
-        cross_attention_mask = cross_attention_mask.unsqueeze(1)
+        cross_attention_mask = cross_attention_mask.unsqueeze(1)  # type: ignore
 
         # TODO: This whole part needs to be fixed. Hardcoding stuff for now.
         negative_inf_value = -3.3895313892515355e38
         # invert the mask
         inverted_cross_attn_mask = ops.cast((1.0 - cross_attention_mask), dtype)
-        cross_attention_mask = inverted_cross_attn_mask.masked_fill(
+        cross_attention_mask = inverted_cross_attn_mask.masked_fill(  # type: ignore
             ops.cast(inverted_cross_attn_mask, DType.bool), negative_inf_value
         )
 
         # apply full-row bias, which return 4D tensor of shape [B, H, S1, 1] where value is 0 if the a full row in cross attn mask's
         # last dimension contains negative infinity values, otherwise it's 1
         full_text_row_masked_out_mask = (
-            (cross_attention_mask != negative_inf_value)
+            (cross_attention_mask != negative_inf_value)  # type: ignore
             .any(dim=-1)
             .type_as(cross_attention_mask)[..., None]
         )
@@ -152,7 +152,7 @@ class ConditionalGenerator(Layer):
 
         # TODO: Some of these values are hardcoded for now.
         # full_text_row_masked_out_mask: shape=[1, 1, 14, 1], dtype=torch.bfloat16
-        return self.language_model(
+        return self.language_model(  # type: ignore
             input_ids=input_ids,
             attention_mask=attention_mask,
             position_ids=position_ids,

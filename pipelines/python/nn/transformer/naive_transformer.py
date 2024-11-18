@@ -44,8 +44,8 @@ class NaiveTransformerBlock(Layer):
         attention_out = self.attention(
             self.attention_norm(x),
             attention_mask,
-            k_cache,
-            v_cache,
+            k_cache,  # type: ignore
+            v_cache,  # type: ignore
             start_pos,
             layer_index,
         )
@@ -53,7 +53,7 @@ class NaiveTransformerBlock(Layer):
         h = x + attention_out
         h = h + self.mlp(self.mlp_norm(h))
 
-        return h
+        return h  # type: ignore
 
 
 @dataclass
@@ -79,17 +79,17 @@ class NaiveTransformer(Layer):
         h = self.embedding(tokens)
 
         for i in range(len(self.layers)):
-            h = self.layers[i](
+            h = self.layers[i](  # type: ignore
                 h,
                 attention_mask,
                 k_cache,
                 v_cache,
-                start_pos,
+                start_pos,  # type: ignore
                 i,
             )
 
-        seq_len = TensorValue(tokens.shape[1])
+        seq_len = TensorValue(tokens.shape[1])  # type: ignore
         return (
-            ops.cast(self.output(self.norm(h)), k_cache.dtype),
+            ops.cast(self.output(self.norm(h)), k_cache.dtype),  # type: ignore
             start_pos + seq_len,
         )

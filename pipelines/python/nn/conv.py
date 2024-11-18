@@ -56,7 +56,7 @@ class Conv2D(Layer):
         ):
             return ops.conv2d(
                 x,
-                self.filter.quantization_encoding,
+                self.filter.quantization_encoding,  # type: ignore
                 self.stride,
                 self.dilation,
                 self.padding,

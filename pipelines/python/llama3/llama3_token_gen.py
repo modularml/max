@@ -76,7 +76,7 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         for i in range(num_steps):
             # Execute the model and get next tokens
             logits = self.model._execute(*curr_step_inputs, *kv_cache_inputs)
-            new_tokens, generated_tokens = self._sampler(
+            new_tokens, generated_tokens = self._sampler(  # type: ignore
                 logits, generated_tokens
             )[:2]
 
@@ -85,12 +85,12 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
                 break
 
             # Prepare inputs for the next token in multistep execution
-            kv_cache_inputs = self._kv_manager.increment_cache_lengths(
-                kv_cache_inputs,
+            kv_cache_inputs = self._kv_manager.increment_cache_lengths(  # type: ignore
+                kv_cache_inputs,  # type: ignore
                 curr_step_inputs,
             )
             curr_step_inputs = self.model._prepare_next_token_inputs(
-                new_tokens, curr_step_inputs
+                new_tokens, curr_step_inputs  # type: ignore
             )
 
         # Actually update the cache lengths in our kv_cache manager
@@ -102,14 +102,14 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
         )
 
         # Do the copy to host for each token generated.
-        generated_tokens = generated_tokens.to(CPU()).to_numpy()
+        generated_tokens = generated_tokens.to(CPU()).to_numpy()  # type: ignore
 
         # Prepare the response, pruning away completed requests as we go.
         res: list[dict[str, Any]] = []
         is_done = {r: False for r in batch.keys()}
         for i in range(num_steps):
             step_res = {}
-            next_tokens = dict(zip(batch, generated_tokens[:, i]))
+            next_tokens = dict(zip(batch, generated_tokens[:, i]))  # type: ignore
             for request_id, context in batch.items():
                 if is_done[request_id]:
                     continue

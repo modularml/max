@@ -54,7 +54,7 @@ class PrecomputedAspectRatioEmbedding(Layer):
 
         # We're broadcasting in the add operation below, so we call rebind()
         # on embeddings first.
-        batch_size, num_tiles, _, hidden_size = hidden_state.shape
+        batch_size, num_tiles, _, hidden_size = hidden_state.shape  # type: ignore
         embeddings = embeddings.rebind(
             (
                 batch_size,
