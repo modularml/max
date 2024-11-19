@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.graph import TensorValue, TensorValueLike, ops
+from max.pipelines.kv_cache import ContinuousBatchingKVCacheCollectionType
 from nn import Linear, MLP, RMSNorm
 from nn.layer import Layer
 
@@ -83,6 +84,9 @@ class CrossAttentionDecoderLayer(Layer):
         cache_position: TensorValue | None = None,
         # unused in cross attention.
         position_embeddings: TensorValue | None = None,
+        # unused in cross attention, for now.
+        kv_collection: ContinuousBatchingKVCacheCollectionType | None = None,
+        valid_lengths: int | None = None,  # unused in cross attention.
     ) -> tuple[TensorValue, Cache | None]:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)

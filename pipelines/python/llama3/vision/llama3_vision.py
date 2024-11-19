@@ -19,6 +19,12 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType, ops
 from max.graph.weights import SafetensorWeights
+from max.pipelines.kv_cache import (
+    KVCacheManager,
+    KVCacheParams,
+    KVCacheStrategy,
+    load_kv_manager,
+)
 from nn import Linear
 
 from .conditional_generator import ConditionalGenerator
@@ -34,6 +40,46 @@ class Llama3VisionContext:
     """The context for text generation using a Llama3.2 vision model."""
 
 
+# TODO: These are configured for text only model. What about vision model?
+def load_llama3_vision_and_kv_manager(
+    config: InferenceConfig, session: InferenceSession | None = None
+) -> tuple[Llama3Vision, KVCacheManager]:
+    _, text_params = _read_hyperparameters(config)
+    # Initialize kv cache params and manager
+    kv_params = KVCacheParams(
+        dtype=DType.bfloat16,
+        n_kv_heads=text_params.num_attention_heads,
+        head_dim=text_params.hidden_size // text_params.num_attention_heads,
+        cache_strategy=KVCacheStrategy.CONTINUOUS,
+    )
+
+    # TODO: Duplicated code for now. Remove and consolidate somewhere else.
+    curr_device = CPU(
+        config.device_spec.id
+    ) if config.device_spec.device_type == "cpu" else CUDA(
+        config.device_spec.id
+    )
+
+    if session is None:
+        session = InferenceSession(devices=[curr_device])
+
+    kv_manager = load_kv_manager(
+        params=kv_params,
+        max_cache_batch_size=1,  # verify this.
+        max_seq_len=text_params.max_position_embeddings,  # verify this.
+        num_layers=text_params.num_hidden_layers,
+        device=curr_device,
+        session=session,
+    )
+    model = Llama3Vision(
+        config=config,
+        kv_manager=kv_manager,
+        session=session,
+    )
+
+    return model, kv_manager
+
+
 # TODO: Some parts may be consolidated under the parent Llama 3 pipeline interface.
 class Llama3Vision:
     """The Llama3.2 vision model."""
@@ -41,6 +87,7 @@ class Llama3Vision:
     def __init__(
         self,
         config: InferenceConfig,
+        kv_manager: KVCacheManager,
         *,
         session: InferenceSession | None = None,
     ):
@@ -60,7 +107,11 @@ class Llama3Vision:
             device_spec.id
         ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
 
-        session = InferenceSession(devices=[self._device])
+        if session is None:
+            session = InferenceSession(devices=[self._device])
+
+        self._kv_manager = kv_manager
+        self._kv_params = self._kv_manager.params
 
         self._model = self._load_model(session)
 
@@ -112,6 +163,9 @@ class Llama3Vision:
         attention_mask_type = input_ids_type
         position_ids_type = input_ids_type
 
+        blocks_type, cache_lengths_type, lookup_table_type, is_cache_empty_type = (
+            self._kv_manager.input_symbols()
+        )
         with Graph(
             "llama3-vision",
             input_types=[
@@ -120,8 +174,11 @@ class Llama3Vision:
                 aspect_ratio_mask_type,
                 attention_mask_type,
                 input_ids_type,
-                attention_mask_type,
                 position_ids_type,
+                blocks_type,
+                cache_lengths_type,
+                lookup_table_type,
+                is_cache_empty_type,
             ],
         ) as graph:
             model = ConditionalGenerator(
@@ -144,27 +201,29 @@ class Llama3Vision:
                     ),
                 ),
                 language_model=instantiate_language_model(
-                    self.text_params, self.weights
+                    kv_params=self._kv_params,
+                    params=self.text_params,
+                    weights=self.weights,
                 ),
             )
 
-            keys = [
-                "pixel_values",
-                "aspect_ratio_ids",
-                "aspect_ratio_mask",
-                "input_ids",
-                "attention_mask",
-                "position_ids",
-            ]
-            kwargs = dict(zip(keys, graph.inputs))
-
-            # TODO: Figure out how we want to pass these into the graph, either
-            #       hardcoded or as graph inputs.
-            # cross_attention_mask: shape=[1, 1, 14, 4100], dtype=torch.bfloat16
-            # past_key_values: value=DynamicCache()
-            # inputs_embeds: value=None
-            # cache_position: shape=[14], dtype=torch.int64
-            outputs = model(**kwargs)  # type: ignore
+            pixel_values, aspect_ratio_ids, aspect_ratio_mask, input_ids, attention_mask, position_ids, blocks, cache_lengths, lookup_table, is_cache_empty = (
+                graph.inputs
+            )
+            outputs = model(
+                pixel_values=pixel_values,
+                aspect_ratio_ids=aspect_ratio_ids,
+                aspect_ratio_mask=aspect_ratio_mask,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                kv_cache_inputs=(
+                    blocks,
+                    cache_lengths,
+                    lookup_table,
+                    is_cache_empty,
+                ),
+            )
 
             loss, logits, past_key_values, hidden_states, attentions = outputs  # type: ignore
             graph.output(logits)  # type: ignore

@@ -10,13 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""The Mllama model which consists of a vision encoder and a language model."""
+"""The Llama 3.2 model which consists of a vision encoder and a language model."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 from nn import Linear
 from nn.layer import Layer
 
@@ -81,6 +81,10 @@ class ConditionalGenerator(Layer):
         cross_attention_mask: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
         position_ids: TensorValue | None = None,
+        kv_cache_inputs: tuple[
+            TensorValue, TensorValue, TensorValue, TensorValue
+        ]
+        | None = None,
         past_key_values: list[TensorValue] | None = None,
         input_ids: TensorValue | None = None,
         inputs_embeds: TensorValue | None = None,
@@ -150,9 +154,16 @@ class ConditionalGenerator(Layer):
                 :, :, cache_position
             ]
 
-        # TODO: Some of these values are hardcoded for now.
-        # full_text_row_masked_out_mask: shape=[1, 1, 14, 1], dtype=torch.bfloat16
-        return self.language_model(  # type: ignore
+        # TODO: Remove this. I had to make it an optional so it respects the order
+        # of arg inputs when unwrapping the graph inputs.
+        if kv_cache_inputs is None:
+            raise Exception(
+                "kv_cache_inputs is None. This should be impossible as it"
+                " should already be instantiated during pipeline construction."
+            )
+
+        return self.language_model(
+            kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
             attention_mask=attention_mask,
             position_ids=position_ids,
