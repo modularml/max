@@ -12,11 +12,12 @@
 # ===----------------------------------------------------------------------=== #
 """Pipeline cli utilities."""
 
-from .generate import generate_text_for_pipeline
+from .generate import generate_text_for_pipeline, stream_text_to_console
 from .serve import serve_pipeline, batch_config_from_pipeline_config
 
 __all__ = [
     "batch_config_from_pipeline_config",
     "serve_pipeline",
     "generate_text_for_pipeline",
+    "stream_text_to_console",
 ]
