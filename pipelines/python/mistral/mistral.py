@@ -59,7 +59,7 @@ class Mistral(TokenGenerator):
             max_cache_batch_size=self._config.max_cache_batch_size,
             max_seq_len=self._config.huggingface_config.max_seq_len,
             num_layers=self._config.huggingface_config.num_hidden_layers,
-            device=self._device,
+            devices=[self._device],
             session=session,
         )
 
