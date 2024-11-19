@@ -18,7 +18,7 @@ torchscript_tutorial2 = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
 python = ">=3.9,<3.13"
-max = "~=24.5"
+max = "24.6.0.dev2024111816"
 pytorch = "==2.4.0"
 transformers = "==4.40.1"
 

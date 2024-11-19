@@ -8,7 +8,7 @@ platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
 python = ">=3.9,<3.13"
-max = "*"
+max = "24.6.0.dev2024111816"
 transformers = ">=4.44.0"
 diffusers = "==0.27.2"
 huggingface_hub = ">=0.24.6,<0.25"

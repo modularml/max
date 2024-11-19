@@ -7,7 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 python = ">=3.9,<3.13"
-max = ">=24.5.0a,<24.6"
+max = "24.6.0.dev2024111816"
 numpy = "<2.0"
 pytorch = ">=2.4.0,<3"
 onnx = "==1.16.0"

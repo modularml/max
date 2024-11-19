@@ -5,7 +5,7 @@ channels = ["conda-forge", "https://conda.modular.com/max-nightly/"]
 platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 
 [dependencies]
-max = "*"
+max = "24.6.0.dev2024111816"
 numpy = "1.25.2"
 
 [pypi-dependencies]
