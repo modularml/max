@@ -91,12 +91,12 @@ def serve_pipeline(
         logger.info(
             f"Starting server using performance fake {performance_fake}."
         )
-        tokenizer = PerformanceFakingPipelineTokenizer(
+        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
             AutoTokenizer.from_pretrained(pipeline_config.huggingface_repo_id)
         )
-        pipeline_factory = functools.partial(
-            get_performance_fake,
-            performance_fake,
+        pipeline_factory = functools.partial(  # type: ignore
+            get_performance_fake,  # type: ignore
+            performance_fake,  # type: ignore
         )
         pipeline_config.cache_strategy = KVCacheStrategy.CONTINUOUS
 
@@ -120,14 +120,14 @@ def serve_pipeline(
         settings,
         debug_settings,
         {
-            model_name: BatchedTokenGeneratorState(
+            model_name: BatchedTokenGeneratorState(  # type: ignore
                 TokenGeneratorPipeline(
                     batch_config,
-                    pipeline_config.huggingface_repo_id,
+                    pipeline_config.huggingface_repo_id,  # type: ignore
                     tokenizer,
                     True,
                 ),
-                pipeline_factory,
+                pipeline_factory,  # type: ignore
             )
         },
     )

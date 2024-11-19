@@ -110,7 +110,7 @@ def generate_text_for_pipeline(
             for _ in range(num_warmups):
                 asyncio.run(
                     stream_text_to_console(
-                        pipeline,
+                        pipeline,  # type: ignore
                         tokenizer,
                         prompt,
                         metrics=None,
@@ -122,7 +122,7 @@ def generate_text_for_pipeline(
         logger.info("Beginning text generation...")
         asyncio.run(
             stream_text_to_console(
-                pipeline,
+                pipeline,  # type: ignore
                 tokenizer,
                 prompt,
                 metrics=metrics,
