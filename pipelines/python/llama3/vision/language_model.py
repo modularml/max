@@ -18,9 +18,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 from max.graph.weights import SafetensorWeights
-from nn import MLP, Embedding, Linear, RMSNorm, RotaryEmbedding
+from max.pipelines.kv_cache import (
+    FetchContinuousBatchingKVCacheCollection,
+    KVCacheParams,
+)
+from nn import MLP, Attention, Embedding, Linear, RMSNorm, TransformerBlock
 from nn.layer import Layer
 
 from .cache import Cache
@@ -29,7 +33,6 @@ from .cross_attention_decoder import (
     CrossSdpaAttention,
 )
 from .hyperparameters import TextHyperparameters
-from .self_attention_decoder import SelfAttentionDecoderLayer
 
 
 @dataclass
@@ -38,9 +41,10 @@ class TextModel(Layer):
     The Llama text model which consists of transformer with self and cross attention layers.
     """
 
+    kv_params: KVCacheParams
     params: TextHyperparameters
     embed_tokens: Embedding
-    layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer]
+    layers: list[CrossAttentionDecoderLayer | TransformerBlock]
     norm: RMSNorm
     # TODO(MAXCORE-119): Finish implementation
     # rotary_emb: RotaryEmbedding
@@ -59,6 +63,9 @@ class TextModel(Layer):
     # return_dict: value=True
     def __call__(
         self,
+        kv_cache_inputs: tuple[
+            TensorValue, TensorValue, TensorValue, TensorValue
+        ],
         input_ids: TensorValue | None = None,
         attention_mask: TensorValue | None = None,
         position_ids: TensorValue | None = None,
@@ -154,6 +161,12 @@ class TextModel(Layer):
             ):
                 continue
 
+            kv_collection_constructor = (
+                FetchContinuousBatchingKVCacheCollection(self.kv_params)
+            )
+            kv_collection = kv_collection_constructor(*kv_cache_inputs)
+
+            _, cache_lengths, _, _ = kv_cache_inputs
             layer_outputs = decoder_layer(
                 hidden_states,
                 cross_attention_states=cross_attention_states,
@@ -164,6 +177,8 @@ class TextModel(Layer):
                 past_key_value=past_key_values,
                 cache_position=cache_position,
                 position_embeddings=position_embeddings,
+                kv_collection=kv_collection,
+                valid_lengths=cache_lengths,
             )
 
             hidden_states = layer_outputs[0]
@@ -186,6 +201,7 @@ class CausalLanguageModel(Layer):
     The Llama Vision Text Model with a language modeling head on top.
     """
 
+    kv_params: KVCacheParams
     params: TextHyperparameters
     model: TextModel
     lm_head: Linear
@@ -207,6 +223,9 @@ class CausalLanguageModel(Layer):
     # num_logits_to_keep: value=1
     def __call__(
         self,
+        kv_cache_inputs: tuple[
+            TensorValue, TensorValue, TensorValue, TensorValue
+        ],
         input_ids: TensorValue | None = None,
         attention_mask: TensorValue | None = None,
         position_ids: TensorValue | None = None,
@@ -221,6 +240,7 @@ class CausalLanguageModel(Layer):
     ) -> tuple:
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model(
+            kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
             cross_attention_states=cross_attention_states,
             attention_mask=attention_mask,
@@ -352,16 +372,96 @@ def cross_attention_decoder_layer(
 
 
 def self_attention_decoder_layer(
-    params: TextHyperparameters, weights: SafetensorWeights, layer_idx: int
-) -> SelfAttentionDecoderLayer:
-    return SelfAttentionDecoderLayer(params=params)
+    kv_params: KVCacheParams,
+    params: TextHyperparameters,
+    weights: SafetensorWeights,
+    layer_idx: int,
+) -> TransformerBlock:
+    num_heads = params.num_attention_heads
+    head_dim = params.hidden_size // num_heads
+
+    q_proj = Linear(
+        weight=weights.self_attn.q_proj.weight.allocate(
+            DType.bfloat16, [num_heads * head_dim, params.hidden_size]
+        ),
+        bias=None,
+    )
+    k_proj = Linear(
+        weight=weights.self_attn.k_proj.weight.allocate(
+            DType.bfloat16,
+            [params.num_key_value_heads * head_dim, params.hidden_size],
+        ),
+        bias=None,
+    )
+    v_proj = Linear(
+        weight=weights.self_attn.v_proj.weight.allocate(
+            DType.bfloat16,
+            [params.num_key_value_heads * head_dim, params.hidden_size],
+        ),
+        bias=None,
+    )
+
+    attention = Attention(
+        n_heads=params.num_attention_heads,
+        kv_params=kv_params,
+        layer_idx=ops.constant(layer_idx, DType.uint32),
+        # Concat q_proj, k_proj, v_proj into wqkv.
+        wqkv=ops.concat(
+            (q_proj.weight, k_proj.weight, v_proj.weight), axis=0
+        ).transpose(0, 1),
+        wo=Linear(
+            weight=weights.self_attn.o_proj.weight.allocate(
+                DType.bfloat16, [params.hidden_size, num_heads * head_dim]
+            ),
+            bias=None,
+        ),
+    )
+    return TransformerBlock(
+        attention=attention,
+        mlp=MLP(
+            gate_proj=Linear(
+                weight=weights.mlp.gate_proj.weight.allocate(
+                    DType.bfloat16,
+                    [params.intermediate_size, params.hidden_size],
+                ),
+                bias=None,
+            ),
+            down_proj=Linear(
+                weight=weights.mlp.down_proj.weight.allocate(
+                    DType.bfloat16,
+                    [params.hidden_size, params.intermediate_size],
+                ),
+                bias=None,
+            ),
+            up_proj=Linear(
+                weight=weights.mlp.up_proj.weight.allocate(
+                    DType.bfloat16,
+                    [params.intermediate_size, params.hidden_size],
+                ),
+                bias=None,
+            ),
+        ),
+        attention_norm=RMSNorm(
+            weight=weights.input_layernorm.weight.allocate(
+                DType.bfloat16, [params.hidden_size]
+            ),
+            eps=params.rms_norm_eps,
+        ),
+        mlp_norm=RMSNorm(
+            weight=weights.post_attention_layernorm.weight.allocate(
+                DType.bfloat16, [params.hidden_size]
+            ),
+            eps=params.rms_norm_eps,
+        ),
+    )
 
 
 def instantiate_language_model(
+    kv_params: KVCacheParams,
     params: TextHyperparameters,
     weights: SafetensorWeights,
 ) -> CausalLanguageModel:
-    layers: list[CrossAttentionDecoderLayer | SelfAttentionDecoderLayer] = []
+    layers: list[CrossAttentionDecoderLayer | TransformerBlock] = []
 
     for layer_idx in range(params.num_hidden_layers):
         curr_layer_weight = weights.language_model.model.layers[layer_idx]
@@ -377,6 +477,7 @@ def instantiate_language_model(
         else:
             layers.append(
                 self_attention_decoder_layer(
+                    kv_params=kv_params,
                     params=params,
                     weights=curr_layer_weight,
                     layer_idx=layer_idx,
@@ -384,6 +485,7 @@ def instantiate_language_model(
             )
 
     text_model = TextModel(
+        kv_params=kv_params,
         params=params,
         embed_tokens=Embedding(
             weights.language_model.model.embed_tokens.weight.allocate(
@@ -405,6 +507,7 @@ def instantiate_language_model(
     )
 
     return CausalLanguageModel(
+        kv_params=kv_params,
         params=params,
         model=text_model,
         lm_head=Linear(

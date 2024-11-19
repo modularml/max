@@ -22,11 +22,10 @@ from .cross_attention_decoder import (
 from .encoder import VisionEncoder, VisionEncoderLayer
 from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import CausalLanguageModel
-from .llama3_vision import Llama3Vision
+from .llama3_vision import Llama3Vision, load_llama3_vision_and_kv_manager
 from .mlp import MLP
 from .positional_embedding import (
     PrecomputedAspectRatioEmbedding,
     PrecomputedPositionEmbedding,
 )
-from .self_attention_decoder import SelfAttentionDecoderLayer
 from .vision_model import VisionModel

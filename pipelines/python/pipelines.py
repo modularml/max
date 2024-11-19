@@ -403,8 +403,9 @@ def run_llama3_vision(
     ]
 
     # TODO: Further implementation here - hook up serving / local CLI workflow.
-    model = llama3_vision.Llama3Vision(
-        config,
+    # Setting session to None for now.
+    model, kv_manager = llama3_vision.load_llama3_vision_and_kv_manager(
+        config=config, session=None
     )
 
 
