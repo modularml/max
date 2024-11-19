@@ -12,13 +12,88 @@
 # ===----------------------------------------------------------------------=== #
 """Utilities for generating text in the cli."""
 
+import uuid
 import asyncio
 import logging
-from max.pipelines import PipelineConfig, PIPELINE_REGISTRY
-from text_streaming import stream_text_to_console
+from typing import Optional
+from max.pipelines import (
+    PipelineConfig,
+    PIPELINE_REGISTRY,
+    TextGenerationPipeline,
+)
+from max.pipelines.interfaces import (
+    TokenGeneratorRequest,
+    PipelineTokenizer,
+)
 from ..metrics import TextGenerationMetrics
 
 logger = logging.getLogger(__name__)
+
+MODEL_NAME = "model"
+
+
+async def stream_text_to_console(
+    pipeline: TextGenerationPipeline,
+    tokenizer: PipelineTokenizer,
+    prompt: str,
+    metrics: Optional[TextGenerationMetrics] = None,
+    print_tokens: bool = True,
+):
+    # Length of request_id_context_dict should be == batch_size.
+    request_id_context = {}
+
+    # create a dict of request_id: contexts
+    decoded_responses = {}
+
+    req_id = str(uuid.uuid4())
+    context = await tokenizer.new_context(
+        TokenGeneratorRequest(req_id, 0, prompt, MODEL_NAME)
+    )
+    decoded_responses[req_id] = [prompt]
+    request_id_context[req_id] = context
+    prompt_size = len(context.tokens)
+
+    if metrics:
+        metrics.prompt_size = prompt_size
+        metrics.signpost("begin_generation")
+
+    if print_tokens:
+        print(prompt, end="", flush=True)
+
+    first_token = True
+    while True:
+        responses = pipeline.next_token(request_id_context)[0]
+        if not responses:
+            break
+
+        for req_id, context in request_id_context.items():
+            if req_id not in responses or context.is_done(tokenizer.eos):
+                del request_id_context[req_id]
+                continue
+
+            encoded_text = responses[req_id]
+            response_text = await tokenizer.decode(context, encoded_text)
+            if metrics:
+                if first_token:
+                    first_token = False
+                    metrics.signpost("first_token")
+                metrics.new_token()
+            if print_tokens:
+                print(response_text, end="", flush=True)
+            else:
+                decoded_responses[req_id].append(response_text)
+
+        if not request_id_context:
+            break
+
+    if metrics:
+        metrics.signpost("end_generation")
+
+    for context in request_id_context.values():
+        pipeline.release(context)
+
+    if print_tokens:
+        print()
 
 
 def generate_text_for_pipeline(
@@ -40,7 +115,6 @@ def generate_text_for_pipeline(
                         prompt,
                         metrics=None,
                         print_tokens=False,
-                        max_batch_size=pipeline_config.max_cache_batch_size,
                     )
                 )
 
@@ -53,6 +127,5 @@ def generate_text_for_pipeline(
                 prompt,
                 metrics=metrics,
                 print_tokens=True,
-                max_batch_size=pipeline_config.max_cache_batch_size,
             )
         )

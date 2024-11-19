@@ -48,7 +48,6 @@ from max.serve.pipelines.performance_fake import (
 )
 from replit.config import get_replit_huggingface_file
 from replit.model import ReplitModel
-from text_streaming import stream_text_to_console
 from transformers import AutoTokenizer
 from uvicorn import Server
 from opentelemetry import trace
@@ -57,7 +56,7 @@ from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag
 from utils.cli import (
     serve_pipeline,
     generate_text_for_pipeline,
-    batch_config_from_pipeline_config,
+    stream_text_to_console,
 )
 
 logger = logging.getLogger(__name__)
@@ -334,7 +333,6 @@ def run_llama3(
                             prompt,
                             metrics=None,
                             print_tokens=False,
-                            max_batch_size=config.max_cache_batch_size,
                         )
                     )
 
@@ -345,7 +343,6 @@ def run_llama3(
                     tokenizer,
                     prompt,
                     metrics=metrics,
-                    max_batch_size=config.max_cache_batch_size,
                 )
             )
 
@@ -576,7 +573,6 @@ def run_mistral(
                     tokenizer,
                     prompt,
                     metrics=metrics,
-                    max_batch_size=config.max_cache_batch_size,
                 )
             )
 
