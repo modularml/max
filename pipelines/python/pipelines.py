@@ -188,7 +188,8 @@ class ModelGroup(click.Group):
             return rv
         supported = ", ".join(self.list_commands(ctx))
         ctx.fail(
-            f"Model not supported: {cmd_name}\nSupported models: {supported}"
+            f"Command not supported: {cmd_name}\nSupported commands:"
+            f" {supported}"
         )
 
 
@@ -589,187 +590,6 @@ def run_mistral(
             )
 
 
-async def serve_replit_text_generation_pipeline(
-    config: PipelineConfig,
-    performance_fake,
-    profile: bool = False,
-):
-    """Hosts the Replit pipeline using max.serve."""
-    if performance_fake == "none":
-        print("Starting server using Replit.")
-        tokenizer = TextTokenizer(config)
-        assert tokenizer.delegate
-        model_factory = functools.partial(
-            TextGenerationPipeline,
-            pipeline_config=config,
-            pipeline_model=ReplitModel,
-            eos_token_id=tokenizer.eos,
-        )
-
-        kv_cache_strategy = config.cache_strategy
-    else:
-        print(f"Starting server using performance fake '{performance_fake}'.")
-        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
-            AutoTokenizer.from_pretrained(config.huggingface_repo_id)
-        )
-        model_factory = functools.partial(  # type: ignore
-            get_performance_fake,  # type: ignore
-            performance_fake,
-        )
-        kv_cache_strategy = KVCacheStrategy.CONTINUOUS
-
-    settings = Settings(api_types=[APIType.OPENAI])
-    debug_settings = DebugSettings(profiling_enabled=profile)
-
-    batch_size = config.max_cache_batch_size
-    batch_config = pipeline_config(
-        kv_cache_strategy, batch_size, max_forward_steps=config.max_num_steps
-    )
-    print(
-        f"Server configured with {kv_cache_strategy} caching with batch size"
-        f" {batch_size}."
-    )
-
-    # limit the number of inflight requests to just a few more than the number
-    # of active slots on the GPU
-    request_limit = batch_size + 128
-    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
-
-    # This is fixed for benchmarking purposes.
-    # The model name provided in the pipelines dictionary, has no bearing on the actual model served.
-    # It is what the model name must be when making server requests from the client.
-    model_name = "replit/replit-code-v1_5-3b"
-    app = fastapi_app(
-        settings,
-        debug_settings,
-        {
-            model_name: BatchedTokenGeneratorState(
-                TokenGeneratorPipeline(
-                    batch_config, config.huggingface_repo_id, tokenizer, False  # type: ignore
-                ),
-                model_factory,
-            )
-        },
-    )
-
-    server = Server(fastapi_config(app=app))
-    await server.serve()
-
-
-@main.command(name="replit")
-@config_to_flag(PipelineConfig)
-@click.option(
-    "--prompt",
-    type=str,
-    default='def hello():\n  print("hello world")\n',
-    help="The text prompt to use for further generation.",
-)
-@click.option(
-    "--serve",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
-)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
-)
-@click.option(
-    "--performance-fake",
-    type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
-    default="none",
-    help="Fake the engine performance (for benchmarking)",
-)
-@click.option(
-    "--profile-serve",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to enable pyinstrument profiling on the serving endpoint.",
-)
-@click.option(
-    "--server-batch-mode",
-    type=click.Choice(["dynamic", "continuous"]),
-    default="dynamic",
-    help="Configures the servers batching scheme",
-)
-def run_replit(
-    prompt,
-    serve,
-    use_gpu,
-    performance_fake,
-    profile_serve,
-    server_batch_mode,
-    **config_kwargs,
-):
-    """Runs the Replit pipeline."""
-    if use_gpu:
-        config_kwargs.update(
-            {
-                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": SupportedEncoding.bfloat16,
-            }
-        )
-    else:
-        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
-
-    if config_kwargs["huggingface_repo_id"] is None:
-        config_kwargs["huggingface_repo_id"] = "modularai/replit-code-1.5"
-
-    if config_kwargs["architecture"] is None:
-        config_kwargs["architecture"] = "MPTForCausalLM"
-
-    # For replit, trust_remote_code must be set to True.
-    config_kwargs["trust_remote_code"] = True
-
-    config = PipelineConfig(**config_kwargs)
-
-    # Validate encoding.
-    if config.quantization_encoding is None:
-        config.quantization_encoding = SupportedEncoding.float32
-
-    if config.quantization_encoding not in [
-        SupportedEncoding.bfloat16,
-        SupportedEncoding.float32,
-    ]:
-        config.cache_strategy = KVCacheStrategy.NAIVE
-
-    if config.weight_path is None:
-        hf_file = get_replit_huggingface_file(config.quantization_encoding)
-        config.weight_path = hf_file.download()
-
-    if serve:
-        logger.info("Starting server...")
-        asyncio.run(
-            serve_replit_text_generation_pipeline(
-                config,
-                performance_fake,
-            )
-        )
-    else:
-        with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer, pipeline = PIPELINE_REGISTRY.retrieve(config)
-            logger.info("Beginning text generation...")
-            asyncio.run(
-                stream_text_to_console(
-                    pipeline,
-                    tokenizer,
-                    prompt,
-                    metrics=metrics,
-                    max_batch_size=config.max_cache_batch_size,
-                )
-            )
-
-
 def batch_config_from_pipeline_config(
     pipeline_config: PipelineConfig, batch_timeout: float = 0.0
 ) -> TokenGeneratorPipelineConfig:
@@ -869,59 +689,73 @@ async def serve_pipeline(
     await server.serve()
 
 
+def common_server_options(func):
+    @config_to_flag(PipelineConfig)
+    @click.option(
+        "--use-gpu",
+        is_flag=False,
+        type=DevicesOptionType(),
+        show_default=True,
+        default="",
+        flag_value="0",
+        help=(
+            "Whether to run the model on the available GPU. An ID value can be"
+            " provided optionally to indicate the device ID to target."
+        ),
+    )
+    @click.option(
+        "--profile-serve",
+        is_flag=True,
+        show_default=True,
+        default=False,
+        help=(
+            "Whether to enable pyinstrument profiling on the serving endpoint."
+        ),
+    )
+    @click.option(
+        "--performance-fake",
+        type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
+        default="none",
+        help="Fake the engine performance (for benchmarking)",
+    )
+    @click.option(
+        "--batch-timeout",
+        type=float,
+        default=0.0,
+        help="Custom timeout for any particular batch.",
+    )
+    @click.option(
+        "--model-name",
+        type=str,
+        help="Optional explicit name for serving the model.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if kwargs["use_gpu"]:
+            kwargs["device_spec"] = DeviceSpec.cuda(id=kwargs["use_gpu"][0])
+            # If the user is passing in a specific, quantization_encoding don't overwrite it.
+            # If it is empty, set it to default to bfloat16 on gpu.
+            if kwargs["quantization_encoding"] is None:
+                kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
+        else:
+            kwargs["device_spec"] = DeviceSpec.cpu()
+
+        del kwargs["use_gpu"]
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @main.command(name="serve")
-@config_to_flag(PipelineConfig)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
-)
-@click.option(
-    "--profile-serve",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to enable pyinstrument profiling on the serving endpoint.",
-)
-@click.option(
-    "--performance-fake",
-    type=click.Choice(["none", "no-op", "speed-of-light", "vllm"]),
-    default="none",
-    help="Fake the engine performance (for benchmarking)",
-)
-@click.option(
-    "--batch-timeout",
-    type=float,
-    default=0.0,
-    help="Custom timeout for any particular batch.",
-)
-@click.option(
-    "--model-name",
-    type=str,
-    help="Optional explicit name for serving the model.",
-)
-def start_pipeline_server(
-    use_gpu,
+@common_server_options
+def cli_serve(
     profile_serve,
     performance_fake,
     batch_timeout,
     model_name,
     **config_kwargs,
 ):
-    # Update config_kwargs for use_gpu.
-    if use_gpu:
-        config_kwargs["device_spec"] = DeviceSpec.cuda(id=use_gpu[0])
-        config_kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
-    else:
-        config_kwargs["device_spec"] = DeviceSpec.cpu()
-
     # Initialize config, and serve.
     pipeline_config = PipelineConfig(**config_kwargs)
     asyncio.run(
@@ -933,6 +767,96 @@ def start_pipeline_server(
             model_name=model_name,
         )
     )
+
+
+@main.command(name="replit")
+@common_server_options
+@click.option(
+    "--serve",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Whether to generate or serve model.",
+)
+@click.option(
+    "--prompt",
+    type=str,
+    default="I believe the meaning of life is",
+    help="The text prompt to use for further generation.",
+)
+@click.option(
+    "--num-warmups",
+    type=int,
+    default=0,
+    show_default=True,
+    help="# of warmup iterations to run before the final timed run.",
+)
+def replit(
+    profile_serve,
+    performance_fake,
+    batch_timeout,
+    model_name,
+    serve,
+    prompt,
+    num_warmups,
+    **config_kwargs,
+):
+    if config_kwargs["architecture"] is None:
+        config_kwargs["architecture"] = "MPTForCausalLM"
+
+    if config_kwargs["architecture"] != "MPTForCausalLM":
+        msg = (
+            f"provided architecture '{config_kwargs['architecture']}' not"
+            " compatible with Replit."
+        )
+        raise ValueError(msg)
+
+    config_kwargs["trust_remote_code"] = True
+
+    # Initialize config, and serve.
+    pipeline_config = PipelineConfig(**config_kwargs)
+
+    if serve:
+        asyncio.run(
+            serve_pipeline(
+                pipeline_config=pipeline_config,
+                profile=profile_serve,
+                performance_fake=performance_fake,
+                batch_timeout=batch_timeout,
+                model_name=model_name,
+            )
+        )
+    else:
+        # Load tokenizer & pipeline.
+        tokenizer, pipeline = PIPELINE_REGISTRY.retrieve(pipeline_config)
+
+        # Run timed run & print results.
+        with TextGenerationMetrics(print_report=True) as metrics:
+            if num_warmups > 0:
+                logger.info("Running warmup...")
+                for _ in range(num_warmups):
+                    asyncio.run(
+                        stream_text_to_console(
+                            pipeline,
+                            tokenizer,
+                            prompt,
+                            metrics=None,
+                            print_tokens=False,
+                            max_batch_size=pipeline_config.max_cache_batch_size,
+                        )
+                    )
+
+            logger.info("Beginning text generation...")
+            asyncio.run(
+                stream_text_to_console(
+                    pipeline,
+                    tokenizer,
+                    prompt,
+                    metrics=metrics,
+                    print_tokens=True,
+                    max_batch_size=pipeline_config.max_cache_batch_size,
+                )
+            )
 
 
 @main.command(name="generate")
