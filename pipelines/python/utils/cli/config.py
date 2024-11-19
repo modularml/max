@@ -10,14 +10,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""Converts a Config dataclass to a set of Click flags."""
+"""Utilities for working with Config objects in Click."""
 
+import functools
 import inspect
 from dataclasses import MISSING, fields
 from enum import Enum
 from typing import Union, get_args, get_origin
 
 import click
+
+from max.driver import DeviceSpec
+from max.pipelines import PipelineConfig, SupportedEncoding
+from ..custom_options import DevicesOptionType
 
 
 def config_to_flag(cls):
@@ -57,3 +62,35 @@ def config_to_flag(cls):
         return func
 
     return apply_flags
+
+
+def pipeline_config_options(func):
+    @config_to_flag(PipelineConfig)
+    @click.option(
+        "--use-gpu",
+        is_flag=False,
+        type=DevicesOptionType(),
+        show_default=False,
+        default="",
+        flag_value="0",
+        help=(
+            "Whether to run the model on the available GPU. An ID value can be"
+            " provided optionally to indicate the device ID to target."
+        ),
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if kwargs["use_gpu"]:
+            kwargs["device_spec"] = DeviceSpec.cuda(id=kwargs["use_gpu"][0])
+            # If the user is passing in a specific, quantization_encoding don't overwrite it.
+            # If it is empty, set it to default to bfloat16 on gpu.
+            if kwargs["quantization_encoding"] is None:
+                kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
+        else:
+            kwargs["device_spec"] = DeviceSpec.cpu()
+
+        del kwargs["use_gpu"]
+
+        return func(*args, **kwargs)
+
+    return wrapper
