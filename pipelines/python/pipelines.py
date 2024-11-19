@@ -51,12 +51,14 @@ from transformers import AutoTokenizer
 from uvicorn import Server
 from opentelemetry import trace
 
-from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag
+from utils import DevicesOptionType, TextGenerationMetrics
 from utils.cli import (
     batch_config_from_pipeline_config,
     serve_pipeline,
     generate_text_for_pipeline,
     stream_text_to_console,
+    pipeline_config_options,
+    config_to_flag,
 )
 
 logger = logging.getLogger(__name__)
@@ -162,7 +164,7 @@ def main():
 
 
 @main.command(name="llama3")
-@config_to_flag(PipelineConfig)
+@pipeline_config_options
 @click.option(
     "--prompt",
     type=str,
@@ -182,18 +184,6 @@ def main():
     show_default=True,
     default=False,
     help="Whether to enable pyinstrument profiling on the serving endpoint.",
-)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
 )
 @click.option(
     "--num-warmups",
@@ -219,22 +209,12 @@ def run_llama3(
     prompt,
     serve,
     profile_serve,
-    use_gpu,
     num_warmups,
     performance_fake,
     disable_prefer_ce_over_tg,
     **config_kwargs,
 ):
     """Runs the Llama3 pipeline."""
-    if use_gpu:
-        config_kwargs.update(
-            {
-                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": SupportedEncoding.bfloat16,
-            }
-        )
-    else:
-        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
     if config_kwargs["architecture"] is None:
         config_kwargs["architecture"] = "LlamaForCausalLM"
@@ -433,7 +413,7 @@ async def serve_token_generator_mistral(
 
 
 @main.command(name="mistral")
-@config_to_flag(PipelineConfig)
+@pipeline_config_options
 @click.option(
     "--prompt",
     type=str,
@@ -446,18 +426,6 @@ async def serve_token_generator_mistral(
     show_default=True,
     default=False,
     help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
-)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
 )
 @click.option(
     "--performance-fake",
@@ -481,23 +449,12 @@ async def serve_token_generator_mistral(
 def run_mistral(
     prompt,
     serve,
-    use_gpu,
     performance_fake,
     profile_serve,
     server_batch_mode,
     **config_kwargs,
 ):
     """Runs the Mistral pipeline."""
-    if use_gpu:
-        config_kwargs.update(
-            {
-                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": SupportedEncoding.bfloat16,
-            }
-        )
-    else:
-        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
-
     if config_kwargs["huggingface_repo_id"] is None:
         config_kwargs[
             "huggingface_repo_id"
@@ -549,19 +506,6 @@ def run_mistral(
 
 
 def common_server_options(func):
-    @config_to_flag(PipelineConfig)
-    @click.option(
-        "--use-gpu",
-        is_flag=False,
-        type=DevicesOptionType(),
-        show_default=True,
-        default="",
-        flag_value="0",
-        help=(
-            "Whether to run the model on the available GPU. An ID value can be"
-            " provided optionally to indicate the device ID to target."
-        ),
-    )
     @click.option(
         "--profile-serve",
         is_flag=True,
@@ -590,23 +534,13 @@ def common_server_options(func):
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if kwargs["use_gpu"]:
-            kwargs["device_spec"] = DeviceSpec.cuda(id=kwargs["use_gpu"][0])
-            # If the user is passing in a specific, quantization_encoding don't overwrite it.
-            # If it is empty, set it to default to bfloat16 on gpu.
-            if kwargs["quantization_encoding"] is None:
-                kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
-        else:
-            kwargs["device_spec"] = DeviceSpec.cpu()
-
-        del kwargs["use_gpu"]
-
         return func(*args, **kwargs)
 
     return wrapper
 
 
 @main.command(name="serve")
+@pipeline_config_options
 @common_server_options
 def cli_serve(
     profile_serve,
@@ -627,19 +561,7 @@ def cli_serve(
 
 
 @main.command(name="generate")
-@config_to_flag(PipelineConfig)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
-)
+@pipeline_config_options
 @click.option(
     "--prompt",
     type=str,
@@ -653,14 +575,7 @@ def cli_serve(
     show_default=True,
     help="# of warmup iterations to run before the final timed run.",
 )
-def run_pipeline(use_gpu, prompt, num_warmups, **config_kwargs):
-    # Update config_kwargs for use_gpu.
-    if use_gpu:
-        config_kwargs["device_spec"] = DeviceSpec.cuda(id=use_gpu[0])
-        config_kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
-    else:
-        config_kwargs["device_spec"] = DeviceSpec.cpu()
-
+def run_pipeline(prompt, num_warmups, **config_kwargs):
     # Load tokenizer & pipeline.
     pipeline_config = PipelineConfig(**config_kwargs)
     generate_text_for_pipeline(
@@ -669,6 +584,7 @@ def run_pipeline(use_gpu, prompt, num_warmups, **config_kwargs):
 
 
 @main.command(name="replit")
+@pipeline_config_options
 @common_server_options
 @click.option(
     "--serve",
