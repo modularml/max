@@ -140,20 +140,9 @@ class VisionModel(Layer):
         ).cast(dtype)
         attention_mask = ops.tile(attention_mask, (1, 1, target_length, 1))
 
-        # TODO: Reenable code snippet below. The attention mask shape generated
-        # should be (1, 1, 4128, 4128).
-        return ops.constant(0, DType.bfloat16).broadcast_to(
-            (
-                batch_size,
-                1,
-                max_num_tiles * target_length,
-                max_num_tiles * target_length,
-            )
-        )
-
         # Mask padding patches
         pad_patches = target_length - num_patches
-        attention_mask[:, :, -pad_patches:] = 0
+        attention_mask[:, :, 0 - pad_patches :] = 0
 
         # Invert the mask (0 -> 1, 1 -> 0)
         attention_mask = 1 - attention_mask
