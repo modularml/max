@@ -21,7 +21,6 @@ import llama3
 from llama3.model import Llama3Model
 import llama3.vision as llama3_vision
 import mistral
-from typing import Union
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
 from max.driver import DeviceSpec

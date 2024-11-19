@@ -85,7 +85,6 @@ class ConditionalGenerator(Layer):
             TensorValue, TensorValue, TensorValue, TensorValue
         ]
         | None = None,
-        past_key_values: list[TensorValue] | None = None,
         input_ids: TensorValue | None = None,
         inputs_embeds: TensorValue | None = None,
         cache_position: TensorValue | None = None,
@@ -156,11 +155,10 @@ class ConditionalGenerator(Layer):
 
         # TODO: Remove this. I had to make it an optional so it respects the order
         # of arg inputs when unwrapping the graph inputs.
-        if kv_cache_inputs is None:
-            raise Exception(
-                "kv_cache_inputs is None. This should be impossible as it"
-                " should already be instantiated during pipeline construction."
-            )
+        assert kv_cache_inputs is not None, (
+            "kv_cache_inputs is None. This should be impossible as it should"
+            " already be instantiated during pipeline construction."
+        )
 
         return self.language_model(
             kv_cache_inputs=kv_cache_inputs,
