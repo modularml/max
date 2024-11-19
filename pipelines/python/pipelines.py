@@ -54,6 +54,7 @@ from opentelemetry import trace
 
 from utils import DevicesOptionType, TextGenerationMetrics, config_to_flag
 from utils.cli import (
+    batch_config_from_pipeline_config,
     serve_pipeline,
     generate_text_for_pipeline,
     stream_text_to_console,
@@ -66,31 +67,6 @@ try:
     rich.traceback.install()
 except ImportError:
     pass
-
-
-def pipeline_config(
-    kv_cache_strategy,
-    batch_size: int,  # Also KV-cache size.
-    batch_timeout=0.0,
-    max_forward_steps: int = 1,
-) -> TokenGeneratorPipelineConfig:
-    if kv_cache_strategy == KVCacheStrategy.CONTINUOUS:
-        return TokenGeneratorPipelineConfig.continuous_heterogenous(
-            tg_batch_size=batch_size,
-            ce_batch_size=batch_size,
-            ce_batch_timeout=batch_timeout,
-            max_forward_steps=max_forward_steps,
-        )
-    elif kv_cache_strategy == KVCacheStrategy.NAIVE:
-        return TokenGeneratorPipelineConfig.dynamic_homogenous(
-            batch_size=batch_size,
-            batch_timeout=batch_timeout,
-            max_forward_steps=max_forward_steps,
-        )
-    else:
-        raise ValueError(
-            f"{kv_cache_strategy} caching strategy is not supported by Serving."
-        )
 
 
 async def serve_token_generator(
@@ -129,9 +105,7 @@ async def serve_token_generator(
     debug_settings = DebugSettings(profiling_enabled=profile)
 
     batch_size = config.max_cache_batch_size
-    batch_config = pipeline_config(
-        kv_cache_strategy, batch_size, max_forward_steps=config.max_num_steps
-    )
+    batch_config = batch_config_from_pipeline_config(pipeline_config=config)
     logger.info(
         "Server configured with %s caching with batch size %s",
         kv_cache_strategy,
@@ -430,9 +404,7 @@ async def serve_token_generator_mistral(
     debug_settings = DebugSettings(profiling_enabled=profile)
 
     batch_size = config.max_cache_batch_size
-    batch_config = pipeline_config(
-        kv_cache_strategy, batch_size, max_forward_steps=config.max_num_steps
-    )
+    batch_config = batch_config_from_pipeline_config(pipeline_config=config)
     print(
         f"Server configured with {kv_cache_strategy} caching with batch size"
         f" {batch_size}."
@@ -655,67 +627,6 @@ def cli_serve(
     )
 
 
-@main.command(name="replit")
-@common_server_options
-@click.option(
-    "--serve",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Whether to generate or serve model.",
-)
-@click.option(
-    "--prompt",
-    type=str,
-    default="I believe the meaning of life is",
-    help="The text prompt to use for further generation.",
-)
-@click.option(
-    "--num-warmups",
-    type=int,
-    default=0,
-    show_default=True,
-    help="# of warmup iterations to run before the final timed run.",
-)
-def replit(
-    profile_serve,
-    performance_fake,
-    batch_timeout,
-    model_name,
-    serve,
-    prompt,
-    num_warmups,
-    **config_kwargs,
-):
-    if config_kwargs["architecture"] is None:
-        config_kwargs["architecture"] = "MPTForCausalLM"
-
-    if config_kwargs["architecture"] != "MPTForCausalLM":
-        msg = (
-            f"provided architecture '{config_kwargs['architecture']}' not"
-            " compatible with Replit."
-        )
-        raise ValueError(msg)
-
-    config_kwargs["trust_remote_code"] = True
-
-    # Initialize config, and serve.
-    pipeline_config = PipelineConfig(**config_kwargs)
-
-    if serve:
-        serve_pipeline(
-            pipeline_config=pipeline_config,
-            profile=profile_serve,
-            performance_fake=performance_fake,
-            batch_timeout=batch_timeout,
-            model_name=model_name,
-        )
-    else:
-        generate_text_for_pipeline(
-            pipeline_config, prompt=prompt, num_warmups=num_warmups
-        )
-
-
 @main.command(name="generate")
 @config_to_flag(PipelineConfig)
 @click.option(
@@ -756,6 +667,67 @@ def run_pipeline(use_gpu, prompt, num_warmups, **config_kwargs):
     generate_text_for_pipeline(
         pipeline_config, prompt=prompt, num_warmups=num_warmups
     )
+
+
+@main.command(name="replit")
+@common_server_options
+@click.option(
+    "--serve",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Should the pipeline be served.",
+)
+@click.option(
+    "--prompt",
+    type=str,
+    default="I believe the meaning of life is",
+    help="The text prompt to use for further generation.",
+)
+@click.option(
+    "--num-warmups",
+    type=int,
+    default=0,
+    show_default=True,
+    help="# of warmup iterations to run before the final timed run.",
+)
+def replit(
+    profile_serve,
+    performance_fake,
+    batch_timeout,
+    model_name,
+    serve,
+    prompt,
+    num_warmups,
+    **config_kwargs,
+):
+    # Update basic parameters.
+    if config_kwargs["architecture"] is None:
+        config_kwargs["architecture"] = "MPTForCausalLM"
+
+    if config_kwargs["architecture"] != "MPTForCausalLM":
+        msg = (
+            f"provided architecture '{config_kwargs['architecture']}' not"
+            " compatible with Replit."
+        )
+        raise ValueError(msg)
+
+    config_kwargs["trust_remote_code"] = True
+
+    # Initialize config, and serve.
+    pipeline_config = PipelineConfig(**config_kwargs)
+    if serve:
+        serve_pipeline(
+            pipeline_config=pipeline_config,
+            profile=profile_serve,
+            performance_fake=performance_fake,
+            batch_timeout=batch_timeout,
+            model_name=model_name,
+        )
+    else:
+        generate_text_for_pipeline(
+            pipeline_config, prompt=prompt, num_warmups=num_warmups
+        )
 
 
 if __name__ == "__main__":
