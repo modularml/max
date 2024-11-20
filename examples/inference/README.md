@@ -13,7 +13,6 @@ and [with the C API](./bert-c-torchscript/)
 
 ## ONNX
 
-- [Mistral 7B with the Python API](./mistral7b-python-onnx/)
 - Stable Diffusion, [with the Mojo API](./stable-diffusion-mojo-onnx/) and
 [with the Python API](./stable-diffusion-python-onnx/)
 - [YOLOv8 with the Python API](./yolo-python-onnx/)
