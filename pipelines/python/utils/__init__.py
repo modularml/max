@@ -12,6 +12,4 @@
 # ===----------------------------------------------------------------------=== #
 """Pipeline utilities."""
 
-from .custom_options import DevicesOptionType
 from .hf_tokenizer import tokenizer_from_gguf
-from .metrics import TextGenerationMetrics

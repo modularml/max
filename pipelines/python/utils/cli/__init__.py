@@ -12,11 +12,15 @@
 # ===----------------------------------------------------------------------=== #
 """Pipeline cli utilities."""
 
+from .device_options import DevicesOptionType
 from .config import pipeline_config_options, config_to_flag
 from .generate import generate_text_for_pipeline, stream_text_to_console
+from .metrics import TextGenerationMetrics
 from .serve import serve_pipeline, batch_config_from_pipeline_config
 
 __all__ = [
+    "DevicesOptionType",
+    "TextGenerationMetrics",
     "config_to_flag",
     "pipeline_config_options",
     "batch_config_from_pipeline_config",
