@@ -101,8 +101,7 @@ def serve_pipeline(
         pipeline_config.cache_strategy = KVCacheStrategy.CONTINUOUS
 
     # Initialize settings, and TokenGeneratorPipelineConfig.
-    request_limit = pipeline_config.max_cache_batch_size + 128
-    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
+    settings = Settings(api_types=[APIType.OPENAI])
     debug_settings = DebugSettings(profiling_enabled=profile)
 
     # Load batch config.
