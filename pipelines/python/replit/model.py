@@ -12,20 +12,19 @@
 # ===----------------------------------------------------------------------=== #
 
 import logging
+
 import numpy as np
-from dataprocessing import (
-    causal_attention_mask_with_alibi,
-    collate_batch,
-)
-from max.pipelines import PipelineModel, TextContext, PipelineConfig
+from dataprocessing import causal_attention_mask_with_alibi, collate_batch
+from max.driver import Tensor
+from max.engine import InferenceSession, Model
+from max.graph.weights import GGUFWeights
+from max.pipelines import PipelineConfig, PipelineModel, TextContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     load_kv_manager,
 )
-from max.driver import Tensor
-from max.engine import InferenceSession, Model
-from max.graph.weights import GGUFWeights
+
 from .graph import _build_graph
 
 
@@ -160,7 +159,13 @@ class ReplitModel(PipelineModel):
                 kv_manager=self.kv_manager,
             )
             logging.info("Compiling...")
-            return session.load(
+            model = session.load(
                 graph,
                 weights_registry=self._weights.allocated_weights,  # type: ignore
             )
+            if (
+                export_path := self.pipeline_config.save_to_serialized_model_path
+            ):
+                logging.info("Exporting serialized model to %s", export_path)
+                model._export_mef(export_path)
+            return model
