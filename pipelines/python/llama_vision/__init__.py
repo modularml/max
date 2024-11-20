@@ -10,22 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""Llama 3.2 vision layer modules."""
 
-from .attention import Attention
-from .conditional_generator import ConditionalGenerator
-from .config import InferenceConfig, SupportedEncodings, SupportedVersions
-from .cross_attention_decoder import (
-    CrossAttentionDecoderLayer,
-    CrossSdpaAttention,
-)
-from .encoder import VisionEncoder, VisionEncoderLayer
-from .hyperparameters import TextHyperparameters, VisionHyperparameters
+from max.pipelines import PIPELINE_REGISTRY
+from .llama_vision import LlamaVision
 from .language_model import CausalLanguageModel
-from .llama3_vision import Llama3Vision, load_llama3_vision_and_kv_manager
-from .mlp import MLP
-from .positional_embedding import (
-    PrecomputedAspectRatioEmbedding,
-    PrecomputedPositionEmbedding,
-)
-from .vision_model import VisionModel
+
+__all__ = ["LlamaVision"]
+__all__ = ["CausalLanguageModel"]

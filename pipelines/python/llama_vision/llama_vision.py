@@ -38,7 +38,7 @@ from .vision_model import instantiate_vision_model
 # TODO: These are configured for text only model. What about vision model?
 def load_llama3_vision_and_kv_manager(
     config: InferenceConfig, session: InferenceSession | None = None
-) -> tuple[Llama3Vision, KVCacheManager]:
+) -> tuple[LlamaVision, KVCacheManager]:
     _, text_params = _read_hyperparameters(config)
     # Initialize kv cache params and manager
     kv_params = KVCacheParams(
@@ -66,7 +66,7 @@ def load_llama3_vision_and_kv_manager(
         devices=[curr_device],
         session=session,
     )
-    model = Llama3Vision(
+    model = LlamaVision(
         config=config,
         kv_manager=kv_manager,
         session=session,
@@ -76,7 +76,7 @@ def load_llama3_vision_and_kv_manager(
 
 
 # TODO: Some parts may be consolidated under the parent Llama 3 pipeline interface.
-class Llama3Vision:
+class LlamaVision:
     """The Llama3.2 vision model."""
 
     def __init__(
