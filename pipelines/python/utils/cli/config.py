@@ -14,14 +14,15 @@
 
 import functools
 import inspect
+import os
 from dataclasses import MISSING, fields
 from enum import Enum
 from typing import Union, get_args, get_origin
 
 import click
-
 from max.driver import DeviceSpec
 from max.pipelines import PipelineConfig, SupportedEncoding
+
 from .device_options import DevicesOptionType
 
 
@@ -43,8 +44,11 @@ def config_to_flag(cls):
             )
 
         # For enum fields, convert to a choice that shows all possible values.
-        if inspect.isclass(field_type) and issubclass(field_type, Enum):
-            field_type = click.Choice(field_type)
+        if inspect.isclass(field_type):
+            if issubclass(field_type, Enum):
+                field_type = click.Choice(field_type)
+            elif issubclass(field_type, os.PathLike):
+                field_type = click.Path(field_type)
 
         options.append(
             click.option(
