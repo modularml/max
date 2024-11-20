@@ -25,6 +25,7 @@ from max.pipelines.kv_cache import (
 )
 from max.driver import Tensor
 from max.engine import InferenceSession, Model
+from max.graph.weights import GGUFWeights
 from .graph import _build_graph
 
 
@@ -33,7 +34,8 @@ class ReplitModel(PipelineModel):
         return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]  # type: ignore
 
     def prepare_initial_token_inputs(
-        self, context_batch: list[TextContext]  # type: ignore
+        self,
+        context_batch: list[TextContext],  # type: ignore
     ) -> tuple[Tensor, ...]:
         # Get tokens and seq_ids.
         tokens = [ctx.next_tokens for ctx in context_batch]
@@ -129,7 +131,12 @@ class ReplitModel(PipelineModel):
         session: InferenceSession,
     ) -> Model:
         # Read in weights.
-        self._weights = self.pipeline_config.load_weights()
+        weights = self.pipeline_config.load_weights()
+        if not isinstance(weights, GGUFWeights):
+            msg = "only gguf weights supported in Replit."
+            raise ValueError(msg)
+
+        self._weights = weights
 
         if serialized_path := self.pipeline_config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized path.
@@ -140,7 +147,8 @@ class ReplitModel(PipelineModel):
             logging.info("Loading serialized model from ", serialized_path)
 
             return session.load(
-                serialized_path, weights_registry=weights_registry  # type: ignore
+                serialized_path,
+                weights_registry=weights_registry,  # type: ignore
             )
 
         else:
@@ -153,5 +161,6 @@ class ReplitModel(PipelineModel):
             )
             logging.info("Compiling...")
             return session.load(
-                graph, weights_registry=self._weights.allocated_weights  # type: ignore
+                graph,
+                weights_registry=self._weights.allocated_weights,  # type: ignore
             )
