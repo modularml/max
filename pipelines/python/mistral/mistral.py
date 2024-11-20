@@ -26,6 +26,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
 from max.pipelines import PipelineConfig, TokenGenerator, TextContext
+from max.pipelines.response import TextResponse
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
 from max.pipelines.sampling import token_sampler
 from transformers import AutoTokenizer
@@ -159,7 +160,7 @@ class Mistral(TokenGenerator):
     ) -> list[dict[str, Any]]:
         return [self.step(batch) for _ in range(num_steps)]
 
-    def step(self, batch: dict[str, TextContext]) -> dict[str, str]:
+    def step(self, batch: dict[str, TextContext]) -> dict[str, TextResponse]:
         res = {}
         logits = self._execute(batch)
 
@@ -183,7 +184,7 @@ class Mistral(TokenGenerator):
 
             # Mark completed requests by not including them in the response.
             if not context.is_done(self._tokenizer.eos_token_id):
-                res[request_id] = next_token
+                res[request_id] = TextResponse(next_token=next_token)
 
         return res
 

@@ -71,7 +71,7 @@ async def stream_text_to_console(
                 del request_id_context[req_id]
                 continue
 
-            encoded_text = responses[req_id]
+            encoded_text = responses[req_id].next_token
             response_text = await tokenizer.decode(context, encoded_text)
             if metrics:
                 if first_token:
