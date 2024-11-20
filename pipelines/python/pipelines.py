@@ -19,7 +19,7 @@ import os
 import click
 import llama3
 from llama3.model import Llama3Model
-import llama3.vision as llama3_vision
+import llama_vision
 import mistral
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
@@ -301,7 +301,7 @@ def run_llama3(
 # TODO: We run this llama 3 vision model variant as a separate command for now.
 # I think there is room to consolidate it under the "llama3" above.
 @main.command(name="llama3-vision")
-@config_to_flag(llama3_vision.config.InferenceConfig)
+@config_to_flag(llama_vision.config.InferenceConfig)
 @click.option(
     "--use-gpu",
     is_flag=False,
@@ -314,7 +314,7 @@ def run_llama3(
         " provided optionally to indicate the device ID to target."
     ),
 )
-def run_llama3_vision(
+def run_llama_vision(
     use_gpu,
     **config_kwargs,
 ):
@@ -323,13 +323,13 @@ def run_llama3_vision(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": llama3.SupportedEncodings.bfloat16,
+                "quantization_encoding": llama_vision.config.SupportedEncodings.bfloat16,
             }
         )
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
-    config = llama3_vision.config.InferenceConfig(**config_kwargs)
+    config = llama_vision.config.InferenceConfig(**config_kwargs)
     weight_filenames = [
         "model-00001-of-00005.safetensors",
         "model-00002-of-00005.safetensors",
@@ -344,7 +344,7 @@ def run_llama3_vision(
 
     # TODO: Further implementation here - hook up serving / local CLI workflow.
     # Setting session to None for now.
-    model, kv_manager = llama3_vision.load_llama3_vision_and_kv_manager(
+    model, kv_manager = llama_vision.load_llama_vision_and_kv_manager(
         config=config, session=None
     )
 
