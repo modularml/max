@@ -99,11 +99,11 @@ async def stream_text_to_console(
 def generate_text_for_pipeline(
     pipeline_config: PipelineConfig, prompt: str, num_warmups: int = 0
 ):
-    # Load tokenizer and Pipeline.
-    tokenizer, pipeline = PIPELINE_REGISTRY.retrieve(pipeline_config)
-
     # Run timed run & print results.
     with TextGenerationMetrics(print_report=True) as metrics:
+        # Load tokenizer and Pipeline.
+        tokenizer, pipeline = PIPELINE_REGISTRY.retrieve(pipeline_config)
+
         # Run warmups if requested.
         if num_warmups > 0:
             logger.info("Running warmup...")
