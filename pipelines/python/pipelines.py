@@ -114,10 +114,7 @@ async def serve_token_generator(
         batch_size,
     )
 
-    # limit the number of inflight requests to just a few more than the number
-    # of active slots on the GPU
-    request_limit = batch_size + 128
-    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
+    settings = Settings(api_types=[APIType.OPENAI])
 
     model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     app = fastapi_app(
@@ -390,10 +387,7 @@ async def serve_token_generator_mistral(
         f" {batch_size}."
     )
 
-    # limit the number of inflight requests to just a few more than the number
-    # of active slots on the GPU
-    request_limit = batch_size + 128
-    settings = Settings(api_types=[APIType.OPENAI], request_limit=request_limit)
+    settings = Settings(api_types=[APIType.OPENAI])
 
     model_name = "mistral"
     app = fastapi_app(
