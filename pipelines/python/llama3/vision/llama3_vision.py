@@ -19,6 +19,7 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType, ops
 from max.graph.weights import SafetensorWeights
+from max.pipelines import TextAndVisionContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -32,12 +33,6 @@ from .config import InferenceConfig
 from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import instantiate_language_model
 from .vision_model import instantiate_vision_model
-
-
-# TODO(AIPIPE-142): Implement this.
-@dataclass
-class Llama3VisionContext:
-    """The context for text generation using a Llama3.2 vision model."""
 
 
 # TODO: These are configured for text only model. What about vision model?
@@ -207,9 +202,18 @@ class Llama3Vision:
                 ),
             )
 
-            pixel_values, aspect_ratio_ids, aspect_ratio_mask, input_ids, attention_mask, position_ids, blocks, cache_lengths, lookup_table, is_cache_empty = (
-                graph.inputs
-            )
+            (
+                pixel_values,
+                aspect_ratio_ids,
+                aspect_ratio_mask,
+                input_ids,
+                attention_mask,
+                position_ids,
+                blocks,
+                cache_lengths,
+                lookup_table,
+                is_cache_empty,
+            ) = graph.inputs
             outputs = model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
@@ -237,13 +241,14 @@ class Llama3Vision:
         graph = self._llama3_vision_graph()
         print("Compiling...")
         res = session.load(
-            graph, weights_registry=self.weights.allocated_weights  # type: ignore
+            graph,
+            weights_registry=self.weights.allocated_weights,  # type: ignore
         )
         print("Done!")
         return res
 
     def _execute(
-        self, req_to_context_dict: dict[str, Llama3VisionContext]
+        self, req_to_context_dict: dict[str, TextAndVisionContext]
     ) -> Tensor:
         raise NotImplementedError("Not implemented yet")
 
