@@ -137,12 +137,22 @@ class VisionModel(Layer):
         batch_size, max_num_tiles = aspect_ratio_mask.shape
         attention_mask = aspect_ratio_mask.reshape(
             (batch_size, max_num_tiles, 1, 1)
-        ).cast(dtype)
+        ).cast(
+            dtype
+        )  # (1, 4, 1, 1)
+        # attention_shape (1, 4, 1, 1) -> (1, 4, 1032, 1)
         attention_mask = ops.tile(attention_mask, (1, 1, target_length, 1))
 
         # Mask padding patches
         pad_patches = target_length - num_patches
-        attention_mask[:, :, 0 - pad_patches :] = 0
+
+        # The snippet below is a workaround for
+        # attention_mask[:, :, 0 - pad_patches :] = 0
+        valid_mask = attention_mask[:, :, :-pad_patches, :]
+        zero_pad = ops.constant(0, DType.bfloat16).broadcast_to(
+            (batch_size, max_num_tiles, pad_patches, attention_mask.shape[-1])
+        )
+        attention_mask = ops.concat((valid_mask, zero_pad), axis=2)
 
         # Invert the mask (0 -> 1, 1 -> 0)
         attention_mask = 1 - attention_mask
@@ -150,7 +160,7 @@ class VisionModel(Layer):
         # Reshape to 2D and create 4D attention mask
         # (batch_size, 1, max_num_tiles * target_length, max_num_tiles * target_length)
         attention_mask = attention_mask.reshape(
-            batch_size, max_num_tiles * target_length, 1
+            (batch_size, max_num_tiles * target_length, 1)
         )
 
         # TODO: Hardcoded for now. Reference implementation uses torch.finfo(torch.bfloat16).min
@@ -160,6 +170,8 @@ class VisionModel(Layer):
             @ attention_mask.transpose(-1, -2)
             * bfloat_dtype_min_val
         )
+
+        # before unsqueeze: attention_mask shape: (1, 4128, 4128)
         return ops.unsqueeze(attention_mask, axis=1)
 
     def _manual_constant_pad_4d(
@@ -282,12 +294,12 @@ class VisionModel(Layer):
         # Prepare attention mask
         attention_mask = aspect_ratio_mask.reshape(
             (batch_size * num_concurrent_media, -1)
-        )
+        )  # (1, 4)
         attention_mask = self._prepare_aspect_ratio_attention_mask(
             aspect_ratio_mask=attention_mask,
             num_patches=self.params.num_patches,
-            target_length=hidden_state.shape[2],
-            dtype=DType.bfloat16,  # TODO: ???
+            target_length=hidden_state.shape[2].dim,
+            dtype=DType.bfloat16,
         )
 
         # Apply encoder
