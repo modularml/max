@@ -63,7 +63,7 @@ def load_llama3_vision_and_kv_manager(
         max_cache_batch_size=1,  # verify this.
         max_seq_len=text_params.max_position_embeddings,  # verify this.
         num_layers=text_params.num_hidden_layers,
-        device=curr_device,
+        devices=[curr_device],
         session=session,
     )
     model = Llama3Vision(
