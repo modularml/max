@@ -122,9 +122,7 @@ async def serve_token_generator(
         debug_settings,
         {
             model_name: BatchedTokenGeneratorState(
-                TokenGeneratorPipeline(
-                    batch_config, model_name, tokenizer, True
-                ),
+                TokenGeneratorPipeline(batch_config, model_name, tokenizer),
                 model_factory,
             )
         },
@@ -395,9 +393,7 @@ async def serve_token_generator_mistral(
         debug_settings,
         {
             model_name: BatchedTokenGeneratorState(
-                TokenGeneratorPipeline(
-                    batch_config, model_name, tokenizer, False
-                ),
+                TokenGeneratorPipeline(batch_config, model_name, tokenizer),
                 model_factory,
             )
         },

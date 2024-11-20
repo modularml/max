@@ -197,7 +197,7 @@ class Llama3:
             for name, tensor in self._weights._tensors.items():
                 weights_registry[name] = tensor.data
             logging.info(
-                "Loading serialized model from", serialized_path, "..."
+                "Loading serialized model from %s ...", serialized_path
             )
             return session.load(
                 serialized_path,
