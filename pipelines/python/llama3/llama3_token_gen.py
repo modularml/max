@@ -20,6 +20,7 @@ from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.pipelines import PipelineConfig, TextContext
+from max.pipelines.response import TextResponse
 from max.pipelines.interfaces import TokenGenerator
 from max.pipelines.sampling import token_sampler
 from max.profiler import traced
@@ -121,7 +122,7 @@ class Llama3TokenGenerator(TokenGenerator[TextContext]):
 
                 # Mark completed requests by not including them in the response.
                 if not context.is_done(self.eos):
-                    step_res[request_id] = next_token
+                    step_res[request_id] = TextResponse(next_token=next_token)
                 else:
                     is_done[request_id] = True
 
