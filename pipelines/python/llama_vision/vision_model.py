@@ -203,14 +203,38 @@ class VisionModel(Layer):
             (batch_size, channels, new_height, new_width)
         )
 
-        # TODO: Can our graph API even do this? Commenting it out for now and
-        # passing a dummy padded tensor
         # Insert the original tensor into the center of the padded tensor
+        # The code snippet below is a workaround for:
         # padded_tensor[
         #     :, :, top : top + height, left : left + width
         # ] = input_tensor
 
-        return padded_tensor
+        # Slice regions along height (dim=2)
+        # Unchanged region above
+        top_region = padded_tensor[:, :, :top, :]
+        # Unchanged region below
+        bottom_region = padded_tensor[:, :, top + height.dim :, :]
+
+        # Slice regions along width (dim=3)
+        # Unchanged region to the left
+        left_region = padded_tensor[:, :, top : top + height.dim, :left]
+        width_tuple = (left_region, input_tensor)
+        if left > 0:
+            # Unchanged region to the right
+            right_region = padded_tensor[
+                :, :, top : top + height.dim, left + width.dim :
+            ]
+            width_tuple += (right_region,)
+
+        # Concatenate along width (axis=3)
+        middle_region = ops.concat(width_tuple, axis=3)
+
+        # Concatenate along height (axis=2)
+        updated_padded_tensor = ops.concat(
+            (top_region, middle_region, bottom_region), axis=2
+        )
+
+        return updated_padded_tensor
 
     def __call__(
         self,
@@ -272,8 +296,8 @@ class VisionModel(Layer):
         hidden_state = self.layernorm_pre(hidden_state)
 
         # Compute the number of tokens to pad
-        # TODO: hidden_state.shape[-2] I hardcoded to num_patches for now.
-        num_padding_patches = (8 - (self.params.num_patches % 8)) % 8
+        curr_num_patches = hidden_state.shape[-2].dim
+        num_padding_patches = (8 - (curr_num_patches % 8)) % 8
         # Compute padding tuple for pad function
         padding = (
             0,
