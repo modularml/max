@@ -25,7 +25,7 @@ from max.pipelines.interfaces import (
     TokenGeneratorRequest,
     PipelineTokenizer,
 )
-from ..metrics import TextGenerationMetrics
+from .metrics import TextGenerationMetrics
 
 logger = logging.getLogger(__name__)
 

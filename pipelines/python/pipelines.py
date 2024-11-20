@@ -51,8 +51,9 @@ from transformers import AutoTokenizer
 from uvicorn import Server
 from opentelemetry import trace
 
-from utils import DevicesOptionType, TextGenerationMetrics
 from utils.cli import (
+    DevicesOptionType,
+    TextGenerationMetrics,
     batch_config_from_pipeline_config,
     serve_pipeline,
     generate_text_for_pipeline,

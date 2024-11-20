@@ -22,7 +22,7 @@ import click
 
 from max.driver import DeviceSpec
 from max.pipelines import PipelineConfig, SupportedEncoding
-from ..custom_options import DevicesOptionType
+from .device_options import DevicesOptionType
 
 
 def config_to_flag(cls):
