@@ -229,12 +229,6 @@ def run_llama3(
             config_kwargs["version"], config_kwargs["quantization_encoding"]
         )
         config_kwargs["weight_path"] = [hf_file.download()]
-    elif len(config_kwargs["weight_path"]) > 0:
-        if not os.path.exists(config_kwargs["weight_path"][0]):
-            hf_file = HuggingFaceFile.parse(
-                str(config_kwargs["weight_path"][0])
-            )
-            config_kwargs["weight_path"] = [hf_file.download()]
 
     config = PipelineConfig(**config_kwargs)
 
@@ -663,16 +657,11 @@ def run_coder(
 
     config = PipelineConfig(**config_kwargs)
 
-    if config.weight_path is None:
+    if len(config.weight_path) == 0:
         hf_files = get_coder_huggingface_files(
             config.version, config.quantization_encoding
         )
         config.weight_path = [hf_file.download() for hf_file in hf_files]
-    else:
-        for idx, path in enumerate(config.weight_path):
-            if not os.path.exists(path):
-                hf_file = HuggingFaceFile.parse(path)
-                config.weight_path[idx] = hf_file.download()
 
     if naive or config.quantization_encoding not in [
         SupportedEncoding.bfloat16,

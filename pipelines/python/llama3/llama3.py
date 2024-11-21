@@ -40,7 +40,6 @@ def load_llama3_and_kv_manager(
     config: PipelineConfig,
     session: InferenceSession,
 ) -> tuple[Llama3, KVCacheManager]:
-    reader = gguf.GGUFReader(config.weight_path[0])
     cache_dtype = (
         DType.float32 if config.quantization_encoding.quantization_encoding
         is not None else config.dtype
@@ -63,7 +62,6 @@ def load_llama3_and_kv_manager(
     )
     model = Llama3(
         config,
-        reader,
         kv_manager,
         session=session,
     )
@@ -77,7 +75,6 @@ class Llama3:
     def __init__(
         self,
         config: PipelineConfig,
-        reader: gguf.GGUFReader,
         kv_manager: KVCacheManager,
         *,
         session: InferenceSession | None = None,
@@ -92,7 +89,6 @@ class Llama3:
         """
         self.config = config
         assert len(config.weight_path) > 0
-        self.reader = reader
         device_spec = self.config.device_spec
         self._device = CPU(
             device_spec.id
@@ -110,7 +106,7 @@ class Llama3:
             np.arange(config.max_cache_batch_size + 1, dtype=np.uint32)
         ).to(self._device)
 
-        self._model = self._load_model(session, config, self.reader)
+        self._model = self._load_model(session, config)
 
     def export_mef(self, export_path):
         self._model._export_mef(export_path)
@@ -188,9 +184,8 @@ class Llama3:
         self,
         session: InferenceSession,
         config: PipelineConfig,
-        reader: gguf.GGUFReader,
     ) -> Model:
-        self._weights = GGUFWeights(reader)
+        self._weights = config.load_weights()
         if serialized_path := config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized graph.
             weights_registry = {}

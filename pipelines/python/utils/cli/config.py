@@ -14,11 +14,11 @@
 
 import functools
 import inspect
-import os
+import pathlib
 from dataclasses import MISSING, fields
 from enum import Enum
-from typing import Union, get_args, get_origin
 from pathlib import Path
+from typing import Union, get_args, get_origin
 
 import click
 from max.driver import DeviceSpec
@@ -38,18 +38,24 @@ def config_to_flag(cls):
         # If field type is a union on multiple types, set the argument type
         # as the first not-None type.
         field_type = field.type
+        none_type = type(None)
+        multiple = False
         if get_origin(field_type) is Union:
-            none_type = type(None)
             field_type = next(
                 t for t in get_args(field.type) if t is not none_type
             )
+        elif get_origin(field_type) is list:
+            field_type = next(
+                t for t in get_args(field.type) if t is not none_type
+            )
+            multiple = True
 
-        # For enum fields, convert to a choice that shows all possible values.
         if inspect.isclass(field_type):
+            # For enum fields, convert to a choice that shows all possible values.
             if issubclass(field_type, Enum):
                 field_type = click.Choice(field_type)
-            elif issubclass(field_type, os.PathLike):
-                field_type = click.Path(field_type)
+            elif issubclass(field_type, pathlib.Path):
+                field_type = click.Path(path_type=pathlib.Path)
 
         if field.default_factory != MISSING:
             default = field.default_factory()
@@ -63,6 +69,7 @@ def config_to_flag(cls):
                 show_default=True,
                 type=field_type,
                 default=default,
+                multiple=multiple,
                 help=help_text.get(field.name),
             )
         )
@@ -99,18 +106,6 @@ def pipeline_config_options(func):
                 kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
         else:
             kwargs["device_spec"] = DeviceSpec.cpu()
-
-        # Ensure weight paths parse to Path, not string.
-        weight_paths = []
-        if kwargs["weight_path"]:
-            weight_path_str = "".join(kwargs["weight_path"])
-            for path in weight_path_str.split(","):
-                if isinstance(path, Path):
-                    weight_paths.append(path)
-                else:
-                    weight_paths.append(Path(path))
-
-        kwargs["weight_path"] = weight_paths
 
         del kwargs["use_gpu"]
 

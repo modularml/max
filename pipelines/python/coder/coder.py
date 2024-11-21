@@ -184,7 +184,7 @@ class Coder:
         session: InferenceSession,
         config: PipelineConfig,
     ) -> Model:
-        self._weights = SafetensorWeights(config.weight_path)
+        self._weights = config.load_weights()
         if serialized_path := config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized graph.
             weights_registry = {}
