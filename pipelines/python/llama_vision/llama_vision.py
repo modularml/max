@@ -12,8 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -157,6 +155,7 @@ class LlamaVision:
         # Same shapes.
         attention_mask_type = input_ids_type
         position_ids_type = input_ids_type
+        cross_attention_mask_type = TensorType(DType.int64, [1, 14, 1, 4])
 
         blocks_type, cache_lengths_type, lookup_table_type, is_cache_empty_type = (
             self._kv_manager.input_symbols()
@@ -167,8 +166,9 @@ class LlamaVision:
                 pixel_values_type,
                 aspect_ratio_ids_type,
                 aspect_ratio_mask_type,
-                attention_mask_type,
                 input_ids_type,
+                attention_mask_type,
+                cross_attention_mask_type,
                 position_ids_type,
                 blocks_type,
                 cache_lengths_type,
@@ -208,18 +208,25 @@ class LlamaVision:
                 aspect_ratio_mask,
                 input_ids,
                 attention_mask,
+                cross_attention_mask,
                 position_ids,
                 blocks,
                 cache_lengths,
                 lookup_table,
                 is_cache_empty,
             ) = graph.inputs
+
+            # TODO: Call model.prepare_cross_attention_mask(...) here before
+            # passing in the cross attention mask in the step below.
+            # We will then have to call something like Tensor.from_numpy(...)
+            # before the forward call below.
             outputs = model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
                 aspect_ratio_mask=aspect_ratio_mask,
                 input_ids=input_ids,
                 attention_mask=attention_mask,
+                cross_attention_mask=cross_attention_mask,
                 position_ids=position_ids,
                 kv_cache_inputs=(
                     blocks,
