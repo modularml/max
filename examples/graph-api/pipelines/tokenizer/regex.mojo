@@ -13,7 +13,7 @@
 """POSIX 2 regular expressions via regcomp/regexec."""
 
 from collections import Optional
-from memory import Arc, UnsafePointer
+from memory import ArcPointer, UnsafePointer
 from utils import Span, StringSlice
 from sys.info import os_is_macos
 from sys import external_call
@@ -84,7 +84,7 @@ struct _CRegex:
 
     fn __moveinit__(out self, owned _existing: Self):
         # _CRegex can't be safely moved once it's initialized.
-        # We have to implement __move__ currently to satisfy Arc's Movable
+        # We have to implement __move__ currently to satisfy ArcPointer's Movable
         # trait bounds.
         self.__init__()
 
@@ -93,8 +93,8 @@ struct _CRegex:
             llvm_regfree(self._ptr())
 
     @staticmethod
-    def compile(pattern: String, options: Int = 0) -> Arc[Self]:
-        self = Arc(Self())
+    def compile(pattern: String, options: Int = 0) -> ArcPointer[Self]:
+        self = ArcPointer(Self())
         self[]._compile(pattern, options | CompileOption.EXTENDED)
         return self
 
@@ -247,7 +247,7 @@ struct Match[origin: ImmutableOrigin](Writable):
 
 @value
 struct Regex:
-    var _c: Arc[_CRegex]
+    var _c: ArcPointer[_CRegex]
 
     def __init__(out self, pattern: String, options: Int = 0):
         self._c = _CRegex.compile(pattern, options)
