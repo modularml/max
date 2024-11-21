@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 from max.dtype import DType
-from max.graph import TensorValue, ops
+from max.graph import TensorValue
 from nn import Linear
 from nn.layer import Layer
 
@@ -37,36 +38,65 @@ class ConditionalGenerator(Layer):
     multi_modal_projector: Linear
     language_model: CausalLanguageModel
 
-    def _prepare_cross_attention_mask(
+    def prepare_cross_attention_mask(
         self,
-        cross_attention_mask: TensorValue,
+        cross_attention_mask: np.ndarray | None = None,
+        full_text_row_masked_out_mask: np.ndarray | None = None,
+        cache_position: np.ndarray | None = None,
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
+        if cross_attention_mask is not None:
+            cross_attention_mask, full_text_row_masked_out_mask = (
+                self._prepare_cross_attention_mask_helper(
+                    cross_attention_mask,
+                    num_vision_tokens=self.vision_params.num_patches,
+                    dtype=DType.bfloat16,
+                )
+            )
+        else:
+            full_text_row_masked_out_mask = None
+
+        if (
+            cross_attention_mask is not None
+            and cache_position is not None
+            and full_text_row_masked_out_mask is not None
+        ):
+            cross_attention_mask = cross_attention_mask[:, :, cache_position]
+            full_text_row_masked_out_mask = full_text_row_masked_out_mask[
+                :, :, cache_position
+            ]
+        return cross_attention_mask, full_text_row_masked_out_mask
+
+    def _prepare_cross_attention_mask_helper(
+        self,
+        cross_attention_mask: np.ndarray,
         num_vision_tokens: int,
-        dtype: DType,
-    ) -> tuple[TensorValue, TensorValue]:
+        dtype: str,
+    ) -> tuple[np.ndarray, np.ndarray]:
         # reshape so it can be used by attn module
         batch_size, text_total_length, *_ = cross_attention_mask.shape
-        cross_attention_mask = cross_attention_mask.repeat_interleave(  # type: ignore
-            num_vision_tokens, dim=3
-        )
-        cross_attention_mask = cross_attention_mask.view(  # type: ignore
+        cross_attention_mask = np.repeat(
+            cross_attention_mask, num_vision_tokens, axis=2
+        )  # Repeat along the 3rd dimension
+        cross_attention_mask = cross_attention_mask.reshape(
             batch_size, text_total_length, -1
         )
-        cross_attention_mask = cross_attention_mask.unsqueeze(1)  # type: ignore
+        cross_attention_mask = np.expand_dims(cross_attention_mask, axis=1)
 
-        # TODO: This whole part needs to be fixed. Hardcoding stuff for now.
-        negative_inf_value = -3.3895313892515355e38
         # invert the mask
-        inverted_cross_attn_mask = ops.cast((1.0 - cross_attention_mask), dtype)
-        cross_attention_mask = inverted_cross_attn_mask.masked_fill(  # type: ignore
-            ops.cast(inverted_cross_attn_mask, DType.bool), negative_inf_value
+        inverted_cross_attn_mask = (1.0 - cross_attention_mask).astype(dtype)
+        cross_attention_mask = np.where(
+            inverted_cross_attn_mask.astype(bool),
+            np.finfo(dtype).min,
+            inverted_cross_attn_mask,
         )
 
         # apply full-row bias, which return 4D tensor of shape [B, H, S1, 1] where value is 0 if the a full row in cross attn mask's
         # last dimension contains negative infinity values, otherwise it's 1
+        negative_inf_value = np.finfo(dtype).min
         full_text_row_masked_out_mask = (
-            (cross_attention_mask != negative_inf_value)  # type: ignore
-            .any(dim=-1)
-            .type_as(cross_attention_mask)[..., None]
+            (cross_attention_mask != negative_inf_value)
+            .any(axis=-1, keepdims=True)
+            .astype(dtype)
         )
         cross_attention_mask *= full_text_row_masked_out_mask
 
@@ -87,7 +117,10 @@ class ConditionalGenerator(Layer):
         | None = None,
         input_ids: TensorValue | None = None,
         inputs_embeds: TensorValue | None = None,
+        # TODO: Remove this since we have our own caching mechanism.
         cache_position: TensorValue | None = None,
+        # For preparing cross attention mask.
+        full_text_row_masked_out_mask: TensorValue | None = None,
     ) -> TensorValue:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
@@ -131,27 +164,6 @@ class ConditionalGenerator(Layer):
                     self.text_params.hidden_size,
                 )
             )
-
-        if cross_attention_mask is not None:
-            cross_attention_mask, full_text_row_masked_out_mask = (
-                self._prepare_cross_attention_mask(
-                    cross_attention_mask,
-                    num_vision_tokens=self.vision_params.num_patches,
-                    dtype=DType.bfloat16,
-                )
-            )
-        else:
-            full_text_row_masked_out_mask = None
-
-        if (
-            cross_attention_mask is not None
-            and cache_position is not None
-            and full_text_row_masked_out_mask is not None
-        ):
-            cross_attention_mask = cross_attention_mask[:, :, cache_position]
-            full_text_row_masked_out_mask = full_text_row_masked_out_mask[
-                :, :, cache_position
-            ]
 
         # TODO: Remove this. I had to make it an optional so it respects the order
         # of arg inputs when unwrapping the graph inputs.
