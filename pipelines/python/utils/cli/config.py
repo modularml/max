@@ -18,6 +18,7 @@ import os
 from dataclasses import MISSING, fields
 from enum import Enum
 from typing import Union, get_args, get_origin
+from pathlib import Path
 
 import click
 from max.driver import DeviceSpec
@@ -98,6 +99,18 @@ def pipeline_config_options(func):
                 kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
         else:
             kwargs["device_spec"] = DeviceSpec.cpu()
+
+        # Ensure weight paths parse to Path, not string.
+        weight_paths = []
+        if kwargs["weight_path"]:
+            weight_path_str = "".join(kwargs["weight_path"])
+            for path in weight_path_str.split(","):
+                if isinstance(path, Path):
+                    weight_paths.append(path)
+                else:
+                    weight_paths.append(Path(path))
+
+        kwargs["weight_path"] = weight_paths
 
         del kwargs["use_gpu"]
 
