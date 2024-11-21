@@ -62,7 +62,7 @@ def start_llama3(
     config = PipelineConfig(
         architecture="LlamaForCausalLM",
         device=CUDA() if use_gpu else CPU(),
-        weight_path=weight_path,
+        weight_path=[Path(weight_path)],
         quantization_encoding=quantization,
         max_length=max_length,
         max_new_tokens=max_new_tokens,

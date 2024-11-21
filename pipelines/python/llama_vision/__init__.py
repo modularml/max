@@ -11,10 +11,6 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from max.pipelines import PIPELINE_REGISTRY
-
-from .language_model import CausalLanguageModel
 from .llama_vision import LlamaVision, load_llama_vision_and_kv_manager
 
-__all__ = ["LlamaVision"]
-__all__ = ["CausalLanguageModel"]
+__all__ = ["LlamaVision", "load_llama_vision_and_kv_manager"]
