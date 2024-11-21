@@ -243,7 +243,9 @@ def run_llama3(
         config_kwargs["weight_path"] = [hf_file.download()]
     elif len(config_kwargs["weight_path"]) > 0:
         if not os.path.exists(config_kwargs["weight_path"][0]):
-            hf_file = HuggingFaceFile.parse(config_kwargs["weight_path"][0])
+            hf_file = HuggingFaceFile.parse(
+                str(config_kwargs["weight_path"][0])
+            )
             config_kwargs["weight_path"] = [hf_file.download()]
 
     config = PipelineConfig(**config_kwargs)
