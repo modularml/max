@@ -127,7 +127,6 @@ def serve_pipeline(
                     batch_config,
                     pipeline_config.huggingface_repo_id,  # type: ignore
                     tokenizer,
-                    True,
                 ),
                 pipeline_factory,  # type: ignore
             )
