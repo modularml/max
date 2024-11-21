@@ -241,7 +241,7 @@ def run_llama3(
             config_kwargs["version"], config_kwargs["quantization_encoding"]
         )
         config_kwargs["weight_path"] = [hf_file.download()]
-    elif len(config_kwargs["weight_path"] > 0):
+    elif len(config_kwargs["weight_path"]) > 0:
         if not os.path.exists(config_kwargs["weight_path"][0]):
             hf_file = HuggingFaceFile.parse(config_kwargs["weight_path"][0])
             config_kwargs["weight_path"] = [hf_file.download()]
