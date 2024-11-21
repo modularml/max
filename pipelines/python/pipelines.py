@@ -291,7 +291,7 @@ def run_llama3(
 # TODO: We run this llama 3 vision model variant as a separate command for now.
 # I think there is room to consolidate it under the "llama3" above.
 @main.command(name="llama3-vision")
-@config_to_flag(llama_vision.config.InferenceConfig)
+@config_to_flag(PipelineConfig)
 @click.option(
     "--use-gpu",
     is_flag=False,
@@ -313,13 +313,14 @@ def run_llama_vision(
         config_kwargs.update(
             {
                 "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": llama_vision.config.SupportedEncodings.bfloat16,
+                "quantization_encoding": SupportedEncoding.bfloat16,
             }
         )
     else:
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
-    config = llama_vision.config.InferenceConfig(**config_kwargs)
+    config_kwargs["huggingface_repo_id"] = "meta-llama/Llama-3.2-11B-Vision"
+    config = PipelineConfig(**config_kwargs)
     weight_filenames = [
         "model-00001-of-00005.safetensors",
         "model-00002-of-00005.safetensors",
@@ -328,7 +329,7 @@ def run_llama_vision(
         "model-00005-of-00005.safetensors",
     ]
     config.weight_path = [
-        hf_hub_download(repo_id=config.repo_id, filename=filename)
+        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)
         for filename in weight_filenames
     ]
 
