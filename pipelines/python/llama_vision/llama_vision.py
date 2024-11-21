@@ -36,7 +36,7 @@ from .vision_model import instantiate_vision_model
 
 
 # TODO: These are configured for text only model. What about vision model?
-def load_llama3_vision_and_kv_manager(
+def load_llama_vision_and_kv_manager(
     config: InferenceConfig, session: InferenceSession | None = None
 ) -> tuple[LlamaVision, KVCacheManager]:
     _, text_params = _read_hyperparameters(config)
