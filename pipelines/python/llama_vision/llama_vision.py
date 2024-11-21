@@ -12,22 +12,20 @@
 # ===----------------------------------------------------------------------=== #
 from __future__ import annotations
 
-from max.driver import CPU, CUDA, Tensor
+from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType, ops
-from max.graph.weights import SafetensorWeights
-from max.pipelines import TextAndVisionContext
+from max.graph import Graph, TensorType
+from max.pipelines import TextAndVisionContext, PipelineConfig
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
-    KVCacheStrategy,
     load_kv_manager,
 )
 from nn import Linear
 
 from .conditional_generator import ConditionalGenerator
-from .config import InferenceConfig
+
 from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import instantiate_language_model
 from .vision_model import instantiate_vision_model
@@ -35,33 +33,26 @@ from .vision_model import instantiate_vision_model
 
 # TODO: These are configured for text only model. What about vision model?
 def load_llama_vision_and_kv_manager(
-    config: InferenceConfig, session: InferenceSession | None = None
+    config: PipelineConfig, session: InferenceSession | None = None
 ) -> tuple[LlamaVision, KVCacheManager]:
     _, text_params = _read_hyperparameters(config)
     # Initialize kv cache params and manager
     kv_params = KVCacheParams(
-        dtype=DType.bfloat16,
+        dtype=config.dtype,
         n_kv_heads=text_params.num_attention_heads,
         head_dim=text_params.hidden_size // text_params.num_attention_heads,
-        cache_strategy=KVCacheStrategy.CONTINUOUS,
-    )
-
-    # TODO: Duplicated code for now. Remove and consolidate somewhere else.
-    curr_device = CPU(
-        config.device_spec.id
-    ) if config.device_spec.device_type == "cpu" else CUDA(
-        config.device_spec.id
+        cache_strategy=config.cache_strategy,
     )
 
     if session is None:
-        session = InferenceSession(devices=[curr_device])
+        session = InferenceSession(devices=[config.device])
 
     kv_manager = load_kv_manager(
         params=kv_params,
-        max_cache_batch_size=1,  # verify this.
+        max_cache_batch_size=config.max_cache_batch_size,  # verify this.
         max_seq_len=text_params.max_position_embeddings,  # verify this.
         num_layers=text_params.num_hidden_layers,
-        devices=[curr_device],
+        devices=[config.device],
         session=session,
     )
     model = LlamaVision(
@@ -79,7 +70,7 @@ class LlamaVision:
 
     def __init__(
         self,
-        config: InferenceConfig,
+        config: PipelineConfig,
         kv_manager: KVCacheManager,
         *,
         session: InferenceSession | None = None,
@@ -88,20 +79,11 @@ class LlamaVision:
 
         # Llama 3.2 vision model always takes in multiple safetensors, so we assert
         # here to check if that's always true.
-        assert config.weight_path is not None and isinstance(
-            config.weight_path, list
-        )
-        assert all(isinstance(item, str) for item in config.weight_path)
-        self.weights = SafetensorWeights(config.weight_path)  # type: ignore
+        self.weights = config.load_weights()
         self.vision_params, self.text_params = _read_hyperparameters(config)
 
-        device_spec = self.config.device_spec
-        self._device = CPU(
-            device_spec.id
-        ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
-
         if session is None:
-            session = InferenceSession(devices=[self._device])
+            session = InferenceSession(devices=[self.config.device])
 
         self._kv_manager = kv_manager
         self._kv_params = self._kv_manager.params
@@ -125,7 +107,7 @@ class LlamaVision:
 
         # Inserted a manual CHW -> HWC transpose here.
         pixel_values_type = TensorType(
-            DType.bfloat16,
+            self.config.dtype,
             shape=[
                 1,  # batch_size
                 1,  # num_concurrent_media
@@ -143,7 +125,7 @@ class LlamaVision:
             ],  # batch_size, num_concurrent_media
         )
         aspect_ratio_mask_type = TensorType(
-            DType.bfloat16,
+            self.config.dtype,
             shape=[
                 1,
                 1,
@@ -184,14 +166,14 @@ class LlamaVision:
                 ),
                 multi_modal_projector=Linear(
                     self.weights.multi_modal_projector.weight.allocate(
-                        DType.bfloat16,
+                        self.config.dtype,
                         [
                             self.text_params.hidden_size,
                             self.vision_params.vision_output_dim,
                         ],
                     ),
                     self.weights.multi_modal_projector.bias.allocate(
-                        DType.bfloat16,
+                        self.config.dtype,
                         [self.text_params.hidden_size],
                     ),
                 ),
@@ -261,15 +243,15 @@ class LlamaVision:
 
 
 def _read_hyperparameters(
-    config: InferenceConfig,
+    config: PipelineConfig,
 ) -> tuple[VisionHyperparameters, TextHyperparameters]:
     return (
         VisionHyperparameters(
-            dtype=DType.bfloat16,
-            quantization_encoding=config.quantization_encoding,  # type: ignore
+            dtype=config.dtype,
+            quantization_encoding=config.quantization_encoding.quantization_encoding,  # type: ignore
         ),
         TextHyperparameters(
-            dtype=DType.bfloat16,
-            quantization_encoding=config.quantization_encoding,  # type: ignore
+            dtype=config.dtype,
+            quantization_encoding=config.quantization_encoding.quantization_encoding,  # type: ignore
         ),
     )
