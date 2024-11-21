@@ -8,4 +8,5 @@ requests >= 2.32.3
 tokenizers >= 0.19.1
 torch == 2.4.1
 transformers >= 4.44.2
+safetensors >= 0.4.5
 psutil

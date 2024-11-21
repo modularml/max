@@ -15,22 +15,23 @@ import asyncio
 import functools
 import logging
 import os
+from typing import Union
 
 import click
 import llama3
-from llama3.model import Llama3Model
 import llama_vision
 import mistral
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
+from llama3.model import Llama3Model
 from max.driver import DeviceSpec
 from max.pipelines import (
+    PIPELINE_REGISTRY,
     HuggingFaceFile,
     PipelineConfig,
     SupportedEncoding,
-    TextTokenizer,
     TextGenerationPipeline,
-    PIPELINE_REGISTRY,
+    TextTokenizer,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
 from max.serve.api_server import fastapi_app, fastapi_config
@@ -45,21 +46,23 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingPipelineTokenizer,
     get_performance_fake,
 )
+from opentelemetry import trace
 from replit.config import get_replit_huggingface_file
 from replit.model import ReplitModel
 from transformers import AutoTokenizer
 from uvicorn import Server
-from opentelemetry import trace
 
+import coder
+from coder.config import get_coder_huggingface_files
 from utils.cli import (
     DevicesOptionType,
     TextGenerationMetrics,
     batch_config_from_pipeline_config,
-    serve_pipeline,
-    generate_text_for_pipeline,
-    stream_text_to_console,
-    pipeline_config_options,
     config_to_flag,
+    generate_text_for_pipeline,
+    pipeline_config_options,
+    serve_pipeline,
+    stream_text_to_console,
 )
 
 logger = logging.getLogger(__name__)
@@ -634,6 +637,88 @@ def replit(
         generate_text_for_pipeline(
             pipeline_config, prompt=prompt, num_warmups=num_warmups
         )
+
+
+@main.command(name="coder")
+@pipeline_config_options
+@click.option(
+    "--prompt",
+    type=str,
+    default="I believe the meaning of life is",
+    help="The text prompt to use for further generation.",
+)
+@click.option(
+    "--serve",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
+)
+@click.option(
+    "--naive",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="Whether to use naive KV caching.",
+)
+def run_coder(
+    prompt,
+    serve,
+    naive,
+    **config_kwargs,
+):
+    """Runs the Coder pipeline."""
+    config_kwargs.update(
+        {
+            "version": "1.5",
+            "huggingface_repo_id": (
+                "deepseek-ai/deepseek-coder-7b-instruct-v1.5"
+            ),
+            "quantization_encoding": SupportedEncoding.bfloat16,
+        }
+    )
+
+    config = PipelineConfig(**config_kwargs)
+
+    if config.weight_path is None:
+        hf_files = get_coder_huggingface_files(
+            config.version, config.quantization_encoding
+        )
+        config.weight_path = [hf_file.download() for hf_file in hf_files]
+    else:
+        for idx, path in enumerate(config.weight_path):
+            if not os.path.exists(path):
+                hf_file = HuggingFaceFile.parse(path)
+                config.weight_path[idx] = hf_file.download()
+
+    if naive or config.quantization_encoding not in [
+        SupportedEncoding.bfloat16,
+        SupportedEncoding.float32,
+    ]:
+        config.cache_strategy = KVCacheStrategy.NAIVE
+
+    if serve:
+        pass
+    else:
+        # Run timed run & print results
+        with TextGenerationMetrics(print_report=True) as metrics:
+            tokenizer = TextTokenizer(
+                config,
+            )
+            model = coder.coder_token_gen.CoderTokenGenerator(
+                config,
+                tokenizer.delegate.eos_token_id,
+            )
+
+            logger.info("Beginning text generation...")
+            asyncio.run(
+                stream_text_to_console(
+                    model,
+                    tokenizer,
+                    prompt,
+                    metrics=metrics,
+                )
+            )
 
 
 if __name__ == "__main__":
