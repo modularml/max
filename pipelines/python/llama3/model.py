@@ -179,7 +179,7 @@ class Llama3Model(PipelineModel):
             for name, tensor in self._weights._tensors.items():
                 weights_registry[name] = tensor.data
 
-            logging.info("Loading serialized model from ", serialized_path)
+            logging.info("Loading serialized model from %s", serialized_path)
 
             return session.load(
                 serialized_path, weights_registry=weights_registry

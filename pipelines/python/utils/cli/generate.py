@@ -47,7 +47,9 @@ async def stream_text_to_console(
 
     req_id = str(uuid.uuid4())
     context = await tokenizer.new_context(
-        TokenGeneratorRequest(req_id, 0, prompt, MODEL_NAME)
+        TokenGeneratorRequest(
+            id=req_id, index=0, prompt=prompt, model_name=MODEL_NAME
+        )
     )
     decoded_responses[req_id] = [prompt]
     request_id_context[req_id] = context
