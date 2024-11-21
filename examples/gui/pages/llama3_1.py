@@ -17,10 +17,15 @@ from pathlib import Path
 
 import streamlit as st
 import torch
-from llama3 import Llama3TokenGenerator
 from llama3.config import get_llama_huggingface_file
 from max.driver import CPU, CUDA
-from max.pipelines import PipelineConfig, SupportedEncoding, TextTokenizer
+from max.pipelines import (
+    PipelineConfig,
+    SupportedEncoding,
+    TextTokenizer,
+    PIPELINE_REGISTRY,
+)
+
 from shared import (
     RAG_PROMPT,
     RAG_SYSTEM_PROMPT,
@@ -63,11 +68,8 @@ def start_llama3(
         max_new_tokens=max_new_tokens,
         huggingface_repo_id="modularai/llama-3.1",
     )
-    tokenizer = TextTokenizer(config)
-    return Llama3TokenGenerator(
-        config,
-        tokenizer.delegate.eos_token_id,
-    )
+    _, pipeline = PIPELINE_REGISTRY.retrieve(config, return_factory=True)
+    return pipeline
 
 
 def messages_to_llama3_prompt(messages: list[dict[str, str]]) -> str:
