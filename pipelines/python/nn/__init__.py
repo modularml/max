@@ -14,7 +14,10 @@
 from .attention import (
     Attention,
     AttentionImpl,
+    AttentionImplQKV,
+    AttentionQKV,
     AttentionWithRope,
+    AttentionWithRopeQKV,
     NaiveAttentionWithRope,
 )
 from .conv import Conv2D
@@ -32,8 +35,11 @@ from .transformer import (
 
 __all__ = [
     "Attention",
+    "AttentionQKV",
     "AttentionImpl",
+    "AttentionImplQKV",
     "AttentionWithRope",
+    "AttentionWithRopeQKV",
     "NaiveAttentionWithRope",
     "Conv2D",
     "Embedding",

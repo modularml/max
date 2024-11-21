@@ -12,14 +12,17 @@
 # ===----------------------------------------------------------------------=== #
 """The attention mechanism used within the model."""
 
-from .attention import Attention
-from .attention_with_rope import AttentionWithRope
-from .interfaces import AttentionImpl
+from .attention import Attention, AttentionQKV
+from .attention_with_rope import AttentionWithRope, AttentionWithRopeQKV
+from .interfaces import AttentionImpl, AttentionImplQKV
 from .naive_attention_with_rope import NaiveAttentionWithRope
 
 __all__ = [
     "Attention",
+    "AttentionQKV",
     "AttentionImpl",
+    "AttentionImplQKV",
     "AttentionWithRope",
+    "AttentionWithRopeQKV",
     "NaiveAttentionWithRope",
 ]
