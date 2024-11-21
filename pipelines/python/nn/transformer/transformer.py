@@ -11,8 +11,9 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Union
 
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
@@ -23,7 +24,7 @@ from max.pipelines.kv_cache import (
     KVCacheParams,
 )
 
-from ..attention.interfaces import AttentionImpl
+from ..attention.interfaces import AttentionImpl, AttentionImplQKV
 from ..embedding import Embedding
 from ..layer import Layer
 from ..linear import MLP, Linear
@@ -35,10 +36,10 @@ from ..sequential import Sequential
 class TransformerBlock(Layer):
     """Stack of Attention, FeedForward, and RMSNorm layers."""
 
-    attention: AttentionImpl
-    mlp: Union[MLP, Sequential]
-    attention_norm: Union[RMSNorm, LPLayerNorm]
-    mlp_norm: Union[RMSNorm, LPLayerNorm]
+    attention: AttentionImpl | AttentionImplQKV
+    mlp: MLP | Sequential
+    attention_norm: RMSNorm | LPLayerNorm
+    mlp_norm: RMSNorm | LPLayerNorm
 
     def __call__(
         self,
@@ -63,7 +64,7 @@ class Transformer(Layer):
     dim: int
     n_heads: int
     layers: list[TransformerBlock]
-    norm: Union[RMSNorm, LPLayerNorm]
+    norm: RMSNorm | LPLayerNorm
     output: Linear
     embedding: Embedding
     kv_params: KVCacheParams

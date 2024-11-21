@@ -14,6 +14,7 @@
 
 from dataclasses import dataclass
 
+from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
@@ -26,7 +27,7 @@ from ..kernels import (
     fused_qkv_ragged_matmul,
 )
 from ..rotary_embedding import OptimizedRotaryEmbedding
-from .interfaces import AttentionImpl
+from .interfaces import AttentionImpl, AttentionImplQKV
 
 
 @dataclass
@@ -77,6 +78,64 @@ class AttentionWithRope(AttentionImpl):
             input=xq,
             kv_collection=kv_collection,  # type: ignore
             layer_idx=self.layer_idx,
+            input_row_offset=kwargs["input_row_offset"],
+        )
+
+        attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
+
+        return self.wo(attn_out), kv_collection  # type: ignore
+
+
+@dataclass
+class AttentionWithRopeQKV(AttentionImplQKV):
+    # This class will not use the RotaryEmbedding to
+    # calculate rope, but it already includes a freqs_cis
+    # calculation, which we will borrow
+    rope: OptimizedRotaryEmbedding
+
+    def __call__(
+        self,
+        x: TensorValueLike,
+        kv_collection: ContinuousBatchingKVCacheCollectionType,
+        **kwargs,
+    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+        # Get attributes from input.
+        total_seq_len = x.shape[0]  # type: ignore
+
+        wqkv = ops.concat((self.wq, self.wk, self.wv), axis=0).transpose(0, 1)
+
+        # Call into fused qkv ragged matmul.
+        xq = fused_qkv_ragged_matmul(
+            self.kv_params,
+            input=x,  # type: ignore
+            wqkv=wqkv,
+            input_row_offset=kwargs["input_row_offset"],
+            kv_collection=kv_collection,  # type: ignore
+            layer_idx=ops.constant(self.layer_idx, DType.uint32),
+            n_heads=self.n_heads,
+        )
+
+        # Apply rope.
+        xq = xq.reshape((-1, self.n_heads, self.kv_params.head_dim))
+
+        # Cast freqs_cis to xq's dtype to match the fused_qk_ragged_rope kernel.
+        freqs_cis = ops.cast(self.rope.freqs_cis, xq.dtype)
+
+        xq = fused_qk_ragged_rope(
+            self.kv_params,
+            xq,
+            kwargs["input_row_offset"],
+            kv_collection,  # type: ignore
+            freqs_cis,
+            ops.constant(self.layer_idx, DType.uint32),
+        )
+
+        # Calculate Flash Attention.
+        attn_out = flash_attention_ragged_with_causal_mask(
+            self.kv_params,
+            input=xq,
+            kv_collection=kv_collection,  # type: ignore
+            layer_idx=ops.constant(self.layer_idx, DType.uint32),
             input_row_offset=kwargs["input_row_offset"],
         )
 

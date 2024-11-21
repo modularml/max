@@ -24,7 +24,7 @@ from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
-from nn import MLP, Attention, Embedding, Linear, RMSNorm, TransformerBlock
+from nn import MLP, AttentionQKV, Embedding, Linear, RMSNorm, TransformerBlock
 from nn.layer import Layer
 
 from .cache import Cache
@@ -401,14 +401,13 @@ def self_attention_decoder_layer(
         bias=None,
     )
 
-    attention = Attention(
+    attention = AttentionQKV(
         n_heads=params.num_attention_heads,
         kv_params=kv_params,
         layer_idx=ops.constant(layer_idx, DType.uint32),
-        # Concat q_proj, k_proj, v_proj into wqkv.
-        wqkv=ops.concat(
-            (q_proj.weight, k_proj.weight, v_proj.weight), axis=0
-        ).transpose(0, 1),
+        wq=q_proj.weight,
+        wk=k_proj.weight,
+        wv=v_proj.weight,
         wo=Linear(
             weight=weights.self_attn.o_proj.weight.allocate(
                 DType.bfloat16, [params.hidden_size, num_heads * head_dim]

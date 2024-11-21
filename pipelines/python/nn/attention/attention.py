@@ -14,6 +14,7 @@
 
 from dataclasses import dataclass
 
+from max.dtype import DType
 from max.graph import TensorValue, ops
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
@@ -21,7 +22,7 @@ from max.pipelines.kv_cache import (
 )
 
 from ..kernels import flash_attention, fused_qkv_matmul
-from .interfaces import AttentionImpl
+from .interfaces import AttentionImpl, AttentionImplQKV
 
 
 @dataclass
@@ -71,6 +72,64 @@ class Attention(AttentionImpl):
             input=xq,
             kv_collection=kv_collection,  # type: ignore
             layer_idx=self.layer_idx,
+            attention_mask=attention_mask,
+            valid_lengths=kwargs["valid_lengths"],
+        )
+
+        attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
+
+        return self.wo(attn_out), kv_collection  # type: ignore
+
+
+@dataclass
+class AttentionQKV(AttentionImplQKV):
+    def __call__(
+        self,
+        x: TensorValue,  # type: ignore
+        kv_collection: ContinuousBatchingKVCacheCollectionType,
+        **kwargs,
+    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+        if "attention_mask" not in kwargs:
+            raise ValueError("attention_mask not passed as input to Attention")
+        attention_mask = kwargs["attention_mask"]
+        if attention_mask.dtype != x.dtype:
+            msg = (
+                "expected attention_mask and x to have the same dtype, but got"
+                f" {attention_mask.dtype} and {x.dtype}, respectively."
+            )
+            raise ValueError(msg)
+
+        wqkv = ops.concat((self.wq, self.wk, self.wv), axis=0).transpose(0, 1)
+
+        # Get attributes from inputs
+        batch_size, seq_len = x.shape[0], x.shape[1]
+
+        # Call into fused qkv matmul.
+        xq = fused_qkv_matmul(
+            self.kv_params,
+            input=x,
+            wqkv=wqkv,
+            kv_collection=kv_collection,
+            layer_idx=ops.constant(self.layer_idx, DType.uint32),
+            n_heads=self.n_heads,
+        )
+
+        xq = ops.reshape(
+            xq,
+            [
+                batch_size,
+                seq_len,
+                self.n_heads,
+                self.kv_params.head_dim,
+            ],
+        )
+
+        # Calculate Flash Attention
+        attn_out = flash_attention(
+            self.kv_params,
+            input=xq,
+            kv_collection=kv_collection,  # type: ignore
+            layer_idx=ops.constant(self.layer_idx, DType.uint32),
             attention_mask=attention_mask,
             valid_lengths=kwargs["valid_lengths"],
         )
