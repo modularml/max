@@ -15,18 +15,18 @@ import asyncio
 import functools
 import logging
 import os
-from typing import Union
 
 import click
+import coder
 import llama3
 import llama_vision
 import mistral
+from coder.config import get_coder_huggingface_files
 from huggingface_hub import hf_hub_download
 from llama3.config import get_llama_huggingface_file
 from llama3.model import Llama3Model
 from max.driver import DeviceSpec
 from max.pipelines import (
-    PIPELINE_REGISTRY,
     HuggingFaceFile,
     PipelineConfig,
     SupportedEncoding,
@@ -38,22 +38,19 @@ from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
 from max.serve.pipelines.deps import BatchedTokenGeneratorState
-from max.serve.pipelines.llm import (
-    TokenGeneratorPipeline,
-    TokenGeneratorPipelineConfig,
-)
+from max.serve.pipelines.llm import TokenGeneratorPipeline
 from max.serve.pipelines.performance_fake import (
     PerformanceFakingPipelineTokenizer,
     get_performance_fake,
 )
 from opentelemetry import trace
-from replit.config import get_replit_huggingface_file
-from replit.model import ReplitModel
+
+# We do not need to use this, but the import is needed to ensure that replit
+# gets added to the pipeline registry.
+from replit import ReplitModel
 from transformers import AutoTokenizer
 from uvicorn import Server
 
-import coder
-from coder.config import get_coder_huggingface_files
 from utils.cli import (
     DevicesOptionType,
     TextGenerationMetrics,
@@ -78,7 +75,6 @@ async def serve_token_generator(
     config: PipelineConfig,
     repo_id: str,
     performance_fake,
-    prefer_ce_over_tg: bool = True,
     profile: bool = False,
 ):
     """Hosts the Llama3 pipeline using max.serve."""
@@ -197,20 +193,12 @@ def main():
     default="none",
     help="Fake the engine performance (for benchmarking)",
 )
-@click.option(
-    "--disable-prefer-ce-over-tg",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Disable preference of context encoding over token generation.",
-)
 def run_llama3(
     prompt,
     serve,
     profile_serve,
     num_warmups,
     performance_fake,
-    disable_prefer_ce_over_tg,
     **config_kwargs,
 ):
     """Runs the Llama3 pipeline."""
@@ -263,7 +251,6 @@ def run_llama3(
                 config.huggingface_repo_id,
                 performance_fake,
                 profile_serve,
-                not disable_prefer_ce_over_tg,
             )
         )
     else:
@@ -356,7 +343,6 @@ async def serve_token_generator_mistral(
     config: PipelineConfig,
     repo_id: str,
     performance_fake,
-    prefer_ce_over_tg: bool = True,
     profile: bool = False,
 ):
     """Hosts the Mistral pipeline using max.serve."""
@@ -436,18 +422,11 @@ async def serve_token_generator_mistral(
     default=False,
     help="Whether to enable pyinstrument profiling on the serving endpoint.",
 )
-@click.option(
-    "--server-batch-mode",
-    type=click.Choice(["dynamic", "continuous"]),
-    default="dynamic",
-    help="Configures the servers batching scheme",
-)
 def run_mistral(
     prompt,
     serve,
     performance_fake,
     profile_serve,
-    server_batch_mode,
     **config_kwargs,
 ):
     """Runs the Mistral pipeline."""
@@ -484,6 +463,7 @@ def run_mistral(
                 config,
                 config.huggingface_repo_id,
                 performance_fake,
+                profile=profile_serve,
             )
         )
     else:
