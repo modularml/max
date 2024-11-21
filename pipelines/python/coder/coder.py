@@ -87,7 +87,7 @@ class Coder:
               unless you're using an older model checkpoint.
         """
         self.config = config
-        assert config.weight_path is not None
+        assert len(config.weight_path) > 0
         device_spec = self.config.device_spec
         self._device = CPU(
             device_spec.id

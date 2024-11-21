@@ -50,12 +50,18 @@ def config_to_flag(cls):
             elif issubclass(field_type, os.PathLike):
                 field_type = click.Path(field_type)
 
+        if field.default_factory != MISSING:
+            default = field.default_factory()
+        elif field.default != MISSING:
+            default = field.default
+        else:
+            default = None
         options.append(
             click.option(
                 f"--{normalized_name}",
                 show_default=True,
                 type=field_type,
-                default=None if field.default == MISSING else field.default,
+                default=default,
                 help=help_text.get(field.name),
             )
         )

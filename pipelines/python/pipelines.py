@@ -236,15 +236,15 @@ def run_llama3(
                 f"Model version: {config_kwargs['version']} not supported."
             )
 
-    if config_kwargs["weight_path"] is None and performance_fake == "none":
+    if len(config_kwargs["weight_path"]) == 0 and performance_fake == "none":
         hf_file = get_llama_huggingface_file(
             config_kwargs["version"], config_kwargs["quantization_encoding"]
         )
-        config_kwargs["weight_path"] = hf_file.download()
-    elif config_kwargs["weight_path"] is not None:
-        if not os.path.exists(config_kwargs["weight_path"]):
-            hf_file = HuggingFaceFile.parse(config_kwargs["weight_path"])
-            config_kwargs["weight_path"] = hf_file.download()
+        config_kwargs["weight_path"] = [hf_file.download()]
+    elif len(config_kwargs["weight_path"] > 0):
+        if not os.path.exists(config_kwargs["weight_path"][0]):
+            hf_file = HuggingFaceFile.parse(config_kwargs["weight_path"][0])
+            config_kwargs["weight_path"] = [hf_file.download()]
 
     config = PipelineConfig(**config_kwargs)
 
@@ -469,11 +469,11 @@ def run_mistral(
     ]:
         config.cache_strategy = KVCacheStrategy.NAIVE
 
-    if config.weight_path is None:
+    if len(config.weight_path) == 0:
         hf_file = HuggingFaceFile(
             "mistralai/Mistral-Nemo-Instruct-2407", "consolidated.safetensors"
         )
-        config.weight_path = hf_file.download()
+        config.weight_path = [hf_file.download()]
 
     if serve:
         logger.info("Starting server...")

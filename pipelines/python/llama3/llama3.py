@@ -40,7 +40,7 @@ def load_llama3_and_kv_manager(
     config: PipelineConfig,
     session: InferenceSession,
 ) -> tuple[Llama3, KVCacheManager]:
-    reader = gguf.GGUFReader(config.weight_path)
+    reader = gguf.GGUFReader(config.weight_path[0])
     cache_dtype = (
         DType.float32 if config.quantization_encoding.quantization_encoding
         is not None else config.dtype
@@ -91,7 +91,7 @@ class Llama3:
               unless you're using an older model checkpoint.
         """
         self.config = config
-        assert config.weight_path is not None
+        assert len(config.weight_path) > 0
         self.reader = reader
         device_spec = self.config.device_spec
         self._device = CPU(
