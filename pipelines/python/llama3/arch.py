@@ -66,38 +66,48 @@ llama_arch = SupportedArchitecture(
             name="3.1",
             encodings={
                 SupportedEncoding.float32: (
-                    HuggingFaceFile(
-                        "modularai/llama-3.1",
-                        "llama-3.1-8b-instruct-f32.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/llama-3.1",
+                            "llama-3.1-8b-instruct-f32.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.CONTINUOUS, KVCacheStrategy.NAIVE],
                 ),
                 SupportedEncoding.bfloat16: (
-                    HuggingFaceFile(
-                        "modularai/llama-3.1",
-                        "llama-3.1-8b-instruct-bf16.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/llama-3.1",
+                            "llama-3.1-8b-instruct-bf16.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.CONTINUOUS, KVCacheStrategy.NAIVE],
                 ),
                 SupportedEncoding.q4_0: (
-                    HuggingFaceFile(
-                        "modularai/llama-3.1",
-                        "llama-3.1-8b-instruct-q4_0.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/llama-3.1",
+                            "llama-3.1-8b-instruct-q4_0.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.NAIVE],
                 ),
                 SupportedEncoding.q4_k: (
-                    HuggingFaceFile(
-                        "modularai/llama-3.1",
-                        "llama-3.1-8b-instruct-q4_k_m.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/llama-3.1",
+                            "llama-3.1-8b-instruct-q4_k_m.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.NAIVE],
                 ),
                 SupportedEncoding.q6_k: (
-                    HuggingFaceFile(
-                        "modularai/llama-3.1",
-                        "llama-3.1-8b-instruct-q6_k.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/llama-3.1",
+                            "llama-3.1-8b-instruct-q6_k.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.NAIVE],
                 ),
             },
