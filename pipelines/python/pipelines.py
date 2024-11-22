@@ -18,8 +18,11 @@ import os
 
 import click
 import coder
-import llama3
-import llama_vision
+import architectures
+
+__all__ = ["architectures"]
+
+from llama3.model import Llama3Model
 import mistral
 from coder.config import get_coder_huggingface_files
 from huggingface_hub import hf_hub_download
