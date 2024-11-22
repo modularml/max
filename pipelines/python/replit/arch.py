@@ -28,17 +28,21 @@ replit_arch = SupportedArchitecture(
             name="1.5",
             encodings={
                 SupportedEncoding.float32: (
-                    HuggingFaceFile(
-                        "modularai/replit-code-1.5",
-                        "replit-code-v1_5-3b-f32.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/replit-code-1.5",
+                            "replit-code-v1_5-3b-f32.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.CONTINUOUS],
                 ),
                 SupportedEncoding.bfloat16: (
-                    HuggingFaceFile(
-                        "modularai/replit-code-1.5",
-                        "replit-code-v1_5-3b-bf16.gguf",
-                    ),
+                    [
+                        HuggingFaceFile(
+                            "modularai/replit-code-1.5",
+                            "replit-code-v1_5-3b-bf16.gguf",
+                        )
+                    ],
                     [KVCacheStrategy.CONTINUOUS],
                 ),
             },
