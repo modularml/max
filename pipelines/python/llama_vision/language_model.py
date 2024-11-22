@@ -87,7 +87,9 @@ class TextModel(Layer):
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
-        hidden_states = inputs_embeds
+        # TODO: This should be removed. When we fix the hard-coded Dtypes.
+        hidden_states = ops.cast(inputs_embeds, self.params.dtype)
+        # hidden_states = inputs_embeds
 
         # if cache_position is None:
         #     past_seen_tokens = (
@@ -111,7 +113,7 @@ class TextModel(Layer):
         # )
         # TODO: Finish implementation - stubbing out a bunch of outputs for now.
         # This causal_mask is only used by self attention, not cross attention.
-        causal_mask = ops.constant(0, DType.bfloat16).broadcast_to(
+        causal_mask = ops.constant(0, self.params.dtype).broadcast_to(
             (
                 1,
                 1,

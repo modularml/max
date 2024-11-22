@@ -100,7 +100,7 @@ class AttentionQKV(AttentionImplQKV):
             raise ValueError(msg)
 
         wqkv = ops.concat((self.wq, self.wk, self.wv), axis=0).transpose(0, 1)
-
+        wqkv = ops.cast(wqkv, x.dtype)
         # Get attributes from inputs
         batch_size, seq_len = x.shape[0], x.shape[1]
 
