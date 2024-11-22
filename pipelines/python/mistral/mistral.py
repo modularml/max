@@ -14,20 +14,16 @@
 import logging
 from typing import Any
 
-from max.graph.weights import SafetensorWeights
 import numpy as np
 import transformers
-from dataprocessing import (
-    causal_attention_mask_with_alibi,
-    collate_batch,
-)
+from dataprocessing import causal_attention_mask_with_alibi, collate_batch
 from max.driver import CPU, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph.weights import GGUFWeights
-from max.pipelines import PipelineConfig, TokenGenerator, TextContext
-from max.pipelines.response import TextResponse
+from max.graph.weights import SafetensorWeights
+from max.pipelines import PipelineConfig, TextContext, TokenGenerator
 from max.pipelines.kv_cache import KVCacheParams, load_kv_manager
+from max.pipelines.response import TextResponse
 from max.pipelines.sampling import token_sampler
 from transformers import AutoTokenizer
 
@@ -92,7 +88,7 @@ class Mistral(TokenGenerator):
         if serialized_path := self._config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized graph.
             weights_registry = {}
-            for name, tensor in self._weights._tensors.items():  # type: ignore
+            for name, tensor in self._weights._tensors.items():  # type:ignore
                 weights_registry[name] = tensor.data
             logging.info(
                 "Loading serialized model from ", serialized_path, "..."
@@ -111,7 +107,8 @@ class Mistral(TokenGenerator):
             )
             logging.info("Compiling...")
             return session.load(
-                graph, weights_registry=self._weights.allocated_weights  # type: ignore
+                graph,
+                weights_registry=self._weights.allocated_weights,  # type:ignore
             )
 
     def _execute(self, batch: dict[str, TextContext]) -> Tensor:
