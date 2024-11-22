@@ -98,7 +98,7 @@ def serve_pipeline(
             AutoTokenizer.from_pretrained(pipeline_config.huggingface_repo_id)
         )
         pipeline_factory = functools.partial(  # type: ignore
-            get_performance_fake,  # type: ignore
+            get_performance_fake,
             performance_fake,  # type: ignore
         )
         pipeline_config.cache_strategy = KVCacheStrategy.CONTINUOUS

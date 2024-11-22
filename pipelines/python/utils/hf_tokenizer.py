@@ -122,7 +122,7 @@ def tokenizer_from_gguf(
     special_tokens = [(bos_token, bos_token_id)]
     tokenizer.post_processor = processors.TemplateProcessing(  # type: ignore
         single=single, pair=pair, special_tokens=special_tokens
-    )  # type: ignore
+    )
     return PreTrainedTokenizerFast(
         tokenizer_object=tokenizer, **pretrained_tokenizer_kwargs
     )

@@ -343,9 +343,9 @@ async def serve_token_generator_mistral(
     """Hosts the Mistral pipeline using max.serve."""
     if performance_fake == "none":
         print("Starting server using Mistral.")
-        tokenizer = TextTokenizer(config)  # type: ignore
+        tokenizer = TextTokenizer(config)
         assert tokenizer.delegate
-        model_factory = functools.partial(  # type: ignore
+        model_factory = functools.partial(
             mistral.Mistral,
             config,
         )
