@@ -157,7 +157,7 @@ class LlamaVision(PipelineModel):
                 ),
                 language_model=instantiate_language_model(
                     pipeline_config=self.pipeline_config,
-                    kv_params=self._kv_params,
+                    kv_params=self._get_kv_params(),
                     weights=self.weights,
                 ),
             )
