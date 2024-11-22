@@ -79,6 +79,10 @@ def serve_pipeline(
     model_name: Union[str, None] = None,
 ):
     # Retrieve tokenizer and pipeline.
+    pipeline_config = PIPELINE_REGISTRY.validate_pipeline_config(
+        pipeline_config
+    )
+
     if performance_fake == "none":
         logger.info(
             f"Starting server using {pipeline_config.huggingface_repo_id}"
