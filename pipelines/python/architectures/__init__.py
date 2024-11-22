@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 from llama3 import Llama3
+from llama_vision import LlamaVision
 from replit import ReplitModel
 
-__all__ = ["Llama3", "ReplitModel"]
+__all__ = ["Llama3", "ReplitModel", "LlamaVision"]
