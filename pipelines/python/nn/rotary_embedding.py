@@ -135,6 +135,6 @@ class OptimizedRotaryEmbedding(RotaryEmbedding):
     def freqs_cis(self):
         freqs = self.freqs_cis_base()
         d1, d2, d3 = freqs.shape
-        new_f_shape = [d1.dim, d2.dim * d3.dim]
+        new_f_shape = [d1.dim, d2.dim * d3.dim]  # type: ignore
         self._freqs_cis = ops.reshape(freqs, new_f_shape)
         return self._freqs_cis

@@ -53,7 +53,7 @@ def config_to_flag(cls):
         if inspect.isclass(field_type):
             # For enum fields, convert to a choice that shows all possible values.
             if issubclass(field_type, Enum):
-                field_type = click.Choice(field_type)
+                field_type = click.Choice(field_type)  # type: ignore
             elif issubclass(field_type, pathlib.Path):
                 field_type = click.Path(path_type=pathlib.Path)
 
