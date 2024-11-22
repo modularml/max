@@ -84,20 +84,17 @@ def serve_pipeline(
             f"Starting server using {pipeline_config.huggingface_repo_id}"
         )
         # Load tokenizer and pipeline from PIPELINE_REGISTRY.
-        # return_factory, returns a pipeline_factory as opposed to an intialized pipeline.
-        # this minimizes the amount of data travelling during server worker initialization.
-        # it also minimized the probability of a pickling issue with custom config.
-        tokenizer, pipeline_factory = PIPELINE_REGISTRY.retrieve(
-            pipeline_config, return_factory=True
+        tokenizer, pipeline_factory = PIPELINE_REGISTRY.retrieve_factory(
+            pipeline_config,
         )
     else:
         logger.info(
             f"Starting server using performance fake {performance_fake}."
         )
-        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
+        tokenizer = PerformanceFakingPipelineTokenizer(
             AutoTokenizer.from_pretrained(pipeline_config.huggingface_repo_id)
         )
-        pipeline_factory = functools.partial(  # type: ignore
+        pipeline_factory = functools.partial(
             get_performance_fake,
             performance_fake,  # type: ignore
         )
@@ -128,7 +125,7 @@ def serve_pipeline(
                     pipeline_config.huggingface_repo_id,  # type: ignore
                     tokenizer,
                 ),
-                pipeline_factory,  # type: ignore
+                pipeline_factory,
             )
         },
     )

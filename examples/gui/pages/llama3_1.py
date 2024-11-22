@@ -68,7 +68,7 @@ def start_llama3(
         max_new_tokens=max_new_tokens,
         huggingface_repo_id="modularai/llama-3.1",
     )
-    _, pipeline = PIPELINE_REGISTRY.retrieve(config, return_factory=True)
+    _, pipeline = PIPELINE_REGISTRY.retrieve_factory(config)
     return pipeline
 
 
