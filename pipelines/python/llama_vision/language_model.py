@@ -42,11 +42,12 @@ class TextModel(Layer):
     The Llama text model which consists of transformer with self and cross attention layers.
     """
 
-    pipeline_config: PipelineConfig
+    dtype: DType
     kv_params: KVCacheParams
     embed_tokens: Embedding
     layers: list[CrossAttentionDecoderLayer | TransformerBlock]
     norm: RMSNorm
+    cross_attention_layers: list
     # TODO(MAXCORE-119): Finish implementation
     # rotary_emb: RotaryEmbedding
 
@@ -88,7 +89,8 @@ class TextModel(Layer):
             inputs_embeds = self.embed_tokens(input_ids)
 
         # TODO: This should be removed. When we fix the hard-coded Dtypes.
-        hidden_states = ops.cast(inputs_embeds, self.params.dtype)
+        hidden_states = ops.cast(inputs_embeds, self.dtype)
+
         # hidden_states = inputs_embeds
 
         # if cache_position is None:
@@ -113,7 +115,7 @@ class TextModel(Layer):
         # )
         # TODO: Finish implementation - stubbing out a bunch of outputs for now.
         # This causal_mask is only used by self attention, not cross attention.
-        causal_mask = ops.constant(0, self.params.dtype).broadcast_to(
+        causal_mask = ops.constant(0, self.dtype).broadcast_to(
             (
                 1,
                 1,
@@ -150,10 +152,7 @@ class TextModel(Layer):
             # For text-only path we should skip cross attention layers.
             # Let's check if the layer is cross attention layer and if we have
             # cross attention states or cached cross attention states.
-            is_cross_attention_layer = (
-                idx
-                in self.pipeline_config.huggingface_config.text_config.cross_attention_layers
-            )
+            is_cross_attention_layer = idx in self.cross_attention_layers
             is_cross_attention_cache_empty = past_key_values is None
             # or (
             #     past_key_values is not None
@@ -207,7 +206,7 @@ class CausalLanguageModel(Layer):
     The Llama Vision Text Model with a language modeling head on top.
     """
 
-    pipeline_config: PipelineConfig
+    dtype: DType
     kv_params: KVCacheParams
     model: TextModel
     lm_head: Linear
@@ -261,7 +260,7 @@ class CausalLanguageModel(Layer):
         last_hidden_state, past_key_values, hidden_states, attentions = outputs
         logits = ops.cast(
             self.lm_head(last_hidden_state[:, -num_logits_to_keep:, :]),
-            self.pipeline_config.dtype,
+            self.dtype,
         )
 
         return (
@@ -287,7 +286,6 @@ def cross_attention_decoder_layer(
         // pipeline_config.huggingface_config.text_config.num_key_value_heads
     )
     sdpa_attn = CrossSdpaAttention(
-        pipeline_config=pipeline_config,
         num_heads=num_heads,
         num_key_value_heads=pipeline_config.huggingface_config.text_config.num_key_value_heads,
         head_dim=head_dim,
@@ -558,7 +556,7 @@ def instantiate_language_model(
             )
 
     text_model = TextModel(
-        pipeline_config=pipeline_config,
+        dtype=pipeline_config.dtype,
         kv_params=kv_params,
         embed_tokens=Embedding(
             weights.language_model.model.embed_tokens.weight.allocate(
@@ -579,10 +577,11 @@ def instantiate_language_model(
             eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
         layers=layers,
+        cross_attention_layers=pipeline_config.huggingface_config.text_config.cross_attention_layers,
     )
 
     return CausalLanguageModel(
-        pipeline_config=pipeline_config,
+        dtype=pipeline_config.dtype,
         kv_params=kv_params,
         model=text_model,
         lm_head=Linear(
