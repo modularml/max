@@ -22,6 +22,7 @@ import architectures
 
 __all__ = ["architectures"]
 
+from llama3 import Llama3TokenGenerator
 from llama3.model import Llama3Model
 import mistral
 from coder.config import get_coder_huggingface_files
@@ -256,7 +257,7 @@ def run_llama3(
             tokenizer = TextTokenizer(
                 config,
             )
-            model = llama3.Llama3TokenGenerator(
+            model = Llama3TokenGenerator(
                 config,
                 tokenizer.delegate.eos_token_id,
             )
