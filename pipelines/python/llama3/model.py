@@ -14,31 +14,58 @@
 from __future__ import annotations
 
 import logging
+from typing import Sequence
+import warnings
+
 import numpy as np
+from dataprocessing import batch_padded_tokens_and_mask
 from max.driver import CPU, CUDA, Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import GGUFWeights
 from max.pipelines import (
+    LogProbabilities,
+    ModelOutputs,
     PipelineModel,
-    TextContext,
     SupportedEncoding,
+    TextContext,
 )
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
-    load_kv_manager,
     KVCacheStrategy,
+    load_kv_manager,
 )
+from nn.compute_log_probabilities import compute_log_probabilities
 
-from dataprocessing import batch_padded_tokens_and_mask
 from .gguf import transformer
 
 
 class Llama3Model(PipelineModel):
-    def execute(self, *model_inputs: Tensor) -> Tensor:
-        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]
+    def execute(self, *model_inputs: Tensor) -> ModelOutputs:
+        model_outputs = self.model.execute(
+            *model_inputs, copy_inputs_to_device=False
+        )
+
+        if self.pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
+            if self.pipeline_config.enable_echo:
+                assert len(model_outputs) == 2
+                return ModelOutputs(
+                    next_token_logits=model_outputs[0], logits=model_outputs[1]
+                )
+            else:
+                assert len(model_outputs) == 1
+                return ModelOutputs(next_token_logits=model_outputs[0])
+        else:
+            if self.pipeline_config.enable_echo:
+                assert len(model_outputs) == 3
+                return ModelOutputs(
+                    next_token_logits=model_outputs[0], logits=model_outputs[2]
+                )
+            else:
+                assert len(model_outputs) == 2
+                return ModelOutputs(next_token_logits=model_outputs[0])
 
     def _prepare_continuous_initial_token_inputs(
         self, context_batch: list[TextContext]
@@ -213,8 +240,8 @@ class Llama3Model(PipelineModel):
                 self._get_kv_params(),
             )
             tokens, input_row_offset, *kv_cache = graph.inputs
-            logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
-            graph.output(logits)
+            outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+            graph.output(*outputs)
             return graph
 
     def _build_graph(self, weights: GGUFWeights) -> Graph:
@@ -259,5 +286,89 @@ class Llama3Model(PipelineModel):
                 v_cache,
                 start_pos,
             )
-            graph.output(logits[:, -1], end_pos)
+            if self.pipeline_config.enable_echo:
+                graph.output(logits[:, -1], end_pos, logits)
+            else:
+                graph.output(logits[:, -1], end_pos)
             return graph
+
+    def compute_log_probabilities(
+        self,
+        model_inputs: Sequence[Tensor],
+        model_outputs: ModelOutputs,
+        next_tokens: Tensor,
+        batch_top_n: list[int],
+        batch_echo: list[bool],
+    ) -> list[LogProbabilities | None] | None:
+        if any(echo for echo in batch_echo):
+            if model_outputs.logits is None:
+                warnings.warn(
+                    "Could not get logprobs with echo because the full logits"
+                    f" were not returned by {self.pipeline_config.short_name}"
+                    " model. Please ensure that this model is started with "
+                    "`--enable-echo`."
+                )
+                assert (
+                    not self.pipeline_config.enable_echo
+                ), "Echo was enabled but logits were not returned."
+                return None
+            logits = model_outputs.logits.to(CPU()).to_numpy()
+        next_token_logits = model_outputs.next_token_logits.to(CPU()).to_numpy()
+
+        sampled_tokens = next_tokens.to(CPU()).to_numpy()
+        if self.pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
+            # Handle the ragged inputs
+            tokens_tensor, input_row_offset_tensor = model_inputs
+            tokens = tokens_tensor.to(CPU()).to_numpy()
+            input_row_offsets = input_row_offset_tensor.to(CPU()).to_numpy()
+
+            def _get_logits_and_samples(
+                batch_index: int, echo: bool
+            ) -> tuple[np.ndarray, np.ndarray]:
+                if echo:
+                    start_offset = input_row_offsets[batch_index]
+                    end_offset = input_row_offsets[batch_index + 1]
+                    batch_logits = logits[start_offset:end_offset]
+                    samples = np.concatenate(
+                        (
+                            tokens[start_offset + 1 : end_offset],
+                            sampled_tokens[batch_index : batch_index + 1],
+                        )
+                    )
+                else:
+                    batch_logits = next_token_logits[
+                        batch_index : batch_index + 1
+                    ]
+                    samples = sampled_tokens[batch_index : batch_index + 1]
+                return batch_logits, samples
+
+        else:
+            # Handle batched inputs. Llama pads them to the right so the seq
+            # lengths can be computed by finding the first 0 token.
+            tokens = model_inputs[0]
+            seq_lens = np.sum(tokens > 0, axis=1)
+
+            def _get_logits_and_samples(
+                batch_index: int, echo: bool
+            ) -> tuple[np.ndarray, np.ndarray]:
+                if echo:
+                    seq_len = seq_lens[batch_index]
+                    padded_tokens = tokens[batch_index]
+
+                    batch_logits = logits[batch_index, :seq_len, :]
+                    samples = np.concatenate(
+                        (
+                            padded_tokens[1:seq_len],
+                            sampled_tokens[batch_index : batch_index + 1],
+                        )
+                    )
+                else:
+                    batch_logits = next_token_logits[
+                        batch_index : batch_index + 1, :
+                    ]
+                    samples = sampled_tokens[batch_index : batch_index + 1]
+                return batch_logits, samples
+
+        return compute_log_probabilities(
+            _get_logits_and_samples, batch_top_n, batch_echo
+        )

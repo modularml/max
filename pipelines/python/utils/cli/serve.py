@@ -16,11 +16,12 @@ import asyncio
 import functools
 import logging
 from typing import Union
-from max.pipelines import PipelineConfig, PIPELINE_REGISTRY
+
+from max.pipelines import PIPELINE_REGISTRY, PipelineConfig
 from max.pipelines.kv_cache import KVCacheStrategy
+from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
-from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.pipelines.deps import BatchedTokenGeneratorState
 from max.serve.pipelines.llm import (
     TokenGeneratorPipeline,
@@ -32,7 +33,6 @@ from max.serve.pipelines.performance_fake import (
 )
 from transformers import AutoTokenizer
 from uvicorn import Server
-
 
 logger = logging.getLogger(__name__)
 
