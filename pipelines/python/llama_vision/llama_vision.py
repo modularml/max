@@ -56,7 +56,7 @@ def load_llama_vision_and_kv_manager(
         session=session,
     )
     model = LlamaVision(
-        config=config,
+        pipeline_config=config,
         session=session,
     )
 
@@ -230,7 +230,7 @@ class LlamaVision(PipelineModel):
             max_cache_batch_size=self.pipeline_config.max_cache_batch_size,  # verify this.
             max_seq_len=self.pipeline_config.huggingface_config.text_config.max_position_embeddings,  # verify this.
             num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
-            devices=[self.pipeline_config.huggingface_config.device],
+            devices=[self.pipeline_config.device],
             session=session,
         )
 
