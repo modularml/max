@@ -340,6 +340,70 @@ def run_llama_vision(
     )
 
 
+@main.command(name="pixtral")
+@config_to_flag(PipelineConfig)
+@click.option(
+    "--use-gpu",
+    is_flag=False,
+    type=DevicesOptionType(),
+    show_default=True,
+    default="",
+    flag_value="0",
+    help=(
+        "Whether to run the model on the available GPU. An ID value can be"
+        " provided optionally to indicate the device ID to target."
+    ),
+)
+def run_pixtral(
+    use_gpu,
+    **config_kwargs,
+):
+    """Runs the Pixtral pipeline."""
+    if use_gpu:
+        config_kwargs.update(
+            {
+                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
+                "quantization_encoding": SupportedEncoding.bfloat16,
+            }
+        )
+    else:
+        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
+
+    # Here we use mistral-community model for loading the hyper-params from config.json
+    # because its compatible with transformers
+    # Not consistent with weights repo used in get_pixtral_huggingface_file
+    if config_kwargs["huggingface_repo_id"] is None:
+        config_kwargs["huggingface_repo_id"] = "mistral-community/pixtral-12b"
+
+    if config_kwargs["architecture"] is None:
+        config_kwargs["architecture"] = "LlavaForConditionalGeneration"
+
+    config = PipelineConfig(**config_kwargs)
+
+    # Validate encoding.
+    if config.quantization_encoding is None:
+        config.quantization_encoding = SupportedEncoding.bfloat16
+
+    weight_filenames = [
+        "model-00001-of-00006.safetensors",
+        "model-00002-of-00006.safetensors",
+        "model-00003-of-00006.safetensors",
+        "model-00004-of-00006.safetensors",
+        "model-00005-of-00006.safetensors",
+        "model-00006-of-00006.safetensors",
+    ]
+    config.weight_path = [
+        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)
+        for filename in weight_filenames
+    ]
+
+    # if config.weight_path is None:
+    #     hf_file = get_pixtral_huggingface_file(config.quantization_encoding)
+    #     config.weight_path = hf_file.download()
+
+    model = pixtral.PixtralModel(config)
+
+
 async def serve_token_generator_mistral(
     config: PipelineConfig,
     repo_id: str,
