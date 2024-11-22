@@ -13,8 +13,6 @@ pytorch = ">=2.4.0,<3"
 onnx = "==1.16.0"
 transformers = "==4.40.1"
 datasets = "==2.18"
-
-[pypi-dependencies]
 pillow = "==10.3.0"
 
 [feature.test.tasks]
