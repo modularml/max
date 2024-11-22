@@ -131,8 +131,8 @@ class Llama3:
                 self._kv_params,
             )
             tokens, input_row_offset, *kv_cache = graph.inputs
-            logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
-            graph.output(logits)
+            outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+            graph.output(*outputs)
             return graph
 
     def _llama_graph(self, weights: GGUFWeights) -> Graph:

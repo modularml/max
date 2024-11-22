@@ -11,26 +11,50 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from __future__ import annotations
+
 import logging
+from typing import Sequence
+import warnings
 
 import numpy as np
 from dataprocessing import causal_attention_mask_with_alibi, collate_batch
-from max.driver import Tensor
+from max.driver import CPU, Tensor
 from max.engine import InferenceSession, Model
 from max.graph.weights import GGUFWeights
-from max.pipelines import PipelineConfig, PipelineModel, TextContext
+from max.pipelines import (
+    LogProbabilities,
+    ModelOutputs,
+    PipelineConfig,
+    PipelineModel,
+    TextContext,
+)
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     load_kv_manager,
 )
+from nn.compute_log_probabilities import compute_log_probabilities
 
 from .graph import _build_graph
 
 
 class ReplitModel(PipelineModel):
-    def execute(self, *model_inputs: Tensor) -> Tensor:  # type: ignore
-        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]  # type: ignore
+    def execute(self, *model_inputs: Tensor) -> ModelOutputs:  # type: ignore
+        model_outputs = self.model.execute(
+            *model_inputs, copy_inputs_to_device=False
+        )
+        if self.pipeline_config.enable_echo:
+            assert len(model_outputs) == 2
+            assert isinstance(model_outputs[0], Tensor)
+            assert isinstance(model_outputs[1], Tensor)
+            return ModelOutputs(
+                next_token_logits=model_outputs[0], logits=model_outputs[1]
+            )
+        else:
+            assert len(model_outputs) == 1
+            assert isinstance(model_outputs[0], Tensor)
+            return ModelOutputs(next_token_logits=model_outputs[0])
 
     def prepare_initial_token_inputs(
         self,
@@ -169,3 +193,55 @@ class ReplitModel(PipelineModel):
                 logging.info("Exporting serialized model to %s", export_path)
                 model._export_mef(export_path)
             return model
+
+    def compute_log_probabilities(
+        self,
+        model_inputs: Sequence[Tensor],
+        model_outputs: ModelOutputs,
+        next_tokens: Tensor,
+        batch_top_n: list[int],
+        batch_echo: list[bool],
+    ) -> list[LogProbabilities | None] | None:
+        if any(echo for echo in batch_echo):
+            if model_outputs.logits is None:
+                warnings.warn(
+                    "Could not get logprobs with echo because the full logits"
+                    f" were not returned by {self.pipeline_config.short_name}"
+                    " model. Please ensure that this model is started with "
+                    "`--enable-echo`."
+                )
+                assert (
+                    not self.pipeline_config.enable_echo
+                ), "Echo was enabled but logits were not returned."
+                return None
+            logits = model_outputs.logits.to(CPU()).to_numpy()
+        next_token_logits = model_outputs.next_token_logits.to(CPU()).to_numpy()
+
+        sampled_tokens = next_tokens.to(CPU()).to_numpy()
+        # Handle batched inputs.
+        token_tensor, _, valid_length_tensor = model_inputs
+        tokens = token_tensor.to(CPU()).to_numpy()
+        valid_lengths = valid_length_tensor.to(CPU()).to_numpy()
+
+        def _get_logits_and_samples(
+            batch_index: int, echo: bool
+        ) -> tuple[np.ndarray, np.ndarray]:
+            if echo:
+                seq_len = valid_lengths[batch_index]
+                padded_tokens = tokens[batch_index]
+                assert model_outputs.logits is not None
+                batch_logits = logits[batch_index, :seq_len]
+                samples = np.concatenate(
+                    (
+                        padded_tokens[1:seq_len],
+                        sampled_tokens[batch_index : batch_index + 1],
+                    )
+                )
+            else:
+                batch_logits = next_token_logits[batch_index : batch_index + 1]
+                samples = sampled_tokens[batch_index : batch_index + 1]
+            return batch_logits, samples
+
+        return compute_log_probabilities(
+            _get_logits_and_samples, batch_top_n, batch_echo
+        )

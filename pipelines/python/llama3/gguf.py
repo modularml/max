@@ -258,6 +258,7 @@ def _transformer_opaque(
             embedding=embedding_layer,
             kv_params=kv_params,
             kv_collection_constructor=kv_collection_cls(kv_params),
+            all_logits=pipeline_config.enable_echo,
         )
 
 

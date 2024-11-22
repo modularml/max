@@ -162,6 +162,7 @@ def _transformer(
             kv_collection_constructor=FetchContinuousBatchingKVCacheCollection(
                 kv_params
             ),
+            all_logits=pipeline_config.enable_echo,
         )
 
 
@@ -192,11 +193,11 @@ def _build_graph(
     ) as graph:
         model = _transformer(graph, pipeline_config, weights, kv_params)
         tokens, attention_mask, valid_lengths, *kv_cache_inputs = graph.inputs
-        logits = model(
+        outputs = model(
             tokens=tokens,
             valid_lengths=valid_lengths,
             kv_cache_inputs=kv_cache_inputs,
             attention_mask=attention_mask.cast(pipeline_config.dtype),  # type: ignore
         )
-        graph.output(logits)
+        graph.output(*outputs)
         return graph
