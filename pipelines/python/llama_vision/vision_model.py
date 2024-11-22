@@ -495,10 +495,10 @@ def instantiate_vision_model(
     )
 
     gated_positional_embedding = PrecomputedPositionEmbedding(
-        image_size=pipeline_config.image_size,
-        patch_size=pipeline_config.patch_size,
-        hidden_size=pipeline_config.hidden_size,
-        max_num_tiles=pipeline_config.max_num_tiles,
+        image_size=pipeline_config.huggingface_config.vision_config.image_size,
+        patch_size=pipeline_config.huggingface_config.vision_config.patch_size,
+        hidden_size=pipeline_config.huggingface_config.vision_config.hidden_size,
+        max_num_tiles=pipeline_config.huggingface_config.vision_config.max_num_tiles,
         gate=weights.vision_model.gated_positional_embedding.gate.allocate(
             pipeline_config.dtype, [1]
         ),
