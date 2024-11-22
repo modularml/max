@@ -21,8 +21,6 @@ from max.graph import TensorValue, TensorValueLike, ops
 from nn import Embedding
 from nn.layer import Layer
 
-from .hyperparameters import VisionHyperparameters
-
 
 @dataclass
 class PrecomputedAspectRatioEmbedding(Layer):
@@ -36,7 +34,8 @@ class PrecomputedAspectRatioEmbedding(Layer):
         embedding: The aspect ratio embedding.
     """
 
-    params: VisionHyperparameters
+    max_num_tiles: int
+    hidden_size: int
     gate: TensorValueLike
     embedding: Embedding
     is_gated: bool = False
@@ -46,7 +45,12 @@ class PrecomputedAspectRatioEmbedding(Layer):
     ) -> TensorValue:
         embeddings = self.embedding(aspect_ratio_ids)
         embeddings = embeddings.reshape(
-            (-1, self.params.max_num_tiles, 1, self.params.hidden_size)
+            (
+                -1,
+                self.max_num_tiles,
+                1,
+                self.hidden_size,
+            )
         )
 
         if self.is_gated:
@@ -72,7 +76,6 @@ class PrecomputedPositionEmbedding(Layer):
     Llama 3.2 precomputed position embedding.
 
     Args:
-        params: Hyperparameters for this PrecomputedPositionEmbedding layer.
         gate: The gating parameter to control the contribution of the position
               embedding or another component of the model.
         embedding: The precomputed position embedding.
@@ -80,7 +83,10 @@ class PrecomputedPositionEmbedding(Layer):
                         vision model.
     """
 
-    params: VisionHyperparameters
+    image_size: int
+    patch_size: int
+    hidden_size: int
+    max_num_tiles: int
     gate: TensorValueLike
     embedding: TensorValueLike
     tile_embedding: Embedding
@@ -91,8 +97,14 @@ class PrecomputedPositionEmbedding(Layer):
         # position embeddings
         gated_position_embedding = (1 - ops.tanh(self.gate)) * self.embedding
 
+        num_patches = (self.image_size // self.patch_size) ** 2 + 1
         gated_position_embedding = gated_position_embedding.reshape(
-            (1, 1, self.params.num_patches, self.params.hidden_size)
+            (
+                1,
+                1,
+                num_patches,
+                self.hidden_size,
+            )
         )
         # We're broadcasting gated_position_embedding in the add operation below,
         # so we call rebind() on hidden_state first.
@@ -101,8 +113,8 @@ class PrecomputedPositionEmbedding(Layer):
             (
                 batch_size,
                 num_tiles,
-                self.params.num_patches,
-                self.params.hidden_size,
+                num_patches,
+                self.hidden_size,
             )
         )
         hidden_state = hidden_state + gated_position_embedding
@@ -112,9 +124,9 @@ class PrecomputedPositionEmbedding(Layer):
         tile_position_embedding = tile_position_embedding.reshape(
             (
                 batch_size,
-                self.params.max_num_tiles,
-                self.params.num_patches,
-                self.params.hidden_size,
+                self.max_num_tiles,
+                num_patches,
+                self.hidden_size,
             )
         )
         gated_tile_position_embedding = (

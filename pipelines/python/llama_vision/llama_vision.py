@@ -12,11 +12,12 @@
 # ===----------------------------------------------------------------------=== #
 from __future__ import annotations
 
+import logging
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
-from max.pipelines import TextAndVisionContext, PipelineConfig
+from max.pipelines import TextAndVisionContext, PipelineConfig, PipelineModel
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -26,7 +27,6 @@ from nn import Linear
 
 from .conditional_generator import ConditionalGenerator
 
-from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import instantiate_language_model
 from .vision_model import instantiate_vision_model
 
@@ -35,12 +35,12 @@ from .vision_model import instantiate_vision_model
 def load_llama_vision_and_kv_manager(
     config: PipelineConfig, session: InferenceSession | None = None
 ) -> tuple[LlamaVision, KVCacheManager]:
-    _, text_params = _read_hyperparameters(config)
     # Initialize kv cache params and manager
     kv_params = KVCacheParams(
         dtype=config.dtype,
-        n_kv_heads=text_params.num_attention_heads,
-        head_dim=text_params.hidden_size // text_params.num_attention_heads,
+        n_kv_heads=config.huggingface_config.text_config.num_attention_heads,
+        head_dim=config.huggingface_config.text_config.hidden_size
+        // config.huggingface_config.text_config.num_attention_heads,
         cache_strategy=config.cache_strategy,
     )
 
@@ -50,14 +50,13 @@ def load_llama_vision_and_kv_manager(
     kv_manager = load_kv_manager(
         params=kv_params,
         max_cache_batch_size=config.max_cache_batch_size,  # verify this.
-        max_seq_len=text_params.max_position_embeddings,  # verify this.
-        num_layers=text_params.num_hidden_layers,
+        max_seq_len=config.huggingface_config.text_config.max_position_embeddings,  # verify this.
+        num_layers=config.huggingface_config.text_config.num_hidden_layers,
         devices=[config.device],
         session=session,
     )
     model = LlamaVision(
         config=config,
-        kv_manager=kv_manager,
         session=session,
     )
 
@@ -65,30 +64,8 @@ def load_llama_vision_and_kv_manager(
 
 
 # TODO: Some parts may be consolidated under the parent Llama 3 pipeline interface.
-class LlamaVision:
+class LlamaVision(PipelineModel):
     """The Llama3.2 vision model."""
-
-    def __init__(
-        self,
-        config: PipelineConfig,
-        kv_manager: KVCacheManager,
-        *,
-        session: InferenceSession | None = None,
-    ):
-        self.config = config
-
-        # Llama 3.2 vision model always takes in multiple safetensors, so we assert
-        # here to check if that's always true.
-        self.weights = config.load_weights()
-        self.vision_params, self.text_params = _read_hyperparameters(config)
-
-        if session is None:
-            session = InferenceSession(devices=[self.config.device])
-
-        self._kv_manager = kv_manager
-        self._kv_params = self._kv_manager.params
-
-        self._model = self._load_model(session)
 
     def export_mef(self, export_path):
         self._model._export_mef(export_path)
@@ -107,7 +84,7 @@ class LlamaVision:
 
         # Inserted a manual CHW -> HWC transpose here.
         pixel_values_type = TensorType(
-            self.config.dtype,
+            self.pipeline_config.dtype,
             shape=[
                 1,  # batch_size
                 1,  # num_concurrent_media
@@ -125,7 +102,7 @@ class LlamaVision:
             ],  # batch_size, num_concurrent_media
         )
         aspect_ratio_mask_type = TensorType(
-            self.config.dtype,
+            self.pipeline_config.dtype,
             shape=[
                 1,
                 1,
@@ -140,7 +117,7 @@ class LlamaVision:
         cross_attention_mask_type = TensorType(DType.int64, [1, 14, 1, 4])
 
         blocks_type, cache_lengths_type, lookup_table_type, is_cache_empty_type = (
-            self._kv_manager.input_symbols()
+            self.kv_manager.input_symbols()
         )
         with Graph(
             "llama3-vision",
@@ -159,27 +136,28 @@ class LlamaVision:
             ],
         ) as graph:
             model = ConditionalGenerator(
-                text_params=self.text_params,
-                vision_params=self.vision_params,
+                pipeline_config=self.pipeline_config,
                 vision_model=instantiate_vision_model(
-                    self.vision_params, self.weights
+                    self.pipeline_config, self.weights
                 ),
                 multi_modal_projector=Linear(
                     self.weights.multi_modal_projector.weight.allocate(
-                        self.config.dtype,
+                        self.pipeline_config.dtype,
                         [
-                            self.text_params.hidden_size,
-                            self.vision_params.vision_output_dim,
+                            self.pipeline_config.huggingface_config.text_config.hidden_size,
+                            self.pipeline_config.huggingface_config.vision_config.vision_output_dim,
                         ],
                     ),
                     self.weights.multi_modal_projector.bias.allocate(
-                        self.config.dtype,
-                        [self.text_params.hidden_size],
+                        self.pipeline_config.dtype,
+                        [
+                            self.pipeline_config.huggingface_config.text_config.hidden_size
+                        ],
                     ),
                 ),
                 language_model=instantiate_language_model(
+                    pipeline_config=self.pipeline_config,
                     kv_params=self._kv_params,
-                    params=self.text_params,
                     weights=self.weights,
                 ),
             )
@@ -222,36 +200,51 @@ class LlamaVision:
             graph.output(logits)  # type: ignore
             return graph
 
-    def _load_model(
+    def prepare_initial_token_inputs(
+        self, context_batch: list[TextAndVisionContext]
+    ) -> tuple[Tensor, ...]:
+        raise NotImplementedError("not yet implemented.")
+
+    def prepare_next_token_inputs(
+        self,
+        next_tokens: Tensor,
+        prev_model_inputs: tuple[Tensor, ...],
+    ) -> tuple[Tensor, ...]:
+        raise NotImplementedError("not yet implemented.")
+
+    def execute(self, *model_inputs: Tensor) -> tuple[Tensor, ...]:
+        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]  # type: ignore
+
+    def _get_kv_params(self) -> KVCacheParams:
+        return KVCacheParams(
+            dtype=self.pipeline_config.dtype,
+            n_kv_heads=self.pipeline_config.huggingface_config.text_config.num_attention_heads,
+            head_dim=self.pipeline_config.huggingface_config.text_config.hidden_size
+            // self.pipeline_config.huggingface_config.text_config.num_attention_heads,
+            cache_strategy=self.pipeline_config.cache_strategy,
+        )
+
+    def load_kv_manager(self, session: InferenceSession) -> KVCacheManager:
+        return load_kv_manager(
+            params=self._get_kv_params(),
+            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,  # verify this.
+            max_seq_len=self.pipeline_config.huggingface_config.text_config.max_position_embeddings,  # verify this.
+            num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
+            devices=[self.pipeline_config.huggingface_config.device],
+            session=session,
+        )
+
+    def load_model(
         self,
         session: InferenceSession,
-    ) -> Model | None:
-        print("Building model...")
+    ) -> Model:
+        self.weights = self.pipeline_config.load_weights()
+
+        logging.info("Building model...")
         graph = self._llama3_vision_graph()
-        print("Compiling...")
-        res = session.load(
+        logging.info("Compiling...")
+        model = session.load(
             graph,
-            weights_registry=self.weights.allocated_weights,  # type: ignore
+            weights_registry=self.weights.allocated_weights,
         )
-        print("Done!")
-        return res
-
-    def _execute(
-        self, req_to_context_dict: dict[str, TextAndVisionContext]
-    ) -> Tensor:
-        raise NotImplementedError("Not implemented yet")
-
-
-def _read_hyperparameters(
-    config: PipelineConfig,
-) -> tuple[VisionHyperparameters, TextHyperparameters]:
-    return (
-        VisionHyperparameters(
-            dtype=config.dtype,
-            quantization_encoding=config.quantization_encoding.quantization_encoding,  # type: ignore
-        ),
-        TextHyperparameters(
-            dtype=config.dtype,
-            quantization_encoding=config.quantization_encoding.quantization_encoding,  # type: ignore
-        ),
-    )
+        return model

@@ -317,6 +317,7 @@ def run_llama_vision(
         config_kwargs.update({"device_spec": DeviceSpec.cpu()})
 
     config_kwargs["huggingface_repo_id"] = "meta-llama/Llama-3.2-11B-Vision"
+    config_kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
     config = PipelineConfig(**config_kwargs)
     weight_filenames = [
         "model-00001-of-00005.safetensors",
