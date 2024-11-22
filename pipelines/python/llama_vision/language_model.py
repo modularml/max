@@ -18,14 +18,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 from max.graph.weights import SafetensorWeights
 from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
-from nn import MLP, Embedding, Linear, RMSNorm, TransformerBlock
+from nn import MLP, AttentionQKV, Embedding, Linear, RMSNorm, TransformerBlock
 from nn.layer import Layer
 
 from .cache import Cache
@@ -34,8 +34,6 @@ from .cross_attention_decoder import (
     CrossSdpaAttention,
 )
 from .hyperparameters import TextHyperparameters
-from .rotary_embedding_2d import RotaryEmbedding2D
-from .self_attention_decoder import SelfSdpaAttention
 
 
 @dataclass
@@ -49,7 +47,8 @@ class TextModel(Layer):
     embed_tokens: Embedding
     layers: list[CrossAttentionDecoderLayer | TransformerBlock]
     norm: RMSNorm
-    rotary_emb: RotaryEmbedding2D
+    # TODO(MAXCORE-119): Finish implementation
+    # rotary_emb: RotaryEmbedding
 
     # input_ids: shape=[1, 1], dtype=torch.int64
     # attention_mask: shape=[1, 22], dtype=torch.int64
@@ -121,9 +120,22 @@ class TextModel(Layer):
             )  # causal_mask / attention_mask: shape=[1, 1, 14, 4100]
         )
 
-        # Create position embeddings to be shared across the decoder layers.
-        position_embeddings = self.rotary_emb(
-            x=hidden_states, position_ids=position_ids
+        # create position embeddings to be shared across the decoder layers
+        # Inputs:
+        # x: shape=[1, 1, 4096], dtype=torch.bfloat16
+        # position_ids: shape=[1, 1], dtype=torch.int64
+        # Output Shapes: [[1, 1, 128], [1, 1, 128]], torch.bfloat16
+        # TODO(MAXCORE-119): Finish implementation
+        # position_embeddings = self.rotary_emb(hidden_states, position_ids)
+        position_embeddings = ops.constant(0, DType.bfloat16).broadcast_to(
+            (
+                1,
+                1,
+                128,
+            )  # causal_mask / attention_mask: shape=[1, 1, 14, 4100]
+        )
+        position_embeddings = ops.stack(
+            [position_embeddings, position_embeddings], axis=-1
         )
 
         # decoder layers
@@ -136,7 +148,10 @@ class TextModel(Layer):
             # For text-only path we should skip cross attention layers.
             # Let's check if the layer is cross attention layer and if we have
             # cross attention states or cached cross attention states.
-            is_cross_attention_layer = idx in self.params.cross_attention_layers
+            is_cross_attention_layer = (
+                idx
+                in self.pipeline_config.huggingface_config.text_config.cross_attention_layers
+            )
             is_cross_attention_cache_empty = past_key_values is None
             # or (
             #     past_key_values is not None
@@ -438,10 +453,10 @@ def self_attention_decoder_layer(
         bias=None,
     )
 
-    attention = SelfSdpaAttention(
+    attention = AttentionQKV(
         n_heads=pipeline_config.huggingface_config.text_config.num_attention_heads,
         kv_params=kv_params,
-        layer_idx=layer_idx,
+        layer_idx=ops.constant(layer_idx, DType.uint32),
         wq=q_proj.weight,
         wk=k_proj.weight,
         wv=v_proj.weight,
@@ -554,7 +569,6 @@ def instantiate_language_model(
                 ],
             ),
         ),
-        layers=layers,
         norm=RMSNorm(
             weight=weights.language_model.model.norm.weight.allocate(
                 pipeline_config.dtype,
@@ -562,17 +576,7 @@ def instantiate_language_model(
             ),
             eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
-        # TODO: Verify if these values passed are even correct.
-        rotary_emb=RotaryEmbedding2D(
-            dim=params.hidden_size,
-            n_heads=params.num_attention_heads,
-            theta=params.rope_theta,
-            max_patches_per_side=params.rope_scaling[
-                "original_max_position_embeddings"
-            ],
-            # TODO: Figure out how we want to pass this
-            # rope_scaling=params.rope_scaling,
-        ),
+        layers=layers,
     )
 
     return CausalLanguageModel(

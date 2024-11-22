@@ -16,19 +16,20 @@ import functools
 import logging
 import os
 
+import architectures
 import click
 import coder
-import architectures
 
 __all__ = ["architectures"]
 
-from llama3 import Llama3TokenGenerator
-from llama3.model import Llama3Model
+
 import mistral
 from coder.config import get_coder_huggingface_files
 from huggingface_hub import hf_hub_download
+from llama3 import Llama3TokenGenerator
 from llama3.config import get_llama_huggingface_file
 from llama3.model import Llama3Model
+from llama_vision import llama_vision
 from max.driver import DeviceSpec
 from max.pipelines import (
     HuggingFaceFile,
