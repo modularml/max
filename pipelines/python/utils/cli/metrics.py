@@ -14,7 +14,7 @@
 """Metric-gathering utilities for the pipelines."""
 
 import time
-from typing import Union
+from typing import Any, Union
 
 import psutil
 
@@ -106,7 +106,7 @@ class TextGenerationMetrics:
             self.eval_throughput = (
                 (self.output_size - 1) * self.batch_size / generation_time
             )
-            self.time_per_output_token = (
+            self.time_per_output_token: Any = (
                 generation_time * 1000.0 / (self.output_size - 1)
             )
         else:
@@ -118,8 +118,8 @@ class TextGenerationMetrics:
                 self._signposts["end_generation"]
                 - self._signposts["begin_generation"]
             )
-            self.requests_per_second = self.batch_size / total_batch_time
-            self.total_exe_time = total_batch_time * 1000
+            self.requests_per_second: Any = self.batch_size / total_batch_time
+            self.total_exe_time: Any = total_batch_time * 1000
         else:
             self.total_exe_time = "n/a"
             self.requests_per_second = "n/a"

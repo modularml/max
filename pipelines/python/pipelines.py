@@ -231,7 +231,7 @@ def run_llama3(
 
     if len(config_kwargs["weight_path"]) == 0 and performance_fake == "none":
         hf_file = get_llama_huggingface_file(
-            config_kwargs["version"], config_kwargs["quantization_encoding"]
+            config_kwargs["version"], config_kwargs["quantization_encoding"]  # type: ignore
         )
         config_kwargs["weight_path"] = [hf_file.download()]
 
@@ -247,7 +247,7 @@ def run_llama3(
         asyncio.run(
             serve_token_generator(
                 config,
-                config.huggingface_repo_id,
+                config.huggingface_repo_id,  # type: ignore
                 performance_fake,
                 profile_serve,
             )
@@ -268,7 +268,7 @@ def run_llama3(
                 for _ in range(num_warmups):
                     asyncio.run(
                         stream_text_to_console(
-                            model,
+                            model,  # type: ignore
                             tokenizer,
                             prompt,
                             metrics=None,
@@ -279,7 +279,7 @@ def run_llama3(
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,
+                    model,  # type: ignore
                     tokenizer,
                     prompt,
                     metrics=metrics,
@@ -329,7 +329,7 @@ def run_llama_vision(
         "model-00005-of-00005.safetensors",
     ]
     config.weight_path = [
-        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)
+        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)  # type: ignore
         for filename in weight_filenames
     ]
 
@@ -393,7 +393,7 @@ def run_pixtral(
         "model-00006-of-00006.safetensors",
     ]
     config.weight_path = [
-        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)
+        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)  # type: ignore
         for filename in weight_filenames
     ]
 
@@ -401,7 +401,7 @@ def run_pixtral(
     #     hf_file = get_pixtral_huggingface_file(config.quantization_encoding)
     #     config.weight_path = hf_file.download()
 
-    model = pixtral.PixtralModel(config)
+    model = pixtral.PixtralModel(config)  # type: ignore
 
 
 async def serve_token_generator_mistral(
@@ -526,7 +526,7 @@ def run_mistral(
         asyncio.run(
             serve_token_generator_mistral(
                 config,
-                config.huggingface_repo_id,
+                config.huggingface_repo_id,  # type: ignore
                 performance_fake,
                 profile=profile_serve,
             )
@@ -538,7 +538,7 @@ def run_mistral(
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,
+                    model,  # type: ignore
                     tokenizer,
                     prompt,
                     metrics=metrics,
@@ -729,7 +729,7 @@ def run_coder(
 
     if len(config.weight_path) == 0:
         hf_files = get_coder_huggingface_files(
-            config.version, config.quantization_encoding
+            config.version, config.quantization_encoding  # type: ignore
         )
         config.weight_path = [hf_file.download() for hf_file in hf_files]
 
@@ -755,7 +755,7 @@ def run_coder(
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,
+                    model,  # type: ignore
                     tokenizer,
                     prompt,
                     metrics=metrics,
