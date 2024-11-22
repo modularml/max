@@ -71,6 +71,7 @@ def fused_qkv_ragged_matmul(
             TensorType(
                 dtype=input.dtype,
                 shape=input.shape[:-1] + [n_heads * kv_params.head_dim],
+                device=input.device,
             )
         ],
     )[0]
@@ -114,6 +115,7 @@ def fused_qkv_matmul(
             TensorType(
                 dtype=input.dtype,
                 shape=input.shape[:-1] + [n_heads * kv_params.head_dim],
+                device=input.device,
             )
         ],
     )[0].tensor
@@ -155,7 +157,11 @@ def fused_qk_ragged_rope(
     return ops.custom(
         op_name,
         values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],  # type: ignore
-        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
+        out_types=[
+            TensorType(
+                dtype=input.dtype, shape=input.shape, device=input.device
+            )
+        ],
     )[0]
 
 
@@ -172,7 +178,11 @@ def fused_qk_rope(
     return ops.custom(  # type: ignore
         op_name,
         values=[input, kv_collection, freqs_cis_2d, layer_idx],  # type: ignore
-        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
+        out_types=[
+            TensorType(
+                dtype=input.dtype, shape=input.shape, device=input.device
+            )
+        ],
     )[0]
 
 
@@ -199,7 +209,11 @@ def flash_attention(
             valid_lengths,
             scale,
         ],
-        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
+        out_types=[
+            TensorType(
+                dtype=input.dtype, shape=input.shape, device=input.device
+            )
+        ],
     )[0]
 
 
@@ -242,7 +256,11 @@ def flash_attention_with_causal_mask(
     return ops.custom(  # type: ignore
         op_name,
         values=[input, kv_collection, layer_idx, valid_lengths, scale],  # type: ignore
-        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
+        out_types=[
+            TensorType(
+                dtype=input.dtype, shape=input.shape, device=input.device
+            )
+        ],
     )[0]
 
 
@@ -283,5 +301,9 @@ def flash_attention_ragged_with_causal_mask(
     return ops.custom(
         op_name,
         values=[input, input_row_offset, kv_collection, layer_idx, scale],  # type: ignore
-        out_types=[TensorType(dtype=input.dtype, shape=input.shape)],
+        out_types=[
+            TensorType(
+                dtype=input.dtype, shape=input.shape, device=input.device
+            )
+        ],
     )[0]
