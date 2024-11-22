@@ -11,6 +11,7 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 """The Llama 3.2 model which consists of a vision encoder and a language model."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,10 +19,10 @@ from dataclasses import dataclass
 import numpy as np
 from max.dtype import DType
 from max.graph import TensorValue
+from max.pipelines import PipelineConfig
 from nn import Linear
 from nn.layer import Layer
 
-from .hyperparameters import TextHyperparameters, VisionHyperparameters
 from .language_model import CausalLanguageModel
 from .vision_model import VisionModel
 
@@ -32,8 +33,7 @@ class ConditionalGenerator(Layer):
     The Llama model which consists of a vision encoder and a language model.
     """
 
-    text_params: TextHyperparameters
-    vision_params: VisionHyperparameters
+    pipeline_config: PipelineConfig
     vision_model: VisionModel
     multi_modal_projector: Linear
     language_model: CausalLanguageModel
@@ -161,7 +161,7 @@ class ConditionalGenerator(Layer):
                 (
                     -1,
                     num_patches,
-                    self.text_params.hidden_size,
+                    self.pipeline_config.huggingface_config.hidden_size,
                 )
             )
 

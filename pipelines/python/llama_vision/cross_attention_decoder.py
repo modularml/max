@@ -18,17 +18,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.graph import TensorValue, TensorValueLike, ops
+from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import ContinuousBatchingKVCacheCollectionType
 from nn import Linear, MLP, RMSNorm
 from nn.layer import Layer
 
 from .cache import Cache
-from .hyperparameters import TextHyperparameters
 
 
 @dataclass
 class CrossSdpaAttention(Layer):
-    params: TextHyperparameters
+    pipeline_config: PipelineConfig
     num_heads: int
     num_key_value_heads: int
     head_dim: int

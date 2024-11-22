@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.graph.weights import SafetensorWeights
+from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
@@ -43,8 +44,8 @@ class TextModel(Layer):
     The Llama text model which consists of transformer with self and cross attention layers.
     """
 
+    pipeline_config: PipelineConfig
     kv_params: KVCacheParams
-    params: TextHyperparameters
     embed_tokens: Embedding
     layers: list[CrossAttentionDecoderLayer | TransformerBlock]
     norm: RMSNorm
@@ -189,8 +190,8 @@ class CausalLanguageModel(Layer):
     The Llama Vision Text Model with a language modeling head on top.
     """
 
+    pipeline_config: PipelineConfig
     kv_params: KVCacheParams
-    params: TextHyperparameters
     model: TextModel
     lm_head: Linear
 
@@ -243,7 +244,7 @@ class CausalLanguageModel(Layer):
         last_hidden_state, past_key_values, hidden_states, attentions = outputs
         logits = ops.cast(
             self.lm_head(last_hidden_state[:, -num_logits_to_keep:, :]),
-            DType.bfloat16,
+            self.pipeline_config.dtype,
         )
 
         return (
@@ -256,141 +257,189 @@ class CausalLanguageModel(Layer):
 
 
 def cross_attention_decoder_layer(
-    params: TextHyperparameters, weights: SafetensorWeights, layer_idx: int
+    pipeline_config: PipelineConfig, weights: SafetensorWeights, layer_idx: int
 ) -> CrossAttentionDecoderLayer:
-    num_heads = params.num_attention_heads
-    head_dim = params.hidden_size // num_heads
-    num_key_value_groups = num_heads // params.num_key_value_heads
+    num_heads = (
+        pipeline_config.huggingface_config.text_config.num_attention_heads
+    )
+    head_dim = (
+        pipeline_config.huggingface_config.text_config.hidden_size // num_heads
+    )
+    num_key_value_groups = (
+        num_heads
+        // pipeline_config.huggingface_config.text_config.num_key_value_heads
+    )
     sdpa_attn = CrossSdpaAttention(
-        params=params,
+        pipeline_config=pipeline_config,
         num_heads=num_heads,
-        num_key_value_heads=params.num_key_value_heads,
+        num_key_value_heads=pipeline_config.huggingface_config.text_config.num_key_value_heads,
         head_dim=head_dim,
         layer_idx=layer_idx,
         num_key_value_groups=num_key_value_groups,
         q_proj=Linear(
             weight=weights.cross_attn.q_proj.weight.allocate(
-                DType.bfloat16, [num_heads * head_dim, params.hidden_size]
+                pipeline_config.dtype,
+                [
+                    num_heads * head_dim,
+                    pipeline_config.huggingface_config.text_config.hidden_size,
+                ],
             ),
             bias=None,
         ),
         k_proj=Linear(
             weight=weights.cross_attn.k_proj.weight.allocate(
-                DType.bfloat16,
-                [params.num_key_value_heads * head_dim, params.hidden_size],
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.text_config.num_key_value_heads
+                    * head_dim,
+                    pipeline_config.huggingface_config.text_config.hidden_size,
+                ],
             ),
             bias=None,
         ),
         v_proj=Linear(
             weight=weights.cross_attn.v_proj.weight.allocate(
-                DType.bfloat16,
-                [params.num_key_value_heads * head_dim, params.hidden_size],
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.text_config.num_key_value_heads
+                    * head_dim,
+                    pipeline_config.huggingface_config.text_config.hidden_size,
+                ],
             ),
             bias=None,
         ),
         o_proj=Linear(
             weight=weights.cross_attn.o_proj.weight.allocate(
-                DType.bfloat16, [params.hidden_size, num_heads * head_dim]
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.text_config.hidden_size,
+                    num_heads * head_dim,
+                ],
             ),
             bias=None,
         ),
         q_norm=RMSNorm(
             weight=weights.cross_attn.q_norm.weight.allocate(
-                DType.bfloat16,
+                pipeline_config.dtype,
                 [head_dim],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
         k_norm=RMSNorm(
             weight=weights.cross_attn.k_norm.weight.allocate(
-                DType.bfloat16,
+                pipeline_config.dtype,
                 [head_dim],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
     )
     return CrossAttentionDecoderLayer(
         cross_attn=sdpa_attn,
         input_layernorm=RMSNorm(
             weight=weights.input_layernorm.weight.allocate(
-                DType.bfloat16,
-                [params.hidden_size],
+                pipeline_config.dtype,
+                [pipeline_config.huggingface_config.text_config.hidden_size],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
         cross_attn_attn_gate=weights.cross_attn_attn_gate.allocate(
-            DType.bfloat16,
+            pipeline_config.dtype,
             [1],
         ),
         mlp=MLP(
             gate_proj=Linear(
                 weight=weights.mlp.gate_proj.weight.allocate(
-                    DType.bfloat16,
-                    [params.intermediate_size, params.hidden_size],
+                    pipeline_config.dtype,
+                    [
+                        pipeline_config.huggingface_config.text_config.intermediate_size,
+                        pipeline_config.huggingface_config.text_config.hidden_size,
+                    ],
                 ),
                 bias=None,
             ),
             down_proj=Linear(
                 weight=weights.mlp.down_proj.weight.allocate(
-                    DType.bfloat16,
-                    [params.hidden_size, params.intermediate_size],
+                    pipeline_config.dtype,
+                    [
+                        pipeline_config.huggingface_config.text_config.hidden_size,
+                        pipeline_config.huggingface_config.text_config.intermediate_size,
+                    ],
                 ),
                 bias=None,
             ),
             up_proj=Linear(
                 weight=weights.mlp.up_proj.weight.allocate(
-                    DType.bfloat16,
-                    [params.intermediate_size, params.hidden_size],
+                    pipeline_config.dtype,
+                    [
+                        pipeline_config.huggingface_config.text_config.intermediate_size,
+                        pipeline_config.huggingface_config.text_config.hidden_size,
+                    ],
                 ),
                 bias=None,
             ),
         ),
         post_attention_layernorm=RMSNorm(
             weight=weights.post_attention_layernorm.weight.allocate(
-                DType.bfloat16,
-                [params.hidden_size],
+                pipeline_config.dtype,
+                [pipeline_config.huggingface_config.text_config.hidden_size],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
         cross_attn_mlp_gate=weights.cross_attn_mlp_gate.allocate(
-            DType.bfloat16,
+            pipeline_config.dtype,
             [1],
         ),
     )
 
 
 def self_attention_decoder_layer(
+    pipeline_config: PipelineConfig,
     kv_params: KVCacheParams,
-    params: TextHyperparameters,
     weights: SafetensorWeights,
     layer_idx: int,
 ) -> TransformerBlock:
-    num_heads = params.num_attention_heads
-    head_dim = params.hidden_size // num_heads
+    num_heads = (
+        pipeline_config.huggingface_config.text_config.num_attention_heads
+    )
+    head_dim = (
+        pipeline_config.huggingface_config.text_config.hidden_size // num_heads
+    )
 
     q_proj = Linear(
         weight=weights.self_attn.q_proj.weight.allocate(
-            DType.bfloat16, [num_heads * head_dim, params.hidden_size]
+            pipeline_config.dtype,
+            [
+                num_heads * head_dim,
+                pipeline_config.huggingface_config.text_config.hidden_size,
+            ],
         ),
         bias=None,
     )
     k_proj = Linear(
         weight=weights.self_attn.k_proj.weight.allocate(
-            DType.bfloat16,
-            [params.num_key_value_heads * head_dim, params.hidden_size],
+            pipeline_config.dtype,
+            [
+                pipeline_config.huggingface_config.text_config.num_key_value_heads
+                * head_dim,
+                pipeline_config.huggingface_config.text_config.hidden_size,
+            ],
         ),
         bias=None,
     )
     v_proj = Linear(
         weight=weights.self_attn.v_proj.weight.allocate(
-            DType.bfloat16,
-            [params.num_key_value_heads * head_dim, params.hidden_size],
+            pipeline_config.dtype,
+            [
+                pipeline_config.huggingface_config.text_config.num_key_value_heads
+                * head_dim,
+                pipeline_config.huggingface_config.text_config.hidden_size,
+            ],
         ),
         bias=None,
     )
 
     attention = SelfSdpaAttention(
-        n_heads=params.num_attention_heads,
+        n_heads=pipeline_config.huggingface_config.text_config.num_attention_heads,
         kv_params=kv_params,
         layer_idx=layer_idx,
         wq=q_proj.weight,
@@ -398,7 +447,11 @@ def self_attention_decoder_layer(
         wv=v_proj.weight,
         wo=Linear(
             weight=weights.self_attn.o_proj.weight.allocate(
-                DType.bfloat16, [params.hidden_size, num_heads * head_dim]
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.text_config.hidden_size,
+                    num_heads * head_dim,
+                ],
             ),
             bias=None,
         ),
@@ -408,55 +461,71 @@ def self_attention_decoder_layer(
         mlp=MLP(
             gate_proj=Linear(
                 weight=weights.mlp.gate_proj.weight.allocate(
-                    DType.bfloat16,
-                    [params.intermediate_size, params.hidden_size],
+                    pipeline_config.dtype,
+                    [
+                        pipeline_config.huggingface_config.text_config.intermediate_size,
+                        pipeline_config.huggingface_config.text_config.hidden_size,
+                    ],
                 ),
                 bias=None,
             ),
             down_proj=Linear(
                 weight=weights.mlp.down_proj.weight.allocate(
-                    DType.bfloat16,
-                    [params.hidden_size, params.intermediate_size],
+                    pipeline_config.dtype,
+                    [
+                        pipeline_config.huggingface_config.text_config.hidden_size,
+                        pipeline_config.huggingface_config.text_config.intermediate_size,
+                    ],
                 ),
                 bias=None,
             ),
             up_proj=Linear(
                 weight=weights.mlp.up_proj.weight.allocate(
-                    DType.bfloat16,
-                    [params.intermediate_size, params.hidden_size],
+                    pipeline_config.dtype,
+                    [
+                        pipeline_config.huggingface_config.text_config.intermediate_size,
+                        pipeline_config.huggingface_config.text_config.hidden_size,
+                    ],
                 ),
                 bias=None,
             ),
         ),
         attention_norm=RMSNorm(
             weight=weights.input_layernorm.weight.allocate(
-                DType.bfloat16, [params.hidden_size]
+                pipeline_config.dtype,
+                [pipeline_config.huggingface_config.text_config.hidden_size],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
         mlp_norm=RMSNorm(
             weight=weights.post_attention_layernorm.weight.allocate(
-                DType.bfloat16, [params.hidden_size]
+                pipeline_config.dtype,
+                [pipeline_config.huggingface_config.text_config.hidden_size],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
     )
 
 
 def instantiate_language_model(
+    pipeline_config: PipelineConfig,
     kv_params: KVCacheParams,
-    params: TextHyperparameters,
     weights: SafetensorWeights,
 ) -> CausalLanguageModel:
     layers: list[CrossAttentionDecoderLayer | TransformerBlock] = []
 
-    for layer_idx in range(params.num_hidden_layers):
+    for layer_idx in range(
+        pipeline_config.huggingface_config.text_config.num_hidden_layers
+    ):
         curr_layer_weight = weights.language_model.model.layers[layer_idx]
 
-        if layer_idx in params.cross_attention_layers:
+        if (
+            layer_idx
+            in pipeline_config.huggingface_config.text_config.cross_attention_layers
+        ):
             layers.append(
                 cross_attention_decoder_layer(
-                    params=params,
+                    pipeline_config=pipeline_config,
                     weights=curr_layer_weight,
                     layer_idx=layer_idx,
                 )
@@ -464,32 +533,34 @@ def instantiate_language_model(
         else:
             layers.append(
                 self_attention_decoder_layer(
+                    pipeline_config=pipeline_config,
                     kv_params=kv_params,
-                    params=params,
                     weights=curr_layer_weight,
                     layer_idx=layer_idx,
                 )
             )
 
     text_model = TextModel(
+        pipeline_config=pipeline_config,
         kv_params=kv_params,
-        params=params,
         embed_tokens=Embedding(
             weights.language_model.model.embed_tokens.weight.allocate(
-                DType.bfloat16,
+                pipeline_config.dtype,
                 [
-                    params.vocab_size + 8,
-                    params.hidden_size,
+                    # Upstream in the Huggingface llama reference, 8 is added to the vocab size.
+                    pipeline_config.huggingface_config.text_config.vocab_size
+                    + 8,
+                    pipeline_config.huggingface_config.text_config.hidden_size,
                 ],
             ),
         ),
         layers=layers,
         norm=RMSNorm(
             weight=weights.language_model.model.norm.weight.allocate(
-                DType.bfloat16,
-                [params.hidden_size],
+                pipeline_config.dtype,
+                [pipeline_config.huggingface_config.text_config.hidden_size],
             ),
-            eps=params.rms_norm_eps,
+            eps=pipeline_config.huggingface_config.text_config.rms_norm_eps,
         ),
         # TODO: Verify if these values passed are even correct.
         rotary_emb=RotaryEmbedding2D(
@@ -505,12 +576,17 @@ def instantiate_language_model(
     )
 
     return CausalLanguageModel(
+        pipeline_config=pipeline_config,
         kv_params=kv_params,
-        params=params,
         model=text_model,
         lm_head=Linear(
             weights.language_model.lm_head.weight.allocate(
-                DType.bfloat16, [params.vocab_size, params.hidden_size], None
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.text_config.vocab_size,
+                    pipeline_config.huggingface_config.text_config.hidden_size,
+                ],
+                None,
             )
         ),
     )
