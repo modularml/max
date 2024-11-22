@@ -175,7 +175,7 @@ def _transformer_opaque(
     with graph:
         try:
             rope_scaling = weights.rope_freqs.weight.raw_tensor().data
-        except KeyError:
+        except (KeyError, AttributeError):
             # Set default RoPE scaling if the tensor isn't present in the GGUF
             # file.
             rope_scaling = None
@@ -320,7 +320,7 @@ def transformer(
     with graph:
         try:
             rope_scaling = weights.rope_freqs.weight.raw_tensor().data
-        except AttributeError:
+        except (KeyError, AttributeError):
             # Set default RoPE scaling if the tensor isn't present in the GGUF
             # file.
             rope_scaling = None
