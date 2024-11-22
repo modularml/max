@@ -107,7 +107,7 @@ def fused_qkv_matmul(
 
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    return ops.custom(  # type: ignore
+    return ops.custom(
         op_name,
         values=[input, wqkv, kv_collection, layer_idx],  # type: ignore
         out_types=[
