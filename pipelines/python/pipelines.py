@@ -268,7 +268,7 @@ def run_llama3(
                 for _ in range(num_warmups):
                     asyncio.run(
                         stream_text_to_console(
-                            model,  # type: ignore
+                            model,
                             tokenizer,
                             prompt,
                             metrics=None,
@@ -279,7 +279,7 @@ def run_llama3(
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,  # type: ignore
+                    model,
                     tokenizer,
                     prompt,
                     metrics=metrics,
@@ -538,7 +538,7 @@ def run_mistral(
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,  # type: ignore
+                    model,
                     tokenizer,
                     prompt,
                     metrics=metrics,
@@ -755,7 +755,7 @@ def run_coder(
             logger.info("Beginning text generation...")
             asyncio.run(
                 stream_text_to_console(
-                    model,  # type: ignore
+                    model,
                     tokenizer,
                     prompt,
                     metrics=metrics,

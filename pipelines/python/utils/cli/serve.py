@@ -78,10 +78,13 @@ def serve_pipeline(
     batch_timeout: float = 0.0,
     model_name: Union[str, None] = None,
 ):
-    # Retrieve tokenizer and pipeline.
-    pipeline_config = PIPELINE_REGISTRY.validate_pipeline_config(
-        pipeline_config
-    )
+    # TODO: make validate_pipeline_config more generic or cleanly handle the
+    # case where this is a generalized model unsupported by MAX
+    if pipeline_config.architecture in PIPELINE_REGISTRY.architectures:
+        # Retrieve tokenizer and pipeline.
+        pipeline_config = PIPELINE_REGISTRY.validate_pipeline_config(
+            pipeline_config
+        )
 
     if performance_fake == "none":
         logger.info(
