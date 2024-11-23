@@ -19,11 +19,11 @@ from typing import Optional
 from max.pipelines import (
     PipelineConfig,
     PIPELINE_REGISTRY,
-    TextGenerationPipeline,
 )
 from max.pipelines.interfaces import (
     TokenGeneratorRequest,
     PipelineTokenizer,
+    TokenGenerator,
 )
 from .metrics import TextGenerationMetrics
 
@@ -33,7 +33,7 @@ MODEL_NAME = "model"
 
 
 async def stream_text_to_console(
-    pipeline: TextGenerationPipeline,
+    pipeline: TokenGenerator,
     tokenizer: PipelineTokenizer,
     prompt: str,
     metrics: Optional[TextGenerationMetrics] = None,
