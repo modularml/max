@@ -11,8 +11,13 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from llama3 import Llama3
-from llama_vision import LlamaVision
-from replit import ReplitModel
 
-__all__ = ["Llama3", "ReplitModel", "LlamaVision"]
+def register_all_models():
+    """Imports model architectures, thus registering the architecture in the shared PIPELINE_REGISTRY.
+    """
+    import llama3 as llama3
+    import replit as replit
+    import llama_vision as llama_vision
+
+
+__all__ = ["register_all_models"]
