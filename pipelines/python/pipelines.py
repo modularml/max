@@ -50,7 +50,7 @@ from opentelemetry import trace
 from transformers import AutoTokenizer
 from uvicorn import Server
 
-from utils.cli import (
+from cli import (
     TextGenerationMetrics,
     batch_config_from_pipeline_config,
     generate_text_for_pipeline,
