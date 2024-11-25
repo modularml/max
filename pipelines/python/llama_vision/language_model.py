@@ -33,7 +33,6 @@ from .cross_attention_decoder import (
     CrossAttentionDecoderLayer,
     CrossSdpaAttention,
 )
-from .hyperparameters import TextHyperparameters
 
 
 @dataclass
