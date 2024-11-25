@@ -23,8 +23,6 @@ import coder
 
 import mistral
 from coder.config import get_coder_huggingface_files
-from llama3 import Llama3TokenGenerator
-from llama3.config import get_llama_huggingface_file
 from llama3.model import Llama3Model
 from max.pipelines import (
     HuggingFaceFile,
@@ -204,33 +202,9 @@ def run_llama3(
 ):
     """Runs the Llama3 pipeline."""
 
+    # Update basic parameters.
     if config_kwargs["architecture"] is None:
         config_kwargs["architecture"] = "LlamaForCausalLM"
-
-    # By default, use the Modular HF repository as a reference for tokenizer
-    # configuration, etc. when no repository is specified.
-    if config_kwargs["version"] is None:
-        config_kwargs["version"] = "3.1"
-
-    if config_kwargs["quantization_encoding"] is None:
-        config_kwargs["quantization_encoding"] = SupportedEncoding.q4_k
-
-    if config_kwargs["huggingface_repo_id"] is None:
-        if config_kwargs["version"] == "3.1":
-            config_kwargs["huggingface_repo_id"] = "modularai/llama-3.1"
-        elif config_kwargs["version"] == "3":
-            config_kwargs["huggingface_repo_id"] = "modularai/llama-3"
-        else:
-            raise ValueError(
-                f"Model version: {config_kwargs['version']} not supported."
-            )
-
-    if len(config_kwargs["weight_path"]) == 0 and performance_fake == "none":
-        hf_file = get_llama_huggingface_file(
-            config_kwargs["version"],
-            config_kwargs["quantization_encoding"],  # type: ignore
-        )
-        config_kwargs["weight_path"] = [hf_file.download()]
 
     config = PipelineConfig(**config_kwargs)
 
@@ -241,47 +215,17 @@ def run_llama3(
         config.cache_strategy = KVCacheStrategy.NAIVE
 
     if serve:
-        asyncio.run(
-            serve_token_generator(
-                config,
-                config.huggingface_repo_id,  # type: ignore
-                performance_fake,
-                profile_serve,
-            )
+        serve_pipeline(
+            pipeline_config=config,
+            profile=profile_serve,
+            performance_fake=performance_fake,
+            batch_timeout=0.0,
+            model_name="meta-llama/Llama-3.2-8B-Instruct",
         )
     else:
-        # Run timed run & print results
-        with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer = TextTokenizer(
-                config,
-            )
-            model = Llama3TokenGenerator(
-                config,
-                tokenizer.delegate.eos_token_id,
-            )
-            # Run warmup iteration with no metrics & printing disabled
-            if num_warmups > 0:
-                logger.info("Running warmup...")
-                for _ in range(num_warmups):
-                    asyncio.run(
-                        stream_text_to_console(
-                            model,
-                            tokenizer,
-                            prompt,
-                            metrics=None,
-                            print_tokens=False,
-                        )
-                    )
-
-            logger.info("Beginning text generation...")
-            asyncio.run(
-                stream_text_to_console(
-                    model,
-                    tokenizer,
-                    prompt,
-                    metrics=metrics,
-                )
-            )
+        generate_text_for_pipeline(
+            pipeline_config=config, prompt=prompt, num_warmups=num_warmups
+        )
 
 
 async def serve_token_generator_mistral(
