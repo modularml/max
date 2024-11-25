@@ -15,10 +15,10 @@
 import functools
 import inspect
 import pathlib
-from dataclasses import MISSING, fields
+from dataclasses import MISSING, fields, Field
 from enum import Enum
+from typing import Union, get_args, get_origin, Any
 from pathlib import Path
-from typing import Union, get_args, get_origin
 
 import click
 from max.driver import DeviceSpec
@@ -26,57 +26,123 @@ from max.pipelines import PipelineConfig, SupportedEncoding
 
 from .device_options import DevicesOptionType
 
+VALID_CONFIG_TYPES = [str, bool, Enum, Path, DeviceSpec, int, float]
+
+
+def get_interior_type(type_hint: Union[type, str, Any]):
+    interior_args = set(get_args(type_hint)) - set([type(None)])
+    if len(interior_args) > 1:
+        msg = (
+            "Parsing does not currently supported Union type, with more than"
+            " one non-None type: {type_hint}"
+        )
+        raise ValueError(msg)
+
+    return get_args(type_hint)[0]
+
+
+def is_optional(type_hint: Union[type, str, Any]):
+    return get_origin(type_hint) is Union and type(None) in type_hint.__args__  # type: ignore
+
+
+def is_flag(dataclass_field: Field):
+    return dataclass_field.type is bool
+
+
+def validate_field(dataclass_field: Field):
+    if is_optional(dataclass_field.type):
+        test_type = get_args(dataclass_field.type)[0]
+    elif get_origin(dataclass_field.type) is list:
+        test_type = get_interior_type(dataclass_field.type)
+    else:
+        test_type = dataclass_field.type
+
+    for valid_type in VALID_CONFIG_TYPES:
+        if valid_type == test_type:
+            return True
+
+        if get_origin(valid_type) is None and inspect.isclass(test_type):
+            if issubclass(test_type, valid_type):
+                return True
+
+    msg = f"type '{test_type}' not supported in config."
+    raise ValueError(msg)
+
+
+def get_field_type(dataclass_field: Field):
+    validate_field(dataclass_field)
+
+    # Get underlying core field type, is Optional or list.
+    field_type = dataclass_field.type
+    if is_optional(dataclass_field.type):
+        field_type = get_interior_type(dataclass_field.type)
+    elif get_origin(dataclass_field.type) is list:
+        field_type = get_interior_type(dataclass_field.type)
+
+    # Update the field_type to be format specific.
+    if field_type == Path:
+        field_type = click.Path(path_type=pathlib.Path)
+    elif inspect.isclass(field_type):
+        if issubclass(field_type, Enum):
+            field_type = click.Choice(field_type)  # type: ignore
+
+    return field_type
+
+
+def get_default(dataclass_field: Field):
+    if dataclass_field.default_factory != MISSING:
+        default = dataclass_field.default_factory()
+    elif dataclass_field.default != MISSING:
+        default = dataclass_field.default
+    else:
+        default = None
+
+    return default
+
+
+def is_multiple(dataclass_field: Field):
+    return get_origin(dataclass_field.type) is list
+
+
+def create_click_option(
+    help_for_fields: dict[str, str],
+    dataclass_field: Field,
+) -> click.option:  # type: ignore
+    # Get name.
+    normalized_name = dataclass_field.name.lower().replace("_", "-")
+
+    # Get Help text.
+    help_text = help_for_fields.get(dataclass_field.name, None)
+
+    # Get help field.
+    return click.option(
+        f"--{normalized_name}",
+        show_default=True,
+        help=help_text,
+        is_flag=is_flag(dataclass_field),
+        default=get_default(dataclass_field),
+        multiple=is_multiple(dataclass_field),
+        type=get_field_type(dataclass_field),
+    )
+
 
 def config_to_flag(cls):
     options = []
     help_text = {} if not hasattr(cls, "help") else cls.help()
-    for field in fields(cls):
-        if field.name.startswith("_"):
+    for _field in fields(cls):
+        if _field.name.startswith("_"):
             # Skip private config fields.
             continue
-        normalized_name = field.name.lower().replace("_", "-")
-        # If field type is a union on multiple types, set the argument type
-        # as the first not-None type.
-        field_type = field.type
-        none_type = type(None)
-        multiple = False
-        if get_origin(field_type) is Union:
-            field_type = next(
-                t for t in get_args(field.type) if t is not none_type
-            )
-        elif get_origin(field_type) is list:
-            field_type = next(
-                t for t in get_args(field.type) if t is not none_type
-            )
-            multiple = True
 
-        if inspect.isclass(field_type):
-            # For enum fields, convert to a choice that shows all possible values.
-            if issubclass(field_type, Enum):
-                field_type = click.Choice(field_type)  # type: ignore
-            elif issubclass(field_type, pathlib.Path):
-                field_type = click.Path(path_type=pathlib.Path)
-
-        if field.default_factory != MISSING:
-            default = field.default_factory()
-        elif field.default != MISSING:
-            default = field.default
-        else:
-            default = None
-        options.append(
-            click.option(
-                f"--{normalized_name}",
-                show_default=True,
-                type=field_type,
-                default=default,
-                multiple=multiple,
-                help=help_text.get(field.name),
-            )
+        new_option = create_click_option(
+            help_text,
+            _field,
         )
+        options.append(new_option)
 
     def apply_flags(func):
         for option in reversed(options):
-            func = option(func)
+            func = option(func)  # type: ignore
         return func
 
     return apply_flags
