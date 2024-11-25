@@ -16,9 +16,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, Weight, ops
+from max.graph import TensorValue, TensorValueLike, Weight, ops, Device
 
 from .layer import Layer
+
+from .kernels import swish_glu
 
 
 @dataclass
@@ -57,4 +59,19 @@ class MLP(Layer):
     up_proj: Linear
 
     def __call__(self, x: TensorValueLike) -> TensorValue:
+        if (
+            self.gate_proj.bias is None
+            and self.up_proj.bias is None
+            and TensorValue(x).rank == 2
+            and TensorValue(x).device is not None
+            and TensorValue(x).device != Device.CPU()
+        ):
+            return self.down_proj(
+                swish_glu(
+                    x,
+                    self.gate_proj.weight,
+                    self.up_proj.weight,
+                )
+            )
+
         return self.down_proj((ops.silu(self.gate_proj(x)) * self.up_proj(x)))  # type: ignore

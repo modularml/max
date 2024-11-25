@@ -13,7 +13,7 @@
 """Helper functions for wrapping custom kv cache/attention related ops."""
 
 from max.dtype import DType
-from max.graph import TensorType, TensorValue, ops
+from max.graph import TensorType, TensorValue, TensorValueLike, ops
 
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
@@ -307,3 +307,52 @@ def flash_attention_ragged_with_causal_mask(
             )
         ],
     )[0]
+
+
+def swish_glu(
+    a: TensorValueLike, b0: TensorValueLike, b1: TensorValueLike
+) -> TensorValue:
+    """Computes swish(a@b0.t()) * (a@b1.t())"""
+    a = TensorValue(a)
+    b0 = TensorValue(b0)
+    b1 = TensorValue(b1)
+    if a.rank != 2:
+        msg = f"expected a to have rank 2, was {a.rank}"
+        raise ValueError(msg)
+
+    if b0.rank != 2:
+        msg = f"expected b0 to have rank 2, was {b0.rank}"
+        raise ValueError(msg)
+
+    if b1.rank != 2:
+        msg = f"expected b1 to have rank 2, was {b1.rank}"
+        raise ValueError(msg)
+
+    m = a.shape[0]
+    n = b0.shape[0]
+    if b0.shape[1] != a.shape[1]:
+        msg = f"a.shape[1] == {a.shape[1]} != {b0.shape[1]} == b0.shape[1]"
+        raise ValueError(msg)
+
+    if b0.shape != b1.shape:
+        msg = f"b0.shape == {b0.shape} != {b1.shape} == b1.shape"
+        raise ValueError(msg)
+
+    if a.dtype != b0.dtype or a.dtype != b1.dtype:
+        msg = (
+            "Element types of all arguments must be equal, but received"
+            f" {a.dtype}, {b0.dtype}, and {b1.dtype}."
+        )
+        raise ValueError(msg)
+
+    return ops.custom(
+        "swishGLU",
+        values=[a, b0, b1],
+        out_types=[
+            TensorType(
+                dtype=a.dtype,
+                shape=[m, n],
+                device=a.device,
+            )
+        ],
+    )[0].tensor
