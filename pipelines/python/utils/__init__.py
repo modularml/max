@@ -11,5 +11,3 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 """Pipeline utilities."""
-
-from .hf_tokenizer import tokenizer_from_gguf

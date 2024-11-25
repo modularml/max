@@ -12,6 +12,7 @@
 # ===----------------------------------------------------------------------=== #
 
 """Common functions for reading data from a GGUF file."""
+
 from typing import Any, List, Optional
 
 import numpy as np
