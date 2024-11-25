@@ -26,7 +26,6 @@ from nn.layer import Layer
 
 from .attention import Attention
 from .encoder import VisionEncoder, VisionEncoderLayer
-from .hyperparameters import VisionHyperparameters
 from .mlp import MLP
 from .positional_embedding import (
     PrecomputedAspectRatioEmbedding,
