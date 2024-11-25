@@ -60,7 +60,7 @@ llama_arch = SupportedArchitecture(
                     [KVCacheStrategy.NAIVE],
                 ),
             },
-            default_encoding=SupportedEncoding.float32,
+            default_encoding=SupportedEncoding.q4_k,
         ),
         SupportedVersion(
             name="3.1",
@@ -111,7 +111,7 @@ llama_arch = SupportedArchitecture(
                     [KVCacheStrategy.NAIVE],
                 ),
             },
-            default_encoding=SupportedEncoding.float32,
+            default_encoding=SupportedEncoding.q4_k,
         ),
     ],
     default_version="3.1",
