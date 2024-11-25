@@ -134,7 +134,7 @@ class Mistral(TokenGenerator):
         next_tokens_batch = np.concatenate(tokens)
 
         # Grab kv_collection.
-        kv_cache_tensors = self._kv_manager.fetch(cache_seq_ids)
+        kv_cache_tensors = self._kv_manager.fetch(cache_seq_ids)[0]
 
         # Execute model.
         logits = self._model.execute(

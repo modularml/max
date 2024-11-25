@@ -74,8 +74,12 @@ class CoderTokenGenerator(TokenGenerator[TextContext]):
         ).to(self._device)
         curr_step_inputs = model_inputs
         for i in range(num_steps):
+            # Assuming 1 device, get first KVCache
+            kv_cache_inputs_tuple = kv_cache_inputs[0]
             # Execute the model and get next tokens
-            logits = self.model._execute(*curr_step_inputs, *kv_cache_inputs)
+            logits = self.model._execute(
+                *curr_step_inputs, *kv_cache_inputs_tuple
+            )
             new_tokens, generated_tokens = self._sampler(  # type: ignore
                 logits, generated_tokens
             )[:2]
