@@ -179,7 +179,7 @@ def _build_graph(
         shape=["batch_size", "n_heads", "seq_len", "post_seq_len"],
     )
     valid_lengths_type = TensorType(DType.uint32, shape=["batch_size"])
-    kv_cache_types = kv_manager.input_symbols()
+    kv_cache_types = kv_manager.input_symbols()[0]
 
     # Initialize Graph.
     with Graph(

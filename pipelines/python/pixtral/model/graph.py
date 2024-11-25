@@ -132,7 +132,7 @@ def _build_graph(
             input_ids_type,
             pixel_values_type,
             input_row_offset_type,
-            *kv_cache_args,
+            *kv_cache_args,  # type: ignore
         ],
     ) as graph:
         model = _llava(graph, params, weights, kv_params)

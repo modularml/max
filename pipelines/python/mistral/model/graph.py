@@ -236,7 +236,7 @@ def _build_graph(
         DType.uint32, shape=["input_row_offset_len"]
     )
 
-    kv_cache_args = kv_manager.input_symbols()
+    kv_cache_args = kv_manager.input_symbols()[0]
 
     with Graph(
         "mistral",

@@ -117,7 +117,7 @@ class Coder:
             DType.uint32, shape=["input_row_offset_len"]
         )
 
-        kv_cache_args = self._kv_manager.input_symbols()
+        kv_cache_args = self._kv_manager.input_symbols()[0]
 
         with Graph(
             "coder",
@@ -143,7 +143,7 @@ class Coder:
             DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
         )
 
-        kv_inputs = self._kv_manager.input_symbols()
+        kv_inputs = self._kv_manager.input_symbols()[0]
 
         with Graph(
             "coder",

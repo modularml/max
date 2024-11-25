@@ -116,9 +116,9 @@ class LlamaVision(PipelineModel):
         position_ids_type = input_ids_type
         cross_attention_mask_type = TensorType(DType.int64, [1, 14, 1, 4])
 
-        blocks_type, cache_lengths_type, lookup_table_type, is_cache_empty_type = (
-            self.kv_manager.input_symbols()
-        )
+        blocks_type, cache_lengths_type, lookup_table_type, is_cache_empty_type = self.kv_manager.input_symbols()[
+            0
+        ]
         with Graph(
             "llama3-vision",
             input_types=[

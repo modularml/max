@@ -197,7 +197,7 @@ class CoderModel(PipelineModel):
             DType.uint32, shape=["input_row_offset_len"]
         )
 
-        kv_cache_args = self.kv_manager.input_symbols()
+        kv_cache_args = self.kv_manager.input_symbols()[0]
 
         with Graph(
             "coder",
@@ -223,7 +223,7 @@ class CoderModel(PipelineModel):
             DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
         )
 
-        kv_inputs = self.kv_manager.input_symbols()
+        kv_inputs = self.kv_manager.input_symbols()[0]
 
         with Graph(
             "coder",
