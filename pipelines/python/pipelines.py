@@ -23,12 +23,9 @@ import coder
 
 import mistral
 from coder.config import get_coder_huggingface_files
-from huggingface_hub import hf_hub_download
 from llama3 import Llama3TokenGenerator
 from llama3.config import get_llama_huggingface_file
 from llama3.model import Llama3Model
-from llama_vision import llama_vision
-from max.driver import DeviceSpec
 from max.pipelines import (
     HuggingFaceFile,
     PipelineConfig,
@@ -41,7 +38,9 @@ from max.serve.api_server import fastapi_app, fastapi_config
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
 from max.serve.pipelines.deps import BatchedTokenGeneratorState
-from max.serve.pipelines.llm import TokenGeneratorPipeline
+from max.serve.pipelines.llm import (
+    TokenGeneratorPipeline,
+)
 from max.serve.pipelines.performance_fake import (
     PerformanceFakingPipelineTokenizer,
     get_performance_fake,
@@ -54,10 +53,8 @@ from transformers import AutoTokenizer
 from uvicorn import Server
 
 from utils.cli import (
-    DevicesOptionType,
     TextGenerationMetrics,
     batch_config_from_pipeline_config,
-    config_to_flag,
     generate_text_for_pipeline,
     pipeline_config_options,
     serve_pipeline,
@@ -285,59 +282,6 @@ def run_llama3(
                     metrics=metrics,
                 )
             )
-
-
-# TODO: We run this llama 3 vision model variant as a separate command for now.
-# I think there is room to consolidate it under the "llama3" above.
-@main.command(name="llama3-vision")
-@config_to_flag(PipelineConfig)
-@click.option(
-    "--use-gpu",
-    is_flag=False,
-    type=DevicesOptionType(),
-    show_default=True,
-    default="",
-    flag_value="0",
-    help=(
-        "Whether to run the model on the available GPU. An ID value can be"
-        " provided optionally to indicate the device ID to target."
-    ),
-)
-def run_llama_vision(
-    use_gpu,
-    **config_kwargs,
-):
-    """Runs the Llama3.2 vision pipeline."""
-    if use_gpu:
-        config_kwargs.update(
-            {
-                "device_spec": DeviceSpec.cuda(id=use_gpu[0]),
-                "quantization_encoding": SupportedEncoding.bfloat16,
-            }
-        )
-    else:
-        config_kwargs.update({"device_spec": DeviceSpec.cpu()})
-
-    config_kwargs["huggingface_repo_id"] = "meta-llama/Llama-3.2-11B-Vision"
-    config_kwargs["quantization_encoding"] = SupportedEncoding.bfloat16
-    config = PipelineConfig(**config_kwargs)
-    weight_filenames = [
-        "model-00001-of-00005.safetensors",
-        "model-00002-of-00005.safetensors",
-        "model-00003-of-00005.safetensors",
-        "model-00004-of-00005.safetensors",
-        "model-00005-of-00005.safetensors",
-    ]
-    config.weight_path = [
-        hf_hub_download(repo_id=config.huggingface_repo_id, filename=filename)  # type: ignore
-        for filename in weight_filenames
-    ]
-
-    # TODO: Further implementation here - hook up serving / local CLI workflow.
-    # Setting session to None for now.
-    model, kv_manager = llama_vision.load_llama_vision_and_kv_manager(
-        config=config, session=None
-    )
 
 
 async def serve_token_generator_mistral(
