@@ -23,12 +23,10 @@ import coder
 
 import mistral
 from coder.config import get_coder_huggingface_files
-from llama3.model import Llama3Model
 from max.pipelines import (
     HuggingFaceFile,
     PipelineConfig,
     SupportedEncoding,
-    TextGenerationPipeline,
     TextTokenizer,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
@@ -43,10 +41,6 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingPipelineTokenizer,
     get_performance_fake,
 )
-from opentelemetry import trace
-
-# We do not need to use this, but the import is needed to ensure that replit
-# gets added to the pipeline registry.
 from transformers import AutoTokenizer
 from uvicorn import Server
 
@@ -66,76 +60,6 @@ try:
     rich.traceback.install()
 except ImportError:
     pass
-
-
-async def serve_token_generator(
-    config: PipelineConfig,
-    repo_id: str,
-    performance_fake,
-    profile: bool = False,
-):
-    """Hosts the Llama3 pipeline using max.serve."""
-    if performance_fake == "none":
-        logger.info("Starting server using Llama3.")
-        tokenizer = TextTokenizer(config)
-        assert tokenizer.delegate
-        model_factory = functools.partial(
-            TextGenerationPipeline,
-            pipeline_config=config,
-            pipeline_model=Llama3Model,
-            eos_token_id=tokenizer.eos,
-        )
-        kv_cache_strategy = config.cache_strategy
-    else:
-        logger.info(
-            "Starting server using performance fake '%s'.", performance_fake
-        )
-        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
-            AutoTokenizer.from_pretrained(repo_id)
-        )
-        model_factory = functools.partial(  # type: ignore
-            get_performance_fake,  # type: ignore
-            performance_fake,
-        )
-        kv_cache_strategy = KVCacheStrategy.CONTINUOUS
-
-    settings = Settings(api_types=[APIType.OPENAI])
-    debug_settings = DebugSettings(profiling_enabled=profile)
-
-    batch_size = config.max_cache_batch_size
-    batch_config = batch_config_from_pipeline_config(pipeline_config=config)
-    logger.info(
-        "Server configured with %s caching with batch size %s",
-        kv_cache_strategy,
-        batch_size,
-    )
-
-    settings = Settings(api_types=[APIType.OPENAI])
-
-    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    app = fastapi_app(
-        settings,
-        debug_settings,
-        {
-            model_name: BatchedTokenGeneratorState(
-                TokenGeneratorPipeline(batch_config, model_name, tokenizer),
-                model_factory,
-            )
-        },
-    )
-    # Export traces to DataDog
-    if os.environ.get("MODULAR_ENABLE_TRACING"):
-        try:
-            from ddtrace.opentelemetry import TracerProvider
-
-            logger.info("Exporting traces to datadog")
-            trace.set_tracer_provider(TracerProvider())
-        except ImportError:
-            logger.info("ddtrace not found. Not exporting traces")
-            pass
-
-    server = Server(fastapi_config(app=app))
-    await server.serve()
 
 
 class ModelGroup(click.Group):
