@@ -38,7 +38,6 @@ from nn import (
     Transformer,
     TransformerBlock,
 )
-from nn.attention.attention_with_rope import AttentionWithRope
 
 
 def feed_forward(
