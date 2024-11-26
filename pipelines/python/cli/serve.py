@@ -32,7 +32,7 @@ from max.serve.pipelines.performance_fake import (
     PerformanceFakingPipelineTokenizer,
     get_performance_fake,
 )
-from opentelemetry import trace  # type: ignore
+from opentelemetry import trace
 from transformers import AutoTokenizer
 from uvicorn import Server
 
