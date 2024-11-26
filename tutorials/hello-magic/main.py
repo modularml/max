@@ -40,7 +40,7 @@ def zero():
 
             return {"message": f"answer is {output}"}
 
-    except subprocess.SubprocessError as e:
+    except subprocess.SubprocessError:
         raise HTTPException(
             status_code=500, detail="Failed to execute subprocess"
         )
