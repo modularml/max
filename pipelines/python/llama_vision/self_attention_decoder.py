@@ -42,4 +42,4 @@ class SelfSdpaAttention(AttentionWithRopeQKV):
         x, kv_collection = super().__call__(x, kv_collection, **kwargs)
 
         x = x.reshape((batch_size, seq_len, hidden_dim))
-        return x, kv_collection  # type: ignore
+        return x, kv_collection
