@@ -25,7 +25,14 @@ from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
-from nn import MLP, AttentionQKV, Embedding, Linear, RMSNorm, TransformerBlock
+from nn import (
+    MLP,
+    Embedding,
+    Linear,
+    OptimizedRotaryEmbedding,
+    RMSNorm,
+    TransformerBlock,
+)
 from nn.layer import Layer
 
 from .cache import Cache
@@ -33,6 +40,7 @@ from .cross_attention_decoder import (
     CrossAttentionDecoderLayer,
     CrossSdpaAttention,
 )
+from .self_attention_decoder import SelfSdpaAttention
 
 
 @dataclass
@@ -47,8 +55,7 @@ class TextModel(Layer):
     layers: list[CrossAttentionDecoderLayer | TransformerBlock]
     norm: RMSNorm
     cross_attention_layers: list
-    # TODO(MAXCORE-119): Finish implementation
-    # rotary_emb: RotaryEmbedding
+    rotary_emb: OptimizedRotaryEmbedding
 
     # input_ids: shape=[1, 1], dtype=torch.int64
     # attention_mask: shape=[1, 22], dtype=torch.int64
@@ -90,21 +97,6 @@ class TextModel(Layer):
         # TODO: This should be removed. When we fix the hard-coded Dtypes.
         hidden_states = ops.cast(inputs_embeds, self.dtype)
 
-        # hidden_states = inputs_embeds
-
-        # if cache_position is None:
-        #     past_seen_tokens = (
-        #         past_key_values.get_seq_length() if past_key_values
-        #         is not None else 0
-        #     )
-        #     cache_position = torch.arange(
-        #         past_seen_tokens,
-        #         past_seen_tokens + inputs_embeds.shape[1],
-        #         device=inputs_embeds.device,
-        #     )
-        # if position_ids is None:
-        #     position_ids = cache_position.unsqueeze(0)
-
         # causal_mask = self._update_causal_mask(
         #     attention_mask,
         #     inputs_embeds,
@@ -135,7 +127,7 @@ class TextModel(Layer):
                 1,
                 1,
                 128,
-            )  # causal_mask / attention_mask: shape=[1, 1, 14, 4100]
+            )
         )
         position_embeddings = ops.stack(
             [position_embeddings, position_embeddings], axis=-1
@@ -171,6 +163,10 @@ class TextModel(Layer):
             kv_collection = kv_collection_constructor(*kv_cache_inputs)
 
             _, cache_lengths, _, _ = kv_cache_inputs
+
+            # TODO: We need to check if the kwargs map 1:1 with the two different
+            # *Attention layers here. Some are used in cross_attention, others in
+            # self attention.
             layer_outputs = decoder_layer(
                 hidden_states,
                 cross_attention_states=cross_attention_states,
@@ -411,6 +407,7 @@ def self_attention_decoder_layer(
     kv_params: KVCacheParams,
     weights: SafetensorWeights,
     layer_idx: int,
+    rotary_embedding: OptimizedRotaryEmbedding,
 ) -> TransformerBlock:
     num_heads = (
         pipeline_config.huggingface_config.text_config.num_attention_heads
@@ -451,24 +448,26 @@ def self_attention_decoder_layer(
         ),
         bias=None,
     )
+    o_proj = Linear(
+        weight=weights.self_attn.o_proj.weight.allocate(
+            pipeline_config.dtype,
+            [
+                pipeline_config.huggingface_config.text_config.hidden_size,
+                num_heads * head_dim,
+            ],
+        ),
+        bias=None,
+    )
 
-    attention = AttentionQKV(
+    attention = SelfSdpaAttention(
         n_heads=pipeline_config.huggingface_config.text_config.num_attention_heads,
         kv_params=kv_params,
         layer_idx=ops.constant(layer_idx, DType.uint32),
         wq=q_proj.weight,
         wk=k_proj.weight,
         wv=v_proj.weight,
-        wo=Linear(
-            weight=weights.self_attn.o_proj.weight.allocate(
-                pipeline_config.dtype,
-                [
-                    pipeline_config.huggingface_config.text_config.hidden_size,
-                    num_heads * head_dim,
-                ],
-            ),
-            bias=None,
-        ),
+        wo=o_proj,
+        rope=rotary_embedding,
     )
     return TransformerBlock(
         attention=attention,
@@ -528,6 +527,18 @@ def instantiate_language_model(
 ) -> CausalLanguageModel:
     layers: list[CrossAttentionDecoderLayer | TransformerBlock] = []
 
+    # We don't really have a rotary embedding layer within the graph as it's largely
+    # folded into the custom kernel, but leaving this here for now.
+    rotary_embedding = OptimizedRotaryEmbedding(
+        dim=pipeline_config.huggingface_config.text_config.hidden_size,
+        n_heads=pipeline_config.huggingface_config.text_config.num_attention_heads,
+        theta=pipeline_config.huggingface_config.text_config.rope_theta,
+        # TODO: Check if this param value used is correct for "max_seq_len".
+        max_seq_len=pipeline_config.huggingface_config.text_config.max_position_embeddings,
+        # TODO: Figure out how we want to pass this
+        # rope_scaling=params.rope_scaling,
+    )
+
     for layer_idx in range(
         pipeline_config.huggingface_config.text_config.num_hidden_layers
     ):
@@ -551,6 +562,7 @@ def instantiate_language_model(
                     kv_params=kv_params,
                     weights=curr_layer_weight,
                     layer_idx=layer_idx,
+                    rotary_embedding=rotary_embedding,
                 )
             )
 
@@ -577,6 +589,8 @@ def instantiate_language_model(
         ),
         layers=layers,
         cross_attention_layers=pipeline_config.huggingface_config.text_config.cross_attention_layers,
+        # TODO: Verify if these values passed are even correct.
+        rotary_emb=rotary_embedding,
     )
 
     return CausalLanguageModel(
