@@ -47,7 +47,7 @@ def main():
     # We set return_dict to False to return Tensors directly
     model.config.return_dict = False
 
-    print(f"Saving model in TorchScript format...")
+    print("Saving model in TorchScript format...")
     model_path = Path(args.output_path)
     if model_path.exists():
         print(f"'{args.output_path}' already exists.\n")
