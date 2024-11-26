@@ -84,6 +84,7 @@ class TextModel(Layer):
         past_key_values: Cache | None = None,
         inputs_embeds: TensorValue | None = None,
         cache_position: TensorValue | None = None,
+        **kwargs,
     ) -> tuple:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
@@ -179,6 +180,7 @@ class TextModel(Layer):
                 position_embeddings=position_embeddings,
                 kv_collection=kv_collection,
                 valid_lengths=cache_lengths,
+                **kwargs,
             )
 
             hidden_states = layer_outputs[0]
@@ -237,6 +239,7 @@ class CausalLanguageModel(Layer):
         inputs_embeds: TensorValue | None = None,
         cache_position: TensorValue | None = None,
         num_logits_to_keep: int = 0,
+        **kwargs,
     ) -> tuple:
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model(
@@ -250,6 +253,7 @@ class CausalLanguageModel(Layer):
             past_key_values=past_key_values,
             inputs_embeds=inputs_embeds,
             cache_position=cache_position,
+            **kwargs,
         )
 
         last_hidden_state, past_key_values, hidden_states, attentions = outputs
