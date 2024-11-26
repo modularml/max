@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
@@ -38,6 +39,7 @@ class SelfSdpaAttention(AttentionWithRopeQKV):
         batch_size, seq_len, hidden_dim = x.shape
         x = x.reshape((batch_size * seq_len, hidden_dim))
 
-        # TODO: We need to make sure the shape of the output is the same as the
-        #       input given the additional reshape above.
-        return super().__call__(x, kv_collection, **kwargs)
+        x, kv_collection = super().__call__(x, kv_collection, **kwargs)
+
+        x = x.reshape((batch_size, seq_len, hidden_dim))
+        return x, kv_collection  # type: ignore
