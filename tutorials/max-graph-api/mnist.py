@@ -114,7 +114,7 @@ def main():
     for name, param in model.named_parameters():
         weights[name] = param.detach().cpu().numpy()
 
-    np.save(f"model_weights.npy", weights)
+    np.save("model_weights.npy", weights)
     return
 
 

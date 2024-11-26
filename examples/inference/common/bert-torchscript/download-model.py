@@ -84,7 +84,7 @@ def main():
             )
 
         torch.jit.save(traced_model, model_path)
-        print(f"Model saved.")
+        print("Model saved.")
 
 
 if __name__ == "__main__":
