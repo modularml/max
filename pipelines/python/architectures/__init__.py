@@ -11,6 +11,8 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
+from max.pipelines import PIPELINE_REGISTRY
+
 
 def register_all_models():
     """Imports model architectures, thus registering the architecture in the shared PIPELINE_REGISTRY.
@@ -18,6 +20,10 @@ def register_all_models():
     import llama3 as llama3
     import replit as replit
     import llama_vision as llama_vision
+
+    from mistral import mistral_arch
+
+    PIPELINE_REGISTRY.register(mistral_arch)
 
 
 __all__ = ["register_all_models"]
