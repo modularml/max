@@ -66,9 +66,6 @@ _ENCODING_TO_MODEL_NAME_PIXTRAL = {
 }
 
 
-from dataclasses import dataclass
-from typing import Optional
-
 from max.dtype import DType
 from max.graph.quantization import QuantizationEncoding
 
