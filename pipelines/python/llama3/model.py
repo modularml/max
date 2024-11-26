@@ -91,7 +91,7 @@ class Llama3Model(PipelineModel):
         return (next_tokens_batch, input_row_offset)
 
     def _prepare_naive_initial_token_inputs(
-        self, context_batch: list[TextContext]
+        self, context_batch: Sequence[TextContext]
     ) -> tuple[Tensor, ...]:
         # Get tokens and seq_ids
         tokens = [ctx.next_tokens for ctx in context_batch]
@@ -108,7 +108,7 @@ class Llama3Model(PipelineModel):
         return (next_tokens_batch, attn_mask)
 
     def prepare_initial_token_inputs(
-        self, context_batch: list[TextContext]
+        self, context_batch: Sequence[TextContext]
     ) -> tuple[Tensor, ...]:
         """Prepare the inputs for the first pass in multistep execution."""
         if self.pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:

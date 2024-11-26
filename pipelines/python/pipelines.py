@@ -19,7 +19,6 @@ import os
 import click
 
 import coder
-import mistral
 from architectures import register_all_models
 from coder.config import get_coder_huggingface_files
 
@@ -79,9 +78,6 @@ def main():
     register_all_models()
 
     pass
-
-
-# All the commands.
 
 
 def common_server_options(func):
@@ -224,138 +220,6 @@ def run_llama3(
         generate_text_for_pipeline(
             pipeline_config=config, prompt=prompt, num_warmups=num_warmups
         )
-
-
-async def serve_token_generator_mistral(
-    config: PipelineConfig,
-    repo_id: str,
-    performance_fake,
-    profile: bool = False,
-):
-    """Hosts the Mistral pipeline using max.serve."""
-    if performance_fake == "none":
-        print("Starting server using Mistral.")
-        tokenizer = TextTokenizer(config)
-        assert tokenizer.delegate
-        model_factory = functools.partial(
-            mistral.Mistral,
-            config,
-        )
-        kv_cache_strategy = config.cache_strategy
-    else:
-        print(f"Starting server using performance fake '{performance_fake}'.")
-        tokenizer = PerformanceFakingPipelineTokenizer(  # type: ignore
-            AutoTokenizer.from_pretrained(repo_id)
-        )
-        model_factory = functools.partial(  # type: ignore
-            get_performance_fake,  # type: ignore
-            performance_fake,
-        )
-        kv_cache_strategy = KVCacheStrategy.CONTINUOUS
-
-    settings = Settings(api_types=[APIType.OPENAI])
-    debug_settings = DebugSettings(profiling_enabled=profile)
-
-    batch_size = config.max_cache_batch_size
-    batch_config = batch_config_from_pipeline_config(pipeline_config=config)
-    print(
-        f"Server configured with {kv_cache_strategy} caching with batch size"
-        f" {batch_size}."
-    )
-
-    settings = Settings(api_types=[APIType.OPENAI])
-
-    model_name = "mistral"
-    app = fastapi_app(
-        settings,
-        debug_settings,
-        {
-            model_name: BatchedTokenGeneratorState(
-                TokenGeneratorPipeline(batch_config, model_name, tokenizer),
-                model_factory,
-            )
-        },
-    )
-
-    server = Server(fastapi_config(app=app))
-    await server.serve()
-
-
-@main.command(name="mistral")
-@pipeline_config_options
-@common_server_options
-@click.option(
-    "--prompt",
-    type=str,
-    default="I believe the meaning of life is",
-    help="The text prompt to use for further generation.",
-)
-@click.option(
-    "--serve",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
-)
-def run_mistral(
-    prompt,
-    serve,
-    performance_fake,
-    profile_serve,
-    batch_timeout,
-    model_name,
-    **config_kwargs,
-):
-    """Runs the Mistral pipeline."""
-    if config_kwargs["huggingface_repo_id"] is None:
-        config_kwargs[
-            "huggingface_repo_id"
-        ] = "mistralai/Mistral-Nemo-Instruct-2407"
-
-    if config_kwargs["architecture"] is None:
-        config_kwargs["architecture"] = "MistralForCausalLM"
-
-    config = PipelineConfig(**config_kwargs)
-
-    # Validate encoding.
-    if config.quantization_encoding is None:
-        config.quantization_encoding = SupportedEncoding.bfloat16
-
-    if config.quantization_encoding not in [
-        SupportedEncoding.bfloat16,
-        SupportedEncoding.float32,
-    ]:
-        config.cache_strategy = KVCacheStrategy.NAIVE
-
-    if len(config.weight_path) == 0:
-        hf_file = HuggingFaceFile(
-            "mistralai/Mistral-Nemo-Instruct-2407", "consolidated.safetensors"
-        )
-        config.weight_path = [hf_file.download()]
-
-    if serve:
-        logger.info("Starting server...")
-        asyncio.run(
-            serve_token_generator_mistral(
-                config,
-                config.huggingface_repo_id,  # type: ignore
-                performance_fake,
-                profile=profile_serve,
-            )
-        )
-    else:
-        with TextGenerationMetrics(print_report=True) as metrics:
-            model = mistral.Mistral(config)
-            tokenizer = TextTokenizer(config)
-            logger.info("Beginning text generation...")
-            asyncio.run(
-                stream_text_to_console(
-                    model,
-                    tokenizer,
-                    prompt,
-                    metrics=metrics,
-                )
-            )
 
 
 @main.command(name="replit")

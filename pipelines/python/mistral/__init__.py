@@ -11,6 +11,8 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from mistral.mistral import Mistral
+from max.pipelines import PIPELINE_REGISTRY
+from .arch import mistral_arch
+from .model import MistralModel
 
-__all__ = ["Mistral"]
+__all__ = ["MistralModel", "mistral_arch"]
