@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from max.graph import TensorValue, TensorValueLike
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
-    ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
     KVCacheStrategy,
 )
@@ -57,7 +56,7 @@ class AttentionImpl(ABC, Layer):
         def __call__(
             self,
             x: TensorValueLike,
-            kv_collection: ContinuousBatchingKVCacheCollectionType,
+            kv_collection: ContinuousBatchingKVCacheCollection,
             valid_lengths: TensorValueLike,
             **kwargs,
         ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]: ...
@@ -96,8 +95,8 @@ class AttentionImpl(ABC, Layer):
     @abstractmethod
     def __call__(
         self,
-        x: TensorValueLike,
-        kv_collection: ContinuousBatchingKVCacheCollectionType,
+        x: TensorValue,
+        kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         ...
@@ -133,7 +132,7 @@ class AttentionImplQKV(ABC, Layer):
         def __call__(
             self,
             x: TensorValueLike,
-            kv_collection: ContinuousBatchingKVCacheCollectionType,
+            kv_collection: ContinuousBatchingKVCacheCollection,
             valid_lengths: TensorValueLike,
             **kwargs,
         ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]: ...
@@ -178,8 +177,8 @@ class AttentionImplQKV(ABC, Layer):
     @abstractmethod
     def __call__(
         self,
-        x: TensorValueLike,
-        kv_collection: ContinuousBatchingKVCacheCollectionType,
+        x: TensorValue,
+        kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         ...

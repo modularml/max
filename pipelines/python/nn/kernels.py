@@ -16,7 +16,6 @@ from max.dtype import DType
 from max.graph import TensorType, TensorValue, TensorValueLike, ops
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
-    ContinuousBatchingKVCacheCollectionType,
     KVCacheParams,
 )
 
@@ -65,7 +64,7 @@ def fused_qkv_ragged_matmul(
 
     return ops.custom(
         op_name,
-        values=[input, input_row_offset, wqkv, kv_collection, layer_idx],  # type: ignore
+        values=[input, input_row_offset, wqkv, kv_collection, layer_idx],
         out_types=[
             TensorType(
                 dtype=input.dtype,
@@ -80,7 +79,7 @@ def fused_qkv_matmul(
     kv_params: KVCacheParams,
     input: TensorValue,
     wqkv: TensorValue,
-    kv_collection: ContinuousBatchingKVCacheCollectionType,
+    kv_collection: ContinuousBatchingKVCacheCollection,
     layer_idx: TensorValue,
     n_heads: int,
 ) -> TensorValue:
@@ -109,7 +108,7 @@ def fused_qkv_matmul(
 
     return ops.custom(
         op_name,
-        values=[input, wqkv, kv_collection, layer_idx],  # type: ignore
+        values=[input, wqkv, kv_collection, layer_idx],
         out_types=[
             TensorType(
                 dtype=input.dtype,
@@ -155,7 +154,7 @@ def fused_qk_ragged_rope(
 
     return ops.custom(
         op_name,
-        values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],  # type: ignore
+        values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],
         out_types=[
             TensorType(
                 dtype=input.dtype, shape=input.shape, device=input.device
@@ -176,7 +175,7 @@ def fused_qk_rope(
 
     return ops.custom(
         op_name,
-        values=[input, kv_collection, freqs_cis_2d, layer_idx],  # type: ignore
+        values=[input, kv_collection, freqs_cis_2d, layer_idx],
         out_types=[
             TensorType(
                 dtype=input.dtype, shape=input.shape, device=input.device
@@ -203,7 +202,7 @@ def flash_attention(
         op_name,
         values=[
             input,
-            kv_collection,  # type: ignore
+            kv_collection,
             layer_idx,
             attention_mask,
             valid_lengths,
@@ -255,7 +254,7 @@ def flash_attention_with_causal_mask(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
-        values=[input, kv_collection, layer_idx, valid_lengths, scale],  # type: ignore
+        values=[input, kv_collection, layer_idx, valid_lengths, scale],
         out_types=[
             TensorType(
                 dtype=input.dtype, shape=input.shape, device=input.device
