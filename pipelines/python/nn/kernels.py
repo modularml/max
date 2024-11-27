@@ -12,6 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 """Helper functions for wrapping custom kv cache/attention related ops."""
 
+from __future__ import annotations
+
+import numpy as np
 from max.dtype import DType
 from max.graph import TensorType, TensorValue, TensorValueLike, ops
 from max.pipelines.kv_cache import (
@@ -117,6 +120,51 @@ def fused_qkv_matmul(
             )
         ],
     )[0].tensor
+
+
+def matmul_kv_cache_ragged(
+    kv_params: KVCacheParams,
+    hidden_states: TensorValue,
+    input_row_offset: TensorValue,
+    weight: TensorValue,
+    kv_collection: ContinuousBatchingKVCacheCollection,
+    layer_idx: int | np.integer,
+) -> None:
+    """Computes key and value projections with ragged input.
+
+    `hidden_states` and `input_row_offset` are used together to
+    implement the ragged tensor.
+    `input_row_offset` indicates where each batch starts and ends in `input`
+    """
+    if hidden_states.dtype != weight.dtype:
+        msg = (
+            "expected hidden_states and weight to have the same dtype, but got"
+            f" {hidden_states.dtype} and {weight.dtype}, respectively."
+        )
+        raise ValueError(msg)
+
+    if hidden_states.rank != 2:
+        msg = f"expected hidden_states to have rank 2, was {hidden_states.rank}"
+        raise ValueError(msg)
+
+    if input_row_offset.dtype != DType.uint32:
+        msg = (
+            "expected input_row_offset to have dtype uint32, was"
+            f" {input_row_offset.dtype}"
+        )
+        raise ValueError(msg)
+
+    ops.custom(
+        name=f"matmul_kv_cache_ragged_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged",
+        values=[
+            hidden_states,
+            input_row_offset,
+            weight,
+            kv_collection,
+            ops.constant(layer_idx, DType.uint32),
+        ],
+        out_types=[],
+    )
 
 
 def fused_qk_ragged_rope(
