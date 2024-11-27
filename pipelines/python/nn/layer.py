@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 
 import threading
-from dataclasses import dataclass
 from functools import wraps
 from inspect import signature
 from typing import Any, Callable, Dict, Tuple

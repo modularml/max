@@ -13,7 +13,7 @@
 """Build a Mistral model via Graph API from Safetensor weights."""
 
 from max.dtype import DType
-from max.graph import Graph, TensorType, TensorValue, ops
+from max.graph import Graph, TensorType, ops
 from max.graph.weights import SafetensorWeights
 from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import (

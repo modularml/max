@@ -13,12 +13,10 @@
 
 """All configurable parameters for Pixtral."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
-from max.driver import CPU, Device
 from max.dtype import DType
 
 

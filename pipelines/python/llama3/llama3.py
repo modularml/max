@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 
-import gguf
 import numpy as np
 from dataprocessing import batch_padded_tokens_and_mask
 from max.driver import CPU, CUDA, Tensor

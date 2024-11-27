@@ -19,8 +19,7 @@ from max.pipelines import PipelineConfig
 from nn import Conv2D, Linear, RMSNorm
 
 from .attention import Attention
-from .attention_utils import causal_attention_mask_2d
-from .rotary_embedding_2d import RotaryEmbedding2D, patch_position_ids
+from .rotary_embedding_2d import RotaryEmbedding2D
 from .transformer import MLP, Transformer, TransformerBlock
 from .vision_encoder import VisionEncoder
 

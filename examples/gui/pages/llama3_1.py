@@ -22,7 +22,6 @@ from max.driver import CPU, CUDA
 from max.pipelines import (
     PipelineConfig,
     SupportedEncoding,
-    TextTokenizer,
     PIPELINE_REGISTRY,
 )
 

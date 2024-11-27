@@ -18,7 +18,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.graph import TensorValue, TensorValueLike, ops
-from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import ContinuousBatchingKVCacheCollectionType
 from nn import MLP, Linear, RMSNorm
 from nn.layer import Layer

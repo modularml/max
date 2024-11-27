@@ -15,7 +15,6 @@
 
 from dataclasses import dataclass
 
-from max.dtype import DType
 from max.graph import TensorValue, ops
 
 from ..layer import Layer

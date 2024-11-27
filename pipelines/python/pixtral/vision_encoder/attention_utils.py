@@ -13,11 +13,9 @@
 
 from __future__ import annotations
 
-from typing import List
 
 import numpy as np
-from max.dtype import DType
-from max.graph import DimLike, TensorValue, ops
+from max.graph import ops
 
 
 def causal_attention_mask_2d(num_patches_list, patch_embeds):
