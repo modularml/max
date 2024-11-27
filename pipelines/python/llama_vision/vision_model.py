@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
 from max.graph.weights import SafetensorWeights
-from max.pipelines import PipelineConfig
 from nn import Conv2D, Embedding, Linear, LPLayerNorm
 from nn.layer import Layer
 
@@ -83,7 +82,6 @@ class VisionModel(Layer):
         global_transformer: Transformer focused on global context and capturing long-range dependencies within the image.
     """
 
-    pipeline_config: PipelineConfig
     gated_positional_embedding: PrecomputedPositionEmbedding
     pre_tile_positional_embedding: PrecomputedAspectRatioEmbedding
     post_tile_positional_embedding: PrecomputedAspectRatioEmbedding
@@ -93,6 +91,8 @@ class VisionModel(Layer):
     layernorm_post: LPLayerNorm
     transformer: VisionEncoder
     global_transformer: VisionEncoder
+    dtype: DType
+    intermediate_layers_indices: list[int]
 
     def apply_class_embedding(self, hidden_state: TensorValue) -> TensorValue:
         """
@@ -307,7 +307,7 @@ class VisionModel(Layer):
         )  # (pad_left, pad_right, pad_left for dim -2, pad_right for dim -2)
         # Pad the tensor
         hidden_state = self._manual_constant_pad_4d(
-            dtype=self.pipeline_config.dtype,
+            dtype=self.dtype,
             input_tensor=hidden_state,
             pad=padding,
             value=0,
@@ -323,7 +323,7 @@ class VisionModel(Layer):
             aspect_ratio_mask=attention_mask,
             num_patches=num_patches,
             target_length=hidden_state.shape[2].dim,
-            dtype=self.pipeline_config.dtype,
+            dtype=self.dtype,
         )
 
         # Apply encoder
@@ -404,7 +404,7 @@ class VisionModel(Layer):
         # yet.
         selected_hidden_states_list = [
             intermediate_hidden_states[:, :, :, idx]
-            for idx in self.pipeline_config.huggingface_config.vision_config.intermediate_layers_indices
+            for idx in self.intermediate_layers_indices
         ]
         intermediate_hidden_states = ops.stack(
             selected_hidden_states_list, axis=-1
@@ -417,9 +417,7 @@ class VisionModel(Layer):
                 batch_size * num_concurrent_media,
                 num_tiles * (num_patches + num_padding_patches),
                 dim,
-                len(
-                    self.pipeline_config.huggingface_config.vision_config.intermediate_layers_indices
-                ),
+                len(self.intermediate_layers_indices),
             )
         )
         intermediate_hidden_states = intermediate_hidden_states.reshape(
@@ -427,10 +425,7 @@ class VisionModel(Layer):
                 batch_size * num_concurrent_media,  # 1
                 num_tiles,  # 4
                 num_patches + num_padding_patches,  # 1025 + 7 = 1032
-                dim
-                * len(
-                    self.pipeline_config.huggingface_config.vision_config.intermediate_layers_indices
-                ),
+                dim * len(self.intermediate_layers_indices),
             )
         )
 
@@ -444,10 +439,7 @@ class VisionModel(Layer):
                 batch_size * num_concurrent_media,
                 num_tiles,
                 num_patches,
-                dim
-                * len(
-                    self.pipeline_config.huggingface_config.vision_config.intermediate_layers_indices
-                ),
+                dim * len(self.intermediate_layers_indices),
             )
         )
         intermediate_hidden_states = intermediate_hidden_states.reshape(
@@ -456,10 +448,7 @@ class VisionModel(Layer):
                 num_concurrent_media,
                 num_tiles,
                 num_patches,
-                dim
-                * len(
-                    self.pipeline_config.huggingface_config.vision_config.intermediate_layers_indices
-                ),
+                dim * len(self.intermediate_layers_indices),
             )
         )
 
@@ -478,81 +467,78 @@ class VisionModel(Layer):
 
 
 def instantiate_vision_model(
-    pipeline_config: PipelineConfig,
+    dtype: DType,
+    image_size: int,
+    patch_size: int,
+    supported_aspect_ratios: list[list[int]],
+    hidden_size: int,
+    max_num_tiles: int,
+    num_channels: int,
+    norm_eps: float,
+    attention_heads: int,
+    num_hidden_layers: int,
+    intermediate_size: int,
+    num_global_layers: int,
+    intermediate_layers_indices: list[int],
     weights: SafetensorWeights,
 ) -> VisionModel:
     # Shared variables.
-    num_patches = (
-        pipeline_config.huggingface_config.vision_config.image_size
-        // pipeline_config.huggingface_config.vision_config.patch_size
-    ) ** 2 + 1
-    max_aspect_ratio_id = (
-        len(
-            pipeline_config.huggingface_config.vision_config.supported_aspect_ratios
-        )
-        + 1
-    )
+    num_patches = (image_size // patch_size) ** 2 + 1
+    max_aspect_ratio_id = (len(supported_aspect_ratios)) + 1
 
     gated_positional_embedding = PrecomputedPositionEmbedding(
-        image_size=pipeline_config.huggingface_config.vision_config.image_size,
-        patch_size=pipeline_config.huggingface_config.vision_config.patch_size,
-        hidden_size=pipeline_config.huggingface_config.vision_config.hidden_size,
-        max_num_tiles=pipeline_config.huggingface_config.vision_config.max_num_tiles,
+        image_size=image_size,
+        patch_size=patch_size,
+        hidden_size=hidden_size,
+        max_num_tiles=max_num_tiles,
         gate=weights.vision_model.gated_positional_embedding.gate.allocate(
-            pipeline_config.dtype, [1]
+            dtype, [1]
         ),
         embedding=weights.vision_model.gated_positional_embedding.embedding.allocate(
-            pipeline_config.dtype,
+            dtype,
             [
                 num_patches,
-                pipeline_config.huggingface_config.vision_config.hidden_size,
+                hidden_size,
             ],
         ),
         tile_embedding=Embedding(
             weights.vision_model.gated_positional_embedding.tile_embedding.weight.allocate(
-                pipeline_config.dtype,
+                dtype,
                 [
                     max_aspect_ratio_id,
-                    pipeline_config.huggingface_config.vision_config.max_num_tiles
-                    * num_patches
-                    * pipeline_config.huggingface_config.vision_config.hidden_size,
+                    max_num_tiles * num_patches * hidden_size,
                 ],
             ),
         ),
     )
 
     pre_tile_positional_embedding = PrecomputedAspectRatioEmbedding(
-        max_num_tiles=pipeline_config.huggingface_config.vision_config.max_num_tiles,
-        hidden_size=pipeline_config.huggingface_config.vision_config.hidden_size,
+        max_num_tiles=max_num_tiles,
+        hidden_size=hidden_size,
         gate=weights.vision_model.pre_tile_positional_embedding.gate.allocate(
-            pipeline_config.dtype, [1]
+            dtype, [1]
         ),
         embedding=Embedding(
             weights.vision_model.pre_tile_positional_embedding.embedding.weight.allocate(
-                pipeline_config.dtype,
-                [
-                    max_aspect_ratio_id,
-                    pipeline_config.huggingface_config.vision_config.max_num_tiles
-                    * pipeline_config.huggingface_config.vision_config.hidden_size,
-                ],
+                dtype,
+                [max_aspect_ratio_id, max_num_tiles * hidden_size],
             ),
         ),
         is_gated=True,
     )
 
     post_tile_positional_embedding = PrecomputedAspectRatioEmbedding(
-        max_num_tiles=pipeline_config.huggingface_config.vision_config.max_num_tiles,
-        hidden_size=pipeline_config.huggingface_config.vision_config.hidden_size,
+        max_num_tiles=max_num_tiles,
+        hidden_size=hidden_size,
         gate=weights.vision_model.post_tile_positional_embedding.gate.allocate(
-            pipeline_config.dtype, [1]
+            dtype, [1]
         ),
         embedding=Embedding(
             weights.vision_model.post_tile_positional_embedding.embedding.weight.allocate(
-                pipeline_config.dtype,
+                dtype,
                 [
                     max_aspect_ratio_id,
-                    pipeline_config.huggingface_config.vision_config.max_num_tiles
-                    * pipeline_config.huggingface_config.vision_config.hidden_size,
+                    max_num_tiles * hidden_size,
                 ],
             ),
         ),
@@ -563,108 +549,94 @@ def instantiate_vision_model(
     patch_embedding = Conv2D(
         filter=ops.permute(
             weights.vision_model.patch_embedding.weight.allocate(
-                pipeline_config.dtype,
-                [
-                    pipeline_config.huggingface_config.vision_config.hidden_size,
-                    pipeline_config.huggingface_config.vision_config.num_channels,
-                    pipeline_config.huggingface_config.vision_config.patch_size,
-                    pipeline_config.huggingface_config.vision_config.patch_size,
-                ],
+                dtype,
+                [hidden_size, num_channels, patch_size, patch_size],
             ),
             (2, 3, 1, 0),
         ),
-        stride=pipeline_config.huggingface_config.vision_config.patch_size,
+        stride=patch_size,
         padding=(0, 0, 0, 0),
         bias=False,
     )
 
     class_embedding = weights.vision_model.class_embedding.allocate(
-        pipeline_config.dtype,
-        [pipeline_config.huggingface_config.vision_config.hidden_size],
+        dtype,
+        [hidden_size],
     )
 
     layernorm_pre = lp_layer_norm(
-        dtype=pipeline_config.dtype,
-        size=pipeline_config.huggingface_config.vision_config.hidden_size,
-        eps=pipeline_config.huggingface_config.vision_config.norm_eps,
+        dtype=dtype,
+        size=hidden_size,
+        eps=norm_eps,
         weights=weights.vision_model.layernorm_pre,
     )
 
     layernorm_post = lp_layer_norm(
-        dtype=pipeline_config.dtype,
-        size=pipeline_config.huggingface_config.vision_config.hidden_size,
-        eps=pipeline_config.huggingface_config.vision_config.norm_eps,
+        dtype=dtype,
+        size=hidden_size,
+        eps=norm_eps,
         weights=weights.vision_model.layernorm_post,
     )
 
     transformer_encoder_layers: list[VisionEncoderLayer] = []
 
-    head_dim = (
-        pipeline_config.huggingface_config.vision_config.hidden_size
-        // pipeline_config.huggingface_config.vision_config.attention_heads
-    )
+    head_dim = hidden_size // attention_heads
 
-    for index in range(
-        pipeline_config.huggingface_config.vision_config.num_hidden_layers
-    ):
+    for index in range(num_hidden_layers):
         curr_layer_weight = weights.vision_model.transformer.layers[index]
         transformer_encoder_layers.append(
             VisionEncoderLayer(
                 mlp=MLP(
                     linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.intermediate_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.hidden_size,
+                        dtype=dtype,
+                        in_features=intermediate_size,
+                        out_features=hidden_size,
                         weights=curr_layer_weight.mlp.fc1,
                     ),
                     linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.hidden_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.intermediate_size,
+                        dtype=dtype,
+                        in_features=hidden_size,
+                        out_features=intermediate_size,
                         weights=curr_layer_weight.mlp.fc2,
                     ),
                 ),
                 input_layernorm=lp_layer_norm(
-                    dtype=pipeline_config.dtype,
-                    size=pipeline_config.huggingface_config.vision_config.hidden_size,
-                    eps=pipeline_config.huggingface_config.vision_config.norm_eps,
+                    dtype=dtype,
+                    size=hidden_size,
+                    eps=norm_eps,
                     weights=curr_layer_weight.input_layernorm,
                 ),
                 post_attention_layernorm=lp_layer_norm(
-                    dtype=pipeline_config.dtype,
-                    size=pipeline_config.huggingface_config.vision_config.hidden_size,
-                    eps=pipeline_config.huggingface_config.vision_config.norm_eps,
+                    dtype=dtype,
+                    size=hidden_size,
+                    eps=norm_eps,
                     weights=curr_layer_weight.post_attention_layernorm,
                 ),
                 self_attn=Attention(
-                    n_heads=pipeline_config.huggingface_config.vision_config.attention_heads,
+                    n_heads=attention_heads,
                     head_dim=head_dim,
                     wk=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
-                        out_features=pipeline_config.huggingface_config.vision_config.hidden_size,
+                        dtype=dtype,
+                        in_features=attention_heads * head_dim,
+                        out_features=hidden_size,
                         weights=curr_layer_weight.self_attn.k_proj,
                     ),
                     wv=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
-                        out_features=pipeline_config.huggingface_config.vision_config.hidden_size,
+                        dtype=dtype,
+                        in_features=attention_heads * head_dim,
+                        out_features=hidden_size,
                         weights=curr_layer_weight.self_attn.v_proj,
                     ),
                     wq=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
-                        out_features=pipeline_config.huggingface_config.vision_config.hidden_size,
+                        dtype=dtype,
+                        in_features=attention_heads * head_dim,
+                        out_features=hidden_size,
                         weights=curr_layer_weight.self_attn.q_proj,
                     ),
                     wo=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.hidden_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
+                        dtype=dtype,
+                        in_features=hidden_size,
+                        out_features=attention_heads * head_dim,
                         weights=curr_layer_weight.self_attn.o_proj,
                     ),
                 ),
@@ -677,9 +649,7 @@ def instantiate_vision_model(
 
     global_transformer_layers: list[VisionEncoderLayer] = []
 
-    for index in range(
-        pipeline_config.huggingface_config.vision_config.num_global_layers
-    ):
+    for index in range(num_global_layers):
         curr_layer_weight = weights.vision_model.global_transformer.layers[
             index
         ]
@@ -688,75 +658,66 @@ def instantiate_vision_model(
             VisionEncoderLayer(
                 mlp=MLP(
                     linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.intermediate_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.hidden_size,
+                        dtype=dtype,
+                        in_features=intermediate_size,
+                        out_features=hidden_size,
                         weights=curr_layer_weight.mlp.fc1,
                     ),
                     linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.hidden_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.intermediate_size,
+                        dtype=dtype,
+                        in_features=hidden_size,
+                        out_features=intermediate_size,
                         weights=curr_layer_weight.mlp.fc2,
                     ),
                 ),
                 input_layernorm=lp_layer_norm(
-                    dtype=pipeline_config.dtype,
-                    size=pipeline_config.huggingface_config.vision_config.hidden_size,
-                    eps=pipeline_config.huggingface_config.vision_config.norm_eps,
+                    dtype=dtype,
+                    size=hidden_size,
+                    eps=norm_eps,
                     weights=curr_layer_weight.input_layernorm,
                 ),
                 post_attention_layernorm=lp_layer_norm(
-                    dtype=pipeline_config.dtype,
-                    size=pipeline_config.huggingface_config.vision_config.hidden_size,
-                    eps=pipeline_config.huggingface_config.vision_config.norm_eps,
+                    dtype=dtype,
+                    size=hidden_size,
+                    eps=norm_eps,
                     weights=curr_layer_weight.post_attention_layernorm,
                 ),
                 self_attn=Attention(
-                    n_heads=pipeline_config.huggingface_config.vision_config.attention_heads,
+                    n_heads=attention_heads,
                     head_dim=head_dim,
                     wk=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.hidden_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
+                        dtype=dtype,
+                        in_features=hidden_size,
+                        out_features=attention_heads * head_dim,
                         weights=curr_layer_weight.self_attn.k_proj,
                     ),
                     wv=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.hidden_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
+                        dtype=dtype,
+                        in_features=hidden_size,
+                        out_features=attention_heads * head_dim,
                         weights=curr_layer_weight.self_attn.v_proj,
                     ),
                     wq=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.hidden_size,
-                        out_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
+                        dtype=dtype,
+                        in_features=hidden_size,
+                        out_features=attention_heads * head_dim,
                         weights=curr_layer_weight.self_attn.q_proj,
                     ),
                     wo=linear(
-                        dtype=pipeline_config.dtype,
-                        in_features=pipeline_config.huggingface_config.vision_config.attention_heads
-                        * head_dim,
-                        out_features=pipeline_config.huggingface_config.vision_config.hidden_size,
+                        dtype=dtype,
+                        in_features=attention_heads * head_dim,
+                        out_features=hidden_size,
                         weights=curr_layer_weight.self_attn.o_proj,
                     ),
                 ),
                 is_gated=True,
-                gate_attn=curr_layer_weight.gate_attn.allocate(
-                    pipeline_config.dtype, [1]
-                ),
-                gate_ffn=curr_layer_weight.gate_ffn.allocate(
-                    pipeline_config.dtype, [1]
-                ),
+                gate_attn=curr_layer_weight.gate_attn.allocate(dtype, [1]),
+                gate_ffn=curr_layer_weight.gate_ffn.allocate(dtype, [1]),
             )
         )
     global_transformer = VisionEncoder(global_transformer_layers)
 
     return VisionModel(
-        pipeline_config=pipeline_config,
         gated_positional_embedding=gated_positional_embedding,
         pre_tile_positional_embedding=pre_tile_positional_embedding,
         post_tile_positional_embedding=post_tile_positional_embedding,
@@ -766,4 +727,6 @@ def instantiate_vision_model(
         layernorm_post=layernorm_post,
         transformer=transformer,
         global_transformer=global_transformer,
+        dtype=dtype,
+        intermediate_layers_indices=intermediate_layers_indices,
     )

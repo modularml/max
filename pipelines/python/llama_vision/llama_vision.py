@@ -142,10 +142,26 @@ class LlamaVision(PipelineModel):
                 is_cache_empty_type,
             ],
         ) as graph:
+            vision_config = (
+                self.pipeline_config.huggingface_config.vision_config
+            )
             model = ConditionalGenerator(
                 pipeline_config=self.pipeline_config,
                 vision_model=instantiate_vision_model(
-                    self.pipeline_config, self.weights
+                    dtype=self.pipeline_config.dtype,
+                    image_size=vision_config.image_size,
+                    patch_size=vision_config.patch_size,
+                    supported_aspect_ratios=vision_config.supported_aspect_ratios,
+                    hidden_size=vision_config.hidden_size,
+                    max_num_tiles=vision_config.max_num_tiles,
+                    num_channels=vision_config.num_channels,
+                    norm_eps=vision_config.norm_eps,
+                    attention_heads=vision_config.attention_heads,
+                    num_hidden_layers=vision_config.num_hidden_layers,
+                    intermediate_size=vision_config.intermediate_size,
+                    num_global_layers=vision_config.num_global_layers,
+                    intermediate_layers_indices=vision_config.intermediate_layers_indices,
+                    weights=self.weights,
                 ),
                 multi_modal_projector=Linear(
                     self.weights.multi_modal_projector.weight.allocate(
