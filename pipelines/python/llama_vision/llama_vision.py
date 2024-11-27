@@ -145,6 +145,7 @@ class LlamaVision(PipelineModel):
             vision_config = (
                 self.pipeline_config.huggingface_config.vision_config
             )
+            text_config = self.pipeline_config.huggignface_config.text_config
             model = ConditionalGenerator(
                 pipeline_config=self.pipeline_config,
                 vision_model=instantiate_vision_model(
@@ -179,7 +180,17 @@ class LlamaVision(PipelineModel):
                     ),
                 ),
                 language_model=instantiate_language_model(
-                    pipeline_config=self.pipeline_config,
+                    dtype=self.pipeline_config.dtype,
+                    hidden_size=text_config.hidden_size,
+                    n_heads=text_config.num_attention_heads,
+                    rope_theta=text_config.rope_theta,
+                    max_seq_len=max_seq_len(self.pipeline_config),
+                    num_hidden_layers=text_config.num_hidden_layers,
+                    cross_attention_layers=text_config.cross_attention_layers,
+                    vocab_size=text_config.vocab_size,
+                    rms_norm_eps=text_config.rms_norm_eps,
+                    num_key_value_heads=text_config.num_key_value_heads,
+                    intermediate_size=text_config.intermediate_size,
                     kv_params=self._get_kv_params(),
                     weights=self.weights,
                 ),
