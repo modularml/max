@@ -16,10 +16,7 @@ from dataclasses import dataclass
 
 from max.dtype import DType
 from max.graph import TensorValue, TensorValueLike, ops
-from max.pipelines.kv_cache import (
-    ContinuousBatchingKVCacheCollection,
-    ContinuousBatchingKVCacheCollectionType,
-)
+from max.pipelines.kv_cache import ContinuousBatchingKVCacheCollection
 
 from ..kernels import (
     flash_attention_ragged_with_causal_mask,
@@ -39,20 +36,20 @@ class AttentionWithRope(AttentionImpl):
 
     def __call__(
         self,
-        x: TensorValueLike,
-        kv_collection: ContinuousBatchingKVCacheCollectionType,
+        x: TensorValue,
+        kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         # Get attributes from input.
-        total_seq_len = x.shape[0]  # type: ignore
+        total_seq_len = x.shape[0]
 
         # Call into fused qkv ragged matmul.
         xq = fused_qkv_ragged_matmul(
             self.kv_params,
-            input=x,  # type: ignore
+            input=x,
             wqkv=self.wqkv,
             input_row_offset=kwargs["input_row_offset"],
-            kv_collection=kv_collection,  # type: ignore
+            kv_collection=kv_collection,
             layer_idx=self.layer_idx,
             n_heads=self.n_heads,
         )
@@ -67,7 +64,7 @@ class AttentionWithRope(AttentionImpl):
             self.kv_params,
             xq,
             kwargs["input_row_offset"],
-            kv_collection,  # type: ignore
+            kv_collection,
             freqs_cis,
             self.layer_idx,
         )
@@ -76,14 +73,14 @@ class AttentionWithRope(AttentionImpl):
         attn_out = flash_attention_ragged_with_causal_mask(
             self.kv_params,
             input=xq,
-            kv_collection=kv_collection,  # type: ignore
+            kv_collection=kv_collection,
             layer_idx=self.layer_idx,
             input_row_offset=kwargs["input_row_offset"],
         )
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
 
-        return self.wo(attn_out), kv_collection  # type: ignore
+        return self.wo(attn_out), kv_collection
 
 
 @dataclass
@@ -95,22 +92,22 @@ class AttentionWithRopeQKV(AttentionImplQKV):
 
     def __call__(
         self,
-        x: TensorValueLike,
-        kv_collection: ContinuousBatchingKVCacheCollectionType,
+        x: TensorValue,
+        kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         # Get attributes from input.
-        total_seq_len = x.shape[0]  # type: ignore
+        total_seq_len = x.shape[0]
 
         wqkv = ops.concat((self.wq, self.wk, self.wv), axis=0).transpose(0, 1)
 
         # Call into fused qkv ragged matmul.
         xq = fused_qkv_ragged_matmul(
             self.kv_params,
-            input=x,  # type: ignore
+            input=x,
             wqkv=wqkv,
             input_row_offset=kwargs["input_row_offset"],
-            kv_collection=kv_collection,  # type: ignore
+            kv_collection=kv_collection,
             layer_idx=ops.constant(self.layer_idx, DType.uint32),
             n_heads=self.n_heads,
         )
@@ -125,7 +122,7 @@ class AttentionWithRopeQKV(AttentionImplQKV):
             self.kv_params,
             xq,
             kwargs["input_row_offset"],
-            kv_collection,  # type: ignore
+            kv_collection,
             freqs_cis,
             ops.constant(self.layer_idx, DType.uint32),
         )
@@ -134,11 +131,11 @@ class AttentionWithRopeQKV(AttentionImplQKV):
         attn_out = flash_attention_ragged_with_causal_mask(
             self.kv_params,
             input=xq,
-            kv_collection=kv_collection,  # type: ignore
+            kv_collection=kv_collection,
             layer_idx=ops.constant(self.layer_idx, DType.uint32),
             input_row_offset=kwargs["input_row_offset"],
         )
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
 
-        return self.wo(attn_out), kv_collection  # type: ignore
+        return self.wo(attn_out), kv_collection

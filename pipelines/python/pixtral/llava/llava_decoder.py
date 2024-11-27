@@ -20,6 +20,7 @@ from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
+
 from nn import Embedding, Linear, LPLayerNorm, RMSNorm, TransformerBlock
 from nn.layer import Layer
 
@@ -56,7 +57,7 @@ class Transformer(Layer):
         for _, layer in enumerate(self.layers):
             h, _ = layer(
                 h,
-                kv_collection,  # type: ignore
+                kv_collection,
                 **kwargs,
             )
 
