@@ -25,7 +25,6 @@ from max.graph.weights import GGUFWeights
 from max.pipelines import (
     LogProbabilities,
     ModelOutputs,
-    PipelineConfig,
     PipelineModel,
     TextContext,
 )

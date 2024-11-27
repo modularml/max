@@ -17,7 +17,7 @@ import logging
 
 import numpy as np
 from dataprocessing import batch_padded_tokens_and_mask
-from max.driver import CPU, CUDA, Tensor
+from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType

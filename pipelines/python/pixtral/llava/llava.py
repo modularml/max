@@ -12,10 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 
 from dataclasses import dataclass
-from typing import List, Optional
 
-from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 from nn.layer import Layer
 from pixtral.vision_encoder.vision_encoder import VisionEncoder
 
