@@ -14,7 +14,6 @@
 
 from max.dtype import DType
 from max.graph import TensorType, TensorValue, TensorValueLike, ops
-
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
@@ -64,7 +63,7 @@ def fused_qkv_ragged_matmul(
 
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged"
 
-    return ops.custom(  # type: ignore
+    return ops.custom(
         op_name,
         values=[input, input_row_offset, wqkv, kv_collection, layer_idx],  # type: ignore
         out_types=[
@@ -74,7 +73,7 @@ def fused_qkv_ragged_matmul(
                 device=input.device,
             )
         ],
-    )[0]
+    )[0].tensor
 
 
 def fused_qkv_matmul(
@@ -138,7 +137,7 @@ def fused_qk_ragged_rope(
     if input.dtype != freqs_cis.dtype:
         msg = (
             "expected input and freqs_cis to share a dtype, but got"
-            f" {input.dtype} and {freqs_cis.dtyp} respectively"  # type: ignore
+            f" {input.dtype} and {freqs_cis.dtype} respectively"
         )
         raise ValueError(msg)
 
@@ -162,7 +161,7 @@ def fused_qk_ragged_rope(
                 dtype=input.dtype, shape=input.shape, device=input.device
             )
         ],
-    )[0]
+    )[0].tensor
 
 
 def fused_qk_rope(
@@ -175,7 +174,7 @@ def fused_qk_rope(
     """Computes fused query-key attention with rotary positional encodings."""
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    return ops.custom(  # type: ignore
+    return ops.custom(
         op_name,
         values=[input, kv_collection, freqs_cis_2d, layer_idx],  # type: ignore
         out_types=[
@@ -183,7 +182,7 @@ def fused_qk_rope(
                 dtype=input.dtype, shape=input.shape, device=input.device
             )
         ],
-    )[0]
+    )[0].tensor
 
 
 def flash_attention(
@@ -197,7 +196,8 @@ def flash_attention(
     """Computes flash attention provided the mo.opaque KV Cache."""
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    # NOTE: The scale argument to the flash attentionkernel is constrained to float32.
+    # NOTE: The scale argument to the flash attention kernel is constrained to
+    # float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.custom(
         op_name,
@@ -214,7 +214,7 @@ def flash_attention(
                 dtype=input.dtype, shape=input.shape, device=input.device
             )
         ],
-    )[0]
+    )[0].tensor
 
 
 def flash_attention_with_causal_mask(
@@ -253,7 +253,7 @@ def flash_attention_with_causal_mask(
 
     # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
-    return ops.custom(  # type: ignore
+    return ops.custom(
         op_name,
         values=[input, kv_collection, layer_idx, valid_lengths, scale],  # type: ignore
         out_types=[
@@ -261,7 +261,7 @@ def flash_attention_with_causal_mask(
                 dtype=input.dtype, shape=input.shape, device=input.device
             )
         ],
-    )[0]
+    )[0].tensor
 
 
 def flash_attention_ragged_with_causal_mask(
