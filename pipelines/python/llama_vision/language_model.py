@@ -53,7 +53,7 @@ class TextModel(Layer):
     embed_tokens: Embedding
     layers: list[CrossAttentionDecoderLayer | TransformerBlock]
     norm: RMSNorm
-    cross_attention_layers: list
+    cross_attention_layers: list[int]
     rotary_emb: OptimizedRotaryEmbedding
 
     # input_ids: shape=[1, 1], dtype=torch.int64
@@ -515,7 +515,7 @@ def instantiate_language_model(
     rope_theta: int,
     max_seq_len: int,
     num_hidden_layers: int,
-    cross_attention_layers: int,
+    cross_attention_layers: list[int],
     vocab_size: int,
     rms_norm_eps: float,
     num_key_value_heads: int,
