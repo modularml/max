@@ -61,7 +61,8 @@ def _feed_forward(
 
 def _lp_layer_norm(dims: int, eps: float, weights: GGUFWeights) -> LPLayerNorm:
     return LPLayerNorm(
-        weight=weights.weight.allocate(DType.float32, [dims]), eps=eps  # type: ignore
+        weight=weights.weight.allocate(DType.float32, [dims]),  # type: ignore
+        eps=eps,
     )
 
 

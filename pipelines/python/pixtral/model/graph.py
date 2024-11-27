@@ -138,7 +138,10 @@ def _build_graph(
         model = _llava(graph, params, weights, kv_params)
         input_ids, pixel_values, input_row_offset, *kv_cache = graph.inputs
         logits = model(
-            input_ids, pixel_values, kv_cache, input_row_offset=input_row_offset  # type: ignore
+            input_ids,  # type: ignore
+            pixel_values,  # type: ignore
+            kv_cache,  # type: ignore
+            input_row_offset=input_row_offset,
         )
         graph.output(logits)
         return graph

@@ -33,8 +33,10 @@ from .vision_model import instantiate_vision_model
 
 def max_seq_len(config: PipelineConfig) -> int:
     return (
-        config.max_length if config.max_length
-        < config.huggingface_config.text_config.max_position_embeddings else config.huggignface_config.text_config.max_position_embeddings
+        config.max_length
+        if config.max_length
+        < config.huggingface_config.text_config.max_position_embeddings
+        else config.huggignface_config.text_config.max_position_embeddings
     )
 
 
@@ -123,9 +125,12 @@ class LlamaVision(PipelineModel):
         position_ids_type = input_ids_type
         cross_attention_mask_type = TensorType(DType.int64, [1, 14, 1, 4])
 
-        blocks_type, cache_lengths_type, lookup_table_type, is_cache_empty_type = self.kv_manager.input_symbols()[
-            0
-        ]
+        (
+            blocks_type,
+            cache_lengths_type,
+            lookup_table_type,
+            is_cache_empty_type,
+        ) = self.kv_manager.input_symbols()[0]
         with Graph(
             "llama3-vision",
             input_types=[

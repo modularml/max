@@ -150,8 +150,7 @@ class LlavaConfig:
 
 @dataclass
 class PixtralVisionHyperparameters:
-    """All hyperparameters that control the Pixtral vision model architecture.
-    """
+    """All hyperparameters that control the Pixtral vision model architecture."""
 
     dtype: DType
     """The dtype of the weights (is `uint8` for quantized dtypes)."""

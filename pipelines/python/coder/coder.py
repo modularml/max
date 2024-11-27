@@ -40,8 +40,9 @@ def load_coder_and_kv_manager(
     session: InferenceSession,
 ) -> tuple[Llama3, KVCacheManager]:
     cache_dtype = (
-        DType.float32 if config.quantization_encoding.quantization_encoding
-        is not None else config.dtype
+        DType.float32
+        if config.quantization_encoding.quantization_encoding is not None
+        else config.dtype
     )
     kv_params = KVCacheParams(
         n_kv_heads=config.huggingface_config.num_key_value_heads,
@@ -89,9 +90,11 @@ class Coder:
         self.config = config
         assert len(config.weight_path) > 0
         device_spec = self.config.device_spec
-        self._device = CPU(
-            device_spec.id
-        ) if device_spec.device_type == "cpu" else CUDA(device_spec.id)
+        self._device = (
+            CPU(device_spec.id)
+            if device_spec.device_type == "cpu"
+            else CUDA(device_spec.id)
+        )
 
         self._kv_manager = kv_manager
         self._kv_params = self._kv_manager.params
@@ -163,11 +166,13 @@ class Coder:
                 graph.inputs
             )
             mask_dtype = (
-                self.config.dtype if self.config.quantization_encoding
+                self.config.dtype
+                if self.config.quantization_encoding
                 in [
                     SupportedEncoding.float32,
                     SupportedEncoding.bfloat16,
-                ] else DType.float32
+                ]
+                else DType.float32
             )
             logits, end_pos = model(
                 tokens,
