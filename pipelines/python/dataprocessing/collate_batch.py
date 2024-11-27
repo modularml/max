@@ -82,10 +82,10 @@ def collate_batch(
         batch.extend([pad_batch_item] * (batch_size - len(batch)))
 
     # Generate unpadded last token index.
-    unpadded_last_token_index = np.full(
-        len(batch), -1
-    ) if direction == PaddingDirection.LEFT else np.array(
-        [len(a) - 1 for a in batch]
+    unpadded_last_token_index = (
+        np.full(len(batch), -1)
+        if direction == PaddingDirection.LEFT
+        else np.array([len(a) - 1 for a in batch])
     )
 
     return np.stack([pad(a) for a in batch], axis=0), unpadded_last_token_index

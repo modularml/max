@@ -56,8 +56,7 @@ class TextGenerationMetrics:
             self._print_report(self._print_raw)
 
     def signpost(self, name: str):
-        """Measure the current time and memory usage, tagging it with a name for later reporting.
-        """
+        """Measure the current time and memory usage, tagging it with a name for later reporting."""
         self._signposts[name] = time.time()
         self._mem_usage_marker[name] = (self._process.memory_info().rss) / (
             1024 * 1024 * 1024

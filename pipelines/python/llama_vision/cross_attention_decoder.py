@@ -58,8 +58,7 @@ class CrossSdpaAttention(Layer):
 
 @dataclass
 class CrossAttentionDecoderLayer(Layer):
-    """Cross-attention transformer block with tanh-gated attention and feedforward.
-    """
+    """Cross-attention transformer block with tanh-gated attention and feedforward."""
 
     cross_attn: CrossSdpaAttention
     input_layernorm: RMSNorm

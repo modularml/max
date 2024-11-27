@@ -187,7 +187,8 @@ class ReplitModel(PipelineModel):
                 weights_registry=self._weights.allocated_weights,  # type: ignore
             )
             if (
-                export_path := self.pipeline_config.save_to_serialized_model_path
+                export_path
+                := self.pipeline_config.save_to_serialized_model_path
             ):
                 logging.info("Exporting serialized model to %s", export_path)
                 model._export_mef(export_path)

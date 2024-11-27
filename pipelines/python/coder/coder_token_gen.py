@@ -94,7 +94,8 @@ class CoderTokenGenerator(TokenGenerator[TextContext]):
                 curr_step_inputs,
             )
             curr_step_inputs = self.model._prepare_next_token_inputs(
-                new_tokens, curr_step_inputs  # type: ignore
+                new_tokens,
+                curr_step_inputs,  # type: ignore
             )
 
         # Actually update the cache lengths in our kv_cache manager

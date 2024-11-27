@@ -115,9 +115,9 @@ def patch_tqdm():
                 downloaded = self.n / 1024 / 1024
                 total = self.total / 1024 / 1024
                 speed = (
-                    self.format_dict["rate"]
-                    / 1024
-                    / 1024 if self.format_dict["rate"] else 0.0
+                    self.format_dict["rate"] / 1024 / 1024
+                    if self.format_dict["rate"]
+                    else 0.0
                 )
                 if speed != 0:
                     time_left = format_time((total - downloaded) / speed)
@@ -199,8 +199,7 @@ class TextGenerationMetrics:
         self.start_time = time.time()
 
     def signpost(self, name: str):
-        """Measure the current time and tag it with a name for later reporting.
-        """
+        """Measure the current time and tag it with a name for later reporting."""
         self.signposts[name] = time.time()
 
     def new_token(self):

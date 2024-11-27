@@ -134,8 +134,10 @@ class CoderModel(PipelineModel):
 
     def _get_kv_params(self) -> KVCacheParams:
         cache_dtype = (
-            DType.float32 if self.pipeline_config.quantization_encoding.quantization_encoding
-            is not None else self.pipeline_config.dtype
+            DType.float32
+            if self.pipeline_config.quantization_encoding.quantization_encoding
+            is not None
+            else self.pipeline_config.dtype
         )
         return KVCacheParams(
             dtype=cache_dtype,
@@ -243,11 +245,13 @@ class CoderModel(PipelineModel):
                 graph.inputs
             )
             mask_dtype = (
-                self.pipeline_config.dtype if self.pipeline_config.quantization_encoding
+                self.pipeline_config.dtype
+                if self.pipeline_config.quantization_encoding
                 in [
                     SupportedEncoding.float32,
                     SupportedEncoding.bfloat16,
-                ] else DType.float32
+                ]
+                else DType.float32
             )
             logits, end_pos = model(
                 tokens,

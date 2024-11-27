@@ -137,9 +137,7 @@ class VisionModel(Layer):
         batch_size, max_num_tiles = aspect_ratio_mask.shape
         attention_mask = aspect_ratio_mask.reshape(
             (batch_size, max_num_tiles, 1, 1)
-        ).cast(
-            dtype
-        )  # (1, 4, 1, 1)
+        ).cast(dtype)  # (1, 4, 1, 1)
         # attention_shape (1, 4, 1, 1) -> (1, 4, 1032, 1)
         attention_mask = ops.tile(attention_mask, (1, 1, target_length, 1))
 
@@ -242,9 +240,14 @@ class VisionModel(Layer):
         aspect_ratio_ids: TensorValueLike,
         aspect_ratio_mask: TensorValueLike,
     ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
-        batch_size, num_concurrent_media, num_tiles, height, width, num_channels = (
-            pixel_values.shape
-        )
+        (
+            batch_size,
+            num_concurrent_media,
+            num_tiles,
+            height,
+            width,
+            num_channels,
+        ) = pixel_values.shape
 
         pixel_values = pixel_values.reshape(
             (
