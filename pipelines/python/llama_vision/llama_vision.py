@@ -31,6 +31,13 @@ from .language_model import instantiate_language_model
 from .vision_model import instantiate_vision_model
 
 
+def max_seq_len(config: PipelineConfig) -> int:
+    return (
+        config.max_length if config.max_length
+        < config.huggingface_config.text_config.max_position_embeddings else config.huggignface_config.text_config.max_position_embeddings
+    )
+
+
 # TODO: These are configured for text only model. What about vision model?
 def load_llama_vision_and_kv_manager(
     config: PipelineConfig, session: InferenceSession | None = None
@@ -49,8 +56,8 @@ def load_llama_vision_and_kv_manager(
 
     kv_manager = load_kv_manager(
         params=kv_params,
-        max_cache_batch_size=config.max_cache_batch_size,  # verify this.
-        max_seq_len=config.huggingface_config.text_config.max_position_embeddings,  # verify this.
+        max_cache_batch_size=config.max_cache_batch_size,
+        max_seq_len=max_seq_len(config),
         num_layers=config.huggingface_config.text_config.num_hidden_layers,
         devices=[config.device],
         session=session,
@@ -227,8 +234,8 @@ class LlamaVision(PipelineModel):
     def load_kv_manager(self, session: InferenceSession) -> KVCacheManager:
         return load_kv_manager(
             params=self._get_kv_params(),
-            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,  # verify this.
-            max_seq_len=self.pipeline_config.huggingface_config.text_config.max_position_embeddings,  # verify this.
+            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
+            max_seq_len=max_seq_len(self.pipeline_config),
             num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
             devices=[self.pipeline_config.device],
             session=session,

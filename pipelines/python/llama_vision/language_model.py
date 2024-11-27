@@ -524,6 +524,13 @@ def self_attention_decoder_layer(
     )
 
 
+def max_seq_len(config: PipelineConfig) -> int:
+    return (
+        config.max_length if config.max_length
+        < config.huggingface_config.text_config.max_position_embeddings else confg.huggignface_config.text_config.max_position_embeddings
+    )
+
+
 def instantiate_language_model(
     pipeline_config: PipelineConfig,
     kv_params: KVCacheParams,
@@ -537,8 +544,7 @@ def instantiate_language_model(
         dim=pipeline_config.huggingface_config.text_config.hidden_size,
         n_heads=pipeline_config.huggingface_config.text_config.num_attention_heads,
         theta=pipeline_config.huggingface_config.text_config.rope_theta,
-        # TODO: Check if this param value used is correct for "max_seq_len".
-        max_seq_len=pipeline_config.huggingface_config.text_config.max_position_embeddings,
+        max_seq_len=max_seq_len,
         # TODO: Figure out how we want to pass this
         # rope_scaling=params.rope_scaling,
     )
