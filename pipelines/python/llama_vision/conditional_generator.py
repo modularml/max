@@ -48,7 +48,7 @@ class ConditionalGenerator(Layer):
             cross_attention_mask, full_text_row_masked_out_mask = (
                 self._prepare_cross_attention_mask_helper(
                     cross_attention_mask,
-                    num_vision_tokens=self.vision_params.num_patches,
+                    num_vision_tokens=self.pipeline_config.huggingface_config.vision_config.num_patches,
                     dtype=DType.bfloat16,
                 )
             )
@@ -154,14 +154,14 @@ class ConditionalGenerator(Layer):
             )
             cross_attention_states = vision_outputs[0]
 
-            num_patches = cross_attention_states.shape[-2]
+            num_patches = cross_attention_states.shape[-2]  # type: ignore
             cross_attention_states = self.multi_modal_projector(
                 cross_attention_states
             ).reshape(
                 (
                     -1,
                     num_patches,
-                    self.pipeline_config.huggingface_config.hidden_size,
+                    self.pipeline_config.huggingface_config.text_config.hidden_size,
                 )
             )
 
