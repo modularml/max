@@ -40,38 +40,6 @@ def max_seq_len(config: PipelineConfig) -> int:
     )
 
 
-# TODO: These are configured for text only model. What about vision model?
-def load_llama_vision_and_kv_manager(
-    config: PipelineConfig, session: InferenceSession | None = None
-) -> tuple[LlamaVision, KVCacheManager]:
-    # Initialize kv cache params and manager
-    kv_params = KVCacheParams(
-        dtype=config.dtype,
-        n_kv_heads=config.huggingface_config.text_config.num_attention_heads,
-        head_dim=config.huggingface_config.text_config.hidden_size
-        // config.huggingface_config.text_config.num_attention_heads,
-        cache_strategy=config.cache_strategy,
-    )
-
-    if session is None:
-        session = InferenceSession(devices=[config.device])
-
-    kv_manager = load_kv_manager(
-        params=kv_params,
-        max_cache_batch_size=config.max_cache_batch_size,
-        max_seq_len=max_seq_len(config),
-        num_layers=config.huggingface_config.text_config.num_hidden_layers,
-        devices=[config.device],
-        session=session,
-    )
-    model = LlamaVision(
-        pipeline_config=config,
-        session=session,
-    )
-
-    return model, kv_manager
-
-
 # TODO: Some parts may be consolidated under the parent Llama 3 pipeline interface.
 class LlamaVision(PipelineModel):
     """The Llama3.2 vision model."""
