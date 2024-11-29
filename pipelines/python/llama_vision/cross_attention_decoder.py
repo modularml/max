@@ -72,18 +72,11 @@ class CrossAttentionDecoderLayer(Layer):
         hidden_states: TensorValue,
         cross_attention_states: TensorValue,
         cross_attention_mask: TensorValue,
-        attention_mask: TensorValue,  # unused in cross attention.
-        # need to make this optional for now.
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        position_ids: TensorValue | None = None,  # unused in cross attention.
         past_key_value: Cache | None = None,
         cache_position: TensorValue | None = None,
-        # unused in cross attention.
-        position_embeddings: TensorValue | None = None,
-        # unused in cross attention, for now.
-        kv_collection: ContinuousBatchingKVCacheCollectionType | None = None,
-        valid_lengths: int | None = None,  # unused in cross attention.
+        **kwargs,
     ) -> tuple[TensorValue, Cache | None]:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)

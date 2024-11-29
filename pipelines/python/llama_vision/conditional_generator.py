@@ -107,7 +107,6 @@ class ConditionalGenerator(Layer):
         pixel_values: TensorValue | None = None,
         aspect_ratio_ids: TensorValue | None = None,
         aspect_ratio_mask: TensorValue | None = None,
-        attention_mask: TensorValue | None = None,
         cross_attention_mask: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
         position_ids: TensorValue | None = None,
@@ -121,6 +120,7 @@ class ConditionalGenerator(Layer):
         cache_position: TensorValue | None = None,
         # For preparing cross attention mask.
         full_text_row_masked_out_mask: TensorValue | None = None,
+        input_row_offset: TensorValue | None = None,
     ) -> TensorValue:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
@@ -175,7 +175,7 @@ class ConditionalGenerator(Layer):
         return self.language_model(
             kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
-            attention_mask=attention_mask,
+            input_row_offset=input_row_offset,
             position_ids=position_ids,
             cross_attention_states=cross_attention_states,
             cross_attention_mask=cross_attention_mask,

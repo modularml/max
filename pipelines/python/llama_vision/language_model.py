@@ -74,7 +74,6 @@ class TextModel(Layer):
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
         input_ids: TensorValue | None = None,
-        attention_mask: TensorValue | None = None,
         position_ids: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
         cross_attention_mask: TensorValue | None = None,
@@ -83,6 +82,7 @@ class TextModel(Layer):
         past_key_values: Cache | None = None,
         inputs_embeds: TensorValue | None = None,
         cache_position: TensorValue | None = None,
+        input_row_offset: TensorValue | None = None,
         **kwargs,
     ) -> tuple:
         if (input_ids is None) ^ (inputs_embeds is not None):
@@ -179,7 +179,7 @@ class TextModel(Layer):
                 position_embeddings=position_embeddings,
                 kv_collection=kv_collection,
                 valid_lengths=cache_lengths,
-                **kwargs,
+                input_row_offset=input_row_offset,
             )
 
             hidden_states = layer_outputs[0]
@@ -228,7 +228,7 @@ class CausalLanguageModel(Layer):
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
         input_ids: TensorValue | None = None,
-        attention_mask: TensorValue | None = None,
+        input_row_offset: TensorValue | None = None,
         position_ids: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
         cross_attention_mask: TensorValue | None = None,
@@ -245,13 +245,13 @@ class CausalLanguageModel(Layer):
             kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
             cross_attention_states=cross_attention_states,
-            attention_mask=attention_mask,
             position_ids=position_ids,
             cross_attention_mask=cross_attention_mask,
             full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             past_key_values=past_key_values,
             inputs_embeds=inputs_embeds,
             cache_position=cache_position,
+            input_row_offset=input_row_offset,
             **kwargs,
         )
 
@@ -460,7 +460,7 @@ def self_attention_decoder_layer(
     attention = SelfSdpaAttention(
         n_heads=num_attention_heads,
         kv_params=kv_params,
-        layer_idx=ops.constant(layer_idx, DType.uint32),
+        layer_idx=layer_idx,
         wq=q_proj.weight,
         wk=k_proj.weight,
         wv=v_proj.weight,
