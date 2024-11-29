@@ -48,8 +48,9 @@ def fused_qkv_ragged_matmul(
         )
         raise ValueError(msg)
 
-    if input.rank != 2:
-        msg = f"expected input to have rank 2, was {input.rank}"
+    input_rank_expected = 2
+    if input.rank != input_rank_expected:
+        msg = f"expected input to have rank {input_rank_expected}, was {input.rank}"
         raise ValueError(msg)
 
     if input_row_offset.dtype != DType.uint32:
@@ -95,12 +96,16 @@ def fused_qkv_matmul(
         )
         raise ValueError(msg)
 
-    if input.rank != 3:
-        msg = f"expected input to have rank 3, was {input.rank}"
+    input_rank_expected = 3
+    if input.rank != input_rank_expected:
+        msg = f"expected input to have rank {input_rank_expected}, was {input.rank}"
         raise ValueError(msg)
 
-    if wqkv.rank != 2:
-        msg = f"expected wqkv to have rank 2, was {wqkv.rank}"
+    wqkv_rank_expected = 2
+    if wqkv.rank != wqkv_rank_expected:
+        msg = (
+            f"expected wqkv to have rank {wqkv_rank_expected}, was {wqkv.rank}"
+        )
         raise ValueError(msg)
 
     if layer_idx.dtype != DType.uint32:
@@ -143,8 +148,12 @@ def matmul_kv_cache_ragged(
         )
         raise ValueError(msg)
 
-    if hidden_states.rank != 2:
-        msg = f"expected hidden_states to have rank 2, was {hidden_states.rank}"
+    hidden_states_rank_expected = 2
+    if hidden_states.rank != hidden_states_rank_expected:
+        msg = (
+            "expected hidden_states to have rank "
+            f"{hidden_states_rank_expected}, was {hidden_states.rank}"
+        )
         raise ValueError(msg)
 
     if input_row_offset.dtype != DType.uint32:
@@ -219,6 +228,25 @@ def fused_qk_rope(
     layer_idx: TensorValue,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings."""
+    input_rank_expected = 4
+    if input.rank != input_rank_expected:
+        msg = (
+            f"expected input of rank {input_rank_expected} but got {input.rank}"
+        )
+        raise ValueError(msg)
+
+    freqs_cis_rank_expected = 2
+    if freqs_cis_2d.rank != freqs_cis_rank_expected:
+        msg = (
+            f"expected freqs_cis_2d of rank {freqs_cis_rank_expected} but got "
+            f"{freqs_cis_2d.rank}"
+        )
+        raise ValueError(msg)
+
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected uint32 layer_idx but got {layer_idx.dtype}"
+        raise ValueError(msg)
+
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
@@ -241,6 +269,28 @@ def flash_attention(
     valid_lengths: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache."""
+    input_rank_expected = 4
+    if input.rank != input_rank_expected:
+        msg = (
+            f"expected input of rank {input_rank_expected} but got {input.rank}"
+        )
+        raise ValueError(msg)
+
+    if layer_idx.dtype != DType.uint32:
+        msg = f"expected uint32 layer_idx but got {layer_idx.dtype}"
+        raise ValueError(msg)
+
+    if attention_mask.dtype != input.dtype:
+        msg = (
+            f"expected attention mask dtype {attention_mask.dtype} to match "
+            f"the input's dtype {input.dtype}"
+        )
+        raise ValueError(msg)
+
+    if valid_lengths.dtype != DType.uint32:
+        msg = f"expected uint32 valid_lengths but got {valid_lengths.dtype}"
+        raise ValueError(msg)
+
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     # NOTE: The scale argument to the flash attention kernel is constrained to
@@ -325,6 +375,13 @@ def flash_attention_ragged_with_causal_mask(
     `input_row_offset` indicates where each batch starts and ends in `input`
     """
 
+    input_rank_expected = 3
+    if input.rank != input_rank_expected:
+        msg = (
+            f"expected input of rank {input_rank_expected} but got {input.rank}"
+        )
+        raise ValueError(msg)
+
     if input.dtype != kv_params.dtype:
         msg = (
             f"expected input to be dtype: {kv_params.dtype}, got {input.dtype}"
@@ -363,16 +420,19 @@ def swish_glu(
     a = TensorValue(a)
     b0 = TensorValue(b0)
     b1 = TensorValue(b1)
-    if a.rank != 2:
-        msg = f"expected a to have rank 2, was {a.rank}"
+    a_rank_expected = 2
+    if a.rank != a_rank_expected:
+        msg = f"expected a to have rank {a_rank_expected}, was {a.rank}"
         raise ValueError(msg)
 
-    if b0.rank != 2:
-        msg = f"expected b0 to have rank 2, was {b0.rank}"
+    b0_rank_expected = 2
+    if b0.rank != b0_rank_expected:
+        msg = f"expected b0 to have rank {b0_rank_expected}, was {b0.rank}"
         raise ValueError(msg)
 
-    if b1.rank != 2:
-        msg = f"expected b1 to have rank 2, was {b1.rank}"
+    b1_rank_expected = 2
+    if b1.rank != {b1_rank_expected}:
+        msg = f"expected b1 to have rank {b1_rank_expected}, was {b1.rank}"
         raise ValueError(msg)
 
     m = a.shape[0]
