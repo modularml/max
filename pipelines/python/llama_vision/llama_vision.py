@@ -53,7 +53,6 @@ class LlamaVision(PipelineModel):
         # TODO: Verify if the mapping is correct:
         # From dumping the inputs before executing the reference model...
         # key: input_ids, shape: torch.Size([1, 14])
-        # key: attention_mask, shape: torch.Size([1, 14])
         # key: pixel_values, shape: torch.Size([1, 1, 4, 3, 448, 448])
         # key: aspect_ratio_ids, shape: torch.Size([1, 1])
         # key: aspect_ratio_mask, shape: torch.Size([1, 1, 4])
@@ -63,7 +62,7 @@ class LlamaVision(PipelineModel):
         pixel_values_type = TensorType(
             self.pipeline_config.dtype,
             shape=[
-                1,  # batch_size
+                "batch_size",
                 1,  # num_concurrent_media
                 4,  # num_tiles
                 448,  # height
@@ -74,24 +73,31 @@ class LlamaVision(PipelineModel):
         aspect_ratio_ids_type = TensorType(
             DType.int64,
             shape=[
-                1,
+                "batch_size",
                 1,
             ],  # batch_size, num_concurrent_media
         )
         aspect_ratio_mask_type = TensorType(
             self.pipeline_config.dtype,
             shape=[
-                1,
+                "batch_size",
                 1,
                 4,
             ],  # batch_size, num_concurrent_media, num_tiles
         )
 
-        input_ids_type = TensorType(DType.int64, shape=[1, 14])  # patch_size
+        input_ids_type = TensorType(
+            DType.int64, shape=["batch_size", 14]
+        )  # patch_size
+        input_row_offset_type = TensorType(
+            DType.uint32, shape=["input_row_offset_len"]
+        )
+
         # Same shapes.
-        attention_mask_type = input_ids_type
         position_ids_type = input_ids_type
-        cross_attention_mask_type = TensorType(DType.int64, [1, 14, 1, 4])
+        cross_attention_mask_type = TensorType(
+            DType.int64, ["batch_size", 14, 1, 4]
+        )
 
         (
             blocks_type,
@@ -106,7 +112,7 @@ class LlamaVision(PipelineModel):
                 aspect_ratio_ids_type,
                 aspect_ratio_mask_type,
                 input_ids_type,
-                attention_mask_type,
+                input_row_offset_type,
                 cross_attention_mask_type,
                 position_ids_type,
                 blocks_type,
@@ -118,7 +124,7 @@ class LlamaVision(PipelineModel):
             vision_config = (
                 self.pipeline_config.huggingface_config.vision_config
             )
-            text_config = self.pipeline_config.huggignface_config.text_config
+            text_config = self.pipeline_config.huggingface_config.text_config
             model = ConditionalGenerator(
                 pipeline_config=self.pipeline_config,
                 vision_model=instantiate_vision_model(
@@ -174,7 +180,7 @@ class LlamaVision(PipelineModel):
                 aspect_ratio_ids,
                 aspect_ratio_mask,
                 input_ids,
-                attention_mask,
+                input_row_offset,
                 cross_attention_mask,
                 position_ids,
                 blocks,
@@ -192,7 +198,7 @@ class LlamaVision(PipelineModel):
                 aspect_ratio_ids=aspect_ratio_ids,
                 aspect_ratio_mask=aspect_ratio_mask,
                 input_ids=input_ids,
-                attention_mask=attention_mask,
+                input_row_offset=input_row_offset,
                 cross_attention_mask=cross_attention_mask,
                 position_ids=position_ids,
                 kv_cache_inputs=(
