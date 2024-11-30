@@ -48,24 +48,13 @@ class Llama3Model(PipelineModel):
             *model_inputs, copy_inputs_to_device=False
         )
 
-        if self.pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
-            if self.pipeline_config.enable_echo:
-                assert len(model_outputs) == 2
-                return ModelOutputs(
-                    next_token_logits=model_outputs[0], logits=model_outputs[1]
-                )
-            else:
-                assert len(model_outputs) == 1
-                return ModelOutputs(next_token_logits=model_outputs[0])
+        if self.pipeline_config.enable_echo:
+            return ModelOutputs(
+                next_token_logits=model_outputs[0],
+                logits=model_outputs[1],
+            )
         else:
-            if self.pipeline_config.enable_echo:
-                assert len(model_outputs) == 3
-                return ModelOutputs(
-                    next_token_logits=model_outputs[0], logits=model_outputs[2]
-                )
-            else:
-                assert len(model_outputs) == 2
-                return ModelOutputs(next_token_logits=model_outputs[0])
+            return ModelOutputs(next_token_logits=model_outputs[0])
 
     def _prepare_continuous_initial_token_inputs(
         self, context_batch: list[TextContext]
@@ -283,17 +272,19 @@ class Llama3Model(PipelineModel):
                 ]
                 else DType.float32
             )
-            logits, end_pos = model(
+            logits = model(
                 tokens,
                 attention_mask.cast(mask_dtype),
                 k_cache,
                 v_cache,
                 start_pos,
-            )
+            )[0]
+
             if self.pipeline_config.enable_echo:
-                graph.output(logits[:, -1], end_pos, logits)
+                graph.output(logits[:, -1], logits)
             else:
-                graph.output(logits[:, -1], end_pos)
+                graph.output(logits[:, -1])
+
             return graph
 
     def compute_log_probabilities(

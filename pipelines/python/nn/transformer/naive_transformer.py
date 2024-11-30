@@ -88,8 +88,6 @@ class NaiveTransformer(Layer):
                 i,
             )
 
-        seq_len = TensorValue(tokens.shape[1])  # type: ignore
         return (
             ops.cast(self.output(self.norm(h)), k_cache.dtype),  # type: ignore
-            start_pos + seq_len,
         )
