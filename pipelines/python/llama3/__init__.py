@@ -13,12 +13,12 @@
 
 
 from .config import get_llama_huggingface_file
-from .llama3 import Llama3
+from .model import Llama3Model
 from .arch import llama_arch
 from max.pipelines import PIPELINE_REGISTRY
 
 __all__ = [
-    "Llama3",
+    "Llama3Model",
     "get_llama_huggingface_file",
 ]
 
