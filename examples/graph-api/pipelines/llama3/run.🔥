@@ -95,7 +95,7 @@ struct Config:
             if encoding[String] == "bfloat16":
                 raise "bfloat16 is not currently supported on ARM"
 
-    fn get(inout self, key: String) raises -> OptionValue:
+    fn get(mut self, key: String) raises -> OptionValue:
         """Returns an option value for `key` in the underlying config.
 
         Args:
@@ -109,7 +109,7 @@ struct Config:
         """
         return self.config[key]
 
-    fn set(inout self, key: String, val: OptionValue):
+    fn set(mut self, key: String, val: OptionValue):
         """Sets a new value for a given config key. This will overwrite the old
         value if the key is already present.
 
@@ -143,7 +143,7 @@ def _get_attention_mask(
 def _generation_loop[
     type: DType, kv_params: KVCacheStaticParams
 ](
-    inout metrics: Metrics,
+    mut metrics: Metrics,
     n_layers: Int,
     compiled_model: Model,
     tokenizer: TikTokenEncoder,
@@ -254,7 +254,7 @@ def generate_text_naive(
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
-    inout metrics: Metrics,
+    mut metrics: Metrics,
     execution_device: Device,
     use_gpu: Bool,
 ):
@@ -393,7 +393,7 @@ def generate_text[
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
-    inout metrics: Metrics,
+    mut metrics: Metrics,
     execution_device: Device,
     use_gpu: Bool,
 ):

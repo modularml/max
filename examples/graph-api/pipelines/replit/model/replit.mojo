@@ -51,7 +51,7 @@ struct Replit[T: LoadableModel, dtype: DType, kv_params: KVCacheStaticParams]:
 
     def build_graph(
         self,
-        inout params: T,
+        mut params: T,
         name: String,
     ) -> Graph:
         """Builds the replit model graph.

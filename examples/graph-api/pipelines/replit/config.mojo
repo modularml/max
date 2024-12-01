@@ -66,7 +66,7 @@ struct ReplitConfigRegistry(ConfigRegistry):
     var registry: ConfigRegistryDict
 
     def __init__(
-        inout self,
+        mut self,
         additional_pipeline_args: Optional[ConfigRegistryDict] = None,
     ):
         """

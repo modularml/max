@@ -52,7 +52,7 @@ def param_key(name: String, layer_idx: Optional[Int] = None) -> String:
 
 
 def add_hyperparams_to_dict(
-    inout tensor_dict: TensorDict, hyperparams: LlamaHParams
+    mut tensor_dict: TensorDict, hyperparams: LlamaHParams
 ):
     """Copies all hyperparameters into a TensorDict for later checkpointing."""
     tensor_dict.set(
@@ -108,7 +108,7 @@ struct TeenyTinyLlama[
         self.quantized_params = TensorDict()
         add_hyperparams_to_dict(self.quantized_params, self.hyperparams)
 
-    def build(inout self) -> Graph:
+    def build(mut self) -> Graph:
         """Build the Llama 2 graph, quantizing its weights by construction."""
         # Set the KV cache and tokens input types.
         params = self.params_file.hyperparams()

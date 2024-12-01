@@ -62,7 +62,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         """Checks whether the node is still in the list."""
         return 0 <= id < len(self._arena) and self.node(id)
 
-    def append(inout self, owned value: ElementType) -> Self.ID:
+    def append(mut self, owned value: ElementType) -> Self.ID:
         """Adds a new element to the back of the list."""
         id = len(self._arena)
         node = Node[ElementType](value^, self._tail, None)
@@ -74,7 +74,7 @@ struct ArenaLinkedList[ElementType: CollectionElement]:
         self._arena.append(node)
         return id
 
-    def remove(inout self, id: Self.ID):
+    def remove(mut self, id: Self.ID):
         """Removes an element from the list."""
         debug_assert(bool(self.node(id)), "removing item not in list")
         debug_assert(bool(self._head), "removing from empty list")

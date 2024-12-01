@@ -171,12 +171,12 @@ struct TestCheckpoint(LoadableModel):
     fn get[
         type: DType
     ](
-        inout self, key: String, layer_idx: Optional[Int] = None
+        mut self, key: String, layer_idx: Optional[Int] = None
     ) raises -> Tensor[type]:
         """Returns a tensor for `key` at a given layer `layer_idx`, possibly
         seeking the file.
 
-        `self` is `inout` here due to implementations that seek a file pointer.
+        `self` is `mut` here due to implementations that seek a file pointer.
 
         Args:
             key: Used to look up the tensor in the weights file.

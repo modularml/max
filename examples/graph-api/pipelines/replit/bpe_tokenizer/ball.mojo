@@ -62,7 +62,7 @@ struct Ball[T: CollectionElement]:
         """Checks whether the node is still in the list."""
         return 0 <= id < len(self._arena) and self._arena[id]
 
-    fn append(inout self, owned value: T) -> Self.ID:
+    fn append(mut self, owned value: T) -> Self.ID:
         """Adds a new element to the back of the list."""
         var id = len(self._arena)
         var node = Node[T](value^, self._tail, None)
@@ -74,7 +74,7 @@ struct Ball[T: CollectionElement]:
         self._arena.append(node)
         return id
 
-    fn remove(inout self, id: Self.ID):
+    fn remove(mut self, id: Self.ID):
         """Removes an element from the list."""
         var node = self._arena[id].value()
         self._arena[id] = None

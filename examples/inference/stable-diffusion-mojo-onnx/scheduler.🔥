@@ -75,7 +75,7 @@ struct Scheduler:
             self.alphas_cumprod.append(cumprod.cast[DType.float32]())
 
     def step(
-        inout self,
+        mut self,
         model_output: FloatTensor,
         timestep: Int,
         sample: FloatTensor,
@@ -126,7 +126,7 @@ struct Scheduler:
         return previous_sample
 
     def _get_previous_sample(
-        inout self,
+        mut self,
         sample: FloatTensor,
         timestep: Int,
         previous_timestep: Int,

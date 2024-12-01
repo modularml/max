@@ -22,7 +22,7 @@ from ..weights.gguf import GGUFArray, GGUFString
 from . import Tokenizer
 
 
-def _next_rune(inout span: Span[Byte, _]) -> Int:
+def _next_rune(mut span: Span[Byte, _]) -> Int:
     if not span[0] & 0x80:
         result = int(span[0])
         span = span[1:]
@@ -88,7 +88,7 @@ struct TikTokenEncoder(Tokenizer):
     var special_tokens: Dict[String, Int]
 
     def __init__(
-        inout self,
+        mut self,
         owned bpe: BPETokenizer,
         owned regex: Regex,
         owned special_tokens: Dict[String, Int],
@@ -169,7 +169,7 @@ struct TikTokenEncoder(Tokenizer):
             return special_id.value()
         return self.bpe.token_ids[string]
 
-    def decode(inout self, output_tokens: List[Int64]) -> String:
+    def decode(mut self, output_tokens: List[Int64]) -> String:
         decoded = String()
         for token_id in output_tokens:
             decoded += self.bpe.vocab[int(token_id[])].token

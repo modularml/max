@@ -73,7 +73,7 @@ struct Config:
     var dtype: DType
 
     def __init__(
-        inout self,
+        mut self,
         additional_pipeline_args: Optional[ConfigRegistryDict] = None,
         additional_defaults: Optional[Dict[String, OptionValue]] = None,
     ):
@@ -117,7 +117,7 @@ struct Config:
     def __contains__(self, key: String):
         return key in self.config
 
-    fn get(inout self, key: String) raises -> OptionValue:
+    fn get(mut self, key: String) raises -> OptionValue:
         """Returns an option value for `key` in the underlying config.
 
         Args:
@@ -134,7 +134,7 @@ struct Config:
         except:
             raise "KeyError: " + key
 
-    fn set(inout self, key: String, val: OptionValue):
+    fn set(mut self, key: String, val: OptionValue):
         """Sets a new value for a given config key. This will overwrite the old
         value if the key is already present.
 
@@ -211,7 +211,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
     """If non-zero, pad input sequence to nearest multiple of given value."""
 
     def __init__(
-        inout self,
+        mut self,
         model_path: Path,
         use_gpu: Bool = False,
         max_length: Optional[Int] = None,
@@ -328,7 +328,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         else:
             return DEFAULT_MAX_SEQ_LEN
 
-    def reset(inout self, prompt: String) -> Int:
+    def reset(mut self, prompt: String) -> Int:
         """Resets the prompt and model state."""
         self._initial_prompt = prompt
         self._max_seq_len = self._get_max_tokens(len(prompt))
@@ -362,17 +362,17 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
         self._is_end_of_text = False
         return encoded_prompt.size
 
-    def next_token(inout self) -> Optional[String]:
+    def next_token(mut self) -> Optional[String]:
         """Generates the next token, or None if the end has been reached."""
         return self.next_token(WeightedSampler(0))
 
-    def _set_next_token_tensor(inout self, owned next_token_tensor: AnyTensor):
+    def _set_next_token_tensor(mut self, owned next_token_tensor: AnyTensor):
         """Set the given value as next token tensor. If the chosen
         device is gpu, value will be copied over to the device."""
 
         self._next_token_tensor = next_token_tensor^
 
-    def _get_attention_mask(inout self) -> AnyTensor:
+    def _get_attention_mask(mut self) -> AnyTensor:
         """Generates attention mask for current input sequence.
         Result is placed on the chosen device.
         """
@@ -389,7 +389,7 @@ struct ReplitPipeline[dtype: DType, kv_params: KVCacheStaticParams]:
 
     def next_token[
         Sampler: TokenSampler
-    ](inout self, sampler: Sampler) -> Optional[String]:
+    ](mut self, sampler: Sampler) -> Optional[String]:
         """Generates the next token, or None if the end has been reached."""
         if not self._seq_ids:
             raise "KV Cache not initialized, you must call `reset` before calling `next_token`"

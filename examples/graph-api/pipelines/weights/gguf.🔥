@@ -617,7 +617,7 @@ struct GGUFReader:
         self.f = f^
 
     @always_inline
-    fn align_to(inout self, alignment: Int) raises -> None:
+    fn align_to(mut self, alignment: Int) raises -> None:
         var overshoot = self.offset % alignment
         if overshoot == 0:
             return
@@ -625,31 +625,31 @@ struct GGUFReader:
         self.seek(alignment - overshoot)
 
     @always_inline
-    fn read_bytes(inout self, num_bytes: Int) raises -> Tensor[DType.uint8]:
+    fn read_bytes(mut self, num_bytes: Int) raises -> Tensor[DType.uint8]:
         self.offset += num_bytes
         return self.f.read_bytes(num_bytes)
 
     @always_inline
-    fn seek(inout self, num_bytes: Int) raises:
+    fn seek(mut self, num_bytes: Int) raises:
         self.offset += num_bytes
         _ = self.f.seek(num_bytes)
 
     @always_inline
-    fn dtype_element[type: DType](inout self) raises -> Scalar[type]:
+    fn dtype_element[type: DType](mut self) raises -> Scalar[type]:
         var bytes_tensor: Tensor[DType.uint8] = self.read_bytes(
             sizeof[Scalar[type]]()
         )
         return bytes_tensor.unsafe_ptr().bitcast[Scalar[type]]().load()
 
     @always_inline
-    fn gguf_string(inout self) raises -> GGUFString:
+    fn gguf_string(mut self) raises -> GGUFString:
         var n = int(self.dtype_element[DType.uint64]())
         var key_data: Tensor[DType.uint8] = self.read_bytes(n)
         return GGUFString(
             n, key_data._steal_ptr().bitcast[Scalar[DType.uint8]]()
         )
 
-    fn gguf_kv(inout self) raises -> GGUFKV:
+    fn gguf_kv(mut self) raises -> GGUFKV:
         @always_inline
         @parameter
         fn _gguf_value[type: DType]() raises -> GGUFValue:
@@ -705,7 +705,7 @@ struct GGUFReader:
         # Dispatch on dtype.
         return GGUFKV(key, kv_type.dispatch[GGUFValue, _gguf_value]())
 
-    fn gguf_tensor_info(inout self) raises -> GGUFTensorInfo:
+    fn gguf_tensor_info(mut self) raises -> GGUFTensorInfo:
         var name = self.gguf_string()
         var n_dims = self.dtype_element[DType.uint32]()
 
@@ -848,9 +848,9 @@ struct GGUFFile(LoadableModel):
 
     fn get[
         type: DType
-    ](
-        inout self, key: String, layer_idx: Optional[Int] = None
-    ) raises -> Tensor[type]:
+    ](mut self, key: String, layer_idx: Optional[Int] = None) raises -> Tensor[
+        type
+    ]:
         var full_key = key + ".weight"
         if layer_idx:
             full_key = "blk." + str(layer_idx.value()) + "." + full_key

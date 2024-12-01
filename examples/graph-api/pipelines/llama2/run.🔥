@@ -97,7 +97,7 @@ struct Config:
                 "Alternatively provide a `--quantization-encoding`"
             )
 
-    fn get(inout self, key: String) raises -> OptionValue:
+    fn get(mut self, key: String) raises -> OptionValue:
         """Returns an option value for `key` in the underlying config.
 
         Args:
@@ -111,7 +111,7 @@ struct Config:
         """
         return self.config[key]
 
-    fn set(inout self, key: String, val: OptionValue):
+    fn set(mut self, key: String, val: OptionValue):
         """Sets a new value for a given config key. This will overwrite the old
         value if the key is already present.
 
@@ -146,11 +146,11 @@ def _get_attention_mask(
 def _generate_q_text_with_tokenizer[
     tokenizer_type: Tokenizer,
 ](
-    inout tokenizer: tokenizer_type,
+    mut tokenizer: tokenizer_type,
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
-    inout metrics: Metrics,
+    mut metrics: Metrics,
     execution_device: Device,
 ):
     host_device = cpu_device()
@@ -228,11 +228,11 @@ def _generate_text_with_tokenizer[
     tokenizer_type: Tokenizer,
     kv_params: KVCacheStaticParams,
 ](
-    inout tokenizer: tokenizer_type,
+    mut tokenizer: tokenizer_type,
     compiled_model: Model,
     params: LlamaHParams,
     config: Config,
-    inout metrics: Metrics,
+    mut metrics: Metrics,
     execution_device: Device,
 ):
     host_device = cpu_device()
@@ -351,7 +351,7 @@ def generate_text(
     params: LlamaHParams,
     config: Config,
     execution_device: Device,
-    inout metrics: Metrics,
+    mut metrics: Metrics,
 ):
     """Generated text by applying the compiled model to the provided prompt."""
     mojo_tokenizer = BPETokenizer.from_file(config.get("tokenizer-path")[Path])

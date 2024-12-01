@@ -45,7 +45,7 @@ struct MergeOption(OrderedElement):
         )
 
 
-def read[T: CollectionElement](inout span: Span[Byte, _]) -> T:
+def read[T: CollectionElement](mut span: Span[Byte, _]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     value = span.unsafe_ptr().bitcast[T]()[]
     span = span[sizeof[T]() :]
@@ -110,13 +110,13 @@ struct BPETokenizer(Tokenizer):
         with open(path, "r") as file:
             return Self.from_bytes(file.read())
 
-    def add_token(inout self, token: String, score: Float32):
+    def add_token(mut self, token: String, score: Float32):
         """Add a token to the vocabulary."""
         if token not in self.token_ids:
             self.token_ids[token] = len(self.vocab)
         self.vocab.append(Token(token, score))
 
-    def decode(inout self, output_tokens: List[Int64]) -> String:
+    def decode(mut self, output_tokens: List[Int64]) -> String:
         """Decodes a string by indexing the vocabulary."""
         decoded = String()
         for token_id in output_tokens:

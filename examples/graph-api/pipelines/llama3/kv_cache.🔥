@@ -32,7 +32,7 @@ struct KVCache:
     var sequence_length: Int
 
     def __init__(
-        inout self,
+        mut self,
         hp: LlamaHParams,
         max_length: Int,
         batch_size: Int,
@@ -51,7 +51,7 @@ struct KVCache:
 
         self.sequence_length = 0
 
-    def update(inout self, owned keys: AnyMemory, owned values: AnyMemory):
+    def update(mut self, owned keys: AnyMemory, owned values: AnyMemory):
         """Updates the KV Cache with data from new tokens."""
         cpu_device = self.keys.device()
         keys_tensor = keys^.to_device_tensor().move_to(cpu_device)

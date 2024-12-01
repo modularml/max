@@ -29,5 +29,5 @@ trait Tokenizer(Movable):
     ) -> (List[Int64], List[Int64]):
         ...
 
-    def decode(inout self, output_tokens: List[Int64]) -> String:
+    def decode(mut self, output_tokens: List[Int64]) -> String:
         ...
