@@ -87,7 +87,7 @@ struct Transformer[model_dtype: DType = DType.float32]:
     var rope_scaling: Optional[Symbol]
 
     def __init__(
-        inout self,
+        mut self,
         dim: Int,
         n_heads: Int,
         embedding: Embedding,

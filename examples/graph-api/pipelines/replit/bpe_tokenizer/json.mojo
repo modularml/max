@@ -159,7 +159,7 @@ struct TokenType(EqualityComparable, Stringable, KeyElement):
         raise "Cannot convert token type " + str(self) + " into a NodeType."
 
 
-def get_next_token(inout s: StringRef) -> (StringRef, TokenType):
+def get_next_token(mut s: StringRef) -> (StringRef, TokenType):
     """Gets the next token within the limits and returns the unscanned indices.
 
     Args:
@@ -357,7 +357,7 @@ struct JsonStorage:
         return self.get(args_list)
 
 
-def _from_string(inout s: StringRef) -> JsonStorage:
+def _from_string(mut s: StringRef) -> JsonStorage:
     # Dict and Arrays will want the entire span as their location.
     orig_buffer = s
 

@@ -62,7 +62,7 @@ struct HumanEval:
     def get_problems(self) -> PythonObject:
         return self._human_eval_module.read_problems()
 
-    def add_sample(inout self, task_id: PythonObject, completion: String):
+    def add_sample(mut self, task_id: PythonObject, completion: String):
         sample = Python.dict()
         sample["task_id"] = task_id
         sample["completion"] = PythonObject(completion)

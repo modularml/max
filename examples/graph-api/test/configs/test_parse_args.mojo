@@ -34,7 +34,7 @@ struct DummyConfigRegistry(ConfigRegistry):
     var registry: ConfigRegistryDict
 
     def __init__(
-        inout self,
+        mut self,
         additional_pipeline_args: ConfigRegistryDict = ConfigRegistryDict(),
     ):
         self.registry = ConfigRegistryDict()

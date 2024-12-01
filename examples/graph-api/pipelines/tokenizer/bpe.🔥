@@ -39,7 +39,7 @@ struct _SplitIter[is_mutable: Bool, origin: Origin[is_mutable].type]:
     fn __iter__(self) -> Self:
         return self
 
-    fn __next__(inout self) -> StringSlice[origin]:
+    fn __next__(mut self) -> StringSlice[origin]:
         """Return the next split slice via StringRef.find()."""
         # If we've already split `max` times, return the final slice.
         if self.max and self.max.value() == 0:
@@ -138,7 +138,7 @@ struct MergeOption(OrderedElement):
         )
 
 
-def read[T: CollectionElement](inout span: Span[Byte, _]) -> T:
+def read[T: CollectionElement](mut span: Span[Byte, _]) -> T:
     """Read a binary type out of a byte buffer and increment the pointer."""
     value = span.unsafe_ptr().bitcast[T]()[]
     span = span[sizeof[T]() :]
@@ -240,7 +240,7 @@ struct BPETokenizer:
         with open(path, "r") as file:
             return Self.from_binary(file.read())
 
-    def add_token(inout self, token: String, score: Float32):
+    def add_token(mut self, token: String, score: Float32):
         """Add a token to the vocabulary."""
         if token not in self.token_ids:
             self.token_ids[token] = len(self.vocab)

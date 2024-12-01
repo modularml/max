@@ -72,7 +72,7 @@ struct Llama3_NaiveKVCache[encoding: QuantizationEncoding = Float32Encoding]:
     def __init__(out self, model_path: Path):
         self.model = GGUFFile(model_path)
 
-    def build_graph(inout self, name: String) -> Graph:
+    def build_graph(mut self, name: String) -> Graph:
         params = self.hyperparams()
         alias model_dtype = DType.bfloat16 if encoding.id() == BFloat16Encoding.id() else DType.float32
         cache_type = TensorType(
@@ -224,7 +224,7 @@ struct Llama3[
     def __init__(out self, model_path: Path):
         self.model = GGUFFile(model_path)
 
-    def build_graph(inout self, name: String) -> Graph:
+    def build_graph(mut self, name: String) -> Graph:
         params = self.hyperparams()
         cache_type = OpaqueType(
             ContiguousKVCacheCollection[type, kv_params].id()

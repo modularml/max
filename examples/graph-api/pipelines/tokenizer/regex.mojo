@@ -46,7 +46,7 @@ fn llvm_regcomp(ptr: UnsafePointer[_CRegex], pattern: String, mode: Int) -> Int:
 fn llvm_regexec(
     ptr: UnsafePointer[_CRegex],
     string: String,
-    inout pmatch: List[_CRegexMatch],
+    mut pmatch: List[_CRegexMatch],
     mode: Int,
 ) -> Int:
     return MLIR_func["llvm_regexec", Int](
@@ -98,7 +98,7 @@ struct _CRegex:
         self[]._compile(pattern, options | CompileOption.EXTENDED)
         return self
 
-    def _compile(inout self, pattern: String, options: Int):
+    def _compile(mut self, pattern: String, options: Int):
         err = llvm_regcomp(self._ptr(), pattern, options)
         if err:
             raise self._error(err)
@@ -163,7 +163,7 @@ struct _MatchIter[
     var negative_lookahead_hack: Bool
 
     def __init__(
-        inout self,
+        mut self,
         regex: Pointer[Regex, regex_origin],
         string: Pointer[String, string_origin],
         negative_lookahead_hack: Bool = False,
@@ -178,7 +178,7 @@ struct _MatchIter[
     fn __iter__(self) -> Self:
         return self
 
-    def __next__(inout self) -> Match[string_origin]:
+    def __next__(mut self) -> Match[string_origin]:
         m = self.next_match.value()
         self._next()
         return m^
@@ -189,7 +189,7 @@ struct _MatchIter[
     fn __has_next__(self) -> Bool:
         return self.__len__() > 0
 
-    def _next(inout self):
+    def _next(mut self):
         m = self.regex[].find(self.string[], start=self.start)
         self.next_match = m
         if m and self.negative_lookahead_hack:
@@ -220,7 +220,7 @@ struct Match[origin: ImmutableOrigin](Writable):
     fn __str__(self) -> String:
         return str(self[0])
 
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         # TODO: Avoid intermediate String allocation.
         writer.write(str(self))
 

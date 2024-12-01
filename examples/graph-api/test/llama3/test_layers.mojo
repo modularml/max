@@ -106,7 +106,7 @@ struct NanoLlama(LoadableModel):
     fn get[
         type: DType
     ](
-        inout self, key: String, _layer_idx: Optional[Int] = None
+        mut self, key: String, _layer_idx: Optional[Int] = None
     ) raises -> Tensor[type]:
         constrained[type is DType.float32, "bork"]()
         return self.weights[key].astype[type]()

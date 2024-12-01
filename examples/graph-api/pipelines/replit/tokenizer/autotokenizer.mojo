@@ -180,7 +180,7 @@ struct AutoTokenizer(Tokenizer):
 
         return token_ids_list, attn_mask_list
 
-    def decode(inout self, output_tokens: List[Int64]) -> String:
+    def decode(mut self, output_tokens: List[Int64]) -> String:
         """Decodes tokens using the autotokenizer and accounts for spaces."""
 
         # Attempt to produce correct output in a streaming setting.

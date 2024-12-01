@@ -72,7 +72,7 @@ struct QuantizedLlama2[
     fn __init__(out self, owned model: model_type):
         self.model = model^
 
-    def build_graph(inout self, name: String) -> Graph:
+    def build_graph(mut self, name: String) -> Graph:
         params = self.hyperparams()
         cache_type = TensorType(
             DType.float32,
@@ -188,7 +188,7 @@ struct Llama2[
     def __init__(out self, owned model: model_type):
         self.model = model^
 
-    def build_graph(inout self, name: String) -> Graph:
+    def build_graph(mut self, name: String) -> Graph:
         params = self.model.hyperparams()
 
         cache_type = OpaqueType(

@@ -59,12 +59,12 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         """Checks whether the heap has any elements in it."""
         return len(self) != 0
 
-    fn push(inout self, owned elem: ElementType):
+    fn push(mut self, owned elem: ElementType):
         """Adds a value to the heap."""
         self.heap.append(elem^)
         self._bubble_up(len(self.heap) - 1)
 
-    fn pop(inout self) -> ElementType:
+    fn pop(mut self) -> ElementType:
         """Removes the top element from the heap and return it."""
         debug_assert(bool(self), "heap is empty")
         self._sink_down(self.begin_idx)
@@ -73,10 +73,10 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
         self.begin_idx += 1
         return top
 
-    fn _swap(inout self, i1: Int, i2: Int):
+    fn _swap(mut self, i1: Int, i2: Int):
         self.heap.swap_elements(i1, i2)
 
-    fn _bubble_up(inout self, idx: Int):
+    fn _bubble_up(mut self, idx: Int):
         if idx == self.begin_idx:
             return
 
@@ -87,7 +87,7 @@ struct MaxHeap[ElementType: OrderableElement](Sized, Boolable):
             self._swap(parent_idx, idx)
             self._bubble_up(parent_idx)
 
-    fn _sink_down(inout self, idx: Int):
+    fn _sink_down(mut self, idx: Int):
         var li = self._left_child_idx(idx)
         var ri = self._right_child_idx(idx)
 

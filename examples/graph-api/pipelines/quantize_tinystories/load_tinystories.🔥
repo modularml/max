@@ -94,7 +94,7 @@ struct TeenyTinyLlama[encoding: QuantizationEncoding]:
         # Read Llama hyperparameters from the checkpoint.
         self.hyperparams = read_hyperparams_from_dict(self.quantized_params)
 
-    def build(inout self) -> Graph:
+    def build(mut self) -> Graph:
         """Build the Llama 2 graph using the quantized weights from checkpoint.
         """
         # Set the KV cache and tokens input types.
