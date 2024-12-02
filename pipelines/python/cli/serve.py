@@ -14,20 +14,20 @@
 
 import asyncio
 import functools
-import os
 import logging
+import os
 from typing import Union
 
 from max.pipelines import PIPELINE_REGISTRY, PipelineConfig
 from max.pipelines.kv_cache import KVCacheStrategy
-from max.serve.api_server import fastapi_app, fastapi_config
+from max.serve.api_server import (
+    ServingTokenGeneratorSettings,
+    fastapi_app,
+    fastapi_config,
+)
 from max.serve.config import APIType, Settings
 from max.serve.debug import DebugSettings
-from max.serve.pipelines.deps import BatchedTokenGeneratorState
-from max.serve.pipelines.llm import (
-    TokenGeneratorPipeline,
-    TokenGeneratorPipelineConfig,
-)
+from max.serve.pipelines.llm import TokenGeneratorPipelineConfig
 from max.serve.pipelines.performance_fake import (
     PerformanceFakingPipelineTokenizer,
     get_performance_fake,
@@ -122,21 +122,20 @@ def serve_pipeline(
     # If explicit model name is not provided, set to huggingface_repo_id.
     if model_name is None:
         model_name = pipeline_config.huggingface_repo_id
+        assert model_name is not None
+
+    serving_settings = ServingTokenGeneratorSettings(
+        model_name=model_name,
+        model_factory=pipeline_factory,
+        pipeline_config=batch_config,
+        tokenizer=tokenizer,
+    )
 
     # Intialize and serve webserver.
     app = fastapi_app(
         settings,
         debug_settings,
-        {
-            model_name: BatchedTokenGeneratorState(  # type: ignore
-                TokenGeneratorPipeline(
-                    batch_config,
-                    pipeline_config.huggingface_repo_id,  # type: ignore
-                    tokenizer,
-                ),
-                pipeline_factory,
-            )
-        },
+        serving_settings,
     )
 
     # Export traces to Datadog.
