@@ -12,15 +12,16 @@
 # ===----------------------------------------------------------------------=== #
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 
-from max.graph import TensorValueLike, TensorValue, ops
+from max.graph import TensorValue, TensorValueLike, ops
 
 from ..attention import NaiveAttentionWithRope
+from ..embedding import Embedding
 from ..layer import Layer
 from ..linear import MLP, Linear
 from ..norm import RMSNorm
-from ..embedding import Embedding
 
 
 @dataclass
@@ -34,7 +35,7 @@ class NaiveTransformerBlock(Layer):
 
     def __call__(
         self,
-        x: TensorValueLike,
+        x: TensorValue,
         attention_mask: TensorValueLike,
         k_cache: TensorValueLike,
         v_cache: TensorValueLike,
