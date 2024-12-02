@@ -17,43 +17,99 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
-from max.pipelines.kv_cache import ContinuousBatchingKVCacheCollectionType
-from nn import MLP, Linear, RMSNorm
+from max.dtype import DType
+from max.graph import TensorValue, TensorValueLike, Weight, ops
+from max.pipelines.kv_cache import (
+    ContinuousBatchingKVCacheCollection,
+    KVCacheParams,
+)
+from nn import MLP, RMSNorm
+from nn.kernels import (
+    flash_attention_ragged_with_causal_mask,
+    matmul_kv_cache_ragged,
+)
 from nn.layer import Layer
-
-from .cache import Cache
+from nn.linear import Linear
 
 
 @dataclass
 class CrossSdpaAttention(Layer):
-    num_heads: int
-    num_key_value_heads: int
-    head_dim: int
+    n_heads: int
+    """The number of attention heads."""
+
+    kv_params: KVCacheParams
+    """KV Cache Params, including the number of kv heads, the head dim, and data type."""
+
     layer_idx: int
-    num_key_value_groups: int
+    """The layer number associated with this Attention block."""
 
     q_proj: Linear
-    k_proj: Linear
-    v_proj: Linear
+    """A linear layer for the query projection."""
+
+    wk: Weight
+    """The k weight vector. Combines with wv to form a Linear."""
+
+    wv: Weight
+    """The v weight vector. Combines with wk to form a Linear."""
+
     o_proj: Linear
+    """A linear layer for the output projection."""
 
     q_norm: RMSNorm
+    """Layer normalization."""
+
     k_norm: RMSNorm
+    """Layer normalization."""
 
     def __call__(
         self,
         hidden_states: TensorValue,
-        cross_attention_states: TensorValue | None = None,
-        past_key_value: Cache | None = None,
-        attention_mask: TensorValue | None = None,
-        use_cache: bool | None = None,
-        cache_position: TensorValue | None = None,
-    ) -> tuple[TensorValue, None, Cache | None]:
-        # TODO: Stubbed out for now.
-        attn_output = hidden_states
+        cross_attention_states: TensorValue,
+        input_row_offset: TensorValue,
+        kv_collection: ContinuousBatchingKVCacheCollection,
+    ) -> TensorValue:
+        """Computes attention on hidden (query) and cross (key and value).
 
-        return attn_output, None, past_key_value
+        Returns:
+            Attended hidden activation.
+        """
+        # Get the combined sequence length: sum(seq_len for seq_len in batch).
+        total_seq_len = hidden_states.shape[0]
+
+        wkv = ops.concat((self.wk, self.wv), axis=0).transpose(0, 1)
+
+        query_states = self.q_proj(hidden_states)
+        query_states = query_states.reshape(
+            [
+                -1,
+                self.n_heads,
+                self.kv_params.head_dim,
+            ]
+        )
+        query_states = self.q_norm(query_states)
+
+        matmul_kv_cache_ragged(
+            kv_params=self.kv_params,
+            # Here, hidden_states correspond to cross_attention_states.
+            hidden_states=cross_attention_states,
+            layer_idx=self.layer_idx,
+            input_row_offset=input_row_offset,
+            weight=wkv,
+            kv_collection=kv_collection,
+        )
+
+        # Calculate Flash Attention.
+        attn_out = flash_attention_ragged_with_causal_mask(
+            self.kv_params,
+            input=query_states,
+            kv_collection=kv_collection,
+            layer_idx=ops.constant(self.layer_idx, DType.uint32),
+            input_row_offset=input_row_offset,
+        )
+
+        attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
+
+        return self.o_proj(attn_out)
 
 
 @dataclass
@@ -72,21 +128,21 @@ class CrossAttentionDecoderLayer(Layer):
         hidden_states: TensorValue,
         cross_attention_states: TensorValue,
         cross_attention_mask: TensorValue,
-        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
-        | None = None,
-        past_key_value: Cache | None = None,
-        cache_position: TensorValue | None = None,
-        **kwargs,
-    ) -> tuple[TensorValue, Cache | None]:
+        input_row_offset: TensorValue,
+        layer_idx: int,
+        # need to make this optional for now.
+        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue],
+        kv_collection: ContinuousBatchingKVCacheCollection,
+    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
 
-        hidden_states, _, past_key_value = self.cross_attn(
-            hidden_states=hidden_states,
-            attention_mask=cross_attention_mask,
-            cross_attention_states=cross_attention_states,
-            past_key_value=past_key_value,
-            cache_position=cache_position,
+        hidden_states = self.cross_attn(
+            hidden_states,
+            cross_attention_states,
+            # cross_attention_mask,
+            input_row_offset,
+            kv_collection,
         )
         hidden_states = (
             residual + ops.tanh(self.cross_attn_attn_gate) * hidden_states
@@ -96,9 +152,9 @@ class CrossAttentionDecoderLayer(Layer):
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
         if full_text_row_masked_out_mask is not None:
-            hidden_states = full_text_row_masked_out_mask[:, 0] * hidden_states  # type: ignore
+            hidden_states = full_text_row_masked_out_mask[:, 0] * hidden_states
         hidden_states = (
             residual + ops.tanh(self.cross_attn_mlp_gate) * hidden_states
         )
 
-        return (hidden_states, past_key_value)
+        return hidden_states, kv_collection
