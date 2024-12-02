@@ -86,9 +86,7 @@ class LlamaVision(PipelineModel):
             ],  # batch_size, num_concurrent_media, num_tiles
         )
 
-        input_ids_type = TensorType(
-            DType.int64, shape=["batch_size", 14]
-        )  # patch_size
+        input_ids_type = TensorType(DType.int64, shape=["total_seq_len"])
         input_row_offset_type = TensorType(
             DType.uint32, shape=["input_row_offset_len"]
         )
@@ -216,7 +214,41 @@ class LlamaVision(PipelineModel):
     def prepare_initial_token_inputs(
         self, context_batch: list[TextAndVisionContext]
     ) -> tuple[Tensor, ...]:
-        raise NotImplementedError("not yet implemented.")
+        pixel_values = Tensor.zeros(
+            self.pipeline_config.dtype, shape=["batch_size", 1, 4, 448, 448, 3]
+        )
+        aspect_ratio_ids = Tensor.zeros(
+            self.pipeline_config.dtype, shape=["batch_size", 1]
+        )
+        aspect_ratio_mask = Tensor.zeros(
+            self.pipeline_config.dtype, shape=["batch_size", 1, 4]
+        )
+
+        # Input row offset type: ["input_row_offset_len"], UInt32
+        input_row_offset = Tensor.from_nump(
+            np.cumsum(
+                [0] + [ctx.seq_len for ctx in context_batch],
+                dtype=np.uint32,
+            )
+        ).to(self.pipeline_config.device)
+
+        # Input Ids: ["total_seq_len"], Int64
+        # Create a ragged token vector of length: sum(len(t) for t in tokens).
+        tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
+        input_ids = Tensor.from_numpy(tokens).to(self.pipeline_config.device)
+
+        cross_attention_mask = Tensor.zeros(
+            DType.int64, shape=["batch_size", 14, 1, 4]
+        )
+
+        return (
+            pixel_values,
+            aspect_ratio_ids,
+            aspect_ratio_mask,
+            input_ids,
+            input_row_offset,
+            cross_attention_mask,
+        )
 
     def prepare_next_token_inputs(
         self,

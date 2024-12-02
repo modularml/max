@@ -38,7 +38,7 @@ from .cross_attention_decoder import (
     CrossAttentionDecoderLayer,
     CrossSdpaAttention,
 )
-from .self_attention_decoder import SelfSdpaAttention
+from nn import AttentionWithRopeQKV
 
 
 @dataclass
@@ -235,10 +235,19 @@ class CausalLanguageModel(Layer):
             **kwargs,
         )
 
-        logits = ops.cast(
-            self.lm_head(last_hidden_state[:, -num_logits_to_keep:, :]),
-            self.dtype,
+        last_hidden_state, past_key_values, hidden_states, attentions = outputs
+
+        # # For ragged tensors gather the last tokens from packed dim 0.
+        # input_row_offset = kwargs["input_row_offset"]
+        # last_token_indices = input_row_offset[1:] - 1  # type: ignore
+        # # Should be: last_token = h[last_token_indices]
+        # last_token = ops.gather(h, last_token_indices, axis=0)
+
+        last_token_indices = input_row_offset[1:] - 1
+        last_token_logits = ops.gather(
+            last_hidden_state, last_token_indices, axis=0
         )
+        logits = ops.cast(self.lm_head(last_token_logits), self.dtype)
 
         return (
             None,  # TODO: loss. Maybe not needed at all?
@@ -424,7 +433,7 @@ def self_attention_decoder_layer(
         bias=None,
     )
 
-    attention = SelfSdpaAttention(
+    attention = AttentionWithRopeQKV(
         n_heads=num_attention_heads,
         kv_params=kv_params,
         layer_idx=layer_idx,
