@@ -180,8 +180,6 @@ class ConditionalGenerator(Layer):
             cross_attention_states=cross_attention_states,
             cross_attention_mask=cross_attention_mask,
             full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-            past_key_values=None,  # DynamicCache()
-            inputs_embeds=None,
             cache_position=cache_position,
             num_logits_to_keep=1,
         )

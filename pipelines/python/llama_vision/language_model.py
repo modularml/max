@@ -34,7 +34,6 @@ from nn import (
 )
 from nn.layer import Layer
 
-from .cache import Cache
 from .cross_attention_decoder import (
     CrossAttentionDecoderLayer,
     CrossSdpaAttention,
@@ -85,14 +84,7 @@ class TextModel(Layer):
         input_row_offset: TensorValue | None = None,
         **kwargs,
     ) -> tuple:
-        if (input_ids is None) ^ (inputs_embeds is not None):
-            raise ValueError(
-                "You cannot specify both input_ids and inputs_embeds at the"
-                " same time, and must specify either one"
-            )
-
-        if inputs_embeds is None:
-            inputs_embeds = self.embed_tokens(input_ids)
+        inputs_embeds = self.embed_tokens(input_ids)
 
         # TODO: This should be removed. When we fix the hard-coded Dtypes.
         hidden_states = ops.cast(inputs_embeds, self.dtype)
@@ -136,7 +128,6 @@ class TextModel(Layer):
         # decoder layers
         all_hidden_states = None
         all_self_attns = None
-        next_decoder_cache = None
 
         for idx, decoder_layer in enumerate(self.layers):
             # TODO: Implement this.
@@ -166,31 +157,24 @@ class TextModel(Layer):
 
             # TODO: We need to check if the kwargs map 1:1 with the two different
             # *Attention layers here. Some are used in cross_attention, others in
-            # self attention.
-            layer_outputs = decoder_layer(
+            # self attention, most of them unused though
+            hidden_states, kv_collection = decoder_layer(
                 hidden_states,
                 cross_attention_states=cross_attention_states,
                 cross_attention_mask=cross_attention_mask,
                 attention_mask=causal_mask,
                 full_text_row_masked_out_mask=full_text_row_masked_out_mask,
                 position_ids=position_ids,
-                past_key_value=past_key_values,
-                cache_position=cache_position,
                 position_embeddings=position_embeddings,
                 kv_collection=kv_collection,
                 valid_lengths=cache_lengths,
                 input_row_offset=input_row_offset,
             )
 
-            hidden_states = layer_outputs[0]
-            next_decoder_cache = layer_outputs[1]
-
         hidden_states = self.norm(hidden_states)
-        next_cache = next_decoder_cache
 
         return (
             hidden_states,
-            next_cache,
             all_hidden_states,
             all_self_attns,
         )
@@ -234,28 +218,23 @@ class CausalLanguageModel(Layer):
         cross_attention_mask: TensorValue | None = None,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        past_key_values: Cache | None = None,
-        inputs_embeds: TensorValue | None = None,
         cache_position: TensorValue | None = None,
         num_logits_to_keep: int = 0,
         **kwargs,
     ) -> tuple:
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
-        outputs = self.model(
+        last_hidden_state, hidden_states, attentions = self.model(
             kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
             cross_attention_states=cross_attention_states,
             position_ids=position_ids,
             cross_attention_mask=cross_attention_mask,
             full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-            past_key_values=past_key_values,
-            inputs_embeds=inputs_embeds,
             cache_position=cache_position,
             input_row_offset=input_row_offset,
             **kwargs,
         )
 
-        last_hidden_state, past_key_values, hidden_states, attentions = outputs
         logits = ops.cast(
             self.lm_head(last_hidden_state[:, -num_logits_to_keep:, :]),
             self.dtype,
@@ -264,7 +243,6 @@ class CausalLanguageModel(Layer):
         return (
             None,  # TODO: loss. Maybe not needed at all?
             logits,
-            past_key_values,
             hidden_states,
             attentions,
         )
@@ -276,49 +254,38 @@ def cross_attention_decoder_layer(
     hidden_size: int,
     num_key_value_heads: int,
     rms_norm_eps: float,
+    kv_params: KVCacheParams,
     intermediate_size: int,
     weights: SafetensorWeights,
     layer_idx: int,
 ) -> CrossAttentionDecoderLayer:
     head_dim = hidden_size // num_attention_heads
-    num_key_value_groups = num_attention_heads // num_key_value_heads
     sdpa_attn = CrossSdpaAttention(
-        num_heads=num_attention_heads,
-        num_key_value_heads=num_key_value_heads,
-        head_dim=head_dim,
+        n_heads=num_attention_heads,
+        kv_params=kv_params,
         layer_idx=layer_idx,
-        num_key_value_groups=num_key_value_groups,
-        q_proj=Linear(
-            weight=weights.cross_attn.q_proj.weight.allocate(
-                dtype,
-                [
-                    num_attention_heads * head_dim,
-                    hidden_size,
-                ],
-            ),
-            bias=None,
+        wq=weights.cross_attn.q_proj.weight.allocate(
+            dtype,
+            [
+                num_attention_heads * head_dim,
+                hidden_size,
+            ],
         ),
-        k_proj=Linear(
-            weight=weights.cross_attn.k_proj.weight.allocate(
-                dtype,
-                [
-                    num_key_value_heads * head_dim,
-                    hidden_size,
-                ],
-            ),
-            bias=None,
+        wk=weights.cross_attn.k_proj.weight.allocate(
+            dtype,
+            [
+                num_key_value_heads * head_dim,
+                hidden_size,
+            ],
         ),
-        v_proj=Linear(
-            weight=weights.cross_attn.v_proj.weight.allocate(
-                dtype,
-                [
-                    num_key_value_heads * head_dim,
-                    hidden_size,
-                ],
-            ),
-            bias=None,
+        wv=weights.cross_attn.v_proj.weight.allocate(
+            dtype,
+            [
+                num_key_value_heads * head_dim,
+                hidden_size,
+            ],
         ),
-        o_proj=Linear(
+        wo=Linear(
             weight=weights.cross_attn.o_proj.weight.allocate(
                 dtype,
                 [
@@ -549,6 +516,7 @@ def instantiate_language_model(
                     hidden_size=hidden_size,
                     num_key_value_heads=num_key_value_heads,
                     rms_norm_eps=rms_norm_eps,
+                    kv_params=kv_params,
                     intermediate_size=intermediate_size,
                     weights=curr_layer_weight,
                     layer_idx=layer_idx,
