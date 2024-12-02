@@ -17,40 +17,18 @@ import logging
 import os
 
 import click
-
 import coder
 from architectures import register_all_models
-from coder.config import get_coder_huggingface_files
-
-from max.pipelines import (
-    HuggingFaceFile,
-    PipelineConfig,
-    SupportedEncoding,
-    TextTokenizer,
-)
-from max.pipelines.kv_cache import KVCacheStrategy
-from max.serve.api_server import fastapi_app, fastapi_config
-from max.serve.config import APIType, Settings
-from max.serve.debug import DebugSettings
-from max.serve.pipelines.deps import BatchedTokenGeneratorState
-from max.serve.pipelines.llm import (
-    TokenGeneratorPipeline,
-)
-from max.serve.pipelines.performance_fake import (
-    PerformanceFakingPipelineTokenizer,
-    get_performance_fake,
-)
-from transformers import AutoTokenizer
-from uvicorn import Server
-
 from cli import (
     TextGenerationMetrics,
-    batch_config_from_pipeline_config,
     generate_text_for_pipeline,
     pipeline_config_options,
     serve_pipeline,
     stream_text_to_console,
 )
+from coder.config import get_coder_huggingface_files
+from max.pipelines import PipelineConfig, SupportedEncoding, TextTokenizer
+from max.pipelines.kv_cache import KVCacheStrategy
 
 logger = logging.getLogger(__name__)
 try:
