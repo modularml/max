@@ -34,7 +34,7 @@ class MistralModel(PipelineModel):
         model_outputs = self.model.execute(
             *model_inputs, copy_inputs_to_device=False
         )
-        assert isinstance(model_outputs, Tensor)
+        assert isinstance(model_outputs[0], Tensor)
         return ModelOutputs(next_token_logits=model_outputs[0])
 
     def prepare_initial_token_inputs(
