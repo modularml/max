@@ -17,8 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, TensorValueLike
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     ContinuousBatchingKVCacheCollectionType,
