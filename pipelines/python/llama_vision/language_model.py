@@ -78,73 +78,34 @@ class TextModel(Layer):
         cross_attention_mask: TensorValue | None = None,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        past_key_values: Cache | None = None,
         inputs_embeds: TensorValue | None = None,
-        cache_position: TensorValue | None = None,
         input_row_offset: TensorValue | None = None,
         **kwargs,
-    ) -> tuple:
+    ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
         inputs_embeds = self.embed_tokens(input_ids)
 
         # TODO: This should be removed. When we fix the hard-coded Dtypes.
         hidden_states = ops.cast(inputs_embeds, self.dtype)
-
-        # causal_mask = self._update_causal_mask(
-        #     attention_mask,
-        #     inputs_embeds,
-        #     cache_position,
-        #     past_key_values,
-        #     output_attentions=False,
-        # )
-        # TODO: Finish implementation - stubbing out a bunch of outputs for now.
-        # This causal_mask is only used by self attention, not cross attention.
-        causal_mask = ops.constant(0, self.dtype).broadcast_to(
-            (
-                1,
-                1,
-                14,
-                4100,
-            )  # causal_mask / attention_mask: shape=[1, 1, 14, 4100]
-        )
-
-        # create position embeddings to be shared across the decoder layers
-        # Inputs:
-        # x: shape=[1, 1, 4096], dtype=torch.bfloat16
-        # position_ids: shape=[1, 1], dtype=torch.int64
-        # Output Shapes: [[1, 1, 128], [1, 1, 128]], torch.bfloat16
-        # TODO(MAXCORE-119): Finish implementation
-        # position_embeddings = self.rotary_emb(hidden_states, position_ids)
-        position_embeddings = ops.constant(0, DType.bfloat16).broadcast_to(
-            (
-                1,
-                1,
-                128,
-            )
-        )
-        position_embeddings = ops.stack(
-            [position_embeddings, position_embeddings], axis=-1
-        )
 
         # decoder layers
         all_hidden_states = None
         all_self_attns = None
 
         for idx, decoder_layer in enumerate(self.layers):
-            # TODO: Implement this.
+            # TODO: Implement this, or remove altogether.
             # For text-only path we should skip cross attention layers.
             # Let's check if the layer is cross attention layer and if we have
             # cross attention states or cached cross attention states.
             is_cross_attention_layer = idx in self.cross_attention_layers
-            is_cross_attention_cache_empty = past_key_values is None
+            # is_cross_attention_cache_empty = past_key_values is None
             # or (
             #     past_key_values is not None
             #     and past_key_values.get_seq_length(idx) == 0
             # )
 
             if (
-                is_cross_attention_layer
-                and cross_attention_states is None
-                and is_cross_attention_cache_empty
+                is_cross_attention_layer and cross_attention_states is None
+                # and is_cross_attention_cache_empty
             ):
                 continue
 
@@ -153,22 +114,16 @@ class TextModel(Layer):
             )
             kv_collection = kv_collection_constructor(*kv_cache_inputs)
 
-            _, cache_lengths, _, _ = kv_cache_inputs
-
             # TODO: We need to check if the kwargs map 1:1 with the two different
             # *Attention layers here. Some are used in cross_attention, others in
             # self attention, most of them unused though
             hidden_states, kv_collection = decoder_layer(
                 hidden_states,
                 cross_attention_states=cross_attention_states,
-                cross_attention_mask=cross_attention_mask,
-                attention_mask=causal_mask,
-                full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-                position_ids=position_ids,
-                position_embeddings=position_embeddings,
-                kv_collection=kv_collection,
-                valid_lengths=cache_lengths,
                 input_row_offset=input_row_offset,
+                layer_idx=idx,
+                kv_collection=kv_collection,
+                full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             )
 
         hidden_states = self.norm(hidden_states)
@@ -219,7 +174,6 @@ class CausalLanguageModel(Layer):
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
         cache_position: TensorValue | None = None,
-        num_logits_to_keep: int = 0,
         **kwargs,
     ) -> tuple:
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
@@ -234,8 +188,6 @@ class CausalLanguageModel(Layer):
             input_row_offset=input_row_offset,
             **kwargs,
         )
-
-        last_hidden_state, past_key_values, hidden_states, attentions = outputs
 
         # # For ragged tensors gather the last tokens from packed dim 0.
         # input_row_offset = kwargs["input_row_offset"]
@@ -273,12 +225,15 @@ def cross_attention_decoder_layer(
         n_heads=num_attention_heads,
         kv_params=kv_params,
         layer_idx=layer_idx,
-        wq=weights.cross_attn.q_proj.weight.allocate(
-            dtype,
-            [
-                num_attention_heads * head_dim,
-                hidden_size,
-            ],
+        q_proj=Linear(
+            weights.cross_attn.q_proj.weight.allocate(
+                dtype,
+                [
+                    num_attention_heads * head_dim,
+                    hidden_size,
+                ],
+                bias=None,
+            )
         ),
         wk=weights.cross_attn.k_proj.weight.allocate(
             dtype,
@@ -294,7 +249,7 @@ def cross_attention_decoder_layer(
                 hidden_size,
             ],
         ),
-        wo=Linear(
+        o_proj=Linear(
             weight=weights.cross_attn.o_proj.weight.allocate(
                 dtype,
                 [
