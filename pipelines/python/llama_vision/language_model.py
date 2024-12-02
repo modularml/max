@@ -26,6 +26,7 @@ from max.pipelines.kv_cache import (
 )
 from nn import (
     MLP,
+    AttentionWithRopeQKV,
     Embedding,
     Linear,
     OptimizedRotaryEmbedding,
@@ -38,7 +39,6 @@ from .cross_attention_decoder import (
     CrossAttentionDecoderLayer,
     CrossSdpaAttention,
 )
-from nn import AttentionWithRopeQKV
 
 
 @dataclass
