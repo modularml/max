@@ -13,11 +13,12 @@
 from __future__ import annotations
 
 import logging
+
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
-from max.pipelines import TextAndVisionContext, PipelineConfig, PipelineModel
+from max.pipelines import PipelineConfig, PipelineModel, TextAndVisionContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -26,7 +27,6 @@ from max.pipelines.kv_cache import (
 from nn import Linear
 
 from .conditional_generator import ConditionalGenerator
-
 from .language_model import instantiate_language_model
 from .vision_model import instantiate_vision_model
 
