@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
@@ -36,7 +37,7 @@ def max_seq_len(config: PipelineConfig) -> int:
         config.max_length
         if config.max_length
         < config.huggingface_config.text_config.max_position_embeddings
-        else config.huggignface_config.text_config.max_position_embeddings
+        else config.huggingface_config.text_config.max_position_embeddings
     )
 
 
