@@ -232,8 +232,8 @@ def cross_attention_decoder_layer(
                     num_attention_heads * head_dim,
                     hidden_size,
                 ],
-                bias=None,
-            )
+            ),
+            bias=None,
         ),
         wk=weights.cross_attn.k_proj.weight.allocate(
             dtype,
