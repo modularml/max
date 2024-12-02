@@ -54,7 +54,7 @@ class TransformerBlock(Layer):
 
     def __call__(
         self,
-        x: TensorValueLike,
+        x: TensorValue,
         attention_mask: TensorValueLike,
         position_embeddings: TensorValue,
     ) -> tuple[TensorValue]:

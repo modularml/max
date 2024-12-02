@@ -30,9 +30,9 @@ class RMSNorm(Layer):
     weight: TensorValueLike
     eps: float = 1e-6
 
-    def __call__(self, x: TensorValueLike) -> TensorValue:
+    def __call__(self, x: TensorValue) -> TensorValue:
         return ops.custom(
             "rms_norm",
-            [x, ops.cast(self.weight, x.dtype), ops.cast(self.eps, x.dtype)],  # type: ignore
-            [TensorType(dtype=x.dtype, shape=x.shape)],  # type: ignore
-        )[0]
+            [x, ops.cast(self.weight, x.dtype), ops.cast(self.eps, x.dtype)],
+            [TensorType(dtype=x.dtype, shape=x.shape)],
+        )[0].tensor
