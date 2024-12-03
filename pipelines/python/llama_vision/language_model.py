@@ -161,9 +161,8 @@ class CausalLanguageModel(Layer):
         | None = None,
         cache_position: TensorValue | None = None,
         **kwargs,
-    ) -> tuple:
-        # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
-        last_hidden_state, hidden_states, attentions = self.model(
+    ) -> TensorValue:
+        last_hidden_state = self.model(
             kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
             cross_attention_states=cross_attention_states,
@@ -185,14 +184,7 @@ class CausalLanguageModel(Layer):
         last_token_logits = ops.gather(
             last_hidden_state, last_token_indices, axis=0
         )
-        logits = ops.cast(self.lm_head(last_token_logits), self.dtype)
-
-        return (
-            None,  # TODO: loss. Maybe not needed at all?
-            logits,
-            hidden_states,
-            attentions,
-        )
+        return ops.cast(self.lm_head(last_token_logits), self.dtype)  # logits
 
 
 def cross_attention_decoder_layer(
@@ -525,7 +517,7 @@ def instantiate_language_model(
                     vocab_size,
                     hidden_size,
                 ],
-                None,
-            )
+            ),
+            bias=None,
         ),
     )
