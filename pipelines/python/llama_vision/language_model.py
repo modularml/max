@@ -86,10 +86,6 @@ class TextModel(Layer):
         # TODO: This should be removed. When we fix the hard-coded Dtypes.
         hidden_states = ops.cast(inputs_embeds, self.dtype)
 
-        # decoder layers
-        all_hidden_states = None
-        all_self_attns = None
-
         for idx, decoder_layer in enumerate(self.layers):
             # For text-only path we should skip cross attention layers.
             # Let's check if the layer is cross attention layer and if we have
@@ -116,9 +112,7 @@ class TextModel(Layer):
                 full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             )
 
-        hidden_states = self.norm(hidden_states)
-
-        return (hidden_states, all_hidden_states, all_self_attns)
+        return self.norm(hidden_states)
 
 
 @dataclass

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from max.dtype import DType
-from max.graph import TensorValue
+from max.graph import TensorValue, Dim
 from max.pipelines import PipelineConfig
 from nn import Linear
 from nn.layer import Layer
@@ -155,14 +155,16 @@ class ConditionalGenerator(Layer):
             cross_attention_states = vision_outputs[0]
 
             num_patches = cross_attention_states.shape[-2]  # type: ignore
+
             cross_attention_states = self.multi_modal_projector(
                 cross_attention_states
             ).reshape(
-                (
-                    -1,
-                    num_patches,
+                [
+                    Dim("batch_size")
+                    * self.pipeline_config.huggingface_config.vision_config.max_num_tiles
+                    * num_oatches,
                     self.pipeline_config.huggingface_config.text_config.hidden_size,
-                )
+                ]
             )
 
         # TODO: Remove this. I had to make it an optional so it respects the order
