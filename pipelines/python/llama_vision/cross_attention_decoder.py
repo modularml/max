@@ -134,12 +134,15 @@ class CrossAttentionDecoderLayer(Layer):
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
+        assert (
+            len(cross_attention_states.shape) == 2
+        ), "cross_attn is expecting a ragged tensor"
 
         hidden_states = self.cross_attn(
-            hidden_states,
-            cross_attention_states,
-            input_row_offset,
-            kv_collection,
+            hidden_states=hidden_states,
+            cross_attention_states=cross_attention_states,
+            input_row_offset=input_row_offset,
+            kv_collection=kv_collection,
         )
         hidden_states = (
             residual + ops.tanh(self.cross_attn_attn_gate) * hidden_states

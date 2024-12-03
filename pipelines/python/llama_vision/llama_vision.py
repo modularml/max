@@ -192,7 +192,7 @@ class LlamaVision(PipelineModel):
             # passing in the cross attention mask in the step below.
             # We will then have to call something like Tensor.from_numpy(...)
             # before the forward call below.
-            outputs = model(
+            logits = model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
                 aspect_ratio_mask=aspect_ratio_mask,
@@ -208,7 +208,6 @@ class LlamaVision(PipelineModel):
                 ),
             )
 
-            loss, logits, past_key_values, hidden_states, attentions = outputs  # type: ignore
             graph.output(logits)  # type: ignore
             return graph
 
