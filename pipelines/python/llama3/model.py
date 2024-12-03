@@ -14,8 +14,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Sequence
 import warnings
+from typing import Sequence
 
 import numpy as np
 from dataprocessing import batch_padded_tokens_and_mask
@@ -207,9 +207,16 @@ class Llama3Model(PipelineModel):
             logging.info("Building model...")
             graph = self._build_graph(self._weights)
             logging.info("Compiling...")
-            return session.load(
+            model = session.load(
                 graph, weights_registry=self._weights.allocated_weights
             )
+            if (
+                export_path
+                := self.pipeline_config.save_to_serialized_model_path
+            ):
+                logging.info("Exporting serialized model to %s", export_path)
+                model._export_mef(export_path)
+            return model
 
     def _build_opaque_graph(self, weights: GGUFWeights) -> Graph:
         tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
