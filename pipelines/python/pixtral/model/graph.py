@@ -105,21 +105,21 @@ def _build_graph(
     kv_params: KVCacheParams,
     kv_manager: KVCacheManager,
 ) -> Graph:
-    # Graph input types.
-    kv_cache_args = kv_manager.input_symbols()
+    # TODO: Make this work for multiple devices. Now getting the types for device [0]
+    kv_cache_types = kv_manager.input_symbols()[0]
 
     # TODO: Do we need text_token_type and input_row_offset_type from mistral?
-    # TODO: What is the input type to Pixtral?
     input_ids_type = TensorType(
-        # DType.int64, ["batch_size", "sequence_length"]
+        # DType.int64, total_seq_len=sum(len(batch) for batch in input_ids)
         DType.int64,
-        [1, 502],
+        ["total_seq_len"],
     )
+    # TODO: should be changed to add "batch_size", "n_images" dims when working with multiple images
     pixel_values_type = TensorType(
         DType.bfloat16,
-        [304, 400, 3],
-        #                ["height", "width", "num_channels"],
+        [304, 400, 3],  # ["height", "width", "num_channels"]
     )
+    # Type of start and end position of each batch in the combined total_seq_len dimension.
     input_row_offset_type = TensorType(
         DType.uint32, shape=["input_row_offset_len"]
     )
@@ -132,15 +132,17 @@ def _build_graph(
             input_ids_type,
             pixel_values_type,
             input_row_offset_type,
-            *kv_cache_args,  # type: ignore
+            *kv_cache_types,
         ],
     ) as graph:
         model = _llava(graph, params, weights, kv_params)
-        input_ids, pixel_values, input_row_offset, *kv_cache = graph.inputs
+        input_ids, pixel_values, input_row_offset, *kv_cache_inputs = (
+            graph.inputs
+        )
         logits = model(
-            input_ids,  # type: ignore
-            pixel_values,  # type: ignore
-            kv_cache,  # type: ignore
+            input_ids=input_ids,  # type: ignore
+            pixel_values=pixel_values,  # type: ignore
+            kv_cache_inputs=kv_cache_inputs,  # type: ignore
             input_row_offset=input_row_offset,
         )
         graph.output(logits)

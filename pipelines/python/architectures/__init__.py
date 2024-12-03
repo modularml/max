@@ -19,6 +19,7 @@ def register_all_models():
     import llama3 as llama3
     import replit as replit
     import llama_vision as llama_vision
+    import pixtral as pixtral
 
     from mistral import mistral_arch
 

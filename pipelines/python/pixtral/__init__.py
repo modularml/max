@@ -12,3 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 
 from .pixtral import PixtralModel
+from max.pipelines import PIPELINE_REGISTRY
+from .arch import pixtral_arch
+
+PIPELINE_REGISTRY.register(pixtral_arch)
+
+__all__ = ["PixtralModel"]
