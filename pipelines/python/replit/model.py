@@ -152,6 +152,11 @@ class ReplitModel(PipelineModel):
         self,
         session: InferenceSession,
     ) -> Model:
+        # TODO: AIPIPE-235 - Support Multistep scheduling for Replit
+        if self.pipeline_config.max_num_steps > 1:
+            msg = "Replit pipeline does not support max_num_steps > 1"
+            raise ValueError(msg)
+
         # Read in weights.
         weights = self.pipeline_config.load_weights()
         if not isinstance(weights, GGUFWeights):
