@@ -18,6 +18,7 @@ from max.pipelines import (
     SupportedVersion,
     TextTokenizer,
 )
+from max.pipelines.kv_cache import KVCacheStrategy
 
 from .model import CoderModel
 
@@ -27,16 +28,19 @@ coder_arch = SupportedArchitecture(
         SupportedVersion(
             name="1.5",
             encodings={
-                SupportedEncoding.bfloat16: [
-                    HuggingFaceFile(
-                        "deepseek-ai/deepseek-coder-7b-instruct-v1.5", f
-                    )
-                    for f in [
-                        "model-00001-of-00003.safetensors",
-                        "model-00002-of-00003.safetensors",
-                        "model-00003-of-00003.safetensors",
-                    ]
-                ],
+                SupportedEncoding.bfloat16: (
+                    [
+                        HuggingFaceFile(
+                            "deepseek-ai/deepseek-coder-7b-instruct-v1.5", f
+                        )
+                        for f in [
+                            "model-00001-of-00003.safetensors",
+                            "model-00002-of-00003.safetensors",
+                            "model-00003-of-00003.safetensors",
+                        ]
+                    ],
+                    [KVCacheStrategy.CONTINUOUS, KVCacheStrategy.NAIVE],
+                )
             },
             default_encoding=SupportedEncoding.bfloat16,
         ),

@@ -11,23 +11,18 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-import asyncio
 import functools
 import logging
 import os
 
 import click
-import coder
 from architectures import register_all_models
 from cli import (
-    TextGenerationMetrics,
     generate_text_for_pipeline,
     pipeline_config_options,
     serve_pipeline,
-    stream_text_to_console,
 )
-from coder.config import get_coder_huggingface_files
-from max.pipelines import PipelineConfig, SupportedEncoding, TextTokenizer
+from max.pipelines import PipelineConfig, SupportedEncoding
 from max.pipelines.kv_cache import KVCacheStrategy
 
 logger = logging.getLogger(__name__)
@@ -260,84 +255,6 @@ def replit(
         generate_text_for_pipeline(
             pipeline_config, prompt=prompt, num_warmups=num_warmups
         )
-
-
-@main.command(name="coder")
-@pipeline_config_options
-@click.option(
-    "--prompt",
-    type=str,
-    default="I believe the meaning of life is",
-    help="The text prompt to use for further generation.",
-)
-@click.option(
-    "--serve",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to serve an OpenAI HTTP endpoint on port 8000.",
-)
-@click.option(
-    "--naive",
-    is_flag=True,
-    show_default=True,
-    default=False,
-    help="Whether to use naive KV caching.",
-)
-def run_coder(
-    prompt,
-    serve,
-    naive,
-    **config_kwargs,
-):
-    """Runs the Coder pipeline."""
-    config_kwargs.update(
-        {
-            "version": "1.5",
-            "huggingface_repo_id": (
-                "deepseek-ai/deepseek-coder-7b-instruct-v1.5"
-            ),
-            "quantization_encoding": SupportedEncoding.bfloat16,
-        }
-    )
-
-    config = PipelineConfig(**config_kwargs)
-
-    if len(config.weight_path) == 0:
-        hf_files = get_coder_huggingface_files(
-            config.version,  # type: ignore
-            config.quantization_encoding,  # type: ignore
-        )
-        config.weight_path = [hf_file.download() for hf_file in hf_files]
-
-    if naive or config.quantization_encoding not in [
-        SupportedEncoding.bfloat16,
-        SupportedEncoding.float32,
-    ]:
-        config.cache_strategy = KVCacheStrategy.NAIVE
-
-    if serve:
-        pass
-    else:
-        # Run timed run & print results
-        with TextGenerationMetrics(print_report=True) as metrics:
-            tokenizer = TextTokenizer(
-                config,
-            )
-            model = coder.coder_token_gen.CoderTokenGenerator(
-                config,
-                tokenizer.delegate.eos_token_id,
-            )
-
-            logger.info("Beginning text generation...")
-            asyncio.run(
-                stream_text_to_console(
-                    model,
-                    tokenizer,
-                    prompt,
-                    metrics=metrics,
-                )
-            )
 
 
 if __name__ == "__main__":

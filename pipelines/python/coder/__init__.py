@@ -16,12 +16,10 @@ from max.pipelines import PIPELINE_REGISTRY
 
 from .arch import coder_arch
 from .coder import Coder
-from .coder_token_gen import CoderTokenGenerator
 from .config import get_coder_huggingface_files
 
 __all__ = [
     "Coder",
-    "CoderTokenGenerator",
     "get_coder_huggingface_files",
 ]
 

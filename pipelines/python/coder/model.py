@@ -22,7 +22,12 @@ from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType
 from max.graph.weights import SafetensorWeights
-from max.pipelines import PipelineModel, SupportedEncoding, TextContext
+from max.pipelines import (
+    ModelOutputs,
+    PipelineModel,
+    SupportedEncoding,
+    TextContext,
+)
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -34,8 +39,17 @@ from .graph import transformer
 
 
 class CoderModel(PipelineModel):
-    def execute(self, *model_inputs: Tensor) -> Tensor:
-        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]
+    def execute(self, *model_inputs: Tensor) -> ModelOutputs:
+        model_outputs = self.model.execute(
+            *model_inputs, copy_inputs_to_device=False
+        )
+
+        if self.pipeline_config.enable_echo:
+            return ModelOutputs(
+                next_token_logits=model_outputs[0], logits=model_outputs[1]
+            )
+        else:
+            return ModelOutputs(next_token_logits=model_outputs[0])
 
     def _prepare_continuous_initial_token_inputs(
         self, context_batch: list[TextContext]
@@ -153,7 +167,7 @@ class CoderModel(PipelineModel):
             max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
             max_seq_len=self.pipeline_config.huggingface_config.max_seq_len,
             num_layers=self.pipeline_config.huggingface_config.num_hidden_layers,
-            device=self.pipeline_config.device,
+            devices=[self.pipeline_config.device],
             session=session,
         )
 
@@ -212,8 +226,8 @@ class CoderModel(PipelineModel):
                 self._get_kv_params(),
             )
             tokens, input_row_offset, *kv_cache = graph.inputs
-            logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
-            graph.output(logits)
+            outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+            graph.output(*outputs)
             return graph
 
     def _build_graph(self, weights: SafetensorWeights) -> Graph:
@@ -253,12 +267,12 @@ class CoderModel(PipelineModel):
                 ]
                 else DType.float32
             )
-            logits, end_pos = model(
+            outputs = model(
                 tokens,
                 attention_mask.cast(mask_dtype),
                 k_cache,
                 v_cache,
                 start_pos,
             )
-            graph.output(logits[:, -1], end_pos)
+            graph.output(*outputs)
             return graph

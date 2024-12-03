@@ -15,10 +15,10 @@
 import functools
 import inspect
 import pathlib
-from dataclasses import MISSING, fields, Field
+from dataclasses import MISSING, Field, fields
 from enum import Enum
-from typing import Union, get_args, get_origin, Any
 from pathlib import Path
+from typing import Any, Union, get_args, get_origin
 
 import click
 from max.driver import DeviceSpec

@@ -133,8 +133,8 @@ class Coder:
                 self._kv_params,
             )
             tokens, input_row_offset, *kv_cache = graph.inputs
-            logits = model(tokens, kv_cache, input_row_offset=input_row_offset)
-            graph.output(logits)
+            outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+            graph.output(*outputs)
             return graph
 
     def _coder_graph(self, weights: SafetensorWeights) -> Graph:
