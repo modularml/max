@@ -10,81 +10,123 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
+
+from __future__ import annotations
 import logging
 
-from max.engine import InferenceSession
+import numpy as np
+from typing import Sequence
 from max.graph.weights import SafetensorWeights
-from max.pipelines import (
-    PipelineConfig,
-    TokenGenerator,
-)
+from max.pipelines import PipelineModel, ModelOutputs, LogProbabilities
 from max.pipelines.kv_cache import (
+    KVCacheManager,
     KVCacheParams,
     load_kv_manager,
 )
-from transformers import AutoProcessor
+from max.driver import Tensor
+from max.engine import InferenceSession, Model
+from max.pipelines import TextAndVisionContext
 
 from .model.graph import _build_graph
 
 
-class PixtralModel(TokenGenerator):
+class PixtralModel(PipelineModel):
     """The overall interface to the Pixtral model."""
 
-    def __init__(self, config: PipelineConfig, **kwargs):
-        self._config = config
+    def execute(self, *model_inputs: Tensor) -> tuple[Tensor, ...]:  # type: ignore
+        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]  # type: ignore
 
-        # Load Device.
-        self._device = self._config.device
-        # session = InferenceSession(device=self._device)
-        session = InferenceSession()
+    def prepare_initial_token_inputs(
+        self,
+        context_batch: list[TextAndVisionContext],  # type: ignore
+    ) -> tuple[Tensor, ...]:
+        # Input row offset type: ["input_row_offset_len"], UInt32
+        input_row_offset = Tensor.from_numpy(
+            np.cumsum(
+                [0] + [ctx.seq_len for ctx in context_batch],
+                dtype=np.uint32,
+            )
+        ).to(self.pipeline_config.device)
 
-        # Get KV Cache Params.
-        self._kv_params = KVCacheParams(
-            dtype=self._config.dtype,
-            n_kv_heads=self._config.huggingface_config.text_config.num_key_value_heads,
-            head_dim=self._config.huggingface_config.text_config.head_dim,
-            cache_strategy=self._config.cache_strategy,
+        # Input Ids: ["total_seq_len"], Int64
+        # Create a ragged token vector of length: sum(len(t) for t in tokens).
+        tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
+        input_ids = Tensor.from_numpy(tokens).to(self.pipeline_config.device)
+
+        # TODO: change this to include batch_size and num_images_in_seq dims.
+        pixel_values = Tensor.zeros(
+            dtype=self.pipeline_config.dtype, shape=[304, 400, 3]
+        )
+        return (
+            input_ids,
+            pixel_values,
+            input_row_offset,
         )
 
-        # Load KV Cache Manager.
-        self._kv_manager = load_kv_manager(
-            params=self._kv_params,
-            max_cache_batch_size=self._config.max_cache_batch_size,
-            max_seq_len=self._config.huggingface_config.max_seq_len,
-            num_layers=self._config.huggingface_config.text_config.num_hidden_layers,
-            devices=[self._device],
+    def prepare_next_token_inputs(
+        self,
+        next_tokens: Tensor,
+        prev_model_inputs: tuple[Tensor, ...],
+    ) -> tuple[Tensor, ...]:
+        raise NotImplementedError("not yet implemented.")
+
+    def compute_log_probabilities(
+        self,
+        model_inputs: Sequence[Tensor],
+        model_outputs: ModelOutputs,
+        next_tokens: Tensor,
+        batch_top_n: list[int],
+        batch_echo: list[bool],
+    ) -> list[LogProbabilities | None] | None:
+        raise NotImplementedError("not yet implemented.")
+
+    def _get_kv_params(self) -> KVCacheParams:
+        return KVCacheParams(
+            dtype=self.pipeline_config.dtype,
+            n_kv_heads=self.pipeline_config.huggingface_config.text_config.num_key_value_heads,
+            head_dim=self.pipeline_config.huggingface_config.text_config.head_dim,
+            cache_strategy=self.pipeline_config.cache_strategy,
+        )
+
+    def load_kv_manager(self, session: InferenceSession) -> KVCacheManager:
+        return load_kv_manager(
+            params=self._get_kv_params(),
+            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
+            max_seq_len=self.pipeline_config.huggingface_config.image_seq_length,  # TODO: verify this
+            num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
+            devices=[self.pipeline_config.device],
             session=session,
         )
 
-        # Load Processor from HuggingFace.
-        self._processor = AutoProcessor.from_pretrained(
-            "mistral-community/pixtral-12b"
-        )
+    def load_model(self, session: InferenceSession) -> Model:
+        if self.pipeline_config.enable_echo:
+            msg = "Pixtral model does not currently implement enable echo."
+            raise ValueError(msg)
 
-        # Load Weights from SafeTensors.
-        if self._config.weight_path is None:
-            raise ValueError(
-                "no weight path provided for mistral based safetensor weights."
+        # Pre-allocate a buffer for input_row_offset in multistep execution.
+        # We do this to avoid materializing and copying a buffer with each multistep step
+        self._input_row_offset_prealloc = Tensor.from_numpy(
+            np.arange(
+                self.pipeline_config.max_cache_batch_size + 1, dtype=np.uint32
             )
+        ).to(self.pipeline_config.device)
 
-        self._weights = SafetensorWeights(self._config.weight_path)
+        self._weights = self.pipeline_config.load_weights()
 
-        # Load Model.
-        self._model = self._load_model(session)
+        if not isinstance(self._weights, SafetensorWeights):
+            msg = (
+                "only safetensors weights are currently supported in Pixtral"
+                " models."
+            )
+            raise ValueError(msg)
 
-        # Load Sampler.
-        # self._sampler = session.load(
-        #    token_sampler(self._config.top_k, DType.float32)
-        # )
-
-    def _load_model(
-        self,
-        session: InferenceSession,
-    ):
-        if serialized_path := self._config.serialized_model_path:
+        if serialized_path := self.pipeline_config.serialized_model_path:
             # Hydrate all weights to be referenced by the serialized graph.
             weights_registry = {}
-            for name, tensor in self._weights._tensors.items():  # type: ignore
+            for (
+                name,
+                tensor,
+            ) in self.pipeline_config._tensors.items():  # type:ignore
                 weights_registry[name] = tensor.data
             logging.info(
                 "Loading serialized model from ", serialized_path, "..."
@@ -96,9 +138,13 @@ class PixtralModel(TokenGenerator):
         else:
             logging.info("Building model...")
             graph = _build_graph(
-                self._config,
+                self.pipeline_config,
                 self._weights,
-                self._kv_params,
-                self._kv_manager,
+                self._get_kv_params(),
+                self.kv_manager,
             )
-            # logging.info("Compiling...")
+            logging.info("Compiling...")
+            return session.load(
+                graph,
+                weights_registry=self._weights.allocated_weights,  # type:ignore
+            )
