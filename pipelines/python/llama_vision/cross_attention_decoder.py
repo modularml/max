@@ -128,10 +128,9 @@ class CrossAttentionDecoderLayer(Layer):
         hidden_states: TensorValue,
         cross_attention_states: TensorValue,
         input_row_offset: TensorValue,
-        layer_idx: int,
-        # need to make this optional for now.
         kv_collection: ContinuousBatchingKVCacheCollection,
-        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue] | None,
+        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
+        | None = None,
     ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)

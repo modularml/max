@@ -78,7 +78,6 @@ class TextModel(Layer):
         cross_attention_mask: TensorValue | None = None,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        inputs_embeds: TensorValue | None = None,
         input_row_offset: TensorValue | None = None,
         **kwargs,
     ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
@@ -92,20 +91,12 @@ class TextModel(Layer):
         all_self_attns = None
 
         for idx, decoder_layer in enumerate(self.layers):
-            # TODO: Implement this, or remove altogether.
             # For text-only path we should skip cross attention layers.
             # Let's check if the layer is cross attention layer and if we have
-            # cross attention states or cached cross attention states.
-            is_cross_attention_layer = idx in self.cross_attention_layers
-            # is_cross_attention_cache_empty = past_key_values is None
-            # or (
-            #     past_key_values is not None
-            #     and past_key_values.get_seq_length(idx) == 0
-            # )
-
+            # cross attention states.
             if (
-                is_cross_attention_layer and cross_attention_states is None
-                # and is_cross_attention_cache_empty
+                idx in self.cross_attention_layers
+                and cross_attention_states is None
             ):
                 continue
 
@@ -121,18 +112,13 @@ class TextModel(Layer):
                 hidden_states,
                 cross_attention_states=cross_attention_states,
                 input_row_offset=input_row_offset,
-                layer_idx=idx,
                 kv_collection=kv_collection,
                 full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             )
 
         hidden_states = self.norm(hidden_states)
 
-        return (
-            hidden_states,
-            all_hidden_states,
-            all_self_attns,
-        )
+        return (hidden_states, all_hidden_states, all_self_attns)
 
 
 @dataclass
