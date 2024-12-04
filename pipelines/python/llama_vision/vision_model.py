@@ -266,7 +266,7 @@ class VisionModel(Layer):
         patch_embeds = self.patch_embedding(pixel_values)
 
         # Permute it back to original dim of (4, 1280, 32, 32)
-        patch_embeds = patch_embeds.permute((0, 3, 1, 2))
+        patch_embeds = patch_embeds.permute([0, 3, 1, 2])
 
         hidden_state = patch_embeds.flatten(2).transpose(1, 2)
 
@@ -555,7 +555,7 @@ def instantiate_vision_model(
                 dtype,
                 [hidden_size, num_channels, patch_size, patch_size],
             ),
-            (2, 3, 1, 0),
+            [2, 3, 1, 0],
         ),
         stride=patch_size,
         padding=(0, 0, 0, 0),
