@@ -12,11 +12,12 @@
 # ===----------------------------------------------------------------------=== #
 """Utilities for serving cli."""
 
-import asyncio
 import functools
 import logging
 import os
 from typing import Union
+
+import uvloop
 
 from max.pipelines import PIPELINE_REGISTRY, PipelineConfig
 from max.pipelines.kv_cache import KVCacheStrategy
@@ -149,4 +150,4 @@ def serve_pipeline(
             logger.info("ddtrace not found. Not exporting traces")
 
     server = Server(fastapi_config(app=app))
-    asyncio.run(server.serve())
+    uvloop.run(server.serve())
