@@ -149,12 +149,8 @@ struct _CRegexMatch:
 
 @value
 struct _MatchIter[
-    # TODO(MOCO-1493):
-    #   These should not require the `.type` to be raw MLIR
-    #   Origins. Fix origin param inference issue and make these just be the
-    #   normal `Origin` struct type.
-    regex_origin: ImmutableOrigin.type,
-    string_origin: ImmutableOrigin.type,
+    regex_origin: ImmutableOrigin,
+    string_origin: ImmutableOrigin,
 ]:
     var regex: Pointer[Regex, regex_origin]
     var string: Pointer[String, string_origin]
