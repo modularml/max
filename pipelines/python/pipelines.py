@@ -78,7 +78,7 @@ def common_server_options(func):
     @click.option(
         "--model-name",
         type=str,
-        help="Optional explicit name for serving the model.",
+        help="Deprecated, please use `huggingface_repo_id` instead. Optional model alias for serving the model.",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
