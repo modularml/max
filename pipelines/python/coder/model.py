@@ -20,12 +20,9 @@ from dataprocessing import batch_padded_tokens_and_mask
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType
-from max.graph.weights import SafetensorWeights
 from max.pipelines import (
     ModelOutputs,
     PipelineModel,
-    SupportedEncoding,
     TextContext,
 )
 from max.pipelines.kv_cache import (
@@ -35,7 +32,7 @@ from max.pipelines.kv_cache import (
     load_kv_manager,
 )
 
-from .graph import transformer
+from .graph import _build_graph
 
 
 class CoderModel(PipelineModel):
@@ -200,79 +197,73 @@ class CoderModel(PipelineModel):
 
         else:
             logging.info("Building model...")
-            graph = self._build_graph(self._weights)
+            graph = _build_graph(
+                self.pipeline_config,
+                self._weights,
+                self._get_kv_params(),
+                kv_manager=self.kv_manager,
+            )
             logging.info("Compiling...")
-            return session.load(
-                graph, weights_registry=self._weights.allocated_weights
-            )
-
-    def _build_opaque_graph(self, weights: SafetensorWeights) -> Graph:
-        tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
-        # NOTE: input_row_offset_len should be batch_size + 1.
-        input_row_offset_type = TensorType(
-            DType.uint32, shape=["input_row_offset_len"]
-        )
-
-        kv_cache_args = self.kv_manager.input_symbols()[0]
-
-        with Graph(
-            "coder",
-            input_types=[tokens_type, input_row_offset_type, *kv_cache_args],
-        ) as graph:
-            model = transformer(
+            model = session.load(
                 graph,
-                self.pipeline_config,
-                weights,
-                self._get_kv_params(),
+                weights_registry=self._weights.allocated_weights,  # type: ignore
             )
-            tokens, input_row_offset, *kv_cache = graph.inputs
-            outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
-            graph.output(*outputs)
-            return graph
+            if (
+                export_path
+                := self.pipeline_config.save_to_serialized_model_path
+            ):
+                logging.info("Exporting serialized model to %s", export_path)
+                model._export_mef(export_path)
+            return model
 
-    def _build_graph(self, weights: SafetensorWeights) -> Graph:
-        if self.pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
-            return self._build_opaque_graph(weights)
+    def compute_log_probabilities(
+        self,
+        model_inputs: Sequence[Tensor],
+        model_outputs: ModelOutputs,
+        next_tokens: Tensor,
+        batch_top_n: list[int],
+        batch_echo: list[bool],
+    ) -> list[LogProbabilities | None] | None:
+        if any(echo for echo in batch_echo):
+            if model_outputs.logits is None:
+                warnings.warn(
+                    "Could not get logprobs with echo because the full logits"
+                    f" were not returned by {self.pipeline_config.short_name}"
+                    " model. Please ensure that this model is started with "
+                    "`--enable-echo`."
+                )
+                assert (
+                    not self.pipeline_config.enable_echo
+                ), "Echo was enabled but logits were not returned."
+                return None
+            logits = model_outputs.logits.to(CPU()).to_numpy()
+        next_token_logits = model_outputs.next_token_logits.to(CPU()).to_numpy()
 
-        tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
-        attn_mask_type = TensorType(
-            DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
+        sampled_tokens = next_tokens.to(CPU()).to_numpy()
+        # Handle batched inputs.
+        token_tensor, _, valid_length_tensor = model_inputs
+        tokens = token_tensor.to(CPU()).to_numpy()
+        valid_lengths = valid_length_tensor.to(CPU()).to_numpy()
+
+        def _get_logits_and_samples(
+            batch_index: int, echo: bool
+        ) -> tuple[np.ndarray, np.ndarray]:
+            if echo:
+                seq_len = valid_lengths[batch_index]
+                padded_tokens = tokens[batch_index]
+                assert model_outputs.logits is not None
+                batch_logits = logits[batch_index, :seq_len]
+                samples = np.concatenate(
+                    (
+                        padded_tokens[1:seq_len],
+                        sampled_tokens[batch_index : batch_index + 1],
+                    )
+                )
+            else:
+                batch_logits = next_token_logits[batch_index : batch_index + 1]
+                samples = sampled_tokens[batch_index : batch_index + 1]
+            return batch_logits, samples
+
+        return compute_log_probabilities(
+            _get_logits_and_samples, batch_top_n, batch_echo
         )
-
-        kv_inputs = self.kv_manager.input_symbols()[0]
-
-        with Graph(
-            "coder",
-            input_types=[
-                tokens_type,
-                attn_mask_type,
-                *kv_inputs,
-            ],
-        ) as graph:
-            model = transformer(
-                graph,
-                self.pipeline_config,
-                weights,
-                self._get_kv_params(),
-            )
-            tokens, attention_mask, k_cache, v_cache, start_pos, _ = (
-                graph.inputs
-            )
-            mask_dtype = (
-                self.pipeline_config.dtype
-                if self.pipeline_config.quantization_encoding
-                in [
-                    SupportedEncoding.float32,
-                    SupportedEncoding.bfloat16,
-                ]
-                else DType.float32
-            )
-            outputs = model(
-                tokens,
-                attention_mask.cast(mask_dtype),
-                k_cache,
-                v_cache,
-                start_pos,
-            )
-            graph.output(*outputs)
-            return graph
