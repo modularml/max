@@ -15,9 +15,8 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-from typing import Sequence
 from max.graph.weights import SafetensorWeights
-from max.pipelines import PipelineModel, ModelOutputs, LogProbabilities
+from max.pipelines import PipelineModel
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -68,16 +67,6 @@ class PixtralModel(PipelineModel):
         next_tokens: Tensor,
         prev_model_inputs: tuple[Tensor, ...],
     ) -> tuple[Tensor, ...]:
-        raise NotImplementedError("not yet implemented.")
-
-    def compute_log_probabilities(
-        self,
-        model_inputs: Sequence[Tensor],
-        model_outputs: ModelOutputs,
-        next_tokens: Tensor,
-        batch_top_n: list[int],
-        batch_echo: list[bool],
-    ) -> list[LogProbabilities | None] | None:
         raise NotImplementedError("not yet implemented.")
 
     def _get_kv_params(self) -> KVCacheParams:
