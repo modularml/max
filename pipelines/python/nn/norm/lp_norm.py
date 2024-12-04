@@ -15,7 +15,7 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, ops
+from max.graph import TensorValue, TensorValueLike, ops
 
 from ..layer import Layer
 
@@ -24,7 +24,7 @@ from ..layer import Layer
 class LPLayerNorm(Layer):
     """Layer normalization block."""
 
-    weight: TensorValue
+    weight: TensorValueLike
     eps: float = 1e-6
 
     def __call__(self, input: TensorValue):
