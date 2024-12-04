@@ -16,6 +16,12 @@ Engine's advanced graph compiler. This pipeline showcases how a large language
 model can be fully defined using Mojo and MAX Graphs and then compiled for
 optimal inference performance via the MAX Engine.
 
+> [!WARNING]
+> The current Mojo interface for the MAX Graph API is deprecated, in favor of
+> the new Python-based Graph API. We recommend exploring
+> [the Python versions of these pipelines](../../../../pipelines/python/),
+> which include new models and capabilities.
+
 ## Model
 
 [Replit Code](https://blog.replit.com/replit-code-v1_5) is an open source code

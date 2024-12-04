@@ -50,12 +50,12 @@ git checkout nightly
 ### MAX Pipelines
 
 To show off the full power of MAX, a
-[series of end-to-end pipelines for common AI workloads](./examples/graph-api/pipelines/)
+[series of end-to-end pipelines for common AI workloads](./pipelines/python/)
 (and more) are ready to run. As one example, this includes everything needed to
 self-host
-[the Llama 3 text-generation model](./examples/graph-api/pipelines/llama3/).
-These pipelines are completely written in Mojo, and all code is provided so
-that they can be customized, built upon, or learned from.
+[the Llama 3.1 text-generation model](./pipelines/python/llama3/).
+All code is provided so that these pipelines can be customized, built upon, or
+learned from.
 
 ### Examples
 

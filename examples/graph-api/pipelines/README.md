@@ -6,6 +6,12 @@ more. The umbrella `pipelines` [Mojo](https://docs.modular.com/mojo/) module
 contains these pipelines as their own modules, along with shared modules
 hosting common functionality.
 
+> [!WARNING]
+> The current Mojo interface for the MAX Graph API is deprecated, in favor of
+> the new Python-based Graph API. We recommend exploring
+> [the Python versions of these pipelines](../../../pipelines/python/), which
+> include new models and capabilities.
+
 ## Pipelines
 
 The pipelines include:
