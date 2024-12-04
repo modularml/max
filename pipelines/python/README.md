@@ -5,16 +5,22 @@ These are end-to-end pipelines that demonstrate the power of
 more. Each of the supported pipelines can be served via an OpenAI-compatible
 endpoint.
 
+MAX can also serve most PyTorch-based large language models that are
+present on Hugging Face, although not at the same performance as native MAX
+Graph versions.
+
 ## Pipelines
 
-The pipelines include:
+Highly optimized MAX Graph implementations exist for several core model
+architectures. These include:
 
 - [Llama 3.1](llama3): A text completion pipeline using the Llama 3.1 model,
 implemented using the MAX Graph API. This pipeline contains everything
-needed to run a self-hosted large language model with state-of-the-art serving
-throughput.
-- [Mistral](mistral): Another text completion pipeline using the Mistral NeMo
-12B model, implemented using the MAX Graph API.
+needed to run a self-hosted large language model in the `LlamaForCausalLM`
+family with state-of-the-art serving throughput.
+- [Mistral](mistral): Support for the `MistralForCausalLM` family of text
+completion models, by default using the Mistral NeMo 12B model. This pipeline
+has been tuned for performance using the MAX Graph API.
 - [Replit Code](replit): Code generation via the Replit Code V1.5 3B model,
 implemented using the MAX Graph API.
 
@@ -61,7 +67,7 @@ tool.
    magic run mistral --prompt "Why is the sky blue?"
    ```
 
-4. Host a text completion endpoint via MAX Serve.
+4. Host a chat completion endpoint via MAX Serve.
 
    MAX Serve provides functionality to host performant OpenAI compatible
    endpoints using the FastAPI framework.
@@ -79,7 +85,7 @@ tool.
    curl -N http://localhost:8000/v1/chat/completions \
    -H "Content-Type: application/json" \
    -d '{
-       "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+       "model": "modularai/llama-3.1",
        "stream": true,
        "messages": [
            {"role": "system", "content": "You are a helpful assistant."},
@@ -87,3 +93,15 @@ tool.
        ]
    }'
    ```
+
+   Additionally, finetuned weights hosted on Hugging Face can be used with one
+   of these optimized pipeline architectures when serving via the `serve`
+   command:
+
+   ```shell
+   magic run serve --huggingface-repo-id=modularai/llama-3.1
+   ```
+
+   If the repository ID is provided for a Hugging Face large language model
+   that does not currently have an optimized MAX Graph implementation, MAX will
+   fall back to serving a PyTorch eager version of the model.

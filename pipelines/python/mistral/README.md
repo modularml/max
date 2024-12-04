@@ -4,8 +4,9 @@
 
 **API**: MAX Graph
 
-This pipeline demonstrates text completion from an initial prompt using the
-Mistral large language model. The model itself has been constructed in Python
+This pipeline provides optimized support for the `MistralForCausalLM` family
+of large language models, as exemplified by the Mistral NeMo 12B text
+completion model. The model itself has been constructed in Python
 using the [MAX Graph API](https://docs.modular.com/engine/graph).
 
 The MAX Graph API provides an accessible interface to the construction of
@@ -60,7 +61,7 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
    magic run mistral --prompt "I believe the meaning of life is"
    ```
 
-4. Host a text completion endpoint via MAX Serve.
+4. Host a chat completion endpoint via MAX Serve.
 
    MAX Serve provides functionality to host performant OpenAI compatible
    endpoints using the FastAPI framework.
@@ -85,6 +86,14 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
            {"role": "user", "content": "Who won the world series in 2020?"}
        ]
    }'
+   ```
+
+   Additionally, finetuned weights hosted on Hugging Face for any compatible
+   `MistralForCausalLM` model can be used with this optimized architecture
+   via the `serve` command:
+
+   ```shell
+   magic run serve --huggingface-repo-id=mistralai/Ministral-8B-Instruct-2410
    ```
 
 ## Options
