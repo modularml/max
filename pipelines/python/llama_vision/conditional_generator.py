@@ -162,7 +162,7 @@ class ConditionalGenerator(Layer):
                 [
                     Dim("batch_size")
                     * self.pipeline_config.huggingface_config.vision_config.max_num_tiles
-                    * num_oatches,
+                    * num_patches,
                     self.pipeline_config.huggingface_config.text_config.hidden_size,
                 ]
             )
