@@ -38,6 +38,7 @@ class RotaryEmbedding(Layer):
     rope_scaling: Optional[np.ndarray] = None
     """Scaling factor for the positional frequencies."""
     _freqs_cis: Optional[TensorValueLike] = None
+    interleaved: bool = True
 
     def freqs_cis_base(self) -> TensorValue:
         """
@@ -96,7 +97,19 @@ class RotaryEmbedding(Layer):
         """
         v = TensorValue(x)
 
-        complex = ops.as_interleaved_complex(v)
+        if self.interleaved:
+            complex = ops.as_interleaved_complex(v)
+            x_re = complex[..., 0]
+            x_im = complex[..., 1]
+        else:
+            head_dim = v.shape[-1]
+            head_dim_val = TensorValue(head_dim)
+            half_dim = head_dim // 2
+            half_dim_val = TensorValue(half_dim)
+            slice_re = (slice(0, half_dim_val), half_dim)
+            slice_im = (slice(half_dim_val, head_dim_val), half_dim)
+            x_re = v[..., slice_re]
+            x_im = v[..., slice_im]
 
         seq_len_val = TensorValue(seq_len)
         freqs_cis_sliced = self.freqs_cis[
@@ -105,12 +118,9 @@ class RotaryEmbedding(Layer):
         # TODO(MSDK-1188): Ideally this cast would happen inside of the cached
         # self.freqs_cis property instead of here, but complex.dtype is not
         # known at that point.
-        freqs_cis_sliced = ops.cast(freqs_cis_sliced, complex.dtype)
+        freqs_cis_sliced = ops.cast(freqs_cis_sliced, v.dtype)
 
         freqs_cis_bcast = ops.unsqueeze(ops.unsqueeze(freqs_cis_sliced, 1), 0)
-
-        x_re = complex[..., 0]
-        x_im = complex[..., 1]
 
         freqs_re = freqs_cis_bcast[..., 0]
         freqs_im = freqs_cis_bcast[..., 1]
@@ -118,7 +128,10 @@ class RotaryEmbedding(Layer):
         rope_re = (x_re * freqs_re) - (x_im * freqs_im)
         rope_im = (x_re * freqs_im) + (x_im * freqs_re)
 
-        rope_complex = ops.stack([rope_re, rope_im], axis=-1)
+        if self.interleaved:
+            rope_complex = ops.stack([rope_re, rope_im], axis=-1)
+        else:
+            rope_complex = ops.concat((rope_re, rope_im), axis=-1)
 
         # Cast back to the activations dtype, which may differ from
         # freqs_cis's dtype.

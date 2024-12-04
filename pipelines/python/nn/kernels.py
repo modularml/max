@@ -183,6 +183,7 @@ def fused_qk_ragged_rope(
     kv_collection: ContinuousBatchingKVCacheCollection,
     freqs_cis: TensorValue,
     layer_idx: TensorValue,
+    interleaved: bool = True,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings and ragged inputs.
 
@@ -211,7 +212,14 @@ def fused_qk_ragged_rope(
 
     return ops.custom(
         op_name,
-        values=[input, input_row_offset, kv_collection, freqs_cis, layer_idx],
+        values=[
+            input,
+            input_row_offset,
+            kv_collection,
+            freqs_cis,
+            layer_idx,
+            ops.constant(interleaved, DType.bool),
+        ],
         out_types=[
             TensorType(
                 dtype=input.dtype, shape=input.shape, device=input.device
@@ -226,6 +234,7 @@ def fused_qk_rope(
     kv_collection: ContinuousBatchingKVCacheCollection,
     freqs_cis_2d: TensorValue,
     layer_idx: TensorValue,
+    interleaved: bool = True,
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings."""
     input_rank_expected = 4
@@ -251,7 +260,13 @@ def fused_qk_rope(
 
     return ops.custom(
         op_name,
-        values=[input, kv_collection, freqs_cis_2d, layer_idx],
+        values=[
+            input,
+            kv_collection,
+            freqs_cis_2d,
+            layer_idx,
+            ops.constant(interleaved, DType.bool),
+        ],
         out_types=[
             TensorType(
                 dtype=input.dtype, shape=input.shape, device=input.device
