@@ -15,12 +15,8 @@
 from max.pipelines import PIPELINE_REGISTRY
 
 from .arch import coder_arch
-from .coder import Coder
-from .config import get_coder_huggingface_files
+from .model import CoderModel
 
-__all__ = [
-    "Coder",
-    "get_coder_huggingface_files",
-]
+__all__ = ["CoderModel"]
 
 PIPELINE_REGISTRY.register(coder_arch)

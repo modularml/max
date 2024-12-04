@@ -15,12 +15,13 @@
 from typing import Optional, Union
 
 from max.dtype import DType
-from max.graph import Graph, ops
+from max.graph import Graph, TensorType, ops
 from max.graph.quantization import QuantizationEncoding
-from max.graph.weights import Weights
+from max.graph.weights import SafetensorWeights, Weights
 from max.pipelines import PipelineConfig
 from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
+    KVCacheManager,
     KVCacheParams,
     KVCacheStrategy,
 )
@@ -358,3 +359,86 @@ def transformer(
             theta=pipeline_config.huggingface_config.rope_theta,
             embedding=embedding_layer,
         )
+
+
+def _build_opaque_graph(
+    pipeline_config: PipelineConfig,
+    weights: SafetensorWeights,
+    kv_params: KVCacheParams,
+    kv_manager: KVCacheManager,
+) -> Graph:
+    tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
+    # NOTE: input_row_offset_len should be batch_size + 1.
+    input_row_offset_type = TensorType(
+        DType.uint32, shape=["input_row_offset_len"]
+    )
+
+    kv_cache_args = kv_manager.input_symbols()[0]
+
+    with Graph(
+        "coder",
+        input_types=[tokens_type, input_row_offset_type, *kv_cache_args],
+    ) as graph:
+        model = transformer(
+            graph,
+            pipeline_config,
+            weights,
+            kv_params,
+        )
+        tokens, input_row_offset, *kv_cache = graph.inputs
+        outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+        graph.output(*outputs)
+        return graph
+
+
+def _build_graph(
+    pipeline_config: PipelineConfig,
+    weights: SafetensorWeights,
+    kv_params: KVCacheParams,
+    kv_manager: KVCacheManager,
+) -> Graph:
+    if pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
+        return _build_opaque_graph(
+            pipeline_config, weights, kv_params, kv_manager
+        )
+
+    tokens_type = TensorType(DType.int64, shape=["batch_size", "seq_len"])
+    attn_mask_type = TensorType(
+        DType.float32, shape=["batch_size", "seq_len", "post_seq_len"]
+    )
+
+    kv_inputs = kv_manager.input_symbols()[0]
+
+    with Graph(
+        "coder",
+        input_types=[
+            tokens_type,
+            attn_mask_type,
+            *kv_inputs,
+        ],
+    ) as graph:
+        model = transformer(
+            graph,
+            pipeline_config,
+            weights,
+            kv_params,
+        )
+        tokens, attention_mask, k_cache, v_cache, start_pos, _ = graph.inputs
+        mask_dtype = (
+            pipeline_config.dtype
+            if pipeline_config.quantization_encoding
+            in [
+                SupportedEncoding.float32,
+                SupportedEncoding.bfloat16,
+            ]
+            else DType.float32
+        )
+        outputs = model(
+            tokens,
+            attention_mask.cast(mask_dtype),
+            k_cache,
+            v_cache,
+            start_pos,
+        )
+        graph.output(*outputs)
+        return graph
