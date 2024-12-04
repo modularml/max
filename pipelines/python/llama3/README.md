@@ -4,8 +4,9 @@
 
 **API**: MAX Graph
 
-This pipeline demonstrates text completion from an initial prompt using the
-Llama 3.1 large language model. The model itself has been constructed in Python
+This pipeline provides optimized support for the `LlamaForCausalLM` family
+of large language models, as exemplified by the Llama 3.1 text completion
+model. The model itself has been constructed in Python
 using the [MAX Graph API](https://docs.modular.com/engine/graph).
 
 The MAX Graph API provides an accessible interface to the construction of
@@ -63,7 +64,7 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
    magic run llama3 --prompt "I believe the meaning of life is"
    ```
 
-4. Host a text completion endpoint via MAX Serve.
+4. Host a chat completion endpoint via MAX Serve.
 
    MAX Serve provides functionality to host performant OpenAI compatible
    endpoints using the FastAPI framework.
@@ -81,13 +82,21 @@ The easiest way to try out this pipeline is with our Magic command-line tool.
    curl -N http://localhost:8000/v1/chat/completions \
    -H "Content-Type: application/json" \
    -d '{
-       "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+       "model": "modularai/llama-3.1",
        "stream": true,
        "messages": [
            {"role": "system", "content": "You are a helpful assistant."},
            {"role": "user", "content": "Who won the world series in 2020?"}
        ]
    }'
+   ```
+
+   Additionally, finetuned weights hosted on Hugging Face for any compatible
+   `LlamaForCausalLM` model can be used with this optimized architecture
+   via the `serve` command:
+
+   ```shell
+   magic run serve --huggingface-repo-id=meta-llama/Llama-3.2-1B
    ```
 
 ## Options
