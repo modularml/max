@@ -128,7 +128,10 @@ def create_click_option(
 
 def config_to_flag(cls):
     options = []
-    help_text = {} if not hasattr(cls, "help") else cls.help()
+    if hasattr(cls, "help"):
+        help_text = cls.help()
+    else:
+        help_text = {}
     for _field in fields(cls):
         if _field.name.startswith("_"):
             # Skip private config fields.
