@@ -5,6 +5,12 @@ These examples demonstrate the flexibility of the
 [Mojo](https://docs.modular.com/mojo/) interface to the advanced graph compiler
 within MAX.
 
+> [!WARNING]
+> The current Mojo interface for the MAX Graph API is deprecated, in favor of
+> the new Python-based Graph API. We recommend exploring
+> [the Python versions of these pipelines](../../pipelines/python/), which
+> include new models and capabilities.
+
 ## [MAX Pipelines](pipelines/)
 
 End-to-end pipelines that demonstrate the power of
