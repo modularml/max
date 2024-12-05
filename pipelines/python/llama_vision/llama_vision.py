@@ -67,9 +67,9 @@ class LlamaVision(PipelineModel):
                 "batch_size",
                 1,  # num_concurrent_media
                 4,  # num_tiles
+                3,  # num_channels
                 448,  # height
                 448,  # width
-                3,  # num_channels
             ],
         )
         aspect_ratio_ids_type = TensorType(
