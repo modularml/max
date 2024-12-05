@@ -255,19 +255,21 @@ class VisionModel(Layer):
             batch_size,
             num_concurrent_media,
             num_tiles,
+            num_channels,
             height,
             width,
-            num_channels,
         ) = pixel_values.shape
 
         pixel_values = pixel_values.reshape(
             (
                 batch_size * num_concurrent_media * num_tiles,
+                num_channels,
                 height,
                 width,
-                num_channels,
             )
         )
+        # Permute from NCHW -> NHWC
+        pixel_values = pixel_values.permute([0, 2, 3, 1])
 
         aspect_ratio_ids = aspect_ratio_ids.reshape(
             (batch_size * num_concurrent_media, -1)
@@ -278,20 +280,6 @@ class VisionModel(Layer):
 
         # Permute it back to original dim of (4, 1280, 32, 32)
         patch_embeds = patch_embeds.permute([0, 3, 1, 2])
-
-        # TODO: Fix patch_embedding incorrect shape (4, 1280, 0, 32), then
-        # remove the debug_tensor below.
-        # ---------------- FOR DEBUGGING PURPOSES ONLY -------------------
-        debug_tensor = ops.constant(0.5, DType.float32).broadcast_to(
-            (
-                4,
-                1280,
-                32,
-                32,
-            )
-        )
-        patch_embeds = debug_tensor
-        # ---------------- FOR DEBUGGING PURPOSES ONLY -------------------
 
         hidden_state = patch_embeds.flatten(2).transpose(1, 2)
 
