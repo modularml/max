@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, TensorValueLike
 
 from ..attention import NaiveAttentionWithRope
 from ..embedding import Embedding
@@ -76,7 +76,7 @@ class NaiveTransformer(Layer):
         k_cache: TensorValueLike,
         v_cache: TensorValueLike,
         start_pos: TensorValueLike,
-    ) -> tuple[TensorValue, TensorValue]:
+    ) -> tuple[TensorValue]:
         h = self.embedding(tokens)
 
         for i in range(len(self.layers)):
@@ -89,6 +89,4 @@ class NaiveTransformer(Layer):
                 i,
             )
 
-        return (
-            ops.cast(self.output(self.norm(h)), k_cache.dtype),  # type: ignore
-        )
+        return (self.output(self.norm(h)),)
