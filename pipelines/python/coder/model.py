@@ -20,11 +20,7 @@ from dataprocessing import batch_padded_tokens_and_mask
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.pipelines import (
-    ModelOutputs,
-    PipelineModel,
-    TextContext,
-)
+from max.pipelines import ModelOutputs, PipelineModel, TextContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
@@ -39,7 +35,10 @@ from .graph import _build_graph
 class CoderModel(PipelineModel):
     def execute(self, *model_inputs: Tensor) -> ModelOutputs:
         model_outputs = self.model.execute(
-            *model_inputs, copy_inputs_to_device=False
+            *model_inputs,
+            copy_inputs_to_device=(
+                self.pipeline_config.cache_strategy == KVCacheStrategy.NAIVE
+            ),
         )
 
         if self.pipeline_config.enable_echo:
