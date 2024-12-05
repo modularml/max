@@ -46,7 +46,10 @@ from .gguf import transformer
 class Llama3Model(PipelineModel):
     def execute(self, *model_inputs: Tensor) -> ModelOutputs:
         model_outputs = self.model.execute(
-            *model_inputs, copy_inputs_to_device=False
+            *model_inputs,
+            copy_inputs_to_device=(
+                self.pipeline_config.cache_strategy == KVCacheStrategy.NAIVE
+            ),
         )
 
         if self.pipeline_config.enable_echo:

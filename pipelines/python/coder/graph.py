@@ -18,7 +18,7 @@ from max.dtype import DType
 from max.graph import Graph, TensorType, ops
 from max.graph.quantization import QuantizationEncoding
 from max.graph.weights import SafetensorWeights, Weights
-from max.pipelines import PipelineConfig
+from max.pipelines import PipelineConfig, SupportedEncoding
 from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheManager,
@@ -314,7 +314,7 @@ def transformer(
         layers = [
             NaiveTransformerBlock(
                 attention=attention(
-                    kv_params, params, rope, weights.model.layers[i]
+                    kv_params, pipeline_config, rope, weights.model.layers[i]
                 ),
                 mlp=feed_forward(
                     pipeline_config.dtype,
