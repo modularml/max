@@ -1,7 +1,7 @@
 [project]
 dependencies = []
 description = "Tutorial: Run a TorchScript model with Python"
-name = "torchscript-tutorial2"
+name = "torchscript-tutorial"
 requires-python = ">= 3.11"
 version = "0.1.0"
 
@@ -14,10 +14,9 @@ channels = ["pytorch", "conda-forge", "https://conda.modular.com/max-nightly/"]
 platforms = ["linux-64", "osx-arm64"]
 
 [tool.pixi.pypi-dependencies]
-torchscript_tutorial2 = { path = ".", editable = true }
+torchscript_tutorial = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
-python = ">=3.9,<3.13"
 max = "~=24.5"
 pytorch = "==2.4.0"
 transformers = "==4.40.1"
@@ -28,5 +27,5 @@ test = "python3 download-model.py && python3 run.py"
 [tool.pixi.environments]
 test = { features = ["test"] }
 
-[tool.pixi.feature.test.pypi-dependencies]
+[tool.pixi.feature.test.dependencies]
 python-dateutil = "==2.9.0"
