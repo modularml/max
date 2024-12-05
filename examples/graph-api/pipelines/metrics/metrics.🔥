@@ -21,16 +21,16 @@ from runtime.tracing import Trace, TraceLevel
 struct Metrics:
     """A group of timings and throughput measurements for text generation."""
 
-    var start_startup: Optional[Int]
-    var end_startup: Optional[Int]
-    var start_time_before_prompt: Optional[Int]
-    var start_time_before_warmup: Optional[Int]
-    var end_warmup: Optional[Int]
-    var start_time_before_tokenization: Optional[Int]
-    var end_tokenization: Optional[Int]
-    var start_time_before_generation: Optional[Int]
-    var start_time_before_context: Optional[Int]
-    var end_time: Optional[Int]
+    var start_startup: Optional[UInt]
+    var end_startup: Optional[UInt]
+    var start_time_before_prompt: Optional[UInt]
+    var start_time_before_warmup: Optional[UInt]
+    var end_warmup: Optional[UInt]
+    var start_time_before_tokenization: Optional[UInt]
+    var end_tokenization: Optional[UInt]
+    var start_time_before_generation: Optional[UInt]
+    var start_time_before_context: Optional[UInt]
+    var end_time: Optional[UInt]
     var tokens_in_prompt: Optional[Int]
     var tokens_generated: Int
     var traces: List[Trace[TraceLevel.OP]]
