@@ -66,6 +66,7 @@ class MLP(Layer):
             and TensorValue(x).rank == 2
             and TensorValue(x).device is not None
             and TensorValue(x).device != Device.CPU()
+            and False  # GEX-1476: This causes elaboration errors - disable swish_glu pathway.
         ):
             return self.down_proj(
                 swish_glu(
