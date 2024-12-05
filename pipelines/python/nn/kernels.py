@@ -64,7 +64,7 @@ def fused_qkv_ragged_matmul(
         msg = f"expected layer_idx to have dtype uint32, was {layer_idx.dtype}"
         raise ValueError(msg)
 
-    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged"
+    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged"
 
     return ops.custom(
         op_name,
@@ -112,7 +112,7 @@ def fused_qkv_matmul(
         msg = f"expected layer_idx to have dtype uint32, was {layer_idx.dtype}"
         raise ValueError(msg)
 
-    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
+    op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
@@ -164,7 +164,7 @@ def matmul_kv_cache_ragged(
         raise ValueError(msg)
 
     ops.custom(
-        name=f"matmul_kv_cache_ragged_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged",
+        name=f"matmul_kv_cache_ragged_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged",
         values=[
             hidden_states,
             input_row_offset,
@@ -208,7 +208,7 @@ def fused_qk_ragged_rope(
         msg = f"expected layer_idx to have dtype uint32, was {layer_idx.dtype}"
         raise ValueError(msg)
 
-    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch_ragged"
+    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch_ragged"
 
     return ops.custom(
         op_name,
@@ -256,7 +256,7 @@ def fused_qk_rope(
         msg = f"expected uint32 layer_idx but got {layer_idx.dtype}"
         raise ValueError(msg)
 
-    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
+    op_name = f"fused_qk_rope_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     return ops.custom(
         op_name,
@@ -306,11 +306,12 @@ def flash_attention(
         msg = f"expected uint32 valid_lengths but got {valid_lengths.dtype}"
         raise ValueError(msg)
 
-    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_bshd_continuous_batch"
+    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch"
 
     # NOTE: The scale argument to the flash attention kernel is constrained to
     # float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
+
     return ops.custom(
         op_name,
         values=[
@@ -361,7 +362,7 @@ def flash_attention_with_causal_mask(
         msg = f"expected uint32 valid_lengths but got {valid_lengths.dtype}"
         raise ValueError(msg)
 
-    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_causal_mask_continuous_batch"
+    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_causal_mask_continuous_batch"
 
     # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
@@ -413,7 +414,7 @@ def flash_attention_ragged_with_causal_mask(
         )
         raise ValueError(msg)
 
-    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads}_d{kv_params.head_dim}_cont_batch_ragged"
+    op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged"
 
     # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
@@ -446,7 +447,7 @@ def swish_glu(
         raise ValueError(msg)
 
     b1_rank_expected = 2
-    if b1.rank != {b1_rank_expected}:
+    if b1.rank != b1_rank_expected:
         msg = f"expected b1 to have rank {b1_rank_expected}, was {b1.rank}"
         raise ValueError(msg)
 
