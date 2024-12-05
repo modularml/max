@@ -433,12 +433,17 @@ def _build_graph(
             ]
             else DType.float32
         )
-        outputs = model(
+        logits = model(
             tokens,
             attention_mask.cast(mask_dtype),
             k_cache,
             v_cache,
             start_pos,
-        )
-        graph.output(*outputs)
+        )[0]
+
+        if pipeline_config.enable_echo:
+            graph.output(logits[:, -1], logits)
+        else:
+            graph.output(logits[:, -1])
+
         return graph
