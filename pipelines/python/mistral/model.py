@@ -22,6 +22,7 @@ from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     load_kv_manager,
+    estimate_kv_cache_size,
 )
 from max.driver import Tensor
 from max.engine import InferenceSession, Model
@@ -92,6 +93,18 @@ class MistralModel(PipelineModel):
             num_layers=self.pipeline_config.huggingface_config.num_hidden_layers,
             devices=[self.pipeline_config._device],
             session=session,
+        )
+
+    def estimate_kv_cache_size(self) -> int:
+        assert (
+            self.pipeline_config._device
+        ), "device must be provided to estimate kv cache size."
+        return estimate_kv_cache_size(
+            params=self._get_kv_params(),
+            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
+            max_seq_len=self.pipeline_config.huggingface_config.max_seq_len,
+            num_layers=self.pipeline_config.huggingface_config.num_hidden_layers,
+            devices=[self.pipeline_config._device],
         )
 
     def load_model(self, session: InferenceSession) -> Model:

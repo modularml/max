@@ -21,6 +21,7 @@ from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     load_kv_manager,
+    estimate_kv_cache_size,
 )
 from max.driver import Tensor
 from max.engine import InferenceSession, Model
@@ -85,6 +86,15 @@ class PixtralModel(PipelineModel):
             num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
             devices=[self.pipeline_config.device],
             session=session,
+        )
+
+    def estimate_kv_cache_size(self) -> int:
+        return estimate_kv_cache_size(
+            params=self._get_kv_params(),
+            max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
+            max_seq_len=self.pipeline_config.huggingface_config.image_seq_length,  # TODO: verify this
+            num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
+            devices=[self.pipeline_config.device],
         )
 
     def load_model(self, session: InferenceSession) -> Model:
