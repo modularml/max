@@ -65,7 +65,7 @@ def linear(
 class VisionConv2D(Conv2D):
     def __call__(self, x: TensorValue) -> TensorValue:
         # Permute first before calling the parent forward pass.
-        self.filter = self.filter.permute([2, 3, 1, 0])
+        self.filter = ops.permute(self.filter, [2, 3, 1, 0])
         return super().__call__(x=x)
 
 
