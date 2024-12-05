@@ -103,6 +103,7 @@ class VisionModel(Layer):
     global_transformer: VisionEncoder
     dtype: DType
     intermediate_layers_indices: list[int]
+    num_patches: int
 
     def apply_class_embedding(self, hidden_state: TensorValue) -> TensorValue:
         """
@@ -157,7 +158,7 @@ class VisionModel(Layer):
         # The snippet below is a workaround for
         # attention_mask[:, :, 0 - pad_patches :] = 0
         valid_mask = attention_mask[:, :, :-pad_patches, :]
-        zero_pad = ops.constant(0, DType.bfloat16).broadcast_to(
+        zero_pad = ops.constant(0, dtype).broadcast_to(
             (batch_size, max_num_tiles, pad_patches, attention_mask.shape[-1])
         )
         attention_mask = ops.concat((valid_mask, zero_pad), axis=2)
@@ -332,9 +333,10 @@ class VisionModel(Layer):
         attention_mask = aspect_ratio_mask.reshape(
             (batch_size * num_concurrent_media, -1)
         )  # (1, 4)
+
         attention_mask = self._prepare_aspect_ratio_attention_mask(
             aspect_ratio_mask=attention_mask,
-            num_patches=num_patches,
+            num_patches=self.num_patches,
             target_length=hidden_state.shape[2].dim,
             dtype=self.dtype,
         )
@@ -739,4 +741,5 @@ def instantiate_vision_model(
         global_transformer=global_transformer,
         dtype=dtype,
         intermediate_layers_indices=intermediate_layers_indices,
+        num_patches=(image_size // patch_size) ** 2 + 1,
     )
