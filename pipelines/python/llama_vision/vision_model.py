@@ -59,6 +59,16 @@ def linear(
     )
 
 
+# TODO(MAXCORE-170): We should clean this up. This is just a RSCF layout permutation so it
+# conforms with our conv op API.
+@dataclass
+class VisionConv2D(Conv2D):
+    def __call__(self, x: TensorValue) -> TensorValue:
+        # Permute first before calling the parent forward pass.
+        self.filter = self.filter.permute([2, 3, 1, 0])
+        return super().__call__(x=x)
+
+
 @dataclass
 class VisionModel(Layer):
     """
@@ -85,7 +95,7 @@ class VisionModel(Layer):
     gated_positional_embedding: PrecomputedPositionEmbedding
     pre_tile_positional_embedding: PrecomputedAspectRatioEmbedding
     post_tile_positional_embedding: PrecomputedAspectRatioEmbedding
-    patch_embedding: Conv2D
+    patch_embedding: VisionConv2D
     class_embedding: TensorValueLike
     layernorm_pre: LPLayerNorm
     layernorm_post: LPLayerNorm
@@ -549,13 +559,10 @@ def instantiate_vision_model(
     )
 
     # patch_embedding filter has a shape of (1280, 3, 14, 14).
-    patch_embedding = Conv2D(
-        filter=ops.permute(
-            weights.vision_model.patch_embedding.weight.allocate(
-                dtype,
-                [hidden_size, num_channels, patch_size, patch_size],
-            ),
-            [2, 3, 1, 0],
+    patch_embedding = VisionConv2D(
+        filter=weights.vision_model.patch_embedding.weight.allocate(
+            dtype,
+            [hidden_size, num_channels, patch_size, patch_size],
         ),
         stride=patch_size,
         padding=(0, 0, 0, 0),
