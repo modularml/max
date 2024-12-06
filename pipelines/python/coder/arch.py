@@ -17,6 +17,7 @@ from max.pipelines import (
     SupportedEncoding,
     SupportedVersion,
     TextTokenizer,
+    WeightsFormat,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
 
@@ -48,4 +49,5 @@ coder_arch = SupportedArchitecture(
     default_version="1.5",
     pipeline_model=CoderModel,
     tokenizer=TextTokenizer,
+    default_weights_format=WeightsFormat.safetensors,
 )

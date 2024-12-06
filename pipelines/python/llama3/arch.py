@@ -11,15 +11,18 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .model import Llama3Model
 from max.pipelines import (
     HuggingFaceFile,
     SupportedArchitecture,
-    SupportedVersion,
     SupportedEncoding,
+    SupportedVersion,
     TextTokenizer,
+    WeightsFormat,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
+
+from .model import Llama3Model
+from .safetensor_converter import LlamaSafetensorWeights
 
 llama_arch = SupportedArchitecture(
     name="LlamaForCausalLM",
@@ -117,4 +120,6 @@ llama_arch = SupportedArchitecture(
     default_version="3.1",
     pipeline_model=Llama3Model,
     tokenizer=TextTokenizer,
+    default_weights_format=WeightsFormat.gguf,
+    weight_converters={WeightsFormat.safetensors: LlamaSafetensorWeights},
 )

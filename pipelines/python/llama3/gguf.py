@@ -172,11 +172,9 @@ def _transformer_opaque(
     kv_params: KVCacheParams,
 ):
     with graph:
-        try:
-            rope_scaling = weights.rope_freqs.weight.raw_tensor().data
-        except (KeyError, AttributeError):
-            # Set default RoPE scaling if the tensor isn't present in the GGUF
-            # file.
+        if weights.rope_freqs.weight.exists():
+            rope_scaling = weights.rope_freqs.weight.raw_tensor()
+        else:
             rope_scaling = None
 
         rope = OptimizedRotaryEmbedding(
@@ -226,7 +224,7 @@ def _transformer_opaque(
 
         # Smaller model variants lack dedicated weights for a final linear
         # layer, and share the embedding layer.
-        if hasattr(weights, "output"):
+        if weights.output.weight.exists():
             output = linear(
                 pipeline_config.dtype,
                 pipeline_config.quantization_encoding.quantization_encoding,
@@ -317,11 +315,9 @@ def transformer(
         return _transformer_opaque(graph, pipeline_config, weights, kv_params)
 
     with graph:
-        try:
-            rope_scaling = weights.rope_freqs.weight.raw_tensor().data
-        except (KeyError, AttributeError):
-            # Set default RoPE scaling if the tensor isn't present in the GGUF
-            # file.
+        if weights.rope_freqs.weight.exists():
+            rope_scaling = weights.rope_freqs.weight.raw_tensor()
+        else:
             rope_scaling = None
 
         rope = RotaryEmbedding(
@@ -367,7 +363,7 @@ def transformer(
 
         # Smaller model variants lack dedicated weights for a final linear
         # layer, and share the embedding layer.
-        if hasattr(weights, "output"):
+        if weights.output.weight.exists():
             output = linear(
                 pipeline_config.dtype,
                 pipeline_config.quantization_encoding.quantization_encoding,

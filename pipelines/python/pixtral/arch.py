@@ -11,15 +11,17 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .pixtral import PixtralModel
 from max.pipelines import (
     HuggingFaceFile,
     SupportedArchitecture,
-    SupportedVersion,
     SupportedEncoding,
+    SupportedVersion,
     TextAndVisionTokenizer,
+    WeightsFormat,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
+
+from .pixtral import PixtralModel
 
 pixtral_arch = SupportedArchitecture(
     name="LlavaForConditionalGeneration",
@@ -63,4 +65,5 @@ pixtral_arch = SupportedArchitecture(
     default_version="default",
     pipeline_model=PixtralModel,
     tokenizer=TextAndVisionTokenizer,
+    default_weights_format=WeightsFormat.safetensors,
 )

@@ -11,15 +11,17 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .llama_vision import LlamaVision
 from max.pipelines import (
     HuggingFaceFile,
     SupportedArchitecture,
-    SupportedVersion,
     SupportedEncoding,
+    SupportedVersion,
     TextAndVisionTokenizer,
+    WeightsFormat,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
+
+from .llama_vision import LlamaVision
 
 llama_vision_arch = SupportedArchitecture(
     name="MllamaForConditionalGeneration",
@@ -59,4 +61,5 @@ llama_vision_arch = SupportedArchitecture(
     default_version="3.2",
     pipeline_model=LlamaVision,
     tokenizer=TextAndVisionTokenizer,
+    default_weights_format=WeightsFormat.safetensors,
 )

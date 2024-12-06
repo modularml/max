@@ -18,6 +18,7 @@ from max.pipelines import (
     SupportedVersion,
     SupportedEncoding,
     TextTokenizer,
+    WeightsFormat,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
 
@@ -52,4 +53,5 @@ replit_arch = SupportedArchitecture(
     default_version="1.5",
     pipeline_model=ReplitModel,
     tokenizer=TextTokenizer,
+    default_weights_format=WeightsFormat.gguf,
 )
