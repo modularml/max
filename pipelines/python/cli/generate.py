@@ -53,7 +53,7 @@ async def stream_text_to_console(
     )
     decoded_responses[req_id] = [prompt]
     request_id_context[req_id] = context
-    prompt_size = len(context.tokens)
+    prompt_size = context.current_length
 
     if metrics:
         metrics.prompt_size = prompt_size
