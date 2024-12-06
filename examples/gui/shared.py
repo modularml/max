@@ -253,7 +253,7 @@ class TextGenerationMetrics:
 async def stream_output(model: TokenGenerator, prompt: str) -> str:
     metrics = TextGenerationMetrics()
     context = model.new_context(prompt)
-    prompt_size = len(context.tokens)
+    prompt_size = context.current_length
 
     response_display = st.empty()
     response_str = ""
