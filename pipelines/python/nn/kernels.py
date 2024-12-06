@@ -66,7 +66,7 @@ def fused_qkv_ragged_matmul(
 
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged"
 
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[input, input_row_offset, wqkv, kv_collection, layer_idx],
         out_types=[
@@ -88,7 +88,6 @@ def fused_qkv_matmul(
     n_heads: int,
 ) -> TensorValue:
     """Computes fused query, key and value projections."""
-
     if input.dtype != wqkv.dtype:
         msg = (
             "expected input and wqkv to have the same dtype, but got"
@@ -114,7 +113,7 @@ def fused_qkv_matmul(
 
     op_name = f"fused_qkv_matmul_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[input, wqkv, kv_collection, layer_idx],
         out_types=[
@@ -130,16 +129,16 @@ def fused_qkv_matmul(
 def matmul_kv_cache_ragged(
     kv_params: KVCacheParams,
     hidden_states: TensorValue,
-    input_row_offset: TensorValue,
+    input_row_offsets: TensorValue,
     weight: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollection,
     layer_idx: int | np.integer,
 ) -> None:
     """Computes key and value projections with ragged input.
 
-    `hidden_states` and `input_row_offset` are used together to
+    `hidden_states` and `input_row_offsets` are used together to
     implement the ragged tensor.
-    `input_row_offset` indicates where each batch starts and ends in `input`
+    `input_row_offsets` indicates where each batch starts and ends in `input`
     """
     if hidden_states.dtype != weight.dtype:
         msg = (
@@ -156,23 +155,22 @@ def matmul_kv_cache_ragged(
         )
         raise ValueError(msg)
 
-    if input_row_offset.dtype != DType.uint32:
+    if input_row_offsets.dtype != DType.uint32:
         msg = (
-            "expected input_row_offset to have dtype uint32, was"
-            f" {input_row_offset.dtype}"
+            "expected input_row_offsets to have dtype uint32, was"
+            f" {input_row_offsets.dtype}"
         )
         raise ValueError(msg)
 
-    ops.custom(
-        name=f"matmul_kv_cache_ragged_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged",
+    ops.inplace_custom(
+        name=f"matmul_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged",
         values=[
             hidden_states,
-            input_row_offset,
+            input_row_offsets,
             weight,
             kv_collection,
             ops.constant(layer_idx, DType.uint32),
         ],
-        out_types=[],
     )
 
 
@@ -210,7 +208,7 @@ def fused_qk_ragged_rope(
 
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch_ragged"
 
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[
             input,
@@ -258,7 +256,7 @@ def fused_qk_rope(
 
     op_name = f"fused_qk_rope_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_bshd_continuous_batch"
 
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[
             input,
@@ -311,8 +309,7 @@ def flash_attention(
     # NOTE: The scale argument to the flash attention kernel is constrained to
     # float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
-
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[
             input,
@@ -366,7 +363,7 @@ def flash_attention_with_causal_mask(
 
     # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[input, kv_collection, layer_idx, valid_lengths, scale],
         out_types=[
@@ -418,7 +415,7 @@ def flash_attention_ragged_with_causal_mask(
 
     # NOTE: The scale argument to flash attention is constrained to float32.
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
-    return ops.custom(
+    return ops.inplace_custom(
         op_name,
         values=[input, input_row_offset, kv_collection, layer_idx, scale],  # type: ignore
         out_types=[

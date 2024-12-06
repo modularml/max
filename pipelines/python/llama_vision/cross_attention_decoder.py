@@ -76,7 +76,7 @@ class CrossSdpaAttention(Layer):
         # Get the combined sequence length: sum(seq_len for seq_len in batch).
         total_seq_len = hidden_states.shape[0]
 
-        wkv = ops.concat((self.wk, self.wv), axis=0).transpose(0, 1)
+        wkv = ops.concat((self.wk, self.wv), axis=0)
 
         query_states = self.q_proj(hidden_states)
         query_states = query_states.reshape(
@@ -93,7 +93,7 @@ class CrossSdpaAttention(Layer):
             # Here, hidden_states correspond to cross_attention_states.
             hidden_states=cross_attention_states,
             layer_idx=self.layer_idx,
-            input_row_offset=input_row_offset,
+            input_row_offsets=input_row_offset,
             weight=wkv,
             kv_collection=kv_collection,
         )
