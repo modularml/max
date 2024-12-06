@@ -85,13 +85,11 @@ def _llava(
     # Weights of pixtral have the same names and shapes as weights of mistral.
     language_model = _transformer(graph, params, weights, kv_params)
 
-    pad_token_id = -1
     return LlavaConditionalGeneration(
         vision_encoder,
         multi_modal_projector,
         language_model,
         params.huggingface_config.text_config.vocab_size,
-        pad_token_id,
         params.huggingface_config.image_token_index,
         params.huggingface_config.vision_feature_layer,
         params.huggingface_config.vision_feature_select_strategy,

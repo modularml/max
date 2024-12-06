@@ -43,6 +43,9 @@ class VisionEncoder(Layer):
     max_image_size: int = 1024
 
     def __call__(self, imgs: List[TensorValue]):
+        """
+        imgs: list of images of shape = (height, width, num_channels)
+        """
         # Images go through a convolution independently to get patched.
         # Returns a list of [batch_size, hidden_size, height/patch_size, width/patch_size] tensors
         patch_embeds_list = [
@@ -77,6 +80,7 @@ class VisionEncoder(Layer):
             patch_embeds, position_ids
         )
 
+        # p.shape = batch_size, patches_per_height, patches_per_width, hidden_size
         attention_mask = causal_attention_mask_2d(
             [p.shape[1] * p.shape[2] for p in patch_embeds_list],
             patch_embeds,

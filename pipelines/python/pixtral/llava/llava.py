@@ -32,7 +32,6 @@ class LlavaConditionalGeneration(Layer):
     multi_modal_projector: LlavaMultiModalConnector
     language_model: Transformer
     vocab_size: int
-    pad_token_id: int = -1
     image_token_index: int = 10
     vision_feature_layer: int = -1
     vision_feature_select_strategy: str = "full"
