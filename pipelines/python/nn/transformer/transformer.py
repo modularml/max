@@ -89,10 +89,10 @@ class Transformer(Layer):
             # When echo is enabled, the logits of the input tokens are
             # returned.
             logits = ops.cast(self.output(self.norm(h)), DType.float32)
-            if "input_row_offset" in kwargs:
+            if "input_row_offsets" in kwargs:
                 # For ragged tensors gather the last tokens from packed dim 0.
-                input_row_offset: TensorValueLike = kwargs["input_row_offset"]
-                last_token_indices = input_row_offset[1:] - 1  # type: ignore
+                input_row_offsets: TensorValueLike = kwargs["input_row_offsets"]
+                last_token_indices = input_row_offsets[1:] - 1  # type: ignore
                 last_token_logits = ops.gather(
                     logits, last_token_indices, axis=0
                 )
@@ -109,10 +109,10 @@ class Transformer(Layer):
         else:
             # Otherwise, only return the logits for the last non-pad token
             # (right-padded).
-            if "input_row_offset" in kwargs:
+            if "input_row_offsets" in kwargs:
                 # For ragged tensors gather the last tokens from packed dim 0.
-                input_row_offset = kwargs["input_row_offset"]
-                last_token_indices = input_row_offset[1:] - 1  # type: ignore
+                input_row_offsets = kwargs["input_row_offsets"]
+                last_token_indices = input_row_offsets[1:] - 1  # type: ignore
                 # Should be: last_token = h[last_token_indices]
                 last_token = ops.gather(h, last_token_indices, axis=0)
             else:

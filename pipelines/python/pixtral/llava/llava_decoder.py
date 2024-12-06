@@ -20,7 +20,6 @@ from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
 )
-
 from nn import Embedding, Linear, LPLayerNorm, RMSNorm, TransformerBlock
 from nn.layer import Layer
 
@@ -62,10 +61,10 @@ class Transformer(Layer):
             )
 
         # Predict with the last non-pad token (right-padded).
-        if "input_row_offset" in kwargs:
+        if "input_row_offsets" in kwargs:
             # For ragged tensors gather the last tokens from packed dim 0.
-            input_row_offset: TensorValueLike = kwargs["input_row_offset"]
-            last_token_indices = input_row_offset[1:] - 1  # type: ignore
+            input_row_offsets: TensorValueLike = kwargs["input_row_offsets"]
+            last_token_indices = input_row_offsets[1:] - 1  # type: ignore
             # Should be: last_token = h[last_token_indices]
             last_token = ops.gather(h, last_token_indices, axis=0)
         else:

@@ -106,7 +106,7 @@ def _build_graph(
     # TODO: Make this work for multiple devices. Now getting the types for device [0]
     kv_cache_types = kv_manager.input_symbols()[0]
 
-    # TODO: Do we need text_token_type and input_row_offset_type from mistral?
+    # TODO: Do we need text_token_type and input_row_offsets_type from mistral?
     input_ids_type = TensorType(
         # DType.int64, total_seq_len=sum(len(batch) for batch in input_ids)
         DType.int64,
@@ -118,8 +118,8 @@ def _build_graph(
         [304, 400, 3],  # ["height", "width", "num_channels"]
     )
     # Type of start and end position of each batch in the combined total_seq_len dimension.
-    input_row_offset_type = TensorType(
-        DType.uint32, shape=["input_row_offset_len"]
+    input_row_offsets_type = TensorType(
+        DType.uint32, shape=["input_row_offsets_len"]
     )
 
     # TODO: Use symbolic dims.
@@ -129,19 +129,19 @@ def _build_graph(
         input_types=[
             input_ids_type,
             pixel_values_type,
-            input_row_offset_type,
+            input_row_offsets_type,
             *kv_cache_types,
         ],
     ) as graph:
         model = _llava(graph, params, weights, kv_params)
-        input_ids, pixel_values, input_row_offset, *kv_cache_inputs = (
+        input_ids, pixel_values, input_row_offsets, *kv_cache_inputs = (
             graph.inputs
         )
         logits = model(
             input_ids=input_ids,  # type: ignore
             pixel_values=pixel_values,  # type: ignore
             kv_cache_inputs=kv_cache_inputs,  # type: ignore
-            input_row_offset=input_row_offset,
+            input_row_offsets=input_row_offsets,
         )
         graph.output(logits)
         return graph

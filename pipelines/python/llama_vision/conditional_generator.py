@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from max.dtype import DType
-from max.graph import TensorValue, Dim
+from max.graph import Dim, TensorValue
 from max.pipelines import PipelineConfig
 from nn import Linear
 from nn.layer import Layer
@@ -120,7 +120,7 @@ class ConditionalGenerator(Layer):
         cache_position: TensorValue | None = None,
         # For preparing cross attention mask.
         full_text_row_masked_out_mask: TensorValue | None = None,
-        input_row_offset: TensorValue | None = None,
+        input_row_offsets: TensorValue | None = None,
     ) -> TensorValue:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
@@ -177,7 +177,7 @@ class ConditionalGenerator(Layer):
         return self.language_model(
             kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
-            input_row_offset=input_row_offset,
+            input_row_offsets=input_row_offsets,
             position_ids=position_ids,
             cross_attention_states=cross_attention_states,
             cross_attention_mask=cross_attention_mask,

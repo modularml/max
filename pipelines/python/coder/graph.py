@@ -368,16 +368,16 @@ def _build_opaque_graph(
     kv_manager: KVCacheManager,
 ) -> Graph:
     tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
-    # NOTE: input_row_offset_len should be batch_size + 1.
-    input_row_offset_type = TensorType(
-        DType.uint32, shape=["input_row_offset_len"]
+    # NOTE: input_row_offsets_len should be batch_size + 1.
+    input_row_offsets_type = TensorType(
+        DType.uint32, shape=["input_row_offsets_len"]
     )
 
     kv_cache_args = kv_manager.input_symbols()[0]
 
     with Graph(
         "coder",
-        input_types=[tokens_type, input_row_offset_type, *kv_cache_args],
+        input_types=[tokens_type, input_row_offsets_type, *kv_cache_args],
     ) as graph:
         model = transformer(
             graph,
@@ -385,8 +385,8 @@ def _build_opaque_graph(
             weights,
             kv_params,
         )
-        tokens, input_row_offset, *kv_cache = graph.inputs
-        outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+        tokens, input_row_offsets, *kv_cache = graph.inputs
+        outputs = model(tokens, kv_cache, input_row_offsets=input_row_offsets)
         graph.output(*outputs)
         return graph
 

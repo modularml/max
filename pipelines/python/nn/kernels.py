@@ -26,7 +26,7 @@ from max.pipelines.kv_cache import (
 def fused_qkv_ragged_matmul(
     kv_params: KVCacheParams,
     input: TensorValue,
-    input_row_offset: TensorValue,
+    input_row_offsets: TensorValue,
     wqkv: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollection,
     layer_idx: TensorValue,
@@ -34,9 +34,9 @@ def fused_qkv_ragged_matmul(
 ) -> TensorValue:
     """Computes fused query, key, and value projections with ragged input.
 
-    `input` and `input_row_offset` are used together to implement the ragged
+    `input` and `input_row_offsets` are used together to implement the ragged
     tensor.
-    `input_row_offset` indicates where each batch starts and ends in `input`
+    `input_row_offsets` indicates where each batch starts and ends in `input`
 
     Raises:
         ValueError: on input shapes/dtypes that are invalid for the kernel.
@@ -53,10 +53,10 @@ def fused_qkv_ragged_matmul(
         msg = f"expected input to have rank {input_rank_expected}, was {input.rank}"
         raise ValueError(msg)
 
-    if input_row_offset.dtype != DType.uint32:
+    if input_row_offsets.dtype != DType.uint32:
         msg = (
-            "expected input_row_offset to have dtype uint32, was"
-            f" {input_row_offset.dtype}"
+            "expected input_row_offsets to have dtype uint32, was"
+            f" {input_row_offsets.dtype}"
         )
         raise ValueError(msg)
 
@@ -68,7 +68,7 @@ def fused_qkv_ragged_matmul(
 
     return ops.inplace_custom(
         op_name,
-        values=[input, input_row_offset, wqkv, kv_collection, layer_idx],
+        values=[input, input_row_offsets, wqkv, kv_collection, layer_idx],
         out_types=[
             TensorType(
                 dtype=input.dtype,
@@ -177,7 +177,7 @@ def matmul_kv_cache_ragged(
 def fused_qk_ragged_rope(
     kv_params: KVCacheParams,
     input: TensorValue,
-    input_row_offset: TensorValue,
+    input_row_offsets: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollection,
     freqs_cis: TensorValue,
     layer_idx: TensorValue,
@@ -185,8 +185,8 @@ def fused_qk_ragged_rope(
 ) -> TensorValue:
     """Computes fused query-key attention with rotary positional encodings and ragged inputs.
 
-    `input` and `input_row_offset` are used together to implement the ragged tensor.
-    `input_row_offset` indicates where each batch starts and ends in `input`
+    `input` and `input_row_offsets` are used together to implement the ragged tensor.
+    `input_row_offsets` indicates where each batch starts and ends in `input`
     """
 
     if input.dtype != freqs_cis.dtype:
@@ -196,10 +196,10 @@ def fused_qk_ragged_rope(
         )
         raise ValueError(msg)
 
-    if input_row_offset.dtype != DType.uint32:
+    if input_row_offsets.dtype != DType.uint32:
         msg = (
-            "expected input_row_offset to have dtype uint32, was"
-            f" {input_row_offset.dtype}"
+            "expected input_row_offsets to have dtype uint32, was"
+            f" {input_row_offsets.dtype}"
         )
 
     if layer_idx.dtype != DType.uint32:
@@ -212,7 +212,7 @@ def fused_qk_ragged_rope(
         op_name,
         values=[
             input,
-            input_row_offset,
+            input_row_offsets,
             kv_collection,
             freqs_cis,
             layer_idx,
@@ -377,15 +377,15 @@ def flash_attention_with_causal_mask(
 def flash_attention_ragged_with_causal_mask(
     kv_params: KVCacheParams,
     input: TensorValue,
-    input_row_offset: TensorValue,
+    input_row_offsets: TensorValue,
     kv_collection: ContinuousBatchingKVCacheCollection,
     layer_idx: TensorValue,
 ) -> TensorValue:
     """Computes flash attention provided the mo.opaque KV Cache.
     Notably, materializes the causal mask within the kernel.
 
-    `input` and `input_row_offset` are used together to implement the ragged tensor.
-    `input_row_offset` indicates where each batch starts and ends in `input`
+    `input` and `input_row_offsets` are used together to implement the ragged tensor.
+    `input_row_offsets` indicates where each batch starts and ends in `input`
     """
 
     input_rank_expected = 3
@@ -405,10 +405,8 @@ def flash_attention_ragged_with_causal_mask(
         msg = f"expected uint32 layer_idx but got {layer_idx.dtype}"
         raise ValueError(msg)
 
-    if input_row_offset.dtype != DType.uint32:
-        msg = (
-            f"expected uint32 input_row_offset but got {input_row_offset.dtype}"
-        )
+    if input_row_offsets.dtype != DType.uint32:
+        msg = f"expected uint32 input_row_offsets but got {input_row_offsets.dtype}"
         raise ValueError(msg)
 
     op_name = f"flash_attention_kv_cache_h{kv_params.n_kv_heads_per_device}_d{kv_params.head_dim}_cont_batch_ragged"
@@ -417,7 +415,7 @@ def flash_attention_ragged_with_causal_mask(
     scale = ops.rsqrt(ops.constant(kv_params.head_dim, dtype=DType.float32))
     return ops.inplace_custom(
         op_name,
-        values=[input, input_row_offset, kv_collection, layer_idx, scale],  # type: ignore
+        values=[input, input_row_offsets, kv_collection, layer_idx, scale],  # type: ignore
         out_types=[
             TensorType(
                 dtype=input.dtype, shape=input.shape, device=input.device

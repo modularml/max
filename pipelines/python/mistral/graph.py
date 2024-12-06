@@ -232,8 +232,8 @@ def _build_graph(
     kv_manager: KVCacheManager,
 ) -> Graph:
     tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
-    input_row_offset_type = TensorType(
-        DType.uint32, shape=["input_row_offset_len"]
+    input_row_offsets_type = TensorType(
+        DType.uint32, shape=["input_row_offsets_len"]
     )
 
     kv_cache_args = kv_manager.input_symbols()[0]
@@ -242,12 +242,12 @@ def _build_graph(
         "mistral",
         input_types=[
             tokens_type,
-            input_row_offset_type,
+            input_row_offsets_type,
             *kv_cache_args,
         ],
     ) as graph:
         model = _transformer(graph, pipeline_config, weights, kv_params)
-        tokens, input_row_offset, *kv_cache = graph.inputs
-        outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+        tokens, input_row_offsets, *kv_cache = graph.inputs
+        outputs = model(tokens, kv_cache, input_row_offsets=input_row_offsets)
         graph.output(*outputs)
         return graph
