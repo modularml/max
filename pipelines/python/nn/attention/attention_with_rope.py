@@ -48,7 +48,7 @@ class AttentionWithRope(AttentionImpl):
             self.kv_params,
             input=x,
             wqkv=self.wqkv,
-            input_row_offset=kwargs["input_row_offset"],
+            input_row_offsets=kwargs["input_row_offsets"],
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
             n_heads=self.n_heads,
@@ -63,7 +63,7 @@ class AttentionWithRope(AttentionImpl):
         xq = fused_qk_ragged_rope(
             self.kv_params,
             xq,
-            kwargs["input_row_offset"],
+            kwargs["input_row_offsets"],
             kv_collection,
             freqs_cis,
             self.layer_idx,
@@ -75,7 +75,7 @@ class AttentionWithRope(AttentionImpl):
             input=xq,
             kv_collection=kv_collection,
             layer_idx=self.layer_idx,
-            input_row_offset=kwargs["input_row_offset"],
+            input_row_offsets=kwargs["input_row_offsets"],
         )
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
@@ -106,7 +106,7 @@ class AttentionWithRopeQKV(AttentionImplQKV):
             self.kv_params,
             input=x,
             wqkv=wqkv,
-            input_row_offset=kwargs["input_row_offset"],
+            input_row_offsets=kwargs["input_row_offsets"],
             kv_collection=kv_collection,
             layer_idx=ops.constant(self.layer_idx, DType.uint32),
             n_heads=self.n_heads,
@@ -121,7 +121,7 @@ class AttentionWithRopeQKV(AttentionImplQKV):
         xq = fused_qk_ragged_rope(
             self.kv_params,
             xq,
-            kwargs["input_row_offset"],
+            kwargs["input_row_offsets"],
             kv_collection,
             freqs_cis,
             ops.constant(self.layer_idx, DType.uint32),
@@ -133,7 +133,7 @@ class AttentionWithRopeQKV(AttentionImplQKV):
             input=xq,
             kv_collection=kv_collection,
             layer_idx=ops.constant(self.layer_idx, DType.uint32),
-            input_row_offset=kwargs["input_row_offset"],
+            input_row_offsets=kwargs["input_row_offsets"],
         )
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])

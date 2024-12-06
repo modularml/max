@@ -78,7 +78,7 @@ class TextModel(Layer):
         cross_attention_mask: TensorValue | None = None,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-        input_row_offset: TensorValue | None = None,
+        input_row_offsets: TensorValue | None = None,
         **kwargs,
     ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
         inputs_embeds = self.embed_tokens(input_ids)
@@ -107,7 +107,7 @@ class TextModel(Layer):
             hidden_states, kv_collection = decoder_layer(
                 hidden_states,
                 cross_attention_states=cross_attention_states,
-                input_row_offset=input_row_offset,
+                input_row_offsets=input_row_offsets,
                 kv_collection=kv_collection,
                 full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             )
@@ -147,7 +147,7 @@ class CausalLanguageModel(Layer):
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
         input_ids: TensorValue | None = None,
-        input_row_offset: TensorValue | None = None,
+        input_row_offsets: TensorValue | None = None,
         position_ids: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
         cross_attention_mask: TensorValue | None = None,
@@ -164,17 +164,17 @@ class CausalLanguageModel(Layer):
             cross_attention_mask=cross_attention_mask,
             full_text_row_masked_out_mask=full_text_row_masked_out_mask,
             cache_position=cache_position,
-            input_row_offset=input_row_offset,
+            input_row_offsets=input_row_offsets,
             **kwargs,
         )
 
         # # For ragged tensors gather the last tokens from packed dim 0.
-        # input_row_offset = kwargs["input_row_offset"]
-        # last_token_indices = input_row_offset[1:] - 1  # type: ignore
+        # input_row_offsets = kwargs["input_row_offsets"]
+        # last_token_indices = input_row_offsets[1:] - 1  # type: ignore
         # # Should be: last_token = h[last_token_indices]
         # last_token = ops.gather(h, last_token_indices, axis=0)
 
-        last_token_indices = input_row_offset[1:] - 1
+        last_token_indices = input_row_offsets[1:] - 1
         last_token_logits = ops.gather(
             last_hidden_state, last_token_indices, axis=0
         )

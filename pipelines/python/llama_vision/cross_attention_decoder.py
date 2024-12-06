@@ -65,7 +65,7 @@ class CrossSdpaAttention(Layer):
         self,
         hidden_states: TensorValue,
         cross_attention_states: TensorValue,
-        input_row_offset: TensorValue,
+        input_row_offsets: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
     ) -> TensorValue:
         """Computes attention on hidden (query) and cross (key and value).
@@ -93,7 +93,7 @@ class CrossSdpaAttention(Layer):
             # Here, hidden_states correspond to cross_attention_states.
             hidden_states=cross_attention_states,
             layer_idx=self.layer_idx,
-            input_row_offsets=input_row_offset,
+            input_row_offsets=input_row_offsets,
             weight=wkv,
             kv_collection=kv_collection,
         )
@@ -104,7 +104,7 @@ class CrossSdpaAttention(Layer):
             input=query_states,
             kv_collection=kv_collection,
             layer_idx=ops.constant(self.layer_idx, DType.uint32),
-            input_row_offset=input_row_offset,
+            input_row_offsets=input_row_offsets,
         )
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
@@ -127,7 +127,7 @@ class CrossAttentionDecoderLayer(Layer):
         self,
         hidden_states: TensorValue,
         cross_attention_states: TensorValue,
-        input_row_offset: TensorValue,
+        input_row_offsets: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
@@ -141,7 +141,7 @@ class CrossAttentionDecoderLayer(Layer):
         hidden_states = self.cross_attn(
             hidden_states=hidden_states,
             cross_attention_states=cross_attention_states,
-            input_row_offset=input_row_offset,
+            input_row_offsets=input_row_offsets,
             kv_collection=kv_collection,
         )
         hidden_states = (

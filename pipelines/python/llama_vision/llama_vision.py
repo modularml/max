@@ -23,8 +23,8 @@ from max.pipelines import PipelineConfig, PipelineModel, TextAndVisionContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
-    load_kv_manager,
     estimate_kv_cache_size,
+    load_kv_manager,
 )
 from nn import Linear
 
@@ -89,8 +89,8 @@ class LlamaVision(PipelineModel):
         )
 
         input_ids_type = TensorType(DType.int64, shape=["total_seq_len"])
-        input_row_offset_type = TensorType(
-            DType.uint32, shape=["input_row_offset_len"]
+        input_row_offsets_type = TensorType(
+            DType.uint32, shape=["input_row_offsets_len"]
         )
 
         # Same shapes.
@@ -112,7 +112,7 @@ class LlamaVision(PipelineModel):
                 aspect_ratio_ids_type,
                 aspect_ratio_mask_type,
                 input_ids_type,
-                input_row_offset_type,
+                input_row_offsets_type,
                 cross_attention_mask_type,
                 position_ids_type,
                 blocks_type,
@@ -180,7 +180,7 @@ class LlamaVision(PipelineModel):
                 aspect_ratio_ids,
                 aspect_ratio_mask,
                 input_ids,
-                input_row_offset,
+                input_row_offsets,
                 cross_attention_mask,
                 position_ids,
                 blocks,
@@ -198,7 +198,7 @@ class LlamaVision(PipelineModel):
                 aspect_ratio_ids=aspect_ratio_ids,
                 aspect_ratio_mask=aspect_ratio_mask,
                 input_ids=input_ids,
-                input_row_offset=input_row_offset,
+                input_row_offsets=input_row_offsets,
                 cross_attention_mask=cross_attention_mask,
                 position_ids=position_ids,
                 kv_cache_inputs=(
@@ -225,8 +225,8 @@ class LlamaVision(PipelineModel):
             self.pipeline_config.dtype, shape=["batch_size", 1, 4]
         )
 
-        # Input row offset type: ["input_row_offset_len"], UInt32
-        input_row_offset = Tensor.from_numpy(
+        # Input row offset type: ["input_row_offsets_len"], UInt32
+        input_row_offsets = Tensor.from_numpy(
             np.cumsum(
                 [0] + [ctx.seq_len for ctx in context_batch],
                 dtype=np.uint32,
@@ -247,7 +247,7 @@ class LlamaVision(PipelineModel):
             aspect_ratio_ids,
             aspect_ratio_mask,
             input_ids,
-            input_row_offset,
+            input_row_offsets,
             cross_attention_mask,
         )
 

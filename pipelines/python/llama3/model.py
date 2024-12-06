@@ -35,8 +35,8 @@ from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
     KVCacheStrategy,
-    load_kv_manager,
     estimate_kv_cache_size,
+    load_kv_manager,
 )
 from nn.compute_log_probabilities import compute_log_probabilities
 
@@ -66,9 +66,9 @@ class Llama3Model(PipelineModel):
         # Get tokens and seq_ids
         tokens = [ctx.next_tokens for ctx in context_batch]
 
-        # Get input_row_offset: start and end position of each batch in the
+        # Get input_row_offsets: start and end position of each batch in the
         # combined total_seq_len dimension.
-        input_row_offset = Tensor.from_numpy(
+        input_row_offsets = Tensor.from_numpy(
             np.cumsum(
                 [0] + [ctx.seq_len for ctx in context_batch],
                 dtype=np.uint32,
@@ -81,7 +81,7 @@ class Llama3Model(PipelineModel):
             self.pipeline_config.device
         )
 
-        return (next_tokens_batch, input_row_offset)
+        return (next_tokens_batch, input_row_offsets)
 
     def _prepare_naive_initial_token_inputs(
         self, context_batch: Sequence[TextContext]
@@ -116,7 +116,7 @@ class Llama3Model(PipelineModel):
     ):
         _, old_row_offsets = prev_model_inputs
         row_offsets_size = old_row_offsets.shape[0]
-        next_row_offsets = self._input_row_offset_prealloc[:row_offsets_size]
+        next_row_offsets = self._input_row_offsets_prealloc[:row_offsets_size]
         next_token_inputs = (next_tokens, next_row_offsets)
 
         return next_token_inputs
@@ -193,9 +193,9 @@ class Llama3Model(PipelineModel):
         self,
         session: InferenceSession,
     ) -> Model:
-        # Pre-allocate a buffer for input_row_offset in multistep execution.
+        # Pre-allocate a buffer for input_row_offsets in multistep execution.
         # We do this to avoid materializing and copying a buffer with each multistep step
-        self._input_row_offset_prealloc = Tensor.from_numpy(
+        self._input_row_offsets_prealloc = Tensor.from_numpy(
             np.arange(
                 self.pipeline_config.max_cache_batch_size + 1, dtype=np.uint32
             )
@@ -233,16 +233,16 @@ class Llama3Model(PipelineModel):
 
     def _build_opaque_graph(self, weights: GGUFWeights) -> Graph:
         tokens_type = TensorType(DType.int64, shape=["total_seq_len"])
-        # NOTE: input_row_offset_len should be batch_size + 1.
-        input_row_offset_type = TensorType(
-            DType.uint32, shape=["input_row_offset_len"]
+        # NOTE: input_row_offsets_len should be batch_size + 1.
+        input_row_offsets_type = TensorType(
+            DType.uint32, shape=["input_row_offsets_len"]
         )
 
         kv_cache_args = self.kv_manager.input_symbols()[0]
 
         with Graph(
             "llama3",
-            input_types=[tokens_type, input_row_offset_type, *kv_cache_args],
+            input_types=[tokens_type, input_row_offsets_type, *kv_cache_args],
         ) as graph:
             model = transformer(
                 graph,
@@ -250,8 +250,10 @@ class Llama3Model(PipelineModel):
                 weights,
                 self._get_kv_params(),
             )
-            tokens, input_row_offset, *kv_cache = graph.inputs
-            outputs = model(tokens, kv_cache, input_row_offset=input_row_offset)
+            tokens, input_row_offsets, *kv_cache = graph.inputs
+            outputs = model(
+                tokens, kv_cache, input_row_offsets=input_row_offsets
+            )
             graph.output(*outputs)
             return graph
 
@@ -333,9 +335,9 @@ class Llama3Model(PipelineModel):
         sampled_tokens = next_tokens.to(CPU()).to_numpy()
         if self.pipeline_config.cache_strategy == KVCacheStrategy.CONTINUOUS:
             # Handle the ragged inputs
-            tokens_tensor, input_row_offset_tensor = model_inputs
+            tokens_tensor, input_row_offsets_tensor = model_inputs
             tokens = tokens_tensor.to(CPU()).to_numpy()
-            input_row_offsets = input_row_offset_tensor.to(CPU()).to_numpy()
+            input_row_offsets = input_row_offsets_tensor.to(CPU()).to_numpy()
 
             def _get_logits_and_samples(
                 batch_index: int, echo: bool

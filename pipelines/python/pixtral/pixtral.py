@@ -12,20 +12,20 @@
 # ===----------------------------------------------------------------------=== #
 
 from __future__ import annotations
+
 import logging
 
 import numpy as np
+from max.driver import Tensor
+from max.engine import InferenceSession, Model
 from max.graph.weights import SafetensorWeights
-from max.pipelines import PipelineModel
+from max.pipelines import PipelineModel, TextAndVisionContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
-    load_kv_manager,
     estimate_kv_cache_size,
+    load_kv_manager,
 )
-from max.driver import Tensor
-from max.engine import InferenceSession, Model
-from max.pipelines import TextAndVisionContext
 
 from .model.graph import _build_graph
 
@@ -40,8 +40,8 @@ class PixtralModel(PipelineModel):
         self,
         context_batch: list[TextAndVisionContext],  # type: ignore
     ) -> tuple[Tensor, ...]:
-        # Input row offset type: ["input_row_offset_len"], UInt32
-        input_row_offset = Tensor.from_numpy(
+        # Input row offset type: ["input_row_offsets_len"], UInt32
+        input_row_offsets = Tensor.from_numpy(
             np.cumsum(
                 [0] + [ctx.seq_len for ctx in context_batch],
                 dtype=np.uint32,
@@ -60,7 +60,7 @@ class PixtralModel(PipelineModel):
         return (
             input_ids,
             pixel_values,
-            input_row_offset,
+            input_row_offsets,
         )
 
     def prepare_next_token_inputs(
@@ -102,9 +102,9 @@ class PixtralModel(PipelineModel):
             msg = "Pixtral model does not currently implement enable echo."
             raise ValueError(msg)
 
-        # Pre-allocate a buffer for input_row_offset in multistep execution.
+        # Pre-allocate a buffer for input_row_offsets in multistep execution.
         # We do this to avoid materializing and copying a buffer with each multistep step
-        self._input_row_offset_prealloc = Tensor.from_numpy(
+        self._input_row_offsets_prealloc = Tensor.from_numpy(
             np.arange(
                 self.pipeline_config.max_cache_batch_size + 1, dtype=np.uint32
             )
