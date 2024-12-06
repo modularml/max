@@ -11,15 +11,17 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from .model import MistralModel
 from max.pipelines import (
     HuggingFaceFile,
     SupportedArchitecture,
-    SupportedVersion,
     SupportedEncoding,
+    SupportedVersion,
     TextTokenizer,
+    WeightsFormat,
 )
 from max.pipelines.kv_cache import KVCacheStrategy
+
+from .model import MistralModel
 
 mistral_arch = SupportedArchitecture(
     name="MistralForCausalLM",
@@ -43,4 +45,5 @@ mistral_arch = SupportedArchitecture(
     default_version="default",
     pipeline_model=MistralModel,
     tokenizer=TextTokenizer,
+    default_weights_format=WeightsFormat.safetensors,
 )
