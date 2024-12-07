@@ -67,6 +67,7 @@ class AttentionWithRope(AttentionImpl):
             kv_collection,
             freqs_cis,
             self.layer_idx,
+            interleaved=self.rope.interleaved,
         )
 
         # Calculate Flash Attention.
@@ -125,6 +126,7 @@ class AttentionWithRopeQKV(AttentionImplQKV):
             kv_collection,
             freqs_cis,
             ops.constant(self.layer_idx, DType.uint32),
+            interleaved=self.rope.interleaved,
         )
 
         # Calculate Flash Attention.
