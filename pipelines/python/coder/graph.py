@@ -181,6 +181,7 @@ def _transformer_opaque(
             theta=pipeline_config.huggingface_config.rope_theta,
             max_seq_len=pipeline_config.huggingface_config.max_seq_len,
             rope_scaling=rope_scaling,
+            interleaved=False,
         )
 
         layers = [
@@ -220,7 +221,16 @@ def _transformer_opaque(
             weights.model.embed_tokens,
         )
 
-        output = Linear(embedding_layer.weights)
+        output = Linear(
+            weights.lm_head.weight.allocate(
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.vocab_size,
+                    pipeline_config.huggingface_config.hidden_size,
+                ],
+                pipeline_config.quantization_encoding.quantization_encoding,
+            )
+        )
 
         if kv_params.cache_strategy == KVCacheStrategy.CONTINUOUS:
             kv_collection_cls = FetchContinuousBatchingKVCacheCollection
@@ -309,6 +319,7 @@ def transformer(
             theta=pipeline_config.huggingface_config.rope_theta,
             max_seq_len=pipeline_config.huggingface_config.max_seq_len,
             rope_scaling=rope_scaling,
+            interleaved=False,
         )
 
         layers = [
@@ -326,12 +337,12 @@ def transformer(
                 attention_norm=rms_norm(
                     pipeline_config.huggingface_config.hidden_size,
                     pipeline_config.huggingface_config.rms_norm_eps,
-                    weights.model.layers[i].post_attention_layernorm,
+                    weights.model.layers[i].input_layernorm,
                 ),
                 mlp_norm=rms_norm(
                     pipeline_config.huggingface_config.hidden_size,
                     pipeline_config.huggingface_config.rms_norm_eps,
-                    weights.model.layers[i].input_layernorm,
+                    weights.model.layers[i].post_attention_layernorm,
                 ),
             )
             for i in range(pipeline_config.huggingface_config.num_hidden_layers)
@@ -344,7 +355,16 @@ def transformer(
             weights.model.embed_tokens,
         )
 
-        output = Linear(embedding_layer.weights)
+        output = Linear(
+            weights.lm_head.weight.allocate(
+                pipeline_config.dtype,
+                [
+                    pipeline_config.huggingface_config.vocab_size,
+                    pipeline_config.huggingface_config.hidden_size,
+                ],
+                pipeline_config.quantization_encoding.quantization_encoding,
+            )
+        )
 
         return NaiveTransformer(
             dim=pipeline_config.huggingface_config.hidden_size,
