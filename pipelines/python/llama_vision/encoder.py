@@ -40,10 +40,8 @@ class VisionEncoderLayer(Layer):
     gate_ffn: TensorValueLike | None = None
 
     def __call__(
-        self,
-        hidden_state: TensorValue,
-        attention_mask: TensorValueLike,
-    ) -> tuple[TensorValue]:
+        self, hidden_state: TensorValue, attention_mask: TensorValue
+    ) -> TensorValue:
         # Self Attention.
         residual = hidden_state
         hidden_state = self.input_layernorm(hidden_state)
@@ -65,10 +63,7 @@ class VisionEncoderLayer(Layer):
         # Gating criteria.
         if self.is_gated:
             hidden_state = ops.tanh(self.gate_ffn) * hidden_state
-        hidden_state = residual + hidden_state
-        outputs = (hidden_state,)
-
-        return outputs
+        return residual + hidden_state
 
 
 @dataclass
@@ -82,10 +77,10 @@ class VisionEncoder(Layer):
 
     def __call__(
         self,
-        hidden_states: TensorValueLike,
-        attention_mask: TensorValueLike,
+        hidden_states: TensorValue,
+        attention_mask: TensorValue,
         output_hidden_states: bool,
-    ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
+    ) -> tuple[TensorValue, tuple[TensorValue] | None]:
         r"""
         Args:
             hidden_states (Tensor of shape `(batch_size, sequence_length, hidden_size)`):
@@ -102,13 +97,9 @@ class VisionEncoder(Layer):
         for encoder_layer in self.layers:
             if encoder_states is not None:
                 encoder_states = encoder_states + (hidden_states,)
-            layer_outputs = encoder_layer(
-                hidden_state=hidden_states,
-                attention_mask=attention_mask,
-            )
-            hidden_states = layer_outputs[0]
+            hidden_states = encoder_layer(hidden_states, attention_mask)
 
         if encoder_states is not None:
             encoder_states = encoder_states + (hidden_states,)
 
-        return (hidden_states, encoder_states, None)
+        return hidden_states, encoder_states

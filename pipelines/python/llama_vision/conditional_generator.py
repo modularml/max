@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
-from max.dtype import DType
 from max.graph import Dim, TensorValue
 from max.pipelines import PipelineConfig
 from nn import Linear
@@ -38,109 +36,25 @@ class ConditionalGenerator(Layer):
     multi_modal_projector: Linear
     language_model: CausalLanguageModel
 
-    def prepare_cross_attention_mask(
-        self,
-        cross_attention_mask: np.ndarray | None = None,
-        full_text_row_masked_out_mask: np.ndarray | None = None,
-        cache_position: np.ndarray | None = None,
-    ) -> tuple[np.ndarray | None, np.ndarray | None]:
-        if cross_attention_mask is not None:
-            cross_attention_mask, full_text_row_masked_out_mask = (
-                self._prepare_cross_attention_mask_helper(
-                    cross_attention_mask,
-                    num_vision_tokens=self.pipeline_config.huggingface_config.vision_config.num_patches,
-                    dtype=DType.bfloat16,
-                )
-            )
-        else:
-            full_text_row_masked_out_mask = None
-
-        if (
-            cross_attention_mask is not None
-            and cache_position is not None
-            and full_text_row_masked_out_mask is not None
-        ):
-            cross_attention_mask = cross_attention_mask[:, :, cache_position]
-            full_text_row_masked_out_mask = full_text_row_masked_out_mask[
-                :, :, cache_position
-            ]
-        return cross_attention_mask, full_text_row_masked_out_mask
-
-    def _prepare_cross_attention_mask_helper(
-        self,
-        cross_attention_mask: np.ndarray,
-        num_vision_tokens: int,
-        dtype: str,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        # reshape so it can be used by attn module
-        batch_size, text_total_length, *_ = cross_attention_mask.shape
-        cross_attention_mask = np.repeat(
-            cross_attention_mask, num_vision_tokens, axis=2
-        )  # Repeat along the 3rd dimension
-        cross_attention_mask = cross_attention_mask.reshape(
-            batch_size, text_total_length, -1
-        )
-        cross_attention_mask = np.expand_dims(cross_attention_mask, axis=1)
-
-        # invert the mask
-        inverted_cross_attn_mask = (1.0 - cross_attention_mask).astype(dtype)
-        cross_attention_mask = np.where(
-            inverted_cross_attn_mask.astype(bool),
-            np.finfo(dtype).min,
-            inverted_cross_attn_mask,
-        )
-
-        # apply full-row bias, which return 4D tensor of shape [B, H, S1, 1] where value is 0 if the a full row in cross attn mask's
-        # last dimension contains negative infinity values, otherwise it's 1
-        negative_inf_value = np.finfo(dtype).min
-        full_text_row_masked_out_mask = (
-            (cross_attention_mask != negative_inf_value)
-            .any(axis=-1, keepdims=True)
-            .astype(dtype)
-        )
-        cross_attention_mask *= full_text_row_masked_out_mask
-
-        return cross_attention_mask, full_text_row_masked_out_mask
-
     def __call__(
         self,
-        kv_cache_inputs: tuple[
-            TensorValue, TensorValue, TensorValue, TensorValue
-        ],
-        pixel_values: TensorValue | None = None,
-        aspect_ratio_ids: TensorValue | None = None,
-        aspect_ratio_mask: TensorValue | None = None,
-        cross_attention_states: TensorValue | None = None,
-        input_ids: TensorValue | None = None,
-        inputs_embeds: TensorValue | None = None,
-        hidden_input_row_offsets: TensorValue | None = None,
-        cross_input_row_offsets: TensorValue | None = None,
+        pixel_values: TensorValue,
+        aspect_ratio_ids: TensorValue,
+        aspect_ratio_mask: TensorValue,
+        input_ids: TensorValue,
+        hidden_input_row_offsets: TensorValue,
+        cross_input_row_offsets: TensorValue,
+        kv_cache_inputs: tuple[TensorValue, ...],
     ) -> TensorValue:
-        if (input_ids is None) ^ (inputs_embeds is not None):
-            raise ValueError(
-                "You cannot specify both input_ids and inputs_embeds at the"
-                " same time, and must specify either one"
-            )
-
-        if pixel_values is not None and inputs_embeds is not None:
-            raise ValueError(
-                "You cannot specify both pixel_values and inputs_embeds at the"
-                " same time, and must specify either one"
-            )
-
-        if pixel_values is not None and cross_attention_states is not None:
-            raise ValueError(
-                "`pixel_values` and `cross_attention_states` cannot be provided"
-                " simultaneously"
-            )
-
         if pixel_values is not None:
             if aspect_ratio_ids is None:
-                raise ValueError(
-                    "`aspect_ratio_ids` must be provided if `pixel_values` is"
-                    " provided"
+                msg = (
+                    "`aspect_ratio_ids` must be provided if `pixel_values` is "
+                    "provided"
                 )
-            # get vision tokens from vision model
+                raise ValueError(msg)
+
+            # Get vision tokens from vision model.
             vision_outputs = self.vision_model(
                 pixel_values=pixel_values,
                 aspect_ratio_ids=aspect_ratio_ids,
@@ -148,7 +62,7 @@ class ConditionalGenerator(Layer):
             )
             cross_attention_states = vision_outputs[0]
 
-            num_patches = cross_attention_states.shape[-2]  # type: ignore
+            num_patches = cross_attention_states.shape[-2]
 
             cross_attention_states = self.multi_modal_projector(
                 cross_attention_states
@@ -160,13 +74,6 @@ class ConditionalGenerator(Layer):
                     self.pipeline_config.huggingface_config.text_config.hidden_size,
                 ]
             )
-
-        # TODO: Remove this. I had to make it an optional so it respects the order
-        # of arg inputs when unwrapping the graph inputs.
-        assert kv_cache_inputs is not None, (
-            "kv_cache_inputs is None. This should be impossible as it should"
-            " already be instantiated during pipeline construction."
-        )
 
         return self.language_model(
             kv_cache_inputs=kv_cache_inputs,

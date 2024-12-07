@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, TensorValueLike, Weight, ops
 from nn import Embedding
 from nn.layer import Layer
 
@@ -41,7 +41,7 @@ class PrecomputedAspectRatioEmbedding(Layer):
     is_gated: bool = False
 
     def __call__(
-        self, hidden_state: TensorValueLike, aspect_ratio_ids: TensorValueLike
+        self, hidden_state: TensorValue, aspect_ratio_ids: TensorValue
     ) -> TensorValue:
         embeddings = self.embedding(aspect_ratio_ids)
         embeddings = embeddings.reshape(
@@ -87,8 +87,8 @@ class PrecomputedPositionEmbedding(Layer):
     patch_size: int
     hidden_size: int
     max_num_tiles: int
-    gate: TensorValueLike
-    embedding: TensorValueLike
+    gate: Weight
+    embedding: Weight
     tile_embedding: Embedding
 
     def __call__(

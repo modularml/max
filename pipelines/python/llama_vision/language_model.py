@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from max.dtype import DType
 from max.graph import TensorValue, ops
-from max.graph.weights import SafetensorWeights
+from max.graph.weights import Weights
 from max.pipelines.kv_cache import (
     FetchContinuousBatchingKVCacheCollection,
     KVCacheParams,
@@ -70,9 +70,7 @@ class TextModel(Layer):
 
     def __call__(
         self,
-        kv_cache_inputs: tuple[
-            TensorValue, TensorValue, TensorValue, TensorValue
-        ],
+        kv_cache_inputs: tuple[TensorValue, ...],
         input_ids: TensorValue,
         hidden_input_row_offsets: TensorValue,
         cross_attention_states: TensorValue,
@@ -142,9 +140,7 @@ class CausalLanguageModel(Layer):
 
     def __call__(
         self,
-        kv_cache_inputs: tuple[
-            TensorValue, TensorValue, TensorValue, TensorValue
-        ],
+        kv_cache_inputs: tuple[TensorValue, ...],
         input_ids: TensorValue,
         hidden_input_row_offsets: TensorValue,
         cross_attention_states: TensorValue,
@@ -174,7 +170,7 @@ def cross_attention_decoder_layer(
     rms_norm_eps: float,
     kv_params: KVCacheParams,
     intermediate_size: int,
-    weights: SafetensorWeights,
+    weights: Weights,
     layer_idx: int,
 ) -> CrossAttentionDecoderLayer:
     head_dim = hidden_size // num_attention_heads
@@ -298,63 +294,39 @@ def self_attention_decoder_layer(
     intermediate_size: int,
     rms_norm_eps: float,
     kv_params: KVCacheParams,
-    weights: SafetensorWeights,
+    weights: Weights,
     layer_idx: int,
     rotary_embedding: OptimizedRotaryEmbedding,
 ) -> TransformerBlock:
-    head_dim = hidden_size / num_attention_heads
+    head_dim = hidden_size // num_attention_heads
 
-    q_proj = Linear(
-        weight=weights.self_attn.q_proj.weight.allocate(
-            dtype,
-            [
-                num_attention_heads * head_dim,
-                hidden_size,
-            ],
-        ),
-        bias=None,
+    wq = weights.self_attn.q_proj.weight.allocate(
+        dtype, shape=[num_attention_heads * head_dim, hidden_size]
     )
-    k_proj = Linear(
-        weight=weights.self_attn.k_proj.weight.allocate(
-            dtype,
-            [
-                num_key_value_heads * head_dim,
-                hidden_size,
-            ],
-        ),
-        bias=None,
+    wk = weights.self_attn.k_proj.weight.allocate(
+        dtype, shape=[num_key_value_heads * head_dim, hidden_size]
     )
-    v_proj = Linear(
-        weight=weights.self_attn.v_proj.weight.allocate(
-            dtype,
-            [
-                num_key_value_heads * head_dim,
-                hidden_size,
-            ],
-        ),
-        bias=None,
+    wv = weights.self_attn.v_proj.weight.allocate(
+        dtype, shape=[num_key_value_heads * head_dim, hidden_size]
     )
     o_proj = Linear(
         weight=weights.self_attn.o_proj.weight.allocate(
             dtype,
-            [
-                hidden_size,
-                num_attention_heads * head_dim,
-            ],
-        ),
-        bias=None,
+            shape=[hidden_size, num_attention_heads * head_dim],
+        )
     )
 
     attention = AttentionWithRopeQKV(
         n_heads=num_attention_heads,
         kv_params=kv_params,
         layer_idx=layer_idx,
-        wq=q_proj.weight,
-        wk=k_proj.weight,
-        wv=v_proj.weight,
+        wq=wq,
+        wk=wk,
+        wv=wv,
         wo=o_proj,
         rope=rotary_embedding,
     )
+
     return TransformerBlock(
         attention=attention,
         mlp=MLP(
@@ -409,7 +381,7 @@ def instantiate_language_model(
     num_key_value_heads: int,
     intermediate_size: int,
     kv_params: KVCacheParams,
-    weights: SafetensorWeights,
+    weights: Weights,
 ) -> CausalLanguageModel:
     layers: list[CrossAttentionDecoderLayer | TransformerBlock] = []
 

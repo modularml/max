@@ -15,7 +15,7 @@
 import math
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 from nn import Linear
 from nn.layer import Layer
 
@@ -32,10 +32,10 @@ class Attention(Layer):
 
     def attention(
         self,
-        xq: TensorValueLike,
-        xk: TensorValueLike,
-        xv: TensorValueLike,
-        attn_mask: TensorValueLike,
+        xq: TensorValue,
+        xk: TensorValue,
+        xv: TensorValue,
+        attn_mask: TensorValue,
     ) -> TensorValue:
         # Broadcast the attention mask across heads.
         # Do so in the graph so that the broadcast can be fused into downstream
@@ -57,13 +57,10 @@ class Attention(Layer):
         # operator.
         scores = ops.softmax(scores * scale + attn_mask)
 
-        seq_len = xv.shape[2]
         return scores @ xv
 
     def __call__(
-        self,
-        x: TensorValueLike,
-        attention_mask: TensorValueLike,
+        self, x: TensorValue, attention_mask: TensorValue
     ) -> TensorValue:
         """Computes attention on x, reusing the KV cache.
 
