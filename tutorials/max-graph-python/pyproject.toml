@@ -3,7 +3,7 @@ authors = [{name = "Modular", email = "hello@modular.com"}]
 dependencies = []
 description = "Add two numbers"
 name = "max_ops"
-requires-python = ">= 3.11"
+requires-python = ">=3.11,<3.13"
 version = "0.1.0"
 
 [build-system]
