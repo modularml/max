@@ -14,8 +14,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Sequence
 import warnings
+from typing import Sequence
 
 import numpy as np
 from dataprocessing import causal_attention_mask_with_alibi, collate_batch
@@ -31,8 +31,8 @@ from max.pipelines import (
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
-    load_kv_manager,
     estimate_kv_cache_size,
+    load_kv_manager,
 )
 from nn.compute_log_probabilities import compute_log_probabilities
 
@@ -184,8 +184,7 @@ class ReplitModel(PipelineModel):
             logging.info("Loading serialized model from ", serialized_path)
 
             return session.load(
-                serialized_path,
-                weights_registry=weights_registry,  # type: ignore
+                serialized_path, weights_registry=weights_registry
             )
 
         else:
@@ -198,8 +197,7 @@ class ReplitModel(PipelineModel):
             )
             logging.info("Compiling...")
             model = session.load(
-                graph,
-                weights_registry=self._weights.allocated_weights,  # type: ignore
+                graph, weights_registry=self._weights.allocated_weights
             )
             if (
                 export_path
