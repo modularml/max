@@ -67,23 +67,19 @@ class TextModel(Layer):
     # output_attentions: value=False
     # output_hidden_states: value=False
     # return_dict: value=True
+
     def __call__(
         self,
         kv_cache_inputs: tuple[
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
-        input_ids: TensorValue | None = None,
-        position_ids: TensorValue | None = None,
-        cross_attention_states: TensorValue | None = None,
-        cross_attention_mask: TensorValue | None = None,
-        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
-        | None = None,
-        input_row_offsets: TensorValue | None = None,
-        **kwargs,
-    ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
+        input_ids: TensorValue,
+        hidden_input_row_offsets: TensorValue,
+        cross_attention_states: TensorValue,
+        cross_input_row_offsets: TensorValue,
+    ) -> TensorValue:
         inputs_embeds = self.embed_tokens(input_ids)
 
-        # TODO: This should be removed. When we fix the hard-coded Dtypes.
         hidden_states = ops.cast(inputs_embeds, self.dtype)
 
         for idx, decoder_layer in enumerate(self.layers):
@@ -101,25 +97,27 @@ class TextModel(Layer):
             )
             kv_collection = kv_collection_constructor(*kv_cache_inputs)
 
-            # TODO: We need to check if the kwargs map 1:1 with the two different
-            # *Attention layers here. Some are used in cross_attention, others in
-            # self attention, most of them unused though
-            hidden_states, kv_collection = decoder_layer(
-                hidden_states,
-                cross_attention_states=cross_attention_states,
-                input_row_offsets=input_row_offsets,
-                kv_collection=kv_collection,
-                full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-            )
+            if isinstance(decoder_layer, CrossAttentionDecoderLayer):
+                hidden_states = decoder_layer(
+                    hidden_states,
+                    hidden_input_row_offsets,
+                    cross_attention_states,
+                    cross_input_row_offsets,
+                    kv_collection,
+                )
+            else:
+                hidden_states = decoder_layer(
+                    hidden_states,
+                    kv_collection,
+                    input_row_offsets=hidden_input_row_offsets,
+                )
 
         return self.norm(hidden_states)
 
 
 @dataclass
 class CausalLanguageModel(Layer):
-    """
-    The Llama Vision Text Model with a language modeling head on top.
-    """
+    """The Llama Vision Text Model with a language modeling head on top."""
 
     dtype: DType
     kv_params: KVCacheParams
@@ -141,40 +139,27 @@ class CausalLanguageModel(Layer):
     # return_dict: value=True
     # cache_position: shape=[14], dtype=torch.int64
     # num_logits_to_keep: value=1
+
     def __call__(
         self,
         kv_cache_inputs: tuple[
             TensorValue, TensorValue, TensorValue, TensorValue
         ],
-        input_ids: TensorValue | None = None,
-        input_row_offsets: TensorValue | None = None,
-        position_ids: TensorValue | None = None,
-        cross_attention_states: TensorValue | None = None,
-        cross_attention_mask: TensorValue | None = None,
-        full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
-        | None = None,
-        cache_position: TensorValue | None = None,
-        **kwargs,
+        input_ids: TensorValue,
+        hidden_input_row_offsets: TensorValue,
+        cross_attention_states: TensorValue,
+        cross_input_row_offsets: TensorValue,
     ) -> TensorValue:
         last_hidden_state = self.model(
-            kv_cache_inputs=kv_cache_inputs,
-            input_ids=input_ids,
-            cross_attention_states=cross_attention_states,
-            position_ids=position_ids,
-            cross_attention_mask=cross_attention_mask,
-            full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-            cache_position=cache_position,
-            input_row_offsets=input_row_offsets,
-            **kwargs,
+            kv_cache_inputs,
+            input_ids,
+            hidden_input_row_offsets,
+            cross_attention_states,
+            cross_input_row_offsets,
         )
 
-        # # For ragged tensors gather the last tokens from packed dim 0.
-        # input_row_offsets = kwargs["input_row_offsets"]
-        # last_token_indices = input_row_offsets[1:] - 1  # type: ignore
-        # # Should be: last_token = h[last_token_indices]
-        # last_token = ops.gather(h, last_token_indices, axis=0)
-
-        last_token_indices = input_row_offsets[1:] - 1
+        # For ragged tensors gather the last tokens from packed dim 0.
+        last_token_indices = hidden_input_row_offsets[1:] - 1
         last_token_logits = ops.gather(
             last_hidden_state, last_token_indices, axis=0
         )
