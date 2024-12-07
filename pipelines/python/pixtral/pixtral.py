@@ -144,6 +144,5 @@ class PixtralModel(PipelineModel):
             )
             logging.info("Compiling...")
             return session.load(
-                graph,
-                weights_registry=self._weights.allocated_weights,  # type:ignore
+                graph, weights_registry=self._weights.allocated_weights
             )
