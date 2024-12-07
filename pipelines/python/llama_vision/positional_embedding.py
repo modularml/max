@@ -56,10 +56,10 @@ class PrecomputedAspectRatioEmbedding(Layer):
         if self.is_gated:
             embeddings = embeddings * ops.tanh(self.gate)
 
-        # We're broadcasting in the add operation below, so we call rebind()
+        # We're broadcasting in the add operation below, so we call reshape()
         # on embeddings first.
-        batch_size, num_tiles, _, hidden_size = hidden_state.shape  # type: ignore
-        embeddings = embeddings.rebind(
+        batch_size, num_tiles, _, hidden_size = hidden_state.shape
+        embeddings = embeddings.reshape(
             (
                 batch_size,
                 num_tiles,
@@ -107,9 +107,9 @@ class PrecomputedPositionEmbedding(Layer):
             )
         )
         # We're broadcasting gated_position_embedding in the add operation below,
-        # so we call rebind() on hidden_state first.
+        # so we call reshape() on hidden_state first.
         batch_size, num_tiles, _, _ = hidden_state.shape
-        hidden_state = hidden_state.rebind(
+        hidden_state = hidden_state.reshape(
             (
                 batch_size,
                 num_tiles,
@@ -132,7 +132,7 @@ class PrecomputedPositionEmbedding(Layer):
         gated_tile_position_embedding = (
             ops.tanh(self.gate) * tile_position_embedding
         )
-        # This explicit rebind is called only to match num_tiles dim in
+        # This explicit reshape is called only to match num_tiles dim in
         # tile_position_embedding.
-        hidden_state = hidden_state.rebind(tile_position_embedding.shape)
+        hidden_state = hidden_state.reshape(tile_position_embedding.shape)
         return hidden_state + gated_tile_position_embedding

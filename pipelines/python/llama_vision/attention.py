@@ -55,13 +55,9 @@ class Attention(Layer):
         # Note, the graph compiler currently requires the order of operands
         # to be `scores * scale` in order to pattern match the fused attention
         # operator.
-        scores = scores.rebind(attn_mask.shape)
         scores = ops.softmax(scores * scale + attn_mask)
 
         seq_len = xv.shape[2]
-        scores = scores.rebind(
-            (scores.shape[0], scores.shape[1], seq_len, seq_len)
-        )
         return scores @ xv
 
     def __call__(
