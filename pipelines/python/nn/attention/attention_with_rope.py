@@ -39,7 +39,7 @@ class AttentionWithRope(AttentionImpl):
         x: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
-    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+    ) -> TensorValue:
         # Get attributes from input.
         total_seq_len = x.shape[0]
 
@@ -81,7 +81,7 @@ class AttentionWithRope(AttentionImpl):
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
 
-        return self.wo(attn_out), kv_collection
+        return self.wo(attn_out)
 
 
 @dataclass
@@ -96,7 +96,7 @@ class AttentionWithRopeQKV(AttentionImplQKV):
         x: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
-    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+    ) -> TensorValue:
         # Get attributes from input.
         total_seq_len = x.shape[0]
 
@@ -140,4 +140,4 @@ class AttentionWithRopeQKV(AttentionImplQKV):
 
         attn_out = ops.reshape(attn_out, shape=[total_seq_len, -1])
 
-        return self.wo(attn_out), kv_collection
+        return self.wo(attn_out)
