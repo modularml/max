@@ -15,7 +15,7 @@
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, ops
+from max.graph import TensorValue, ops
 from nn import Linear
 from nn.layer import Layer
 
@@ -30,8 +30,7 @@ class MLP(Layer):
     fc1: Linear
     fc2: Linear
 
-    def __call__(self, hidden_states: TensorValueLike) -> TensorValue:
+    def __call__(self, hidden_states: TensorValue) -> TensorValue:
         hidden_states = self.fc1(hidden_states)
         hidden_states = ops.gelu(hidden_states)
-        hidden_states = self.fc2(hidden_states)
-        return hidden_states
+        return self.fc2(hidden_states)

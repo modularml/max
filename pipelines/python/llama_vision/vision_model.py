@@ -18,8 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, ops
-from max.graph.weights import SafetensorWeights
+from max.graph import Dim, StaticDim, TensorValue, TensorValueLike, ops
+from max.graph.weights import Weights
 from nn import Conv2D, Embedding, Linear, LPLayerNorm
 from nn.layer import Layer
 
@@ -200,7 +200,7 @@ class VisionModel(Layer):
         # Slice regions along width (dim=3)
         # Unchanged region to the left
         left_region = padded_tensor[:, :, top : top + height.dim, :left]
-        width_tuple = (left_region, input_tensor)
+        width_tuple: tuple[TensorValue, ...] = (left_region, input_tensor)
         if left > 0:
             # Unchanged region to the right
             right_region = padded_tensor[
@@ -220,9 +220,9 @@ class VisionModel(Layer):
 
     def __call__(
         self,
-        pixel_values: TensorValueLike,
-        aspect_ratio_ids: TensorValueLike,
-        aspect_ratio_mask: TensorValueLike,
+        pixel_values: TensorValue,
+        aspect_ratio_ids: TensorValue,
+        aspect_ratio_mask: TensorValue,
     ) -> tuple[TensorValue, TensorValue | None, TensorValue | None]:
         (
             batch_size,
@@ -285,7 +285,7 @@ class VisionModel(Layer):
         hidden_state = self.layernorm_pre(hidden_state)
 
         # Compute the number of tokens to pad
-        curr_num_patches = hidden_state.shape[-2].dim
+        curr_num_patches = StaticDim(hidden_state.shape[-2]).dim
         num_padding_patches = (8 - (curr_num_patches % 8)) % 8
         # Compute padding tuple for pad function
         padding = (
@@ -312,7 +312,7 @@ class VisionModel(Layer):
         attention_mask = self._prepare_aspect_ratio_attention_mask(
             aspect_ratio_mask=attention_mask,
             num_patches=self.num_patches,
-            target_length=hidden_state.shape[2].dim,
+            target_length=StaticDim(hidden_state.shape[2]).dim,
             dtype=self.dtype,
         )
 
@@ -324,12 +324,14 @@ class VisionModel(Layer):
         # hidden_state: 1, 4128, 1280
         # attention_mask: 1, 1, 4128, 4128
 
-        output = self.transformer(
+        hidden_state, all_intermediate_hidden_states = self.transformer(
             hidden_state,
             attention_mask=attention_mask,
             output_hidden_states=True,
         )
-        hidden_state = output[0]
+        assert (
+            all_intermediate_hidden_states is not None
+        ), "expect intermediate hidden states output"
 
         hidden_state = self.layernorm_post(hidden_state)
 
@@ -375,7 +377,6 @@ class VisionModel(Layer):
         )
 
         # Collect intermediate layer outputs from encoder output.
-        all_intermediate_hidden_states = output[1]
         intermediate_hidden_states = ops.stack(
             all_intermediate_hidden_states, axis=-1
         )
@@ -397,7 +398,7 @@ class VisionModel(Layer):
         # ('batch_size' * 'num_concurrent_media', 4128, 1280, 5)
         intermediate_hidden_states = intermediate_hidden_states.reshape(
             (
-                batch_size * num_concurrent_media,  # 1
+                Dim(batch_size) * num_concurrent_media,  # 1
                 num_tiles,  # 4
                 num_patches + num_padding_patches,  # 1025 + 7 = 1032
                 dim * len(self.intermediate_layers_indices),
@@ -447,7 +448,7 @@ def instantiate_vision_model(
     intermediate_size: int,
     num_global_layers: int,
     intermediate_layers_indices: list[int],
-    weights: SafetensorWeights,
+    weights: Weights,
 ) -> VisionModel:
     # Shared variables.
     num_patches = (image_size // patch_size) ** 2 + 1

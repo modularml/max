@@ -13,16 +13,23 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 
 import numpy as np
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
 from max.graph import Graph, TensorType, TensorValue
-from max.pipelines import PipelineConfig, PipelineModel, TextAndVisionContext
+from max.pipelines import (
+    ModelOutputs,
+    PipelineConfig,
+    PipelineModel,
+    TextAndVisionContext,
+)
 from max.pipelines.kv_cache import (
     KVCacheManager,
     KVCacheParams,
+    KVCacheStrategy,
     estimate_kv_cache_size,
     load_kv_manager,
 )
@@ -51,10 +58,7 @@ class LlamaVision(PipelineModel):
         input_ids: TensorValue,
         hidden_input_row_offsets: TensorValue,
         cross_input_row_offsets: TensorValue,
-        blocks: TensorValue,
-        cache_lengths: TensorValue,
-        lookup_table: TensorValue,
-        is_cache_empty: TensorValue,
+        *kv_cache_inputs: TensorValue,
     ) -> TensorValue:
         """Builds the graph: all op staging happens here in __call__."""
         vision_config = self.pipeline_config.huggingface_config.vision_config
@@ -110,22 +114,14 @@ class LlamaVision(PipelineModel):
         )
 
         return conditional_generator(
-            pixel_values=pixel_values,
-            aspect_ratio_ids=aspect_ratio_ids,
-            aspect_ratio_mask=aspect_ratio_mask,
-            input_ids=input_ids,
-            hidden_input_row_offsets=hidden_input_row_offsets,
-            cross_input_row_offsets=cross_input_row_offsets,
-            kv_cache_inputs=(
-                blocks,
-                cache_lengths,
-                lookup_table,
-                is_cache_empty,
-            ),
+            pixel_values,
+            aspect_ratio_ids,
+            aspect_ratio_mask,
+            input_ids,
+            hidden_input_row_offsets,
+            cross_input_row_offsets,
+            kv_cache_inputs,
         )
-
-    def export_mef(self, export_path):
-        self._model._export_mef(export_path)
 
     def _llama3_vision_graph(self) -> Graph:
         # TODO: Verify if the mapping is correct:
@@ -186,20 +182,27 @@ class LlamaVision(PipelineModel):
         )
 
     def prepare_initial_token_inputs(
-        self, context_batch: list[TextAndVisionContext]
+        self,
+        context_batch: Sequence[TextAndVisionContext],  # type: ignore
     ) -> tuple[Tensor, ...]:
+        if self.pipeline_config.cache_strategy != KVCacheStrategy.CONTINUOUS:
+            msg = "Llama Vision only supports continuous batching"
+            raise ValueError(msg)
+
+        batch_size = len(context_batch)
         pixel_values = Tensor.zeros(
-            self.pipeline_config.dtype, shape=["batch_size", 1, 4, 448, 448, 3]
+            shape=[batch_size, 1, 4, 448, 448, 3],
+            dtype=self.pipeline_config.dtype,
         )
         aspect_ratio_ids = Tensor.zeros(
-            self.pipeline_config.dtype, shape=["batch_size", 1]
+            shape=[batch_size, 1], dtype=self.pipeline_config.dtype
         )
         aspect_ratio_mask = Tensor.zeros(
-            self.pipeline_config.dtype, shape=["batch_size", 1, 4]
+            shape=[batch_size, 1, 4], dtype=self.pipeline_config.dtype
         )
 
         # Input row offset type: ["input_row_offsets_len"], UInt32
-        input_row_offsets = Tensor.from_numpy(
+        hidden_input_row_offsets = Tensor.from_numpy(
             np.cumsum(
                 [0] + [ctx.seq_len for ctx in context_batch],
                 dtype=np.uint32,
@@ -211,17 +214,12 @@ class LlamaVision(PipelineModel):
         tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
         input_ids = Tensor.from_numpy(tokens).to(self.pipeline_config.device)
 
-        cross_attention_mask = Tensor.zeros(
-            DType.int64, shape=["batch_size", 14, 1, 4]
-        )
-
         return (
             pixel_values,
             aspect_ratio_ids,
             aspect_ratio_mask,
             input_ids,
-            input_row_offsets,
-            cross_attention_mask,
+            hidden_input_row_offsets,
         )
 
     def prepare_next_token_inputs(
@@ -231,8 +229,13 @@ class LlamaVision(PipelineModel):
     ) -> tuple[Tensor, ...]:
         raise NotImplementedError("not yet implemented.")
 
-    def execute(self, *model_inputs: Tensor) -> tuple[Tensor, ...]:
-        return self.model.execute(*model_inputs, copy_inputs_to_device=False)[0]  # type: ignore
+    def execute(self, *model_inputs: Tensor) -> ModelOutputs:
+        model_outputs = self.model.execute(
+            *model_inputs, copy_inputs_to_device=False
+        )
+        assert not self.pipeline_config.enable_echo
+        assert isinstance(model_outputs[0], Tensor)
+        return ModelOutputs(next_token_logits=model_outputs[0])
 
     def _get_kv_params(self) -> KVCacheParams:
         return KVCacheParams(
