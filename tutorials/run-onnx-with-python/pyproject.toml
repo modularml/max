@@ -1,8 +1,8 @@
 [project]
 dependencies = []
-description = "Tutorial: Run a TorchScript model with Python"
-name = "torchscript-tutorial"
-requires-python = ">=3.11,<3.13"
+description = "Tutorial: Run an ONNX model with Python"
+name = "onnx-tutorial"
+requires-python = ">=3.9,<3.13"
 version = "0.1.0"
 
 [build-system]
@@ -14,12 +14,17 @@ channels = ["pytorch", "conda-forge", "https://conda.modular.com/max-nightly/"]
 platforms = ["linux-64", "osx-arm64"]
 
 [tool.pixi.pypi-dependencies]
-torchscript_tutorial = { path = ".", editable = true }
+onnx_tutorial = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
 max = "~=24.5"
 pytorch = "==2.4.0"
+numpy = "<2.0"
+onnx = "==1.16.0"
 transformers = "==4.40.1"
+datasets = "==2.18"
+pillow = "==10.3.0"
+libjpeg-turbo = { version = "3.0.0", channel = "conda-forge" }
 
 [tool.pixi.feature.test.tasks]
 test = "python3 download-model.py && python3 run.py"
