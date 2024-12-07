@@ -32,33 +32,6 @@ from .positional_embedding import (
 )
 
 
-def lp_layer_norm(
-    dtype: DType,
-    size: int,
-    eps: float,
-    weights: SafetensorWeights,
-) -> LPLayerNorm:
-    """
-    Helper function to instantiate a LPLayerNorm layer.
-    """
-    return LPLayerNorm(weights.weight.allocate(dtype, [size]), eps=eps)
-
-
-# TODO: Copy pasted from other pipelines - maybe worth moving to a util subdir?
-def linear(
-    dtype: DType,
-    in_features: int,
-    out_features: int,
-    weights: SafetensorWeights,
-) -> Linear:
-    """
-    Helper function to instantiate a Linear layer.
-    """
-    return Linear(
-        weights.weight.allocate(dtype, [in_features, out_features], None)
-    )
-
-
 # TODO(MAXCORE-170): We should clean this up. This is just a RSCF layout permutation so it
 # conforms with our conv op API.
 @dataclass
@@ -578,18 +551,18 @@ def instantiate_vision_model(
         [hidden_size],
     )
 
-    layernorm_pre = lp_layer_norm(
-        dtype=dtype,
-        size=hidden_size,
+    layernorm_pre = LPLayerNorm(
+        weights.vision_model.layernorm_pre.weight.allocate(
+            dtype, [hidden_size]
+        ),
         eps=norm_eps,
-        weights=weights.vision_model.layernorm_pre,
     )
 
-    layernorm_post = lp_layer_norm(
-        dtype=dtype,
-        size=hidden_size,
+    layernorm_post = LPLayerNorm(
+        weights.vision_model.layernorm_post.weight.allocate(
+            dtype, [hidden_size]
+        ),
         eps=norm_eps,
-        weights=weights.vision_model.layernorm_post,
     )
 
     transformer_encoder_layers: list[VisionEncoderLayer] = []
@@ -601,57 +574,63 @@ def instantiate_vision_model(
         transformer_encoder_layers.append(
             VisionEncoderLayer(
                 mlp=MLP(
-                    linear(
-                        dtype=dtype,
-                        in_features=intermediate_size,
-                        out_features=hidden_size,
-                        weights=curr_layer_weight.mlp.fc1,
+                    Linear(
+                        curr_layer_weight.mlp.fc1.weight.allocate(
+                            dtype,
+                            [intermediate_size, hidden_size],
+                        ),
+                        bias=None,
                     ),
-                    linear(
-                        dtype=dtype,
-                        in_features=hidden_size,
-                        out_features=intermediate_size,
-                        weights=curr_layer_weight.mlp.fc2,
+                    Linear(
+                        curr_layer_weight.mlp.fc2.weight.allocate(
+                            dtype,
+                            [hidden_size, intermediate_size],
+                        ),
+                        bias=None,
                     ),
                 ),
-                input_layernorm=lp_layer_norm(
-                    dtype=dtype,
-                    size=hidden_size,
+                input_layernorm=LPLayerNorm(
+                    curr_layer_weight.input_layernorm.weight.allocate(
+                        dtype, [hidden_size]
+                    ),
                     eps=norm_eps,
-                    weights=curr_layer_weight.input_layernorm,
                 ),
-                post_attention_layernorm=lp_layer_norm(
-                    dtype=dtype,
-                    size=hidden_size,
+                post_attention_layernorm=LPLayerNorm(
+                    curr_layer_weight.post_attention_layernorm.weight.allocate(
+                        dtype, [hidden_size]
+                    ),
                     eps=norm_eps,
-                    weights=curr_layer_weight.post_attention_layernorm,
                 ),
                 self_attn=Attention(
                     n_heads=attention_heads,
                     head_dim=head_dim,
-                    wk=linear(
-                        dtype=dtype,
-                        in_features=attention_heads * head_dim,
-                        out_features=hidden_size,
-                        weights=curr_layer_weight.self_attn.k_proj,
+                    wk=Linear(
+                        curr_layer_weight.self_attn.k_proj.weight.allocate(
+                            dtype,
+                            [attention_heads * head_dim, hidden_size],
+                        ),
+                        bias=None,
                     ),
-                    wv=linear(
-                        dtype=dtype,
-                        in_features=attention_heads * head_dim,
-                        out_features=hidden_size,
-                        weights=curr_layer_weight.self_attn.v_proj,
+                    wv=Linear(
+                        curr_layer_weight.self_attn.v_proj.weight.allocate(
+                            dtype,
+                            [attention_heads * head_dim, hidden_size],
+                        ),
+                        bias=None,
                     ),
-                    wq=linear(
-                        dtype=dtype,
-                        in_features=attention_heads * head_dim,
-                        out_features=hidden_size,
-                        weights=curr_layer_weight.self_attn.q_proj,
+                    wq=Linear(
+                        curr_layer_weight.self_attn.q_proj.weight.allocate(
+                            dtype,
+                            [attention_heads * head_dim, hidden_size],
+                        ),
+                        bias=None,
                     ),
-                    wo=linear(
-                        dtype=dtype,
-                        in_features=hidden_size,
-                        out_features=attention_heads * head_dim,
-                        weights=curr_layer_weight.self_attn.o_proj,
+                    wo=Linear(
+                        curr_layer_weight.self_attn.o_proj.weight.allocate(
+                            dtype,
+                            [hidden_size, attention_heads * head_dim],
+                        ),
+                        bias=None,
                     ),
                 ),
                 is_gated=False,
@@ -671,57 +650,63 @@ def instantiate_vision_model(
         global_transformer_layers.append(
             VisionEncoderLayer(
                 mlp=MLP(
-                    linear(
-                        dtype=dtype,
-                        in_features=intermediate_size,
-                        out_features=hidden_size,
-                        weights=curr_layer_weight.mlp.fc1,
+                    Linear(
+                        curr_layer_weight.mlp.fc1.weight.allocate(
+                            dtype,
+                            [intermediate_size, hidden_size],
+                        ),
+                        bias=None,
                     ),
-                    linear(
-                        dtype=dtype,
-                        in_features=hidden_size,
-                        out_features=intermediate_size,
-                        weights=curr_layer_weight.mlp.fc2,
+                    Linear(
+                        curr_layer_weight.mlp.fc2.weight.allocate(
+                            dtype,
+                            [hidden_size, intermediate_size],
+                        ),
+                        bias=None,
                     ),
                 ),
-                input_layernorm=lp_layer_norm(
-                    dtype=dtype,
-                    size=hidden_size,
+                input_layernorm=LPLayerNorm(
+                    curr_layer_weight.input_layernorm.weight.allocate(
+                        dtype, [hidden_size]
+                    ),
                     eps=norm_eps,
-                    weights=curr_layer_weight.input_layernorm,
                 ),
-                post_attention_layernorm=lp_layer_norm(
-                    dtype=dtype,
-                    size=hidden_size,
+                post_attention_layernorm=LPLayerNorm(
+                    curr_layer_weight.post_attention_layernorm.weight.allocate(
+                        dtype, [hidden_size]
+                    ),
                     eps=norm_eps,
-                    weights=curr_layer_weight.post_attention_layernorm,
                 ),
                 self_attn=Attention(
                     n_heads=attention_heads,
                     head_dim=head_dim,
-                    wk=linear(
-                        dtype=dtype,
-                        in_features=hidden_size,
-                        out_features=attention_heads * head_dim,
-                        weights=curr_layer_weight.self_attn.k_proj,
+                    wk=Linear(
+                        curr_layer_weight.self_attn.k_proj.weight.allocate(
+                            dtype,
+                            [hidden_size, attention_heads * head_dim],
+                        ),
+                        bias=None,
                     ),
-                    wv=linear(
-                        dtype=dtype,
-                        in_features=hidden_size,
-                        out_features=attention_heads * head_dim,
-                        weights=curr_layer_weight.self_attn.v_proj,
+                    wv=Linear(
+                        curr_layer_weight.self_attn.v_proj.weight.allocate(
+                            dtype,
+                            [hidden_size, attention_heads * head_dim],
+                        ),
+                        bias=None,
                     ),
-                    wq=linear(
-                        dtype=dtype,
-                        in_features=hidden_size,
-                        out_features=attention_heads * head_dim,
-                        weights=curr_layer_weight.self_attn.q_proj,
+                    wq=Linear(
+                        curr_layer_weight.self_attn.q_proj.weight.allocate(
+                            dtype,
+                            [hidden_size, attention_heads * head_dim],
+                        ),
+                        bias=None,
                     ),
-                    wo=linear(
-                        dtype=dtype,
-                        in_features=attention_heads * head_dim,
-                        out_features=hidden_size,
-                        weights=curr_layer_weight.self_attn.o_proj,
+                    wo=Linear(
+                        curr_layer_weight.self_attn.o_proj.weight.allocate(
+                            dtype,
+                            [attention_heads * head_dim, hidden_size],
+                        ),
+                        bias=None,
                     ),
                 ),
                 is_gated=True,
