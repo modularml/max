@@ -54,11 +54,7 @@ class Transformer(Layer):
         kv_collection = self.kv_collection_constructor(*kv_cache_inputs)
 
         for _, layer in enumerate(self.layers):
-            h, _ = layer(
-                h,
-                kv_collection,
-                **kwargs,
-            )
+            h = layer(h, kv_collection, **kwargs)
 
         # Predict with the last non-pad token (right-padded).
         if "input_row_offsets" in kwargs:

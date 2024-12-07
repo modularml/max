@@ -45,15 +45,15 @@ class TransformerBlock(Layer):
         x: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
-    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
-        attn_out, kv_collection = self.attention(
+    ) -> TensorValue:
+        attn_out = self.attention(
             self.attention_norm(x), kv_collection, **kwargs
         )
 
         h = x + attn_out
         h = h + self.mlp(self.mlp_norm(h))
 
-        return h, kv_collection
+        return h
 
 
 @dataclass
@@ -83,7 +83,7 @@ class Transformer(Layer):
         kv_collection = self.kv_collection_constructor(*kv_cache_inputs)
 
         for _, layer in enumerate(self.layers):
-            h, _ = layer(h, kv_collection, **kwargs)
+            h = layer(h, kv_collection, **kwargs)
 
         if self.all_logits:
             # When echo is enabled, the logits of the input tokens are

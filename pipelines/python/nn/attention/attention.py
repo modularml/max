@@ -29,7 +29,7 @@ class Attention(AttentionImpl):
         x: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
-    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+    ) -> TensorValue:
         if "attention_mask" not in kwargs:
             raise ValueError("attention_mask not passed as input to Attention")
         attention_mask = kwargs["attention_mask"]
@@ -75,7 +75,7 @@ class Attention(AttentionImpl):
 
         attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
 
-        return self.wo(attn_out), kv_collection
+        return self.wo(attn_out)
 
 
 @dataclass
@@ -85,7 +85,7 @@ class AttentionQKV(AttentionImplQKV):
         x: TensorValue,
         kv_collection: ContinuousBatchingKVCacheCollection,
         **kwargs,
-    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+    ) -> TensorValue:
         if "attention_mask" not in kwargs:
             raise ValueError("attention_mask not passed as input to Attention")
         attention_mask = kwargs["attention_mask"]
@@ -134,4 +134,4 @@ class AttentionQKV(AttentionImplQKV):
 
         attn_out = ops.reshape(attn_out, shape=[batch_size, seq_len, -1])
 
-        return self.wo(attn_out), kv_collection
+        return self.wo(attn_out)
