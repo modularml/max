@@ -334,13 +334,6 @@ class VisionModel(Layer):
         hidden_state = self.layernorm_post(hidden_state)
 
         # Apply global encoder
-        hidden_state = hidden_state.rebind(
-            (
-                batch_size * num_concurrent_media,
-                num_tiles * (num_patches + num_padding_patches),
-                dim,
-            )
-        )
         hidden_state = hidden_state.reshape(
             (
                 batch_size * num_concurrent_media,  # 1
@@ -402,14 +395,6 @@ class VisionModel(Layer):
 
         # Remove padding from intermediate hidden states.
         # ('batch_size' * 'num_concurrent_media', 4128, 1280, 5)
-        intermediate_hidden_states = intermediate_hidden_states.rebind(
-            (
-                batch_size * num_concurrent_media,
-                num_tiles * (num_patches + num_padding_patches),
-                dim,
-                len(self.intermediate_layers_indices),
-            )
-        )
         intermediate_hidden_states = intermediate_hidden_states.reshape(
             (
                 batch_size * num_concurrent_media,  # 1
@@ -424,14 +409,6 @@ class VisionModel(Layer):
             :, :, :slice_index
         ]
 
-        intermediate_hidden_states = intermediate_hidden_states.rebind(
-            (
-                batch_size * num_concurrent_media,
-                num_tiles,
-                num_patches,
-                dim * len(self.intermediate_layers_indices),
-            )
-        )
         intermediate_hidden_states = intermediate_hidden_states.reshape(
             (
                 batch_size,
