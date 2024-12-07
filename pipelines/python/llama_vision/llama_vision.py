@@ -18,7 +18,7 @@ import numpy as np
 from max.driver import Tensor
 from max.dtype import DType
 from max.engine import InferenceSession, Model
-from max.graph import Graph, TensorType
+from max.graph import Graph, TensorType, TensorValue
 from max.pipelines import PipelineConfig, PipelineModel, TextAndVisionContext
 from max.pipelines.kv_cache import (
     KVCacheManager,
@@ -34,24 +34,100 @@ from .vision_model import instantiate_vision_model
 
 
 def max_seq_len(config: PipelineConfig) -> int:
-    return (
-        config.max_length
-        if config.max_length
-        < config.huggingface_config.text_config.max_position_embeddings
-        else config.huggingface_config.text_config.max_position_embeddings
+    return min(
+        config.max_length,
+        config.huggingface_config.text_config.max_position_embeddings,
     )
 
 
-# TODO: Some parts may be consolidated under the parent Llama 3 pipeline interface.
 class LlamaVision(PipelineModel):
     """The Llama3.2 vision model."""
+
+    def __call__(
+        self,
+        pixel_values: TensorValue,
+        aspect_ratio_ids: TensorValue,
+        aspect_ratio_mask: TensorValue,
+        input_ids: TensorValue,
+        hidden_input_row_offsets: TensorValue,
+        cross_input_row_offsets: TensorValue,
+        blocks: TensorValue,
+        cache_lengths: TensorValue,
+        lookup_table: TensorValue,
+        is_cache_empty: TensorValue,
+    ) -> TensorValue:
+        """Builds the graph: all op staging happens here in __call__."""
+        vision_config = self.pipeline_config.huggingface_config.vision_config
+        text_config = self.pipeline_config.huggingface_config.text_config
+        conditional_generator = ConditionalGenerator(
+            pipeline_config=self.pipeline_config,
+            vision_model=instantiate_vision_model(
+                dtype=self.pipeline_config.dtype,
+                image_size=vision_config.image_size,
+                patch_size=vision_config.patch_size,
+                supported_aspect_ratios=vision_config.supported_aspect_ratios,
+                hidden_size=vision_config.hidden_size,
+                max_num_tiles=vision_config.max_num_tiles,
+                num_channels=vision_config.num_channels,
+                norm_eps=vision_config.norm_eps,
+                attention_heads=vision_config.attention_heads,
+                num_hidden_layers=vision_config.num_hidden_layers,
+                intermediate_size=vision_config.intermediate_size,
+                num_global_layers=vision_config.num_global_layers,
+                intermediate_layers_indices=vision_config.intermediate_layers_indices,
+                weights=self.weights,
+            ),
+            multi_modal_projector=Linear(
+                self.weights.multi_modal_projector.weight.allocate(
+                    self.pipeline_config.dtype,
+                    [
+                        self.pipeline_config.huggingface_config.text_config.hidden_size,
+                        self.pipeline_config.huggingface_config.vision_config.vision_output_dim,
+                    ],
+                ),
+                self.weights.multi_modal_projector.bias.allocate(
+                    self.pipeline_config.dtype,
+                    [
+                        self.pipeline_config.huggingface_config.text_config.hidden_size
+                    ],
+                ),
+            ),
+            language_model=instantiate_language_model(
+                dtype=self.pipeline_config.dtype,
+                hidden_size=text_config.hidden_size,
+                n_heads=text_config.num_attention_heads,
+                rope_theta=text_config.rope_theta,
+                max_seq_len=max_seq_len(self.pipeline_config),
+                num_hidden_layers=text_config.num_hidden_layers,
+                cross_attention_layers=text_config.cross_attention_layers,
+                vocab_size=text_config.vocab_size,
+                rms_norm_eps=text_config.rms_norm_eps,
+                num_key_value_heads=text_config.num_key_value_heads,
+                intermediate_size=text_config.intermediate_size,
+                kv_params=self._get_kv_params(),
+                weights=self.weights,
+            ),
+        )
+
+        return conditional_generator(
+            pixel_values=pixel_values,
+            aspect_ratio_ids=aspect_ratio_ids,
+            aspect_ratio_mask=aspect_ratio_mask,
+            input_ids=input_ids,
+            hidden_input_row_offsets=hidden_input_row_offsets,
+            cross_input_row_offsets=cross_input_row_offsets,
+            kv_cache_inputs=(
+                blocks,
+                cache_lengths,
+                lookup_table,
+                is_cache_empty,
+            ),
+        )
 
     def export_mef(self, export_path):
         self._model._export_mef(export_path)
 
-    def _llama3_vision_graph(
-        self,
-    ) -> Graph:
+    def _llama3_vision_graph(self) -> Graph:
         # TODO: Verify if the mapping is correct:
         # From dumping the inputs before executing the reference model...
         # key: input_ids, shape: torch.Size([1, 14])
@@ -93,124 +169,21 @@ class LlamaVision(PipelineModel):
             DType.uint32, shape=["input_row_offsets_len"]
         )
 
-        # Same shapes.
-        position_ids_type = input_ids_type
-        cross_attention_mask_type = TensorType(
-            DType.int64, ["batch_size", 14, 1, 4]
-        )
-
-        (
-            blocks_type,
-            cache_lengths_type,
-            lookup_table_type,
-            is_cache_empty_type,
-        ) = self.kv_manager.input_symbols()[0]
-        with Graph(
+        return Graph(
             "llama3-vision",
+            # Pass PipelineModel as the Graph's forward callable until nn.Model.
+            forward=self,
             input_types=[
                 pixel_values_type,
                 aspect_ratio_ids_type,
                 aspect_ratio_mask_type,
                 input_ids_type,
+                # Pass 2 sets of offsets for hidden and cross attn states.
                 input_row_offsets_type,
-                cross_attention_mask_type,
-                position_ids_type,
-                blocks_type,
-                cache_lengths_type,
-                lookup_table_type,
-                is_cache_empty_type,
+                input_row_offsets_type,
+                *self.kv_manager.input_symbols()[0],
             ],
-        ) as graph:
-            vision_config = (
-                self.pipeline_config.huggingface_config.vision_config
-            )
-            text_config = self.pipeline_config.huggingface_config.text_config
-            model = ConditionalGenerator(
-                pipeline_config=self.pipeline_config,
-                vision_model=instantiate_vision_model(
-                    dtype=self.pipeline_config.dtype,
-                    image_size=vision_config.image_size,
-                    patch_size=vision_config.patch_size,
-                    supported_aspect_ratios=vision_config.supported_aspect_ratios,
-                    hidden_size=vision_config.hidden_size,
-                    max_num_tiles=vision_config.max_num_tiles,
-                    num_channels=vision_config.num_channels,
-                    norm_eps=vision_config.norm_eps,
-                    attention_heads=vision_config.attention_heads,
-                    num_hidden_layers=vision_config.num_hidden_layers,
-                    intermediate_size=vision_config.intermediate_size,
-                    num_global_layers=vision_config.num_global_layers,
-                    intermediate_layers_indices=vision_config.intermediate_layers_indices,
-                    weights=self.weights,
-                ),
-                multi_modal_projector=Linear(
-                    self.weights.multi_modal_projector.weight.allocate(
-                        self.pipeline_config.dtype,
-                        [
-                            self.pipeline_config.huggingface_config.text_config.hidden_size,
-                            self.pipeline_config.huggingface_config.vision_config.vision_output_dim,
-                        ],
-                    ),
-                    self.weights.multi_modal_projector.bias.allocate(
-                        self.pipeline_config.dtype,
-                        [
-                            self.pipeline_config.huggingface_config.text_config.hidden_size
-                        ],
-                    ),
-                ),
-                language_model=instantiate_language_model(
-                    dtype=self.pipeline_config.dtype,
-                    hidden_size=text_config.hidden_size,
-                    n_heads=text_config.num_attention_heads,
-                    rope_theta=text_config.rope_theta,
-                    max_seq_len=max_seq_len(self.pipeline_config),
-                    num_hidden_layers=text_config.num_hidden_layers,
-                    cross_attention_layers=text_config.cross_attention_layers,
-                    vocab_size=text_config.vocab_size,
-                    rms_norm_eps=text_config.rms_norm_eps,
-                    num_key_value_heads=text_config.num_key_value_heads,
-                    intermediate_size=text_config.intermediate_size,
-                    kv_params=self._get_kv_params(),
-                    weights=self.weights,
-                ),
-            )
-
-            (
-                pixel_values,
-                aspect_ratio_ids,
-                aspect_ratio_mask,
-                input_ids,
-                input_row_offsets,
-                cross_attention_mask,
-                position_ids,
-                blocks,
-                cache_lengths,
-                lookup_table,
-                is_cache_empty,
-            ) = graph.inputs
-
-            # TODO: Call model.prepare_cross_attention_mask(...) here before
-            # passing in the cross attention mask in the step below.
-            # We will then have to call something like Tensor.from_numpy(...)
-            # before the forward call below.
-            logits = model(
-                pixel_values=pixel_values,
-                aspect_ratio_ids=aspect_ratio_ids,
-                aspect_ratio_mask=aspect_ratio_mask,
-                input_ids=input_ids,
-                input_row_offsets=input_row_offsets,
-                cross_attention_mask=cross_attention_mask,
-                position_ids=position_ids,
-                kv_cache_inputs=(
-                    blocks,
-                    cache_lengths,
-                    lookup_table,
-                    is_cache_empty,
-                ),
-            )
-
-            graph.output(logits)  # type: ignore
-            return graph
+        )
 
     def prepare_initial_token_inputs(
         self, context_batch: list[TextAndVisionContext]

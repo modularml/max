@@ -104,23 +104,17 @@ class ConditionalGenerator(Layer):
 
     def __call__(
         self,
+        kv_cache_inputs: tuple[
+            TensorValue, TensorValue, TensorValue, TensorValue
+        ],
         pixel_values: TensorValue | None = None,
         aspect_ratio_ids: TensorValue | None = None,
         aspect_ratio_mask: TensorValue | None = None,
-        cross_attention_mask: TensorValue | None = None,
         cross_attention_states: TensorValue | None = None,
-        position_ids: TensorValue | None = None,
-        kv_cache_inputs: tuple[
-            TensorValue, TensorValue, TensorValue, TensorValue
-        ]
-        | None = None,
         input_ids: TensorValue | None = None,
         inputs_embeds: TensorValue | None = None,
-        # TODO: Remove this since we have our own caching mechanism.
-        cache_position: TensorValue | None = None,
-        # For preparing cross attention mask.
-        full_text_row_masked_out_mask: TensorValue | None = None,
-        input_row_offsets: TensorValue | None = None,
+        hidden_input_row_offsets: TensorValue | None = None,
+        cross_input_row_offsets: TensorValue | None = None,
     ) -> TensorValue:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
@@ -177,11 +171,7 @@ class ConditionalGenerator(Layer):
         return self.language_model(
             kv_cache_inputs=kv_cache_inputs,
             input_ids=input_ids,
-            input_row_offsets=input_row_offsets,
-            position_ids=position_ids,
+            hidden_input_row_offsets=hidden_input_row_offsets,
             cross_attention_states=cross_attention_states,
-            cross_attention_mask=cross_attention_mask,
-            full_text_row_masked_out_mask=full_text_row_masked_out_mask,
-            cache_position=cache_position,
-            num_logits_to_keep=1,
+            cross_input_row_offsets=cross_input_row_offsets,
         )

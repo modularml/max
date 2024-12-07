@@ -133,7 +133,7 @@ class CrossAttentionDecoderLayer(Layer):
         kv_collection: ContinuousBatchingKVCacheCollection,
         full_text_row_masked_out_mask: tuple[TensorValue, TensorValue]
         | None = None,
-    ) -> tuple[TensorValue, ContinuousBatchingKVCacheCollection]:
+    ) -> TensorValue:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
         assert (
@@ -160,4 +160,4 @@ class CrossAttentionDecoderLayer(Layer):
             residual + ops.tanh(self.cross_attn_mlp_gate) * hidden_states
         )
 
-        return hidden_states, kv_collection
+        return hidden_states
