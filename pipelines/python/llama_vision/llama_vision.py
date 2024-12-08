@@ -248,9 +248,11 @@ class LlamaVision(PipelineModel):
     def _get_kv_params(self) -> KVCacheParams:
         return KVCacheParams(
             dtype=self.pipeline_config.dtype,
-            n_kv_heads=self.pipeline_config.huggingface_config.text_config.num_attention_heads,
-            head_dim=self.pipeline_config.huggingface_config.text_config.hidden_size
-            // self.pipeline_config.huggingface_config.text_config.num_attention_heads,
+            n_kv_heads=self.text_config.num_key_value_heads,
+            head_dim=(
+                self.text_config.hidden_size
+                // self.text_config.num_attention_heads
+            ),
             cache_strategy=self.pipeline_config.cache_strategy,
         )
 
@@ -259,7 +261,7 @@ class LlamaVision(PipelineModel):
             params=self._get_kv_params(),
             max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
             max_seq_len=max_seq_len(self.pipeline_config),
-            num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
+            num_layers=self.text_config.num_hidden_layers,
             devices=[self.pipeline_config.device],
             session=session,
         )
@@ -269,7 +271,7 @@ class LlamaVision(PipelineModel):
             params=self._get_kv_params(),
             max_cache_batch_size=self.pipeline_config.max_cache_batch_size,
             max_seq_len=max_seq_len(self.pipeline_config),
-            num_layers=self.pipeline_config.huggingface_config.text_config.num_hidden_layers,
+            num_layers=self.text_config.num_hidden_layers,
             devices=[self.pipeline_config.device],
         )
 

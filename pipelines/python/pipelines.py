@@ -51,8 +51,6 @@ class ModelGroup(click.Group):
 def main():
     register_all_models()
 
-    pass
-
 
 def common_server_options(func):
     @click.option(
