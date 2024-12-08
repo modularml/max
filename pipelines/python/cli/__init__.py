@@ -15,6 +15,7 @@
 from .device_options import DevicesOptionType
 from .config import pipeline_config_options, config_to_flag
 from .generate import generate_text_for_pipeline, stream_text_to_console
+from .list import list_pipelines_to_console
 from .metrics import TextGenerationMetrics
 from .serve import serve_pipeline, batch_config_from_pipeline_config
 
@@ -27,4 +28,5 @@ __all__ = [
     "serve_pipeline",
     "generate_text_for_pipeline",
     "stream_text_to_console",
+    "list_pipelines_to_console",
 ]
