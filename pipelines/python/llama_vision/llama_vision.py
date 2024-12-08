@@ -144,7 +144,7 @@ class LlamaVision(PipelineModel):
                 "batch_size",
                 1,  # num_concurrent_media
                 4,  # num_tiles
-                3,  # num_channels
+                self.vision_config.num_channels,  # num_channels
                 self.vision_config.image_size,  # height
                 self.vision_config.image_size,  # width
             ],
@@ -197,8 +197,9 @@ class LlamaVision(PipelineModel):
         batch_size = len(context_batch)
         height = self.vision_config.image_size
         width = self.vision_config.image_size
+        num_channels = self.vision_config.num_channels
         pixel_values = Tensor.zeros(
-            shape=[batch_size, 1, 4, height, width, 3],
+            shape=[batch_size, 1, 4, height, width, num_channels],
             dtype=self.pipeline_config.dtype,
         )
         aspect_ratio_ids = Tensor.zeros(
