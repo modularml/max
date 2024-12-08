@@ -19,6 +19,7 @@ import click
 from architectures import register_all_models
 from cli import (
     generate_text_for_pipeline,
+    list_pipelines_to_console,
     pipeline_config_options,
     serve_pipeline,
 )
@@ -129,6 +130,11 @@ def cli_pipeline(prompt, num_warmups, **config_kwargs):
     generate_text_for_pipeline(
         pipeline_config, prompt=prompt, num_warmups=num_warmups
     )
+
+
+@main.command(name="list")
+def cli_list():
+    list_pipelines_to_console()
 
 
 # All the models.
