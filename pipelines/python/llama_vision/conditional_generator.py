@@ -69,6 +69,7 @@ class ConditionalGenerator(Layer):
             ).reshape(
                 [
                     Dim("batch_size")
+                    * Dim("num_concurrent_media")
                     * self.pipeline_config.huggingface_config.vision_config.max_num_tiles
                     * num_patches,
                     self.pipeline_config.huggingface_config.text_config.hidden_size,
