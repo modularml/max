@@ -43,22 +43,15 @@ class PrecomputedAspectRatioEmbedding(Layer):
     def __call__(
         self, hidden_state: TensorValue, aspect_ratio_ids: TensorValue
     ) -> TensorValue:
+        batch_size, num_tiles, _, hidden_size = hidden_state.shape
         embeddings = self.embedding(aspect_ratio_ids)
-        embeddings = embeddings.reshape(
-            (
-                -1,
-                self.max_num_tiles,
-                1,
-                self.hidden_size,
-            )
-        )
+        embeddings = embeddings.reshape((-1, num_tiles, 1, self.hidden_size))
 
         if self.is_gated:
             embeddings = embeddings * ops.tanh(self.gate)
 
         # We're broadcasting in the add operation below, so we call reshape()
         # on embeddings first.
-        batch_size, num_tiles, _, hidden_size = hidden_state.shape
         embeddings = embeddings.reshape(
             (
                 batch_size,

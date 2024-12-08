@@ -142,26 +142,23 @@ class LlamaVision(PipelineModel):
             self.pipeline_config.dtype,
             shape=[
                 "batch_size",
-                1,  # num_concurrent_media
-                4,  # num_tiles
-                self.vision_config.num_channels,  # num_channels
+                "num_concurrent_media",
+                self.vision_config.max_num_tiles,
+                self.vision_config.num_channels,
                 self.vision_config.image_size,  # height
                 self.vision_config.image_size,  # width
             ],
         )
         aspect_ratio_ids_type = TensorType(
             DType.int64,
-            shape=[
-                "batch_size",
-                1,  # num_concurrent_media
-            ],
+            shape=["batch_size", "num_concurrent_media"],
         )
         aspect_ratio_mask_type = TensorType(
             self.pipeline_config.dtype,
             shape=[
                 "batch_size",
-                1,  # num_concurrent_media
-                4,  # num_tiles
+                "num_concurrent_media",
+                self.vision_config.max_num_tiles,
             ],
         )
 
@@ -198,15 +195,17 @@ class LlamaVision(PipelineModel):
         height = self.vision_config.image_size
         width = self.vision_config.image_size
         num_channels = self.vision_config.num_channels
+        max_num_tiles = self.vision_config.max_num_tiles
         pixel_values = Tensor.zeros(
-            shape=[batch_size, 1, 4, height, width, num_channels],
+            shape=[batch_size, 1, max_num_tiles, height, width, num_channels],
             dtype=self.pipeline_config.dtype,
         )
         aspect_ratio_ids = Tensor.zeros(
             shape=[batch_size, 1], dtype=self.pipeline_config.dtype
         )
         aspect_ratio_mask = Tensor.zeros(
-            shape=[batch_size, 1, 4], dtype=self.pipeline_config.dtype
+            shape=[batch_size, 1, max_num_tiles],
+            dtype=self.pipeline_config.dtype,
         )
 
         # Input row offset type: ["input_row_offsets_len"], UInt32
