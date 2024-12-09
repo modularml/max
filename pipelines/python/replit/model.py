@@ -62,6 +62,7 @@ class ReplitModel(PipelineModel):
     ) -> tuple[Tensor, ...]:
         # Get tokens and seq_ids.
         tokens = [ctx.next_tokens for ctx in context_batch]
+
         unpadded_lengths = [ctx.seq_len for ctx in context_batch]
 
         # Pad tokens and compute attention mask for the batch.

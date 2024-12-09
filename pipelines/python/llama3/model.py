@@ -61,27 +61,22 @@ class Llama3Model(PipelineModel):
             return ModelOutputs(next_token_logits=model_outputs[0])
 
     def _prepare_continuous_initial_token_inputs(
-        self, context_batch: list[TextContext]
+        self, context_batch: Sequence[TextContext]
     ) -> tuple[Tensor, ...]:
-        # Get tokens and seq_ids
-        tokens = [ctx.next_tokens for ctx in context_batch]
-
-        # Get input_row_offsets: start and end position of each batch in the
+        # Get input_row_offset: start and end position of each batch in the
         # combined total_seq_len dimension.
-        input_row_offsets = Tensor.from_numpy(
-            np.cumsum(
-                [0] + [ctx.seq_len for ctx in context_batch],
-                dtype=np.uint32,
-            )
-        ).to(self.pipeline_config.device)
-
-        # Create a ragged token vector of length: sum(len(t) for t in tokens).
-        next_tokens_batch = np.concatenate(tokens)
-        next_tokens_batch = Tensor.from_numpy(next_tokens_batch).to(
-            self.pipeline_config.device
+        input_row_offset = np.cumsum(
+            [0] + [ctx.seq_len for ctx in context_batch],
+            dtype=np.uint32,
         )
 
-        return (next_tokens_batch, input_row_offsets)
+        # Create a ragged token vector of length: sum(len(t) for t in tokens).
+        tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
+
+        return (
+            Tensor.from_numpy(tokens).to(self.pipeline_config.device),
+            Tensor.from_numpy(input_row_offset).to(self.pipeline_config.device),
+        )
 
     def _prepare_naive_initial_token_inputs(
         self, context_batch: Sequence[TextContext]
