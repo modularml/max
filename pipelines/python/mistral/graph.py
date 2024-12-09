@@ -44,19 +44,19 @@ def feed_forward(
             dtype,
             feed_forward_length,
             hidden_dim,
-            weights.feed_forward.w1,
+            weights.gate_proj,
         ),
         linear(
             dtype,
             hidden_dim,
             feed_forward_length,
-            weights.feed_forward.w2,
+            weights.down_proj,
         ),
         linear(
             dtype,
             feed_forward_length,
             hidden_dim,
-            weights.feed_forward.w3,
+            weights.up_proj,
         ),
     )
 
@@ -103,7 +103,7 @@ def _attention_opaque(
     )
 
     wq = ops.transpose(
-        weights.attention.wq.weight.allocate(
+        weights.self_attn.q_proj.weight.allocate(
             params.dtype,
             [
                 params.huggingface_config.num_attention_heads
@@ -115,7 +115,7 @@ def _attention_opaque(
         1,
     )
     wk = ops.transpose(
-        weights.attention.wk.weight.allocate(
+        weights.self_attn.k_proj.weight.allocate(
             params.dtype,
             [kv_weight_dim, params.huggingface_config.hidden_size],
         ),
@@ -123,7 +123,7 @@ def _attention_opaque(
         1,
     )
     wv = ops.transpose(
-        weights.attention.wv.weight.allocate(
+        weights.self_attn.v_proj.weight.allocate(
             params.dtype,
             [kv_weight_dim, params.huggingface_config.hidden_size],
         ),
@@ -141,7 +141,7 @@ def _attention_opaque(
             params.huggingface_config.hidden_size,
             params.huggingface_config.num_attention_heads
             * params.huggingface_config.head_dim,
-            weights.attention.wo,
+            weights.self_attn.o_proj,
         ),
         rope=rope,
         layer_idx=layer_idx,  # type: ignore
@@ -162,6 +162,7 @@ def _transformer(
             theta=params.huggingface_config.rope_theta,
             max_seq_len=params.max_length,
             rope_scaling=None,
+            interleaved=False,
         )
 
         layers = [
@@ -170,24 +171,24 @@ def _transformer(
                     kv_params,
                     params,
                     rope,
-                    weights.layers[i],
+                    weights.model.layers[i],
                     layer_idx=ops.constant(i, DType.uint32),  # type: ignore
                 ),
                 mlp=feed_forward(
                     params.dtype,
                     params.huggingface_config.hidden_size,
                     params.huggingface_config.intermediate_size,
-                    weights.layers[i],
+                    weights.model.layers[i].mlp,
                 ),
                 attention_norm=rms_norm(
                     params.huggingface_config.hidden_size,
                     params.huggingface_config.rms_norm_eps,
-                    weights.layers[i].attention_norm,
+                    weights.model.layers[i].input_layernorm,
                 ),
                 mlp_norm=rms_norm(
                     params.huggingface_config.hidden_size,
                     params.huggingface_config.rms_norm_eps,
-                    weights.layers[i].ffn_norm,
+                    weights.model.layers[i].post_attention_layernorm,
                 ),
             )
             for i in range(params.huggingface_config.num_hidden_layers)
@@ -197,14 +198,14 @@ def _transformer(
             params,
             params.huggingface_config.vocab_size,
             params.huggingface_config.hidden_size,
-            weights.tok_embeddings,
+            weights.model.embed_tokens,
         )
 
         output = linear(
             params.dtype,
             params.huggingface_config.vocab_size,
             params.huggingface_config.hidden_size,
-            weights.output,
+            weights.lm_head,
         )
 
         kv_collection_cls = FetchContinuousBatchingKVCacheCollection
@@ -216,7 +217,7 @@ def _transformer(
             norm=rms_norm(
                 params.huggingface_config.hidden_size,
                 params.huggingface_config.rms_norm_eps,
-                weights.norm,
+                weights.model.norm,
             ),
             output=output,
             embedding=embedding_layer,
