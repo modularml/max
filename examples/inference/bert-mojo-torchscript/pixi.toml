@@ -14,12 +14,10 @@ transformers = ">=4.44.0"
 numpy = "<2.0"
 
 # For performance, prefer pytorch over anything else.
-# The linux ARM package doesn't exist there, so prefer PyPi instead. 
+# The linux ARM package doesn't exist there, so prefer conda-forge instead. 
 [target.linux-64.dependencies]
 pytorch = {version = "==2.4.1", channel = "pytorch"}
 [target.osx-arm64.dependencies]
 pytorch = {version = "==2.4.1", channel = "pytorch"}
-[target.linux-aarch64.pypi-dependencies]
-torch = "==2.4.1"
-[pypi-options]
-extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
+[target.linux-aarch64.dependencies]
+pytorch = {version = "==2.4.1", channel = "conda-forge"}
