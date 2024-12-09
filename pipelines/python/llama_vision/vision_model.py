@@ -230,21 +230,19 @@ class VisionModel(Layer):
             batch_size,
             num_concurrent_media,
             num_tiles,
-            num_channels,
             height,
             width,
+            num_channels,
         ) = pixel_values.shape
 
         pixel_values = pixel_values.reshape(
             (
                 batch_size * num_concurrent_media * num_tiles,
-                num_channels,
                 height,
                 width,
+                num_channels,
             )
         )
-        # Permute from NCHW -> NHWC
-        pixel_values = pixel_values.permute([0, 2, 3, 1])
 
         aspect_ratio_ids = aspect_ratio_ids.reshape(
             (batch_size * num_concurrent_media, -1)
