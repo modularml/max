@@ -147,11 +147,13 @@ class VisionModel(Layer):
 
         # TODO: Hardcoded for now. Reference implementation uses torch.finfo(torch.bfloat16).min
         bfloat_dtype_min_val = -3.3895313892515355e38
+        # Perform outer product by broadcasting elementwise multiplication.
         attention_mask = (
             attention_mask
-            @ attention_mask.transpose(-1, -2)
-            * bfloat_dtype_min_val
-        )
+            * attention_mask.reshape(
+                (batch_size, 1, max_num_tiles * target_length)
+            )
+        ) * bfloat_dtype_min_val
 
         # before unsqueeze: attention_mask shape: (1, 4128, 4128)
         return ops.unsqueeze(attention_mask, axis=1)
