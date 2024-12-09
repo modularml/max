@@ -7,6 +7,10 @@ platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
 [dependencies]
 max = "*"
 numpy = "1.25.2"
+pillow = "<=10.4.0"
+protobuf = "<=4.25.3"
+tokenizers = "<0.21"
+transformers = "<4.47"
 
 [pypi-dependencies]
 pipelines = { path = "../../pipelines/python", editable = true}
@@ -16,13 +20,9 @@ gguf = "<=0.10.0"
 onnxruntime = "<=1.18.1"
 onnxslim = "<=0.1.34"
 opencv-python = "<=4.10.0.84"
-pillow = "<=10.4.0"
-protobuf = "<=4.25.3"
 sentencepiece = "<=0.2.0"
 streamlit = "<=1.38.0"
-tokenizers = "<0.21"
 torch = "<=2.4.1"
-transformers = "<4.47"
 ultralytics = "<=8.2.103"
 
 # RAG specific packages
