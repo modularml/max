@@ -64,9 +64,9 @@ class LlamaVision(PipelineModel):
         pixel_values: TensorValue,
         aspect_ratio_ids: TensorValue,
         aspect_ratio_mask: TensorValue,
-        input_ids: TensorValue,
-        hidden_input_row_offsets: TensorValue,
-        cross_input_row_offsets: TensorValue,
+        input_id_values: TensorValue,
+        pixel_row_offsets: TensorValue,
+        input_id_row_offsets: TensorValue,
         *kv_cache_inputs: TensorValue,
     ) -> TensorValue:
         """Builds the graph: all op staging happens here in __call__."""
@@ -122,17 +122,18 @@ class LlamaVision(PipelineModel):
             pixel_values,
             aspect_ratio_ids,
             aspect_ratio_mask,
-            input_ids,
-            hidden_input_row_offsets,
-            cross_input_row_offsets,
+            input_id_values,
+            pixel_row_offsets,
+            input_id_row_offsets,
             kv_cache_inputs,
         )
 
     def _llama3_vision_graph(self) -> Graph:
         # TODO: Verify if the mapping is correct:
         # From dumping the inputs before executing the reference model...
-        # key: input_ids, shape: torch.Size([1, 14])
+        # key: input_id_values, shape: torch.Size([1, 14])
         # key: pixel_values, shape: torch.Size([1, 1, 4, 3, 448, 448])
+        # but manually transposed by us from CHW -> HWC
         # key: aspect_ratio_ids, shape: torch.Size([1, 1])
         # key: aspect_ratio_mask, shape: torch.Size([1, 1, 4])
         # key: cross_attention_mask, shape: torch.Size([1, 14, 1, 4])
@@ -144,9 +145,9 @@ class LlamaVision(PipelineModel):
                 "batch_size",
                 "num_concurrent_media",
                 self.vision_config.max_num_tiles,
-                self.vision_config.num_channels,
                 self.vision_config.image_size,  # height
                 self.vision_config.image_size,  # width
+                self.vision_config.num_channels,
             ],
         )
         aspect_ratio_ids_type = TensorType(
@@ -201,32 +202,35 @@ class LlamaVision(PipelineModel):
             dtype=self.pipeline_config.dtype,
         )
         aspect_ratio_ids = Tensor.zeros(
-            shape=[batch_size, 1], dtype=self.pipeline_config.dtype
+            shape=[batch_size, 1], dtype=DType.int64
         )
         aspect_ratio_mask = Tensor.zeros(
-            shape=[batch_size, 1, max_num_tiles],
-            dtype=self.pipeline_config.dtype,
+            shape=[batch_size, 1, max_num_tiles], dtype=DType.int64
         )
 
         # Input row offset type: ["input_row_offsets_len"], UInt32
-        hidden_input_row_offsets = Tensor.from_numpy(
+        pixel_row_offsets = Tensor.from_numpy(
             np.cumsum(
                 [0] + [ctx.seq_len for ctx in context_batch],
                 dtype=np.uint32,
             )
         ).to(self.pipeline_config.device)
+        input_id_row_offsets = pixel_row_offsets
 
         # Input Ids: ["total_seq_len"], Int64
         # Create a ragged token vector of length: sum(len(t) for t in tokens).
         tokens = np.concatenate([ctx.next_tokens for ctx in context_batch])
-        input_ids = Tensor.from_numpy(tokens).to(self.pipeline_config.device)
+        input_id_values = Tensor.from_numpy(tokens).to(
+            self.pipeline_config.device
+        )
 
         return (
             pixel_values,
             aspect_ratio_ids,
             aspect_ratio_mask,
-            input_ids,
-            hidden_input_row_offsets,
+            input_id_values,
+            pixel_row_offsets,
+            input_id_row_offsets,
         )
 
     def prepare_next_token_inputs(
