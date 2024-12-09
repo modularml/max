@@ -32,9 +32,15 @@ mistral_arch = SupportedArchitecture(
                 SupportedEncoding.bfloat16: (
                     [
                         HuggingFaceFile(
-                            "mistralai/Mistral-Nemo-Instruct-2407",
-                            "consolidated.safetensors",
+                            "mistralai/Mistral-Nemo-Instruct-2407", f
                         )
+                        for f in [
+                            "model-00001-of-00005.safetensors",
+                            "model-00002-of-00005.safetensors",
+                            "model-00003-of-00005.safetensors",
+                            "model-00004-of-00005.safetensors",
+                            "model-00005-of-00005.safetensors",
+                        ]
                     ],
                     [KVCacheStrategy.CONTINUOUS],
                 )
