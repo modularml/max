@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from max.graph import TensorValue, TensorValueLike, Weight, ops
+from max.graph import TensorValue, Weight, ops
 from nn import Embedding
 from nn.layer import Layer
 
@@ -36,7 +36,7 @@ class PrecomputedAspectRatioEmbedding(Layer):
 
     max_num_tiles: int
     hidden_size: int
-    gate: TensorValueLike
+    gate: Weight
     embedding: Embedding
     is_gated: bool = False
 

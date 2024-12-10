@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from max.dtype import DType
-from max.graph import TensorValue, TensorValueLike, Weight, ops
+from max.graph import TensorValue, Weight, ops
 from max.pipelines.kv_cache import (
     ContinuousBatchingKVCacheCollection,
     KVCacheParams,
@@ -119,10 +119,10 @@ class CrossAttentionDecoderLayer(Layer):
 
     cross_attn: CrossSdpaAttention
     input_layernorm: RMSNorm
-    cross_attn_attn_gate: TensorValueLike
+    cross_attn_attn_gate: Weight
     mlp: MLP
     post_attention_layernorm: RMSNorm
-    cross_attn_mlp_gate: TensorValueLike
+    cross_attn_mlp_gate: Weight
 
     def __call__(
         self,
