@@ -80,6 +80,10 @@ class TextModel(Layer):
 
         hidden_states = ops.cast(inputs_embeds, self.dtype)
 
+        # TODO: This hacky reshape is needed to go from rank 3 -> 2 (ragged tensor).
+        hidden_size = hidden_states.shape[-1]
+        hidden_states = hidden_states.reshape((-1, hidden_size))
+
         for idx, decoder_layer in enumerate(self.layers):
             # For text-only path we should skip cross attention layers.
             # Let's check if the layer is cross attention layer and if we have
