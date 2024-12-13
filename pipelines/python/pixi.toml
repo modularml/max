@@ -1,6 +1,6 @@
 [project]
 authors = ["Modular <hello@modular.com>"]
-channels = ["conda-forge", "https://conda.modular.com/max-nightly/"]
+channels = ["conda-forge", "https://conda.modular.com/max/"]
 description = "End-to-end execution of Llama3 using the Max Engine"
 name = "Python Pipelines"
 platforms = ["osx-arm64", "linux-aarch64", "linux-64"]
